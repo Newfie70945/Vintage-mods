@@ -1,3 +1,10 @@
+# Listing update and Connector exclusion
+
+- Removed the standalone Website Connector project, solution entry, package-manifest entry and associated CI step at the owner’s request.
+- Retained its source in a local backup outside the repository.
+- Retained required shared storage code, source tests, packaging tools and GitHub workflows.
+- Updated ModDB HTML separately; listing HTML remains outside this repository.
+
 # Original-source restoration and repository cleanup
 
 - Restored original Suite and companion author sources from the uploaded CENTER1 archive.

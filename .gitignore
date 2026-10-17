@@ -38,3 +38,5 @@ website/dist/
 # Website and listing descriptions are maintained separately.
 /website/
 /descriptions/
+
+/modules/website-connector/

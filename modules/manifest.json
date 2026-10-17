@@ -37,13 +37,6 @@
       "origin": "restored author source"
     },
     {
-      "id": "website-connector",
-      "path": "modules/website-connector",
-      "assembly": "NewfiesWebsiteConnector",
-      "version": "1.1.1",
-      "origin": "restored author source"
-    },
-    {
       "id": "player-list",
       "path": "modules/player-list",
       "assembly": "NewfiesPlayerList",

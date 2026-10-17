@@ -8,13 +8,13 @@
     "anticheat-client",
     "chatguard",
     "discord-link",
-    "website-connector",
     "player-list",
     "shared"
   ],
   "excluded": [
     "standalone website",
-    "ModDB descriptions"
+    "ModDB descriptions",
+    "standalone Website Connector project"
   ],
   "preservedChanges": [
     "Suite stable UID admin targeting",

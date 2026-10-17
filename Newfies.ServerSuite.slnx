@@ -19,6 +19,5 @@
     <Project Path="modules/suite/NewfiesServerEssentialsSuite.csproj" />
   </Folder>
   <Folder Name="/modules/website-connector/">
-    <Project Path="modules/website-connector/NewfiesWebsiteConnector.csproj" />
   </Folder>
 </Solution>

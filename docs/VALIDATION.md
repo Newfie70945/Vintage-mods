@@ -20,6 +20,10 @@ The dedicated-server check used no authenticated clients and is not a performanc
 
 The entire historical recovered test collection has not been run. Tests requiring the game need `VINTAGE_STORY` set; older runtime probes may need environment-specific fixtures. The optimizer remains its previously delivered experimental snapshot and was not changed or newly benchmarked during this restoration.
 
-GitHub Actions runs the standalone Suite/MOTD checks and Connector protocol tests without distributing proprietary game assemblies. Full module builds require an owner-provided game installation.
+After the owner-requested removal of Website Connector, GitHub Actions runs the standalone Suite/MOTD checks without distributing proprietary game assemblies. Full module builds require an owner-provided game installation.
 
 The uploaded archive and pre-restoration Git bundle are kept outside the active repository as backups. Source provenance and archive SHA-256 are recorded in SOURCE-PROVENANCE.json.
+
+## Subsequent owner-requested exclusions
+
+The standalone Website Connector project was removed after the restoration checks above. Six regular mod projects remain active, plus the independent optimizer preview. Its earlier build/test results are historical; the Connector is not included in the current solution, package manifest or CI. Shared storage, tests, build tools and CI remain because they support the retained projects.

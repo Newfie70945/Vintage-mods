@@ -9,13 +9,12 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
-| Website Connector | 1.1.1 | [modules/website-connector](modules/website-connector) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
 | Server Optimizer | 0.1.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
-**The standalone website and ModDB HTML descriptions are maintained separately and are excluded from this source repository.** The Website Connector is a server-side mod and remains included.
+**The standalone website and ModDB HTML descriptions are maintained separately and are excluded from this source repository.** The standalone Website Connector project is also excluded at the owner’s request.
 
 ## Build and package
 

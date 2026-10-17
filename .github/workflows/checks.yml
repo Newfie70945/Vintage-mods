@@ -18,8 +18,6 @@ jobs:
           node-version: '22'
       - name: Check C# identity and feed behavior
         run: dotnet run --project tests/Checks.csproj -c Release
-      - name: Check connector authentication and lifecycle
-        run: dotnet run --project modules/website-connector/tests/ConnectorSmoke.csproj -c Release
       - name: Check post-builder behavior
         run: node tests/editor-checks.js tests/web/motd-editor-Declarations.js
       - name: Validate embedded editor fixtures
