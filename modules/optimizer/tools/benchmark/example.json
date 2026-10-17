@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "gameVersion": "1.22.7",
+  "scenario": "idle",
+  "worldSnapshot": "prepared/frozen-world",
+  "seed": 17227,
+  "repeats": 3,
+  "warmupSeconds": 300,
+  "measurementSeconds": 1800,
+  "startupTimeoutSeconds": 180,
+  "shutdownTimeoutSeconds": 120,
+  "resources": {
+    "cpuQuota": "REPLACE: actual dedicated quota",
+    "memoryLimitBytes": 17179869184,
+    "storageClass": "REPLACE: same local SSD"
+  },
+  "validatedOptimizations": {},
+  "workloadCommand": null,
+  "variants": {
+    "A": {
+      "templateDirectory": "prepared/A",
+      "worldRelativePath": "testdata/Saves",
+      "serverCommand": [
+        "/absolute/path/to/dotnet",
+        "{clone_dir}/server/VintagestoryServer.dll",
+        "--dataPath",
+        "{clone_dir}/testdata"
+      ],
+      "readyPattern": "Dedicated Server now running on Port",
+      "gamePaths": [
+        "server/VintagestoryServer.dll",
+        "server/VintagestoryLib.dll",
+        "server/VintagestoryAPI.dll",
+        "server/Mods/VSEssentials.dll"
+      ],
+      "configPaths": [
+        "testdata/serverconfig.json"
+      ],
+      "modPaths": [
+        "base-mod-pack"
+      ],
+      "optimizerPaths": [],
+      "profilerInstalled": false,
+      "enabledOptimizations": [],
+      "startMeasurementStdin": [],
+      "stopMeasurementStdin": [],
+      "shutdownStdin": [
+        "/stop"
+      ]
+    },
+    "B": {
+      "templateDirectory": "prepared/B",
+      "worldRelativePath": "testdata/Saves",
+      "serverCommand": [
+        "/absolute/path/to/dotnet",
+        "{clone_dir}/server/VintagestoryServer.dll",
+        "--dataPath",
+        "{clone_dir}/testdata"
+      ],
+      "readyPattern": "Dedicated Server now running on Port",
+      "gamePaths": [
+        "server/VintagestoryServer.dll",
+        "server/VintagestoryLib.dll",
+        "server/VintagestoryAPI.dll",
+        "server/Mods/VSEssentials.dll"
+      ],
+      "configPaths": [
+        "testdata/serverconfig.json"
+      ],
+      "modPaths": [
+        "base-mod-pack"
+      ],
+      "optimizerPaths": [
+        "testdata/Mods/NewfiesServerOptimizer.zip",
+        "testdata/ModConfig/optimizer.json"
+      ],
+      "profilerInstalled": true,
+      "enabledOptimizations": [],
+      "startMeasurementStdin": [
+        "/optimizer profile start"
+      ],
+      "stopMeasurementStdin": [
+        "/optimizer profile stop"
+      ],
+      "shutdownStdin": [
+        "/stop"
+      ],
+      "profilerReport": "testdata/NewfiesOptimizer/latest.json"
+    },
+    "C": {
+      "templateDirectory": "prepared/C",
+      "worldRelativePath": "testdata/Saves",
+      "serverCommand": [
+        "/absolute/path/to/dotnet",
+        "{clone_dir}/server/VintagestoryServer.dll",
+        "--dataPath",
+        "{clone_dir}/testdata"
+      ],
+      "readyPattern": "Dedicated Server now running on Port",
+      "gamePaths": [
+        "server/VintagestoryServer.dll",
+        "server/VintagestoryLib.dll",
+        "server/VintagestoryAPI.dll",
+        "server/Mods/VSEssentials.dll"
+      ],
+      "configPaths": [
+        "testdata/serverconfig.json"
+      ],
+      "modPaths": [
+        "base-mod-pack"
+      ],
+      "optimizerPaths": [
+        "testdata/Mods/NewfiesServerOptimizer.zip",
+        "testdata/ModConfig/optimizer.json"
+      ],
+      "profilerInstalled": true,
+      "enabledOptimizations": [
+        "REPLACE_WITH_ACTUAL_SINGLE_CHANGE"
+      ],
+      "startMeasurementStdin": [
+        "/optimizer profile start"
+      ],
+      "stopMeasurementStdin": [
+        "/optimizer profile stop"
+      ],
+      "shutdownStdin": [
+        "/stop"
+      ],
+      "profilerReport": "testdata/NewfiesOptimizer/latest.json"
+    },
+    "D": {
+      "templateDirectory": "prepared/D",
+      "worldRelativePath": "testdata/Saves",
+      "serverCommand": [
+        "/absolute/path/to/dotnet",
+        "{clone_dir}/server/VintagestoryServer.dll",
+        "--dataPath",
+        "{clone_dir}/testdata"
+      ],
+      "readyPattern": "Dedicated Server now running on Port",
+      "gamePaths": [
+        "server/VintagestoryServer.dll",
+        "server/VintagestoryLib.dll",
+        "server/VintagestoryAPI.dll",
+        "server/Mods/VSEssentials.dll"
+      ],
+      "configPaths": [
+        "testdata/serverconfig.json"
+      ],
+      "modPaths": [
+        "base-mod-pack"
+      ],
+      "optimizerPaths": [
+        "testdata/Mods/NewfiesServerOptimizer.zip",
+        "testdata/ModConfig/optimizer.json"
+      ],
+      "profilerInstalled": true,
+      "enabledOptimizations": [],
+      "startMeasurementStdin": [
+        "/optimizer profile start"
+      ],
+      "stopMeasurementStdin": [
+        "/optimizer profile stop"
+      ],
+      "shutdownStdin": [
+        "/stop"
+      ],
+      "profilerReport": "testdata/NewfiesOptimizer/latest.json"
+    }
+  }
+}

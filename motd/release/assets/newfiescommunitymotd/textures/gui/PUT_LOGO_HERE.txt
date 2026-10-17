@@ -1,0 +1,14 @@
+Community MOTD logo assets
+
+logo.png
+  Bundled sample/default logo. The included sample uses the Newfie's Server Suite branding.
+  Replace this PNG before building the client mod if you want a different packaged asset logo.
+
+sample-logo.png
+  A preserved copy of the bundled sample logo for reference.
+
+For server-owned branding that does not require rebuilding the client mod, use LogoSource = ServerFile
+and place the configured PNG (default: motd-logo.png) in the Community MOTD server data folder.
+
+Home-page logo placement is intended to use the {{serverlogo}} placeholder in Home VTML once the
+Home VTML logo renderer is enabled; the logo should not be repeated globally on every tab.

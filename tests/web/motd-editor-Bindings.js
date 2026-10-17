@@ -1,0 +1,13 @@
+$('motdPostInsert').onclick=insertMotdNewsPost;
+$('motdPostDate').value=new Date().toISOString().slice(0,10);
+if($('communityMotdRefresh'))$('communityMotdRefresh').onclick=refreshCommunityMotdDraft;
+if($('communityMotdDiscard'))$('communityMotdDiscard').onclick=revertCommunityMotdDraft;
+if($('communityMotdWriting'))$('communityMotdWriting').onclick=()=>{const active=$('communityMotd').classList.toggle('motdWriting');$('communityMotdWriting').setAttribute('aria-pressed',String(active));$('communityMotdWriting').textContent=active?'Exit Writing Mode':'Writing Mode';};
+document.querySelectorAll('#communityMotd [data-motd-insert]').forEach(button=>button.onclick=()=>insertCommunityMotdFormatting(button.dataset.motdInsert));
+document.querySelectorAll('#communityMotd input,#communityMotd textarea,#communityMotd select').forEach(field=>{if(field.id!=='communityMotdTextColor'){field.addEventListener('input',editCommunityMotd);field.addEventListener('change',editCommunityMotd);}});
+if($('communityMotdEditor'))$('communityMotdEditor').addEventListener('keydown',event=>{if(currentSessionRole==='ReadOnly'||communityMotdBusy)return;if((event.ctrlKey||event.metaKey)&&['b','i','s'].includes(event.key.toLowerCase())){event.preventDefault();if(event.key.toLowerCase()==='s')saveCommunityMotd();else insertCommunityMotdFormatting(event.key.toLowerCase()==='b'?'bold':'italic');}});
+window.addEventListener('beforeunload',event=>{if(communityMotdDirty){event.preventDefault();event.returnValue='';}});
+if($('communityMotdSave'))$('communityMotdSave').onclick=saveCommunityMotd;
+if($('communityMotdReload'))$('communityMotdReload').onclick=()=>communityMotdAction('reload');
+if($('communityMotdResetSeen'))$('communityMotdResetSeen').onclick=()=>communityMotdAction('resetseen');
+document.querySelectorAll('#communityMotdContentTabs button[data-motd-content]').forEach(b=>b.onclick=()=>selectCommunityMotdContentTab(b.dataset.motdContent||'main'));

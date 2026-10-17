@@ -1,0 +1,12 @@
+{
+  "type": "code",
+  "modid": "newfiescommunitymotd",
+  "name": "Newfies Community MOTD",
+  "authors": [
+    "Newfie"
+  ],
+  "description": "Native server information hub with configurable MOTD content, logo branding, live player roster, VTML/Markdown, scrolling, links and smart show rules.",
+  "version": "2.1.6",
+  "side": "Universal",
+  "dependencies": {}
+}

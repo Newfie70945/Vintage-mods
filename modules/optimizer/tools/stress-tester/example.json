@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "server": {
+    "address": "127.0.0.1",
+    "port": 42420,
+    "description": "Replace with the private, authorized test clone address. This metadata does not connect the game UI."
+  },
+  "serverEvidenceFile": "server-evidence.jsonl",
+  "clients": [
+    {
+      "id": "REPLACE_WITH_EXACT_PLAYER_UID",
+      "display": ":1",
+      "window": "12345",
+      "connectOnStart": false
+    }
+  ],
+  "limits": {
+    "maxClients": 4,
+    "maxParallelDisplays": 4,
+    "maxDurationSeconds": 21600,
+    "maxActionSeconds": 10,
+    "actionIntervalSeconds": 4,
+    "startupTimeoutSeconds": 60,
+    "resourceIntervalSeconds": 5,
+    "maxEvents": 100000,
+    "evidenceMaxBytes": 16777216,
+    "presenceExpirySeconds": 30,
+    "freshConnectionSeconds": 60,
+    "requirePresenceHeartbeat": true
+  },
+  "bindings": {
+    "forward": "w",
+    "sprint": "Control_L",
+    "jump": "space",
+    "inventory": "e",
+    "close": "Escape",
+    "chat": "t"
+  },
+  "allowedCommands": [],
+  "macros": {},
+  "scenes": {}
+}

@@ -1,0 +1,55 @@
+{
+  "Enabled": true,
+  "Profiling": {
+    "AutoStart": false,
+    "TickMetrics": true,
+    "ProcessMetrics": true,
+    "WorldCounts": true,
+    "NetworkCounters": true,
+    "MainThreadCpu": false,
+    "SystemTimings": false,
+    "PhaseTimings": false,
+    "CallbackTimings": false,
+    "SystemSampleEvery": 10,
+    "SampleIntervalSeconds": 1,
+    "MaxSamples": 3600,
+    "MaxHotspots": 64,
+    "AutoStopSeconds": 0,
+    "ExportOnStop": true
+  },
+  "EntityOptimization": {
+    "Enabled": false
+  },
+  "ChunkOptimization": {
+    "Enabled": false
+  },
+  "BlockEntities": {
+    "Enabled": false
+  },
+  "MemoryManagement": {
+    "Enabled": false
+  },
+  "Networking": {
+    "Enabled": false
+  },
+  "Scheduling": {
+    "Enabled": false
+  },
+  "Logging": {
+    "MaxExports": 12
+  },
+  "Dashboard": {
+    "Enabled": false
+  },
+  "Compatibility": {
+    "SafeMode": true,
+    "DisableHookOnConflict": true,
+    "RequireExactGameVersion": true
+  },
+  "Benchmarking": {
+    "WriteSessionEvidence": false,
+    "MaxEvidenceBytes": 16777216,
+    "PresenceIntervalSeconds": 10,
+    "RunId": ""
+  }
+}

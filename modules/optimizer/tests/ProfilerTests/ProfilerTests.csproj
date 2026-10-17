@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NewfiesOptimizer/OptimizerConfig.cs" Link="OptimizerConfig.cs" />
+    <Compile Include="../../src/NewfiesOptimizer/ProfileData.cs" Link="ProfileData.cs" />
+    <Compile Include="../../src/NewfiesOptimizer/BoundedMetrics.cs" Link="BoundedMetrics.cs" />
+    <Compile Include="../../src/NewfiesOptimizer/ProfileSession.cs" Link="ProfileSession.cs" />
+    <Compile Include="../../src/NewfiesOptimizer/ReportExporter.cs" Link="ReportExporter.cs" />
+    <Compile Include="../../src/NewfiesOptimizer/SessionEvidence.cs" Link="SessionEvidence.cs" />
+  </ItemGroup>
+</Project>

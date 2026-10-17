@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync(process.argv[2],'utf8');
+const start=source.indexOf('function formatMotdNewsPost('),end=source.indexOf('function insertMotdNewsPost(',start);
+const context={};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+const post=context.formatMotdNewsPost('A & <B>', '- First\r\n* Second\r\n\r\nParagraph','2026-10-17',true);
+assert(post.includes('A &amp; &lt;B&gt;'));assert(post.includes('• First\n• Second\n\nParagraph'));
+assert(post.includes('IMPORTANT'));assert(post.includes('2026-10-17'));assert(!post.includes('\r'));
+assert(!context.formatMotdNewsPost('Title','<img src=x>','bad date',false).includes('<img'));
+assert(!context.formatMotdNewsPost('Title','Body','bad date',false).includes('bad date'));
+console.log('7 post-builder checks passed');

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/__pycache__/
+**/.pytest_cache/
+artifacts/
+benchmarks/local-smoke/
+*.vcdbs*
+*.token
+*.secrets.json
+

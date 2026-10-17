@@ -1,0 +1,27 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check C# identity and feed behavior
+        run: dotnet run --project tests/Checks.csproj -c Release
+      - name: Check post-builder behavior
+        run: node tests/editor-checks.js tests/web/motd-editor-Declarations.js
+      - name: Validate embedded editor fixtures
+        run: |
+          node --check tests/web/motd-editor-Declarations.js
+          node --check tests/web/motd-editor-Bindings.js
+          python3 tools/check_sources.py

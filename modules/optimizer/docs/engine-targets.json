@@ -1,0 +1,513 @@
+{
+  "schemaVersion": 1,
+  "gameVersion": "1.22.7",
+  "networkVersion": "1.22.6",
+  "apiVersion": "1.22.0",
+  "targetFramework": "net10.0",
+  "auditDateUtc": "2026-10-17",
+  "source": "Static inspection of installed official version assemblies using ILSpy11.1.0.9782",
+  "assemblySha256": {
+    "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
+    "VintagestoryAPI.dll": "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296",
+    "Mods/VSEssentials.dll": "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e"
+  },
+  "authenticationPolicy": "Keep VerifyPlayerAuth=true; use authorized accounts and a private test server. No licensing or authentication bypass.",
+  "notPerformanceEvidence": true,
+  "targets": [
+    {
+      "id": "main-tick",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerMain",
+      "method": "Process",
+      "parameters": [],
+      "category": "tick",
+      "thread": "main",
+      "observed": "Updates StatsCollector[StatsCollectorIndex] before deliberate Thread.Sleep. tickTimes is a 10-element circular array of elapsed integer milliseconds.",
+      "caveats": "Prefix/postfix wall time includes sleep; read newly written stock sample only. Suspended and standby calls return without writing a processing sample.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "main-network",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerMain",
+      "method": "ProcessMain",
+      "parameters": [],
+      "category": "network-and-main-tasks",
+      "thread": "main",
+      "observed": "Drains main-thread tasks and ClientPackets, optionally parses packets in reduced-thread mode, then updates timers.",
+      "caveats": "Inclusive total overlaps packet handlers and callbacks. Do not report as pure network time.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "incoming-parse",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerMain",
+      "method": "ParseClientPacket_offthread",
+      "parameters": [
+        "Vintagestory.Server.ConnectedClient",
+        "System.Byte[]",
+        "System.Int32"
+      ],
+      "category": "network",
+      "thread": "packet-parser or main in reduced-thread mode",
+      "observed": "Deserializes Packet_Client and enqueues ReceivedClientPacket.",
+      "caveats": "Do not retain payloads, player identifiers or client references; preserve exception handling and anti-cheat ingress visibility.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "incoming-dispatch",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerMain",
+      "method": "HandleClientPacket_mainthread",
+      "parameters": [
+        "Vintagestory.Server.ReceivedClientPacket"
+      ],
+      "category": "network",
+      "thread": "main",
+      "observed": "Dispatches connection state changes and registered packet handlers.",
+      "caveats": "Inclusive handler duration; maintain order and packet validation.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "entity-simulation",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemEntitySimulation",
+      "method": "OnServerTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "entities",
+      "thread": "main",
+      "observed": "Performs player selection ray tracing, TickEntities and death notifications.",
+      "caveats": "Cannot attribute entire method to AI; contains gameplay and network-related work.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "entity-ticks",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemEntitySimulation",
+      "method": "TickEntities",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "entities",
+      "thread": "main",
+      "observed": "Allocates a despawn List<KeyValuePair<Entity,EntityDespawnData>> and ticks all loaded entities except Dimensions.ShouldNotTick.",
+      "caveats": "Changing activation intervals changes simulation. Temp-list reuse must preserve original iteration, per-entity catches, despawn timing, reentrancy, and finally cleanup.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "ai-manager",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskManager",
+      "method": "OnGameTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "ai",
+      "thread": "entity-tick thread",
+      "observed": "Optionally shuffles tasks, starts eligible tasks, processes running tasks and logs debug state.",
+      "caveats": "Skipping the manager delays attack, escape, damage responses and modded task hooks; no blanket distance throttling justified.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "ai-start",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskManager",
+      "method": "StartNewTasks",
+      "parameters": [],
+      "category": "ai",
+      "thread": "entity-tick thread",
+      "observed": "Calls ShouldExecute for priority/slot-eligible tasks before event gating.",
+      "caveats": "Timing totals include ShouldExecute, task start/stop and event handlers; tasks may depend on order and RNG.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "ai-continue",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskManager",
+      "method": "ProcessRunningTasks",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "ai",
+      "thread": "entity-tick thread",
+      "observed": "Processes active task CanContinueExecute and ContinueExecute.",
+      "caveats": "Must remain responsive for combat and movement; do not change dt or suppress calls.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "path-main-overflow",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.Essentials.PathfindingAsync",
+      "method": "OnMainThreadTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "pathfinding",
+      "thread": "main",
+      "observed": "When queue count exceeds 1, main thread processes overflow with a nominal 1000-task cap.",
+      "caveats": "Queue is concurrently consumed by dedicated worker; Count is approximate diagnostic. Static loop-cap ordering concern requires focused reproduction before repair.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "path-worker",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.Essentials.PathfindingAsync",
+      "method": "ProcessQueue",
+      "parameters": [
+        "Vintagestory.Essentials.AStar",
+        "System.Int32"
+      ],
+      "category": "pathfinding",
+      "thread": "ai-pathfinding worker",
+      "observed": "Dequeue/find path/mark Finished loop; worker invokes with maxCount=100.",
+      "caveats": "Do not share AStar state across threads or drop queued tasks. Static loop-cap ordering concern requires focused reproduction.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "path-enqueue",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.Essentials.PathfindingAsync",
+      "method": "EnqueuePathfinderTask",
+      "parameters": [
+        "Vintagestory.API.Server.PathfinderTask"
+      ],
+      "category": "pathfinding",
+      "thread": "caller thread",
+      "observed": "Enqueues a PathfinderTask into public ConcurrentQueue<PathfinderTask>.",
+      "caveats": "Queue latency tracking must be bounded and remove completed entries; neither task objects nor failed tasks may be retained indefinitely.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "repulsion",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.EntityBehaviorRepulseAgents",
+      "method": "OnGameTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "repulsion",
+      "thread": "entity tick / thread-safe behavior execution",
+      "observed": "Skips inactive/non-interactable/non-movable/mounted entities and initial 2 seconds; scans partitioned creature neighbors and applies motion.",
+      "caveats": "Respects dimensions and custom ICustomRepulseBehavior. Pairwise arithmetic and traversal order affect physics; no blanket downsampling justified.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "entity-partitions",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.EntityPartitioning",
+      "method": "PartitionEntities",
+      "parameters": [
+        "System.Collections.Generic.ICollection<Vintagestory.API.Common.Entities.Entity>"
+      ],
+      "category": "entities",
+      "thread": "server tick callback",
+      "observed": "Registered every32ms; clears partitions and creates EntityPartitionChunk instances while assigning players entityListForPartitioning.",
+      "caveats": "Exposed Partitions and player retained list references complicate reuse and invalidation; no simplistic clear-and-pool patch.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "chunk-send",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSendChunks",
+      "method": "OnServerTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "chunks-network",
+      "thread": "main",
+      "observed": "Clears per-tick chunk-packet caches, collects mini-dimension data, iterates connected/playing clients.",
+      "caveats": "Existing packet reuse lasts one tick and differs for with/without entities. OreShield may require per-player filtered content; do not broaden cache lifetime or sharing.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "chunk-send-player",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSendChunks",
+      "method": "sendAndEnqueueChunks",
+      "parameters": [
+        "Vintagestory.Server.ConnectedClient"
+      ],
+      "category": "chunks-network",
+      "thread": "main",
+      "observed": "Caps radius using Config.MaxChunkRadius and per-client view distance, uses MagicNum.ChunksToSendPerTick, handles forced chunks/mapchunks.",
+      "caveats": "Critical force sends and entity payloads require ordering; batching/deduplication must preserve per-player visibility and server-authoritative changes.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "chunk-worker",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSupplyChunks",
+      "method": "OnSeparateThreadTick",
+      "parameters": [],
+      "category": "chunks",
+      "thread": "chunkdbthread",
+      "observed": "Processes deletes, generation requests, fast/simple/peek queues, existence checks and bounded ordinary generation attempts.",
+      "caveats": "Fast chunk operations and other queues have different semantics; cannot apply one fair scheduler indiscriminately.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "chunk-load-generate",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSupplyChunks",
+      "method": "loadOrGenerateChunkColumn_OnChunkThread",
+      "parameters": [
+        "Vintagestory.Server.ChunkColumnLoadRequest",
+        "System.Int32"
+      ],
+      "category": "chunks",
+      "thread": "chunkdbthread",
+      "observed": "Loads existing columns or generates new ones, handles staged passes, enqueues main-thread finalization and flags request disposal/requeue.",
+      "caveats": "Mixed load/generation inclusive duration; modifying disposal/index lifetime can duplicate requests or orphan work.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "worldgen-stage",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSupplyChunks",
+      "method": "GenerateChunkColumns_OnSeparateThread",
+      "parameters": [
+        "System.Int32",
+        "System.Int32"
+      ],
+      "category": "worldgen",
+      "thread": "additional worldgen worker",
+      "observed": "Selects a request eligible for stage bounds and neighborhood requirements, then PopulateChunk.",
+      "caveats": "CurrentIncompletePass, untilPass, neighbors and queue flags protect generation order; invasive scheduling is deferred pending profiling.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "worldgen-generators",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSupplyChunks",
+      "method": "runGenerators",
+      "parameters": [
+        "Vintagestory.Server.ChunkColumnLoadRequest",
+        "System.Int32"
+      ],
+      "category": "worldgen",
+      "thread": "worldgen worker",
+      "observed": "Executes registered generators for a pass.",
+      "caveats": "Third-party generator callbacks may rely on exact lifecycle; instrumentation must not mutate shared world data or infer thread safety.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "chunk-read",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemSupplyChunks",
+      "method": "TryLoadChunkColumn",
+      "parameters": [
+        "Vintagestory.Server.ChunkColumnLoadRequest"
+      ],
+      "category": "chunk-io",
+      "thread": "chunkdbthread",
+      "observed": "Loads and deserializes existing chunk data.",
+      "caveats": "Combined disk/cache/deserialization duration is not raw disk latency; no changed database policy or asynchronous mutation.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "autosave-prep",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemAutoSaveGame",
+      "method": "doAutoSave",
+      "parameters": [],
+      "category": "save",
+      "thread": "main",
+      "observed": "Obtains suspend lock, pauses server, notifies player and mod/system save events, resumes server.",
+      "caveats": "This does not measure complete offthread persistence; log separately from full disk completion.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "save-preparation",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemLoadAndSaveGame",
+      "method": "SaveGameWorld",
+      "parameters": [
+        "System.Boolean"
+      ],
+      "category": "save",
+      "thread": "main during autosave; shutdown caller",
+      "observed": "Serializes save/player/mapregion state. With saveLater=true copies loaded-chunk references and sets offthread flag.",
+      "caveats": "Mod save callbacks and save data correctness are authoritative. Existing stock save is already partly offthread.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "save-worker",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemLoadAndSaveGame",
+      "method": "OnSeparateThreadTick",
+      "parameters": [],
+      "category": "save",
+      "thread": "chunkdbthread",
+      "observed": "When runOffThreadSaveNow=true, serializes dirty loaded/generating chunks and map chunks, updates claims, stores SaveGame, clears flag.",
+      "caveats": "Called often with no work; sample only actual saves. End-to-end save metric spans prep through this completion; shutdown synchronous path differs.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "save-dirty-chunks",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemLoadAndSaveGame",
+      "method": "SaveAllDirtyLoadedChunks",
+      "parameters": [
+        "System.Boolean",
+        "Vintagestory.API.Datastructures.FastMemoryStream"
+      ],
+      "category": "save",
+      "thread": "chunkdbthread or synchronous shutdown caller",
+      "observed": "Serializes dirty loaded chunks using reusable thread-static FastMemoryStream.",
+      "caveats": "No extra forced GC or incremental save policy without measured need and crash/reload validation.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "block-main-queue",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemBlockSimulation",
+      "method": "OnServerTick",
+      "parameters": [
+        "System.Single"
+      ],
+      "category": "block-simulation",
+      "thread": "main",
+      "observed": "Processes queued block callbacks up to Config.MaxMainThreadBlockTicks with per-block catches.",
+      "caveats": "Not the same as all block entity listeners. Budget changes can delay fluids/growth/mod actions.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "block-worker",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemBlockSimulation",
+      "method": "OnSeparateThreadTick",
+      "parameters": [],
+      "category": "block-simulation",
+      "thread": "ServerBlockTicks worker",
+      "observed": "Scans player-near chunk cubes, deduplicates chunks in chunksToBeTicked, marks fresh and ticks chunk blocks.",
+      "caveats": "Already deduplicates overlapping player neighborhoods. Do not lower ranges or omit MarkFresh to obtain misleading performance.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "game-callback",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Common.GameTickListener",
+      "method": "OnTriggered",
+      "parameters": [
+        "System.Int64"
+      ],
+      "category": "callback",
+      "thread": "callback dispatch thread, normally main",
+      "observed": "Invokes public Handler Action<float>; optional ErrorHandler; updates LastUpdateMilliseconds.",
+      "caveats": "Cache bounded method/assembly labels; never retain handlers, world/player objects, or identify every block position in metric keys.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "block-callback",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Common.GameTickListenerBlock",
+      "method": "OnTriggered",
+      "parameters": [
+        "Vintagestory.API.Common.IWorldAccessor",
+        "Vintagestory.API.MathTools.BlockPos",
+        "System.Int64"
+      ],
+      "category": "block-callback",
+      "thread": "callback dispatch thread, normally main",
+      "observed": "Invokes HandlerBare or Handler with world/position/dt, honoring ErrorHandler.",
+      "caveats": "Attribution must cover both handler shapes. Preserve exact callback delta and exception behavior.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "callbacks-total",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Common.EventManager",
+      "method": "TriggerGameTick",
+      "parameters": [
+        "System.Int64",
+        "Vintagestory.API.Common.IWorldAccessor"
+      ],
+      "category": "callbacks",
+      "thread": "main",
+      "observed": "Executes registered game/block listeners and delayed callbacks; Debug variant adds stock per-callback marks.",
+      "caveats": "GameTickListener hooks do not cover delayed direct Handler invocations; report coverage gaps rather than claiming every event is attributed.",
+      "classification": "profiling-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    },
+    {
+      "id": "players-around",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerMain",
+      "method": "GetPlayersAround",
+      "parameters": [
+        "Vintagestory.API.MathTools.Vec3d",
+        "System.Single",
+        "System.Single",
+        "Vintagestory.API.Common.ActionConsumable<Vintagestory.API.Common.IPlayer>"
+      ],
+      "category": "allocation",
+      "thread": "caller thread",
+      "observed": "Allocates temporary List<IPlayer> plus caller-owned ToArray result after state/range/predicate checks.",
+      "caveats": "Candidate temporary-list reuse only with reentrancy, exceptions, bounded retained capacity, identical order/predicate calls and fresh result ownership.",
+      "classification": "allocation-candidate",
+      "staticVerified": true,
+      "performanceBenefitProven": false
+    }
+  ]
+}

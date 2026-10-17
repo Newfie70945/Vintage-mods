@@ -1,0 +1,12 @@
+namespace BlockLogger;
+
+internal static class SuiteRelease
+{
+	public const string Version = "1.2.44";
+
+	public const string BuildSuffix = "ms11-motd-roleplay1";
+
+	public const string BuildId = "newfies-server-essentials-suite-1.2.44-ms11-motd-roleplay1";
+
+	public const string TargetGameVersion = "1.22.7";
+}
