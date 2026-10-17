@@ -1,0 +1,161 @@
+[
+  {
+    "kind": "isolated-idle-smoke",
+    "mode": "profile",
+    "enginePatchesRequested": true,
+    "authenticatedClients": 0,
+    "multiplayerPerformanceEvidence": false,
+    "gameVersion": "1.22.7",
+    "measurementSeconds": 30,
+    "optimizerAssemblySha256": "f4993dd546fc0f33468020049b0c9f1a1affb004d4c340ca587d12266d4723fc",
+    "exitCode": 0,
+    "saveIntegrity": "ok",
+    "disabledCaptureRejected": null,
+    "validIdleCheck": true,
+    "serverErrors": [],
+    "engineModulesVerified": true,
+    "name": "server-final-active",
+    "profiles": [
+      {
+        "samples": 29,
+        "tickCount": 862,
+        "hotspotCount": 0,
+        "engineModules": {
+          "bulkStreamReads": "active",
+          "nearbyPlayerQueries": "disabled",
+          "onlinePlayerSnapshots": "active"
+        },
+        "engineCounters": {
+          "onlineSnapshotCalls": 1585,
+          "nearbyQueryCalls": 0,
+          "snapshotFallbacks": 0,
+          "nearbyFallbacks": 0,
+          "snapshotFailures": 0,
+          "nearbyFailures": 0,
+          "bulkReadCalls": 0,
+          "bulkReadBytes": 0,
+          "bulkReadFallbacks": 0,
+          "bulkReadFailures": 0
+        },
+        "timingModules": {
+          "callbackTimings": "disabled",
+          "phaseTimings": "disabled",
+          "systemTimings": "disabled"
+        },
+        "durationSeconds": 30.085351
+      }
+    ]
+  },
+  {
+    "kind": "isolated-idle-smoke",
+    "mode": "disabled",
+    "enginePatchesRequested": true,
+    "authenticatedClients": 0,
+    "multiplayerPerformanceEvidence": false,
+    "gameVersion": "1.22.7",
+    "measurementSeconds": 30,
+    "optimizerAssemblySha256": "f4993dd546fc0f33468020049b0c9f1a1affb004d4c340ca587d12266d4723fc",
+    "exitCode": 0,
+    "saveIntegrity": "ok",
+    "disabledCaptureRejected": true,
+    "validIdleCheck": true,
+    "serverErrors": [],
+    "engineModulesVerified": true,
+    "name": "server-final-disabled",
+    "profiles": []
+  },
+  {
+    "kind": "isolated-idle-smoke",
+    "mode": "profile",
+    "enginePatchesRequested": true,
+    "authenticatedClients": 0,
+    "multiplayerPerformanceEvidence": false,
+    "gameVersion": "1.22.7",
+    "measurementSeconds": 30,
+    "optimizerAssemblySha256": "f4993dd546fc0f33468020049b0c9f1a1affb004d4c340ca587d12266d4723fc",
+    "exitCode": 0,
+    "saveIntegrity": "ok",
+    "disabledCaptureRejected": null,
+    "validIdleCheck": true,
+    "serverErrors": [],
+    "engineModulesVerified": true,
+    "name": "server-suite-coload",
+    "profiles": [
+      {
+        "samples": 30,
+        "tickCount": 880,
+        "hotspotCount": 0,
+        "engineModules": {
+          "bulkStreamReads": "active",
+          "nearbyPlayerQueries": "disabled",
+          "onlinePlayerSnapshots": "active"
+        },
+        "engineCounters": {
+          "onlineSnapshotCalls": 1876,
+          "nearbyQueryCalls": 0,
+          "snapshotFallbacks": 0,
+          "nearbyFallbacks": 0,
+          "snapshotFailures": 0,
+          "nearbyFailures": 0,
+          "bulkReadCalls": 0,
+          "bulkReadBytes": 0,
+          "bulkReadFallbacks": 0,
+          "bulkReadFailures": 0
+        },
+        "timingModules": {
+          "callbackTimings": "disabled",
+          "phaseTimings": "disabled",
+          "systemTimings": "disabled"
+        },
+        "durationSeconds": 30.0482317
+      }
+    ]
+  },
+  {
+    "kind": "isolated-idle-smoke",
+    "mode": "profile",
+    "enginePatchesRequested": true,
+    "authenticatedClients": 0,
+    "multiplayerPerformanceEvidence": false,
+    "gameVersion": "1.22.7",
+    "measurementSeconds": 30,
+    "optimizerAssemblySha256": "5ce4c3930cdb92511a193d0f3da6b6c1c9e0d2685015eb4f31573a56f60105f7",
+    "exitCode": 0,
+    "saveIntegrity": "ok",
+    "disabledCaptureRejected": null,
+    "validIdleCheck": true,
+    "serverErrors": [],
+    "engineModulesVerified": true,
+    "name": "server-shipping-suite",
+    "profiles": [
+      {
+        "samples": 29,
+        "tickCount": 883,
+        "hotspotCount": 0,
+        "engineModules": {
+          "bulkStreamReads": "active",
+          "nearbyPlayerQueries": "disabled",
+          "onlinePlayerSnapshots": "active"
+        },
+        "engineCounters": {
+          "onlineSnapshotCalls": 1868,
+          "nearbyQueryCalls": 0,
+          "snapshotFallbacks": 0,
+          "nearbyFallbacks": 0,
+          "snapshotFailures": 0,
+          "nearbyFailures": 0,
+          "bulkReadCalls": 0,
+          "bulkReadBytes": 0,
+          "bulkReadFallbacks": 0,
+          "bulkReadFailures": 0
+        },
+        "timingModules": {
+          "callbackTimings": "disabled",
+          "phaseTimings": "disabled",
+          "systemTimings": "disabled"
+        },
+        "durationSeconds": 30.0312681
+      }
+    ]
+  }
+]

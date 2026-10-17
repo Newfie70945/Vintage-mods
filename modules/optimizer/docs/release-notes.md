@@ -1,3 +1,14 @@
+# 0.2.0 engine-patch preview
+
+- Added actual Harmony replacements for online player snapshots and eligible bulk FastMemoryStream reads.
+- Added population-adaptive nearby-query temporary-list reuse, leaving the original method unpatched at small client counts.
+- Added independent switches, strict official assembly fingerprints, known-runtime blocking, target/accessor conflict checks and a late-conflict monitor.
+- Added stock fallback paths, module status/counters, disposal checks and monitor-start rollback.
+- Added differential official-method, callback/reentrancy, malformed-stream and concurrency tests.
+- Added component timing/allocation comparisons and analysis tooling for supplied Lithos Probe captures.
+- Kept AI, physics, tracking rules, world generation, packet scheduling and save behavior unchanged.
+- No authenticated multiplayer capacity or NOS-versus-Stratum performance claim.
+
 # 0.1.0 engineering preview
 
 This starts a new, buildable Newfie's Server Optimizer source project for the

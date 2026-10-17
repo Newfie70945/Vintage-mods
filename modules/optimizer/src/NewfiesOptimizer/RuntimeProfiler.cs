@@ -12,8 +12,10 @@ namespace NewfiesOptimizer;
 
 public sealed class RuntimeProfiler : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.1.0";
+    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.2.0";
     private static RuntimeProfiler? active;
+    public Func<ModuleStatus[]>? ExternalModules { get; set; }
+    public Func<IReadOnlyDictionary<string,long>>? ExternalCounters { get; set; }
     private readonly ICoreServerAPI api;
     private readonly ServerMain? server;
     private readonly OptimizerConfig config;
@@ -55,7 +57,7 @@ public sealed class RuntimeProfiler : IDisposable
                 chunkCount = () => dictionary.Count;
         }
         foreach (string area in new[] { "entityOptimization", "chunkOptimization", "blockEntities", "memoryManagement", "networking", "scheduling" })
-            modules[area] = new(area, "notImplemented", "Requires representative baseline and correctness evidence; no gameplay or engine optimization is active.");
+            modules[area] = new(area, "notImplemented", "Requires representative baseline and correctness evidence; this gameplay area is not modified by the allocation/copy modules.");
         SetModule("tickMetrics", config.Profiling.TickMetrics ? "idle" : "disabled", "No hook while profiling is stopped.");
         SetModule("systemTimings", config.Profiling.SystemTimings ? "idle" : "disabled", "Optional sampled inclusive engine-system timing.");
         SetModule("phaseTimings", config.Profiling.PhaseTimings ? "idle" : "disabled", "Optional inspected main-thread phases only.");
@@ -96,7 +98,7 @@ public sealed class RuntimeProfiler : IDisposable
         }
         else foreach (string group in new[] { "systemTimings", "phaseTimings", "callbackTimings" })
             SetModule(group, "disabled", "Compatibility.SafeMode skips optional detailed timing hooks. Set false explicitly on a test server to enable configured hooks.");
-        return "Capture started. Bounded telemetry is sampled every " + config.Profiling.SampleIntervalSeconds + "s. No gameplay optimizations are active.";
+        return "Capture started. Bounded telemetry is sampled every " + config.Profiling.SampleIntervalSeconds + "s. Engine optimization switches are independent of profiler capture.";
     }
 
     public string Stop(bool exportReport = true)
@@ -125,12 +127,13 @@ public sealed class RuntimeProfiler : IDisposable
         return "Export queued in NewfiesOptimizer/ (one concurrent export maximum).";
     }
 
-    public ProfileReport Snapshot() => Session?.Snapshot(Capabilities(), GetModules(), EngineVersion.Actual)
-        ?? throw new InvalidOperationException("No capture.");
+    public ProfileReport Snapshot() => (Session?.Snapshot(Capabilities(), GetModules(), EngineVersion.Actual)
+        ?? throw new InvalidOperationException("No capture.")) with
+        { EngineCounters = ExternalCounters?.Invoke() ?? new Dictionary<string,long>() };
 
     public string Status()
     {
-        string summary = "Newfie's Server Optimizer 0.1.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + ". No gameplay optimizations active.";
+        string summary = "Newfie's Server Optimizer 0.2.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
         if (Session is not null) summary += $" Capture {Session.ElapsedSeconds:F1}s, {Session.TickCount} completed ticks.";
         if (LastExport is not null) summary += " Last export: " + LastExport + ".";
         if (ExportFailure is not null) summary += " Export failed: " + ExportFailure + ".";
@@ -162,6 +165,7 @@ public sealed class RuntimeProfiler : IDisposable
         lock (diagnosticsGate)
         {
             var values = modules.Values.ToList();
+            if (ExternalModules != null) values.AddRange(ExternalModules());
             if (evidence is not null) values.Add(new("sessionEvidence", evidence.Failure is null && evidence.Dropped == 0 ? "active" : "failed", $"Dropped events: {evidence.Dropped}; " + (evidence.Failure ?? "Opt-in evidence; presence capped at 200 Playing clients.")));
             return values.OrderBy(m => m.Name).ToArray();
         }

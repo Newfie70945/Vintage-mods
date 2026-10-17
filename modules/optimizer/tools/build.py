@@ -56,7 +56,7 @@ def main() -> int:
             run([args.dotnet, "run", "--project", str(test), "-c", "Release"], env)
             tests_run.append(str(test.relative_to(ROOT)))
         # Discovery is deliberately scoped: the independently runnable tools own their test suites.
-        for directory in ("tools/stress-tester/tests", "tools/benchmark/tests", "tools/dashboard/tests"):
+        for directory in ("tools/stress-tester/tests", "tools/benchmark/tests", "tools/dashboard/tests", "tools/probe/tests"):
             folder = ROOT / directory
             if folder.exists() and list(folder.glob("test*.py")):
                 run([sys.executable, "-m", "unittest", "discover", "-s", str(folder), "-v"], env)
@@ -70,7 +70,7 @@ def main() -> int:
     modinfo = project.parent / "modinfo.json"
     if not modinfo.exists():
         modinfo = project.parent / "bin/Release/net10.0/modinfo.json"
-    modzip = output / "NewfiesServerOptimizer-0.1.0-preview.zip"
+    modzip = output / ("NewfiesServerOptimizer-" + (ROOT / "VERSION").read_text().strip() + ".zip")
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
