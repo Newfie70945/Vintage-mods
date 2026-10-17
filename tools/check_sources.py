@@ -11,4 +11,6 @@ for item in manifest['mods']:
  path=root/item['path'];version=json.loads((path/'modinfo.json').read_text())['version']
  project=ET.parse(path/(item['assembly']+'.csproj')).getroot()
  assert version==item['version']==project.findtext('.//Version'),item['id']
-print('Module versions and editor fixtures are consistent')
+assert not (root/'modules/website-connector').exists(), 'Connector is maintained outside this repository'
+assert 'website-connector' not in (root/'Newfies.ServerSuite.slnx').read_text()
+print('Module versions, exclusions and editor fixtures are consistent')
