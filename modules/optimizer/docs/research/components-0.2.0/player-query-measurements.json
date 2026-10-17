@@ -1,0 +1,3613 @@
+{
+  "scope": "Actual official 1.22.7 query methods, uninitialized fixtures, Harmony prefixes; component microbenchmark only. No authenticated clients, network workload, tick-time or whole-server claim.",
+  "framework": ".NET 10.0.13",
+  "runtime": "linux-x64",
+  "engineAssembly": "VintagestoryLib.dll (inspected official 1.22.7)",
+  "iterations": 10000,
+  "repeats": 5,
+  "warmup": 1000,
+  "seed": 1227,
+  "records": [
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2105.0517,
+      "bytesPerCall": 64.052
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 344.0883,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 286.6652,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 280.3768,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 291.8959,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 175.1298,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 270.4058,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 273.8289,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 163.8358,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 278.3206,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 161.6776,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 269.918,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 272.0882,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 278.8043,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 159.7888,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 175.5804,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 162.3075,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 157.297,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 174.7763,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 153.4622,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 157.6566,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 175.298,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 163.2339,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 157.1357,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 173.269,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 154.4057,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 155.1508,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 153.8238,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 169.257,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 169.939,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 171.7307,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 176.0852,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 166.0492,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 191.968,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 189.8159,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 170.7132,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 173.7817,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 164.6521,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 179.4392,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 178.9845,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 170.2385,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 199.2039,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 195.5764,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 167.8398,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 175.9349,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 280.0663,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 258.7773,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 335.3512,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 315.4243,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 303.7989,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 366.4118,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 308.4198,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 304.2084,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 296.0191,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 329.6376,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 345.218,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 297.898,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 308.4619,
+      "bytesPerCall": 64
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 306.8505,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 313.1329,
+      "bytesPerCall": 176
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 167.0156,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 196.8153,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 153.6767,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 160.3517,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 169.8609,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 159.6245,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 166.4779,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 158.5439,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 163.303,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 154.4228,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 164.9435,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 168.3767,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 218.7783,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 241.3031,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-all",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 245.0837,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 241.8479,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 238.6211,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 249.8218,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 243.293,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 231.5204,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 237.3731,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 233.7047,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 242.4768,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 242.4849,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 234.2054,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 238.8704,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 140.4277,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 141.949,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 136.2985,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "nearby-half",
+      "playing": 1,
+      "pending": 1,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 134.9916,
+      "bytesPerCall": 152
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1943.3261,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2242.6451,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2157.6897,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2128.7112,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2104.3116,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1956.7882,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2022.9245,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1893.8178,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2041.6776,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2002.3706,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1853.4332,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2004.4757,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1977.2079,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1980.2314,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2048.3467,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2498.0614,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2261.5064,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2195.8529,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2184.4588,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2195.3292,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2233.3111,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2195.3732,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2158.0913,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2287.3573,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2122.617,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2185.1679,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2419.9422,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3288.3132,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2278.8956,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2138.2365,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5017.7864,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4676.6959,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3933.8849,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2255.6026,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2337.9892,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2251.6917,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2274.7995,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2203.858,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2281.8761,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2351.7339,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2360.2397,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2314.0462,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3069.9896,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2380.8335,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2374.2407,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2237.4674,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2176.4107,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2689.2913,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2242.9165,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2175.8489,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4682.9098,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2210.7473,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2763.2203,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2191.4443,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2116.4187,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2187.3332,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2675.9923,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2133.6515,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2130.8353,
+      "bytesPerCall": 680
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2678.3159,
+      "bytesPerCall": 568
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2356.8004,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2102.2935,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2184.7502,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2079.7587,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2197.6276,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2100.4427,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2137.7728,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2143.295,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2076.635,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2107.6596,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2069.6465,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2103.6265,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2178.0922,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 2134.63,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-all",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4109.4238,
+      "bytesPerCall": 1712
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3878.0091,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3112.6747,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1386.7808,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1232.3321,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1239.4869,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1218.4883,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1257.9926,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1266.5876,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1290.0147,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1256.246,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1224.4083,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1353.6427,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1277.1634,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1306.1089,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 64,
+      "pending": 8,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1272.881,
+      "bytesPerCall": 920
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5345.9056,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5485.5102,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 6030.3827,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 18708.8852,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5430.2062,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 18283.5328,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 17459.9181,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 17276.9275,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5456.6018,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 17392.2816,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 17307.6556,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5517.6214,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12151.4416,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1518.125,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1016.4712,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4188.8405,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3152.5585,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3249.9967,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3153.5961,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4164.3988,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3135.9065,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3126.2931,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4066.4779,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3183.6832,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3196.8399,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4213.4604,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3313.1284,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3254.5606,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3253.2576,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4306.7114,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4306.4279,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4685.9784,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 7965.5636,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 6944.238,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4524.2207,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4506.5782,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4511.4115,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4469.0839,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4672.4101,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4353.3563,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4376.2707,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4523.9963,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4495.2171,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4292.4749,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4728.1147,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1366.6447,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1601.0524,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1681.1005,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1789.5122,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1571.3678,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1269.1264,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1636.0169,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1279.591,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1562.8982,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1289.0361,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1621.3058,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1618.5957,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1642.3925,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1275.8485,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 1579.7044,
+      "bytesPerCall": 1768
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3459.7565,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3152.261,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3384.9141,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3214.9471,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3449.3979,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3458.6307,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3276.5055,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3568.8712,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3626.2943,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3515.6393,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3374.7069,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3511.6032,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3734.09,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3217.2535,
+      "bytesPerCall": 1656
+    },
+    {
+      "query": "nearby-all",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 3752.9964,
+      "bytesPerCall": 5920
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4649.6209,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 5019.1503,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4711.5798,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4618.2769,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4577.8462,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4607.8462,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4578.4651,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4723.2533,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4401.5075,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4833.1673,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4511.732,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4552.1906,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4738.7836,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4620.3168,
+      "bytesPerCall": 3048
+    },
+    {
+      "query": "nearby-half",
+      "playing": 200,
+      "pending": 25,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 4466.0844,
+      "bytesPerCall": 856
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12967.1405,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12997.4621,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 9812.4197,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 9851.6927,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13133.8147,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 15365.2619,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13517.0397,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13566.3186,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 9908.7343,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 9896.5129,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 14107.4976,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13879.7929,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13275.2728,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 9932.5921,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13551.3221,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38497.0717,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 40295.4903,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39417.1713,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39015.11,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39680.9031,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 37879.4431,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39694.2581,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 40089.8137,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38750.7362,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38647.255,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38346.1582,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 37605.9795,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39187.9323,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 40381.7947,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 40636.0322,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 58906.882,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 65592.3315,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 53434.6127,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 54125.3562,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 53582.0308,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 53616.8071,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 55029.5398,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 61015.8108,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 60083.6973,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57807.6291,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 56401.0175,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57276.7376,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57078.6531,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 61406.0205,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 0,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 52367.2768,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13577.4071,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13631.7726,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12069.3112,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12938.7457,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12988.3461,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13800.4959,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 14357.2132,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 16001.4363,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12902.6816,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13400.038,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 14131.0939,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 15746.4358,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 15500.8006,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 12324.6624,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "online-snapshot",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 13685.1477,
+      "bytesPerCall": 16168
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39448.1435,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 41983.3456,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 40315.1386,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38975.4685,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38822.1734,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 37116.9858,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 37940.862,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 37770.5344,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38375.8597,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39367.2563,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 39435.0541,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38555.2089,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38518.5939,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38827.3952,
+      "bytesPerCall": 16056
+    },
+    {
+      "query": "nearby-all",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 38760.3927,
+      "bytesPerCall": 49064
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 55389.5411,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 54189.5325,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 0,
+      "iterations": 10000,
+      "nanosecondsPerCall": 54462.8646,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 54764.4192,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57979.3748,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 1,
+      "iterations": 10000,
+      "nanosecondsPerCall": 59238.6449,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 59167.2978,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 58961.7433,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 2,
+      "iterations": 10000,
+      "nanosecondsPerCall": 58406.2739,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57825.199,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57952.8565,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 3,
+      "iterations": 10000,
+      "nanosecondsPerCall": 57894.0433,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "stock",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 63097.6143,
+      "bytesPerCall": 24656
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "optimized",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 62829.52,
+      "bytesPerCall": 8056
+    },
+    {
+      "query": "nearby-half",
+      "playing": 2000,
+      "pending": 250,
+      "variant": "prefix-disabled",
+      "repeat": 4,
+      "iterations": 10000,
+      "nanosecondsPerCall": 65464.6076,
+      "bytesPerCall": 24656
+    }
+  ],
+  "limitations": "Uninitialized fixtures, no clients/network, five repetitions, default production nearby module is OFF due mixed CPU results. Small nearby optimized variants use stock because population is below activation."
+}

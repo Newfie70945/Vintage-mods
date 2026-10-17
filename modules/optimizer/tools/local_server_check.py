@@ -43,6 +43,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True, help="Fresh output directory; existing paths refused")
     parser.add_argument("--dotnet", default="dotnet")
     parser.add_argument("--modzip", type=Path)
+    parser.add_argument("--engine-patches", action="store_true", help="Enable guarded API modules for startup/save checks; no throughput claim")
     parser.add_argument("--mode", choices=["stock", "disabled", "profile", "detailed"], default="profile")
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=20)
@@ -89,7 +90,7 @@ def main() -> int:
             "AutoStart": False, "SampleIntervalSeconds": 1, "MaxSamples": 600,
             "MainThreadCpu": args.mode == "detailed", "SystemTimings": args.mode == "detailed",
             "PhaseTimings": args.mode == "detailed", "CallbackTimings": args.mode == "detailed",
-            "ExportOnStop": True}, "Compatibility": {"SafeMode": args.mode != "detailed"}}
+            "ExportOnStop": True}, "Compatibility": {"SafeMode": args.mode != "detailed" and not args.engine_patches}}
         (config_dir / "optimizer.json").write_text(json.dumps(optimizer, indent=2))
     env = os.environ.copy()
     env["DOTNET_ROOT"] = str(Path(args.dotnet).resolve().parent) if "/" in args.dotnet else env.get("DOTNET_ROOT", "")
@@ -123,7 +124,7 @@ def main() -> int:
     reader = threading.Thread(target=read_output, daemon=True)
     reader.start()
     samples = []
-    result = {"kind": "isolated-idle-smoke", "mode": args.mode, "authenticatedClients": 0,
+    result = {"kind": "isolated-idle-smoke", "mode": args.mode, "enginePatchesRequested": args.engine_patches, "authenticatedClients": 0,
               "multiplayerPerformanceEvidence": False, "gameVersion": "1.22.7",
               "measurementSeconds": args.seconds, "warmupSeconds": args.warmup,
               "snapshotSha256": hashlib.sha256(template_save.read_bytes()).hexdigest(),
@@ -152,6 +153,8 @@ def main() -> int:
                 raise RuntimeError("Server did not reach dedicated-server ready state")
         result["startupSeconds"] = time.monotonic() - started
         wait_alive(process, args.warmup)
+        if args.mode != "stock":
+            send("/optimizer modules")
         if args.mode in ("profile", "detailed"):
             send("/optimizer profile start")
         elif args.mode == "disabled":
@@ -200,6 +203,8 @@ def main() -> int:
                                          "samples": len(profile.get("samples", [])),
                                          "tickCount": profile.get("tick", {}).get("count", 0),
                                          "hotspotCount": len(profile.get("hotspots", [])),
+                                         "engineModules": {m.get("name"): m.get("status") for m in profile.get("modules", []) if m.get("name") in ("onlinePlayerSnapshots", "nearbyPlayerQueries", "bulkStreamReads")},
+                                         "engineCounters": profile.get("engineCounters", {}),
                                          "timingModules": {m.get("name"): m.get("status") for m in profile.get("modules", [])
                                                            if m.get("name") in ("systemTimings", "phaseTimings", "callbackTimings")},
                                          "durationSeconds": profile.get("durationSeconds")})
@@ -215,6 +220,11 @@ def main() -> int:
                                     and (args.mode != "detailed" or any(p["hotspotCount"] > 0 and all(
                                         p["timingModules"].get(group) == "captured" for group in
                                         ("systemTimings", "phaseTimings", "callbackTimings")) for p in profiles)))
+        result["serverErrors"] = [line.strip() for line in console.splitlines() if any(tag in line for tag in ("[Server Error]", "[Error]", "[Server Fatal]"))]
+        result["engineModulesVerified"] = (not args.engine_patches or args.mode in ("stock", "disabled") or any(
+            profile["engineModules"].get("onlinePlayerSnapshots") == "active" and profile["engineModules"].get("bulkStreamReads") == "active"
+            for profile in profiles))
+        result["validIdleCheck"] = result["validIdleCheck"] and not result["serverErrors"] and result["engineModulesVerified"]
     except BaseException as error:
         result["failure"] = f"{type(error).__name__}: {error}"
         result["samples"] = samples

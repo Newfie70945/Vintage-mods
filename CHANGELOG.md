@@ -1,3 +1,9 @@
+# Optimizer 0.2.0 preview
+
+- Added guarded API optimization modules, independent controls, adaptive nearby-query activation and conflict/failure diagnostics.
+- Added actual-method correctness tests, component measurements and supplied Lithos capture analysis.
+- Optimizer-only version bump; regular Suite and companion versions unchanged.
+
 # Listing update and Connector exclusion
 
 - Removed the standalone Website Connector project, solution entry, package-manifest entry and associated CI step at the owner’s request.

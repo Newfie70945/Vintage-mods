@@ -11,6 +11,12 @@ for item in manifest['mods']:
  path=root/item['path'];version=json.loads((path/'modinfo.json').read_text())['version']
  project=ET.parse(path/(item['assembly']+'.csproj')).getroot()
  assert version==item['version']==project.findtext('.//Version'),item['id']
+optimizer = manifest['optimizer']
+optimizer_root = root / optimizer['path']
+assert (optimizer_root/'VERSION').read_text().strip() == optimizer['version']
+version = optimizer['version'].removesuffix('-preview')
+assert json.loads((optimizer_root/'src/NewfiesOptimizer/modinfo.json').read_text())['version'] == version
+assert ET.parse(optimizer_root/'src/NewfiesOptimizer/NewfiesOptimizer.csproj').getroot().findtext('.//Version') == version
 assert not (root/'modules/website-connector').exists(), 'Connector is maintained outside this repository'
 assert 'website-connector' not in (root/'Newfies.ServerSuite.slnx').read_text()
 print('Module versions, exclusions and editor fixtures are consistent')

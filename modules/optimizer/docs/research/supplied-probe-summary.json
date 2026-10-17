@@ -1,0 +1,394 @@
+{
+  "sourceSha256": "5d0ca105405e4bf5b32d966bf594e40a5ef12ebe4ec403fb0e16bd158148f07d",
+  "kind": "nos-external-probe-analysis",
+  "sourceKind": "lithos-probe",
+  "generatedAt": "2026-09-30T16:55:23.4679870+00:00",
+  "server": {
+    "lithosVersion": "Probe 1.0.2",
+    "gameVersion": "v1.22.7 (Stable)",
+    "runtime": ".NET 10.0.12",
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "architecture": "X64",
+    "processorCount": 32,
+    "serverGc": true,
+    "uptimeSeconds": 817,
+    "totalTicks": 22091,
+    "tickTimeMs": 33.333332,
+    "maxClients": 2000
+  },
+  "mods": [
+    {
+      "id": "game",
+      "name": "Essentials",
+      "version": "1.22.7",
+      "side": "Universal"
+    },
+    {
+      "id": "lithosprobe",
+      "name": "Lithos Probe",
+      "version": "1.0.2",
+      "side": "Server"
+    },
+    {
+      "id": "creative",
+      "name": "Creative Mode",
+      "version": "1.22.7",
+      "side": "Universal"
+    },
+    {
+      "id": "survival",
+      "name": "Survival Mode",
+      "version": "1.22.7",
+      "side": "Universal"
+    }
+  ],
+  "census": {
+    "players": 2000,
+    "loadedChunks": 512,
+    "loadedEntities": 2463
+  },
+  "windows": [
+    {
+      "name": "5s",
+      "seconds": 5.0,
+      "coveredSeconds": 4.957,
+      "ticks": 46,
+      "tps": 9.279806334476499,
+      "meanMs": 106.64854347826086,
+      "medianMs": 69.767,
+      "p95Ms": 262.579,
+      "p99Ms": 347.214,
+      "maxMs": 347.214
+    },
+    {
+      "name": "1m",
+      "seconds": 60.0,
+      "coveredSeconds": 59.992,
+      "ticks": 626,
+      "tps": 10.43472462995066,
+      "meanMs": 95.15827795527157,
+      "medianMs": 65.799,
+      "p95Ms": 225.994,
+      "p99Ms": 347.214,
+      "maxMs": 564.856
+    },
+    {
+      "name": "5m",
+      "seconds": 300.0,
+      "coveredSeconds": 299.981,
+      "ticks": 6660,
+      "tps": 22.201406089052306,
+      "meanMs": 28.933606306306306,
+      "medianMs": 17.129,
+      "p95Ms": 103.714,
+      "p99Ms": 201.257,
+      "maxMs": 564.856
+    },
+    {
+      "name": "15m",
+      "seconds": 900.0,
+      "coveredSeconds": 814.509,
+      "ticks": 22091,
+      "tps": 27.121861145794583,
+      "meanMs": 9.264241817934906,
+      "medianMs": 1.137,
+      "p95Ms": 51.473,
+      "p99Ms": 129.744,
+      "maxMs": 1042.127
+    }
+  ],
+  "samplingDurationSeconds": 60.13,
+  "managedSamples": 136312,
+  "stratumRuntimeInStacks": true,
+  "topSelfManagedSamples": [
+    {
+      "method": "System.Threading.Thread.<PollGC>g__PollGCWorker|67_0()",
+      "samples": 32091
+    },
+    {
+      "method": "System.Threading.Monitor.Enter_Slowpath(class System.Object)",
+      "samples": 26498
+    },
+    {
+      "method": "System.Threading.Thread.Sleep(int32)",
+      "samples": 17661
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_IsInteractable()",
+      "samples": 12826
+    },
+    {
+      "method": "?!0x7f85c617f851",
+      "samples": 9061
+    },
+    {
+      "method": "Vintagestory.Common.CompressionZSTD.Compress(unsigned int8[],int32,int32)",
+      "samples": 6483
+    },
+    {
+      "method": "Vintagestory.Server.PhysicsManager.UpdateTrackedEntityLists(class Vintagestory.Server.ConnectedClient,int32)",
+      "samples": 5838
+    },
+    {
+      "method": "Vintagestory.GameContent.CustomSpawnConditions.Event_OnTrySpawnGroupNearOffthread(class Vintagestory.API.Common.IBlockAccessor,class Vintagestory.API.Common.Entities.EntityProperties,class Vintagestory.API.MathTools.BlockPos)",
+      "samples": 3172
+    },
+    {
+      "method": "System.Threading.LowLevelLifoSemaphore.Wait(int32,bool)",
+      "samples": 1686
+    },
+    {
+      "method": "Packet_BulkEntityAttributesSerializer.SerializeWithSize(class CitoStream,class Packet_BulkEntityAttributes)",
+      "samples": 995
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.HandleSeraphHandAnimations(float32)",
+      "samples": 938
+    },
+    {
+      "method": "Newtonsoft.Json.Serialization.JsonSerializerInternalReader.CreateList(class Newtonsoft.Json.JsonReader,class System.Type,class Newtonsoft.Json.Serialization.JsonContract,class Newtonsoft.Json.Serialization.JsonProperty,class System.Object,class System.String)",
+      "samples": 879
+    },
+    {
+      "method": "System.Threading.LowLevelLifoSemaphore.WaitForSignal(int32)",
+      "samples": 873
+    },
+    {
+      "method": "Vintagestory.GameContent.EntityBehaviorPlayerInventory.OnGameTick(float32)",
+      "samples": 722
+    },
+    {
+      "method": "System.GC.<AllocateUninitializedArray>g__AllocateNewArrayWorker|77_0(int32,bool)",
+      "samples": 660
+    },
+    {
+      "method": "System.Threading.PortableThreadPool+WorkerThread.WorkerThreadStart()",
+      "samples": 620
+    },
+    {
+      "method": "?!0x7f85c617d495",
+      "samples": 544
+    },
+    {
+      "method": "System.String.Intern(class System.String)",
+      "samples": 511
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_LeftHandItemSlot()",
+      "samples": 411
+    },
+    {
+      "method": "System.GC.RunFinalizers()",
+      "samples": 409
+    }
+  ],
+  "topMainThreadSelfManagedSamples": [
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_IsInteractable()",
+      "samples": 12826
+    },
+    {
+      "method": "System.Threading.Monitor.Enter_Slowpath(class System.Object)",
+      "samples": 7215
+    },
+    {
+      "method": "Vintagestory.Server.PhysicsManager.UpdateTrackedEntityLists(class Vintagestory.Server.ConnectedClient,int32)",
+      "samples": 5838
+    },
+    {
+      "method": "?!0x7f85c617f851",
+      "samples": 4076
+    },
+    {
+      "method": "System.Threading.Thread.<PollGC>g__PollGCWorker|67_0()",
+      "samples": 2815
+    },
+    {
+      "method": "System.Threading.Thread.Sleep(int32)",
+      "samples": 2506
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.HandleSeraphHandAnimations(float32)",
+      "samples": 938
+    },
+    {
+      "method": "Newtonsoft.Json.Serialization.JsonSerializerInternalReader.CreateList(class Newtonsoft.Json.JsonReader,class System.Type,class Newtonsoft.Json.Serialization.JsonContract,class Newtonsoft.Json.Serialization.JsonProperty,class System.Object,class System.String)",
+      "samples": 879
+    },
+    {
+      "method": "Vintagestory.GameContent.EntityBehaviorPlayerInventory.OnGameTick(float32)",
+      "samples": 722
+    },
+    {
+      "method": "System.GC.<AllocateUninitializedArray>g__AllocateNewArrayWorker|77_0(int32,bool)",
+      "samples": 660
+    },
+    {
+      "method": "System.String.Intern(class System.String)",
+      "samples": 511
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_LeftHandItemSlot()",
+      "samples": 411
+    },
+    {
+      "method": "Vintagestory.GameContent.EntityBehaviorHunger.OnGameTick(float32)",
+      "samples": 367
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_Player()",
+      "samples": 289
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.get_RightHandItemSlot()",
+      "samples": 270
+    },
+    {
+      "method": "Vintagestory.GameContent.EntityBehaviorBodyTemperature.updateBodyTemperature()",
+      "samples": 207
+    },
+    {
+      "method": "Vintagestory.Server.ServerEventManager.EnsureStratumActiveBlockTickColumns(int64,class Vintagestory.Server.StratumSimulationDistanceConfig)",
+      "samples": 204
+    },
+    {
+      "method": "Vintagestory.API.Common.EntityPlayer.OnGameTick(float32)",
+      "samples": 197
+    },
+    {
+      "method": "Vintagestory.GameContent.EntityBehaviorIdleAnimations.OnGameTick(float32)",
+      "samples": 194
+    },
+    {
+      "method": "System.Buffer.ZeroMemoryInternal(unsigned int8&,unsigned int)",
+      "samples": 178
+    }
+  ],
+  "seriesSummary": {
+    "tps": {
+      "samples": 600,
+      "last": 8.0,
+      "min": 3.0,
+      "max": 31.0,
+      "median": 30.0
+    },
+    "msptMean": {
+      "samples": 600,
+      "last": 147.719,
+      "min": 0.222,
+      "max": 336.964,
+      "median": 1.1265
+    },
+    "msptP95": {
+      "samples": 600,
+      "last": 347.214,
+      "min": 1.124,
+      "max": 564.856,
+      "median": 1.415
+    },
+    "msptMax": {
+      "samples": 600,
+      "last": 347.214,
+      "min": 1.131,
+      "max": 564.856,
+      "median": 1.584
+    },
+    "cpuPercent": {
+      "samples": 600,
+      "last": 17.669,
+      "min": 0.191,
+      "max": 54.143,
+      "median": 0.244
+    },
+    "workingSetMb": {
+      "samples": 600,
+      "last": 22017.199,
+      "min": 1036.965,
+      "max": 22017.199,
+      "median": 1242.4415
+    },
+    "managedHeapMb": {
+      "samples": 600,
+      "last": 19612.23,
+      "min": 677.541,
+      "max": 19612.23,
+      "median": 686.277
+    },
+    "allocationMbPerSecond": {
+      "samples": 600,
+      "last": 965.049,
+      "min": 1.097,
+      "max": 1477.911,
+      "median": 2.0069999999999997
+    },
+    "gcPausePercent": {
+      "samples": 600,
+      "last": 1.15,
+      "min": 0.08,
+      "max": 1.15,
+      "median": 0.15
+    },
+    "gen0PerSecond": {
+      "samples": 600,
+      "last": 0.999,
+      "min": 0.0,
+      "max": 2.997,
+      "median": 0.0
+    },
+    "gen1PerSecond": {
+      "samples": 600,
+      "last": 0.0,
+      "min": 0.0,
+      "max": 1.999,
+      "median": 0.0
+    },
+    "gen2PerSecond": {
+      "samples": 600,
+      "last": 0.0,
+      "min": 0.0,
+      "max": 0.999,
+      "median": 0.0
+    },
+    "players": {
+      "samples": 600,
+      "last": 2000.0,
+      "min": 1.0,
+      "max": 2000.0,
+      "median": 1.0
+    },
+    "loadedChunks": {
+      "samples": 600,
+      "last": 512.0,
+      "min": 280.0,
+      "max": 512.0,
+      "median": 280.0
+    },
+    "loadedEntities": {
+      "samples": 600,
+      "last": 2463.0,
+      "min": 164.0,
+      "max": 2466.0,
+      "median": 284.0
+    },
+    "packetsPerSecond": {
+      "samples": 600,
+      "last": 248723.5,
+      "min": 0.0,
+      "max": 482527.5,
+      "median": 0.0
+    },
+    "networkKbPerSecond": {
+      "samples": 600,
+      "last": 106839.602,
+      "min": 0.0,
+      "max": 172358.5,
+      "median": 0.0
+    }
+  },
+  "limits": [
+    "Third-party supplied capture; workload and hardware not reproduced here.",
+    "Sample counts are not method call counts or exclusive CPU durations.",
+    "No matched official-server baseline or NOS run exists in this file.",
+    "This capture cannot establish relative performance between NOS and Stratum."
+  ]
+}

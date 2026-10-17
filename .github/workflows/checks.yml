@@ -18,6 +18,10 @@ jobs:
           node-version: '22'
       - name: Check C# identity and feed behavior
         run: dotnet run --project tests/Checks.csproj -c Release
+      - name: Check optimizer profiler data structures
+        run: dotnet run --project modules/optimizer/tests/ProfilerTests/ProfilerTests.csproj -c Release
+      - name: Check probe capture analysis
+        run: python3 -m unittest discover -s modules/optimizer/tools/probe/tests -v
       - name: Check post-builder behavior
         run: node tests/editor-checks.js tests/web/motd-editor-Declarations.js
       - name: Validate embedded editor fixtures

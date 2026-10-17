@@ -22,5 +22,5 @@
     "Suite post-builder formatting and escaping",
     "MOTD feed formatting and normalisation"
   ],
-  "optimizer": "Retained delivered 0.1.0-preview snapshot, absent from recovered archive"
+  "optimizer": "Continues the delivered reconstructed 0.1.0 project with independently guarded API patches in 0.2.0-preview; not recovered from the source archive."
 }

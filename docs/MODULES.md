@@ -9,7 +9,7 @@ The regular mods use original author source restored from the uploaded CENTER1 a
 - `modules/discord-link`: 1.0.13.
 - `modules/player-list`: 1.1.2.
 - `modules/shared`: shared storage source linked by Suite and ChatGuard.
-- `modules/optimizer`: previously delivered 0.1.0-preview snapshot. It is experimental and was not recovered from this archive.
+- `modules/optimizer`: 0.2.0-preview continues the reconstructed profiling project with guarded API patches. It is experimental and was not recovered from this archive.
 
 The standalone website, Website Connector project and ModDB descriptions are deliberately excluded at the owner's request. The recovered upload and excluded files are kept as local backups outside the repository.
 

@@ -1,70 +1,61 @@
-# Newfie's Server Optimizer
+# Newfie's Server Optimizer 0.2.0 preview
 
-**0.1.0 engineering preview — Vintage Story 1.22.7 / .NET 10**
+A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
-A separate server-side profiling mod and reproducible multiplayer test toolkit.
-Ordinary players need no client mod. This preview observes the official server;
-it does not replace or rewrite server binaries.
+## Implemented API optimizations
 
-The previous NOS development source was lost with the earlier workspace. This
-is a new implementation, not a recovered or validated continuation of NOS 0.6.0.
-The public Essentials Suite baseline remains **1.2.43**, unchanged.
+| Module | Change | Correctness boundary |
+| --- | --- | --- |
+| Online player snapshots | Builds the required fresh result array without the original LINQ iterator pipeline | Official client snapshot order, pending-player filtering and runtime array type preserved |
+| Nearby player queries (opt-in) | At 128+ connected clients, reuses bounded per-thread temporary lists rather than repeatedly growing throwaway lists | Same range math, dimensions, callback order, short circuit and caller-owned results |
+| Bulk stream reads | Uses a bulk byte copy for eligible reads of 256 bytes or more | Invalid ranges, aliased buffers, derived streams and unusual layouts run the original method |
 
-## Install the profiler on a test server
+Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. These modules do not change simulation ranges, AI schedules, physics rules, packet ordering, world generation or save scheduling.
 
-1. Back up the test world's save and configuration using a stopped server.
-2. Put `NewfiesServerOptimizer-0.1.0-preview.zip` in that server's `Mods` folder.
-3. Start the official 1.22.7 server. Inspect its startup diagnostics.
-4. As an administrator, use `/optimizer status`, `/optimizer profile start`,
-   run a representative workload, then `/optimizer profile stop` and
-   `/optimizer report`. See the configuration guide for automatic capture and
-   export settings.
+## Install and controls
 
-The mod writes bounded diagnostic data under the server's data directory. It
-does not expose a public web listener. Review configuration and limitations
-before enabling optional hooks, session evidence or longer captures.
+1. Back up, then install the single optimizer ZIP on a staging server. Clients do not need it.
+2. Start the server and run `/optimizer modules` to verify which modules actually activated.
+3. Review `ModConfig/optimizer.json`. Restart after changing switches.
+4. Capture a representative workload with `/optimizer profile start`, `/optimizer profile stop` and `/optimizer export`.
 
-## Build from source
-
-Install the .NET 10 SDK and obtain the official 1.22.7 server separately. Game
-binaries and game assets are not redistributed in this repository or package.
-
-```sh
-python3 tools/build.py --game-dir /path/to/vintagestory-server --dotnet dotnet
+```json
+{
+  "Enabled": true,
+  "Compatibility": { "SafeMode": false },
+  "EngineOptimizations": {
+    "OnlinePlayerSnapshots": true,
+    "NearbyPlayerQueries": false,
+    "MinimumNearbyClients": 128,
+    "BulkStreamReads": true
+  }
+}
 ```
 
-This builds the mod, runs its executable regression tests and the Python tool
-tests, then creates the mod ZIP and a dependency-hash manifest in `artifacts/`.
-On Windows use `py` instead of `python3` where appropriate; the official-client
-automation backend currently targets Linux X11.
+`Enabled=false` disables the optimizer. `Compatibility.SafeMode=true` prevents the API replacement modules from installing. **Existing 0.1.0 configurations keep their previous SafeMode=true value**; explicitly set false on a staging server to try these modules. New 0.2.0 defaults use false with strict engine identity checks.
 
-## Test tools
+The three module switches operate independently. **Nearby-query reuse defaults off**: it cut allocation in component tests but its CPU timings were mixed, including regressions. Enable only for a controlled workload comparison. Nearby-query reuse stays unpatched below its activation threshold, and unpatches again below threshold minus 32 clients to avoid churn. Detailed profiler timing switches remain separate and default off. Stopping a profile does not disable API optimizations.
 
-- `tools/stress-tester/`: automation of actual, authenticated official client
-  windows, seeded action schedules and separate server-evidence accounting.
-- `tools/benchmark/`: controlled trial planning, world/config identity checks,
-  per-run records and report generation.
-- `tools/dashboard/`: a separate local dashboard for exported measurements.
+## Compatibility and fallback
 
-Read each tool's guide before running it. A key press does not prove a block was
-mined or a transaction succeeded. Client connection and action evidence must
-be collected and checked separately. Dry-run tests are tooling tests only.
+The patch registry verifies the actual running game version, exact inspected official API/server assembly hashes, method layouts and Harmony owners. Altered/unrecognised builds are blocked. Stratum, Tungsten and Synergy runtime/optimizer assemblies are blocked rather than stacked without validation.
 
-## What this release demonstrates
+A foreign patch on a target (or the stream Position accessors) prevents that module from installing. A once-per-second monitor detects late conflicts or recorded module failures and disables/removes only our prefix. Other modules stay active. Disposal leaves foreign patches untouched. If the monitor cannot start, installed replacements are rolled back.
 
-The delivered validation report records builds, automated tests and isolated
-local-server checks. It separates observed measurements from missing workloads.
-**No authenticated multiplayer sessions were available here. No multiplayer
-speedup, higher player limit or production compatibility is claimed.**
+An exception after observable work is propagated, never replayed through stock code; the monitor then stands that module down. A failing caller-supplied query predicate can trigger this conservative stand-down. No guarantee is made about arbitrary patch interactions during the interval before the monitor runs.
 
-The requested development sequence requires real workload profiling before
-retaining engine optimizations. AI scheduling, world-generation replacement,
-chunk-I/O rewrites, network coalescing and incremental autosave remain deferred
-until their value and correctness can be demonstrated. Their absence is
-intentional; this preview does not implement arbitrary tick throttles.
+## Evidence and limits
 
-See `docs/implementation-status.md`, `docs/engine-audit.md`,
-`docs/configuration.md`, `docs/client-feasibility.md`,
-`docs/stress-testing.md`, `docs/benchmark-methodology.md` and
-`docs/limitations.md`.
+See [performance evidence](docs/performance-0.2.0.md), [external capture analysis](docs/research/supplied-probe.md), [configuration](docs/configuration.md) and [limitations](docs/limitations.md).
 
+Component tests exercise actual official methods before and after Harmony injection. Their uninitialised engine fixtures are **not authenticated players or a multiplayer server**. Component timing/allocation results are not server TPS gains or proof of sustainable player capacity. The uploaded Stratum/Lithos capture has no matched NOS/stock baseline.
+
+## Build
+
+Set `VINTAGE_STORY` to a separately installed official 1.22.7 server and use a .NET 10 SDK:
+
+```sh
+python3 tools/build.py --game-dir "$VINTAGE_STORY"
+```
+
+This compiles the mod, runs C# and tooling tests, verifies official dependency hashes and packages only the mod's own DLL, manifest and guides. Game binaries are not included. The optimizer has its own build flow, separate from the regular Suite module packager.
