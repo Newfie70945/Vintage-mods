@@ -70,7 +70,7 @@
     <Content Include="$(MSBuildProjectDirectory)\modinfo.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="$(MSBuildProjectDirectory)\ModConfig\newfiescommunitymotd.json">
+    <Content Include="$(MSBuildProjectDirectory)\ModConfig\newfiescommunitymotd.json" Condition="Exists('$(MSBuildProjectDirectory)/ModConfig/newfiescommunitymotd.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>ModConfig\newfiescommunitymotd.json</Link>
     </Content>
