@@ -8037,7 +8037,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var overview = await GetCachedMainThreadReadAsync(
                 "performance-overview:" + windowSeconds, 1000,
@@ -8057,7 +8057,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var snapshot = await GetCachedMainThreadReadAsync(
                 "performance-page-snapshot:" + windowSeconds, 5000,
@@ -8125,7 +8125,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var timeline = await GetCachedMainThreadReadAsync(
                 "performance-timeline:" + windowSeconds, 1000,
@@ -9786,6 +9786,8 @@ public sealed partial class WebDashboardService : IDisposable
                     output = nativeTickDebugLastOutput
                 },
                 lastIncidentSummary = nativeTickDebugLastIncidentSummary,
+                profileSlowTicks = health?.ProfileSlowTicks,
+                profileSlowCauses = health?.ProfileSlowCauses,
                 modAttribution = new
                 {
                     available = topProfileMod != null && (health?.LastProfile.CompletedUnixMilliseconds ?? 0) > 0,

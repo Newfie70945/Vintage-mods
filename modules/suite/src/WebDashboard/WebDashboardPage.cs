@@ -2227,9 +2227,11 @@ __NSS_INTERFACE_STYLE__
   <div class="toolbar">
     <button id="perfRefresh">Refresh Overview</button>
     <select id="perfWindow" title="Analysis window">
+      <option value="60">1 min</option>
       <option value="300">5 min</option>
       <option value="900">15 min</option>
       <option value="1800" selected>30 min</option>
+      <option value="3600">1 hour</option>
     </select>
     <button id="perfEnableDiagnostics" class="primary">Enable Diagnostics</button>
     <button id="perfEntityScan">Scan Entity / Chunk Hotspots</button>
@@ -2258,6 +2260,7 @@ __NSS_INTERFACE_STYLE__
     <div class="cardHeader">
       <h3>Unified Performance Timeline</h3>
       <div class="spacer"></div>
+      <button id="perfTimelineRange" title="Change the shared performance analysis window">Range: 30 min</button>
       <span id="perfTimelineState" class="small">30-minute rolling view</span>
     </div>
     <p class="small">Aligned scheduler delay, CPU, loaded entities, and managed heap. Vertical markers show archived lag incidents, mod-environment changes, and manual entity scans.</p>
@@ -3332,6 +3335,7 @@ __NSS_RETENTION_HTML__
     </div>
   </div>
 
+  <div id="tickDebugHistory" class="card" style="margin-bottom:12px"></div>
   <div id="tickDebugModAttribution" class="card" style="margin-bottom:12px">
     <div class="cardHeader"><div><h3>Likely Mod Attribution</h3><div class="small">Based only on measured engine-profiler markers. This reports where tick time was attributed, not automatic proof of a mod defect.</div></div></div>
     <div class="empty">Run Incident Capture or wait for an automatic lag-attribution burst to collect mod timing evidence.</div>
@@ -3453,7 +3457,7 @@ __NSS_RETENTION_HTML__
   <div class="grid" style="margin-top:12px">
     <div class="card">
       <div class="cardHeader"><h3>Top Attributed Mods</h3><div class="spacer"></div><span class="small">last manual profile</span><button id="profClearMods" class="miniClear" title="Clear retained mod-attribution results from the latest profile">Clear</button></div>
-      <div class="tableWrap"><table><thead><tr><th>Mod</th><th>Total</th><th>Max</th><th>≥10ms</th><th>Share</th><th>Confidence</th></tr></thead><tbody id="profMods"></tbody></table></div>
+      <div class="tableWrap"><table><thead><tr><th>Mod</th><th>Total</th><th>Max</th><th>≥10ms</th><th>Share</th><th>Confidence</th></tr></thead><tbody id="profMods"></tbody></table><div id="profAttributionCoverage" class="compactNote">Run a profile to inspect marker ownership coverage.</div></div>
     </div>
     <div class="card">
       <div class="cardHeader"><h3>Worst Profiled Ticks</h3><div class="spacer"></div><span class="small">last manual profile</span><button id="profClearTicks" class="miniClear" title="Clear retained worst-tick summaries from the latest profile">Clear</button></div>
@@ -8374,12 +8378,12 @@ $('auditRefresh').onclick=()=>loadOperationsAudit(true);
 function performanceWindowSeconds(){
   const el=$('perfWindow');
   const value=Number(el?.value||1800);
-  return [300,900,1800].includes(value)?value:1800;
+  return [60,300,900,1800,3600].includes(value)?value:1800;
 }
 
 function performanceWindowLabel(){
   const seconds=performanceWindowSeconds();
-  return seconds===300?'5-minute':seconds===900?'15-minute':'30-minute';
+  return seconds===3600?'1-hour':`${seconds/60}-minute`;
 }
 
 async function loadPerformanceCenter(full=true){
@@ -8864,6 +8868,7 @@ function renderPerformanceTimeline(){
   const bands=[
     {label:'Delay',key:'mainThreadDelayMs',suffix:'ms'},
     {label:'CPU',key:'cpuPercent',suffix:'%'},
+    {label:'Players',key:'players',suffix:''},
     {label:'Entities',key:'loadedEntities',suffix:''},
     {label:'Heap',key:'managedHeapMb',suffix:'MB'}
   ];
@@ -9226,7 +9231,8 @@ async function loadPerformanceConflicts(showLoading=true,preloaded=null){
 }
 
 $('perfRefresh').onclick=()=>loadPerformanceCenter(true);
-$('perfWindow').onchange=()=>loadPerformanceCenter(true);
+$('perfWindow').onchange=()=>{ $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(true); };
+$('perfTimelineRange').onclick=()=>{ const ranges=[60,300,900,1800,3600]; $('perfWindow').value=String(ranges[(ranges.indexOf(performanceWindowSeconds())+1)%ranges.length]); $('perfWindow').onchange(); };
 $('perfEnableDiagnostics').onclick=async()=>{
   try{
     await api('/api/profiler/enabled',{method:'POST',body:JSON.stringify({enabled:true})});
@@ -12155,6 +12161,11 @@ function renderTickDebug(d){
       : `<div class="cardHeader"><div><h3>Likely Mod Attribution</h3><div class="small">Measured engine-profiler ownership only.</div></div><div class="spacer"></div><button id="tickDebugClearAttribution" class="miniClear" title="Clear retained mod-attribution results">Clear</button></div><div class="empty">${esc(attr.note||'No strong mod attribution is available yet. Run Incident Capture during the slowdown.')}</div>`;
     if($('tickDebugClearAttribution'))$('tickDebugClearAttribution').onclick=()=>clearProfilerList('mods',true);
   }
+  const history=$('tickDebugHistory');
+  if(history){
+    const ticks=d.profileSlowTicks||[],causes=d.profileSlowCauses||[];
+    history.innerHTML=`<h3>Slowest sampled ticks and recurring causes</h3><p class="small">Latest completed engine capture only. Threshold: 50ms. Up to 60 worst sampled ticks retained; frequencies count all sampled slow ticks, including discarded rows. Sampling may miss intervening ticks. Attribution names are candidates from profiler markers, not proof of a defect.</p><h4>Most common leading causes</h4>${causes.length?`<div class="tableWrap dataScroll"><table><thead><tr><th>Leading marker</th><th>Slow ticks</th><th>Worst tick</th><th>Likely owner</th></tr></thead><tbody>${causes.map(x=>`<tr><td>${esc(x.marker)}</td><td>${Number(x.count)}</td><td>${Number(x.worstTickMs).toFixed(1)}ms</td><td>${esc(x.modId||'Engine / unknown')} · ${esc(x.confidence)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="small">Run Incident Capture during a slowdown to collect evidence.</div>'}<h4>Worst ticks</h4><div class="tableWrap dataScroll"><table><thead><tr><th>Time</th><th>Duration</th><th>Leading work</th></tr></thead><tbody>${ticks.map(x=>`<tr><td>${esc(new Date(Number(x.unixMilliseconds)).toLocaleTimeString())}</td><td>${Number(x.tickMs).toFixed(1)}ms</td><td>${esc(x.topCauseSummary)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
   $('tickDebugActionOutput').textContent=last.output||'No native debug command has been run from this page yet.';
   $('tickDebugSlowOutput').textContent=slow.lastExcerpt||'No slow-tick capture has completed yet.';
   $('tickDebugLogPath').textContent=slow.logPath||'Current server log path will appear when a capture starts.';
@@ -12284,6 +12295,10 @@ async function loadProfiler(showLoading=true){
       row.onclick=()=>openModFilter(row.dataset.modId||'');
     });
 
+    const coverage=$('profAttributionCoverage');
+    if(coverage){ const summary=p.lastProfile||{},known=Number(summary.attributedMs||0),unknown=Number(summary.unattributedMs||0),total=known+unknown;
+      coverage.textContent=total>0?`Marker ownership coverage: ${(100*known/total).toFixed(1)}% · ${unknown.toFixed(1)}ms unresolved leaf work. Engine/shared markers often do not expose a mod owner. This is marker coverage, not percent of total server CPU. Use Incident Capture during the spike and inspect leading markers before blaming a mod.`:'No completed profile available for ownership coverage.';
+    }
     $('profTicks').innerHTML=(p.profileSlowTicks||[]).length
       ? (p.profileSlowTicks||[]).slice(0,15).map(x=>`<tr><td class="bad"><b>${Number(x.tickMs||0).toFixed(1)}ms</b></td><td class="codeCell" title="${esc(x.topCauseSummary)}">${esc(x.topCauseSummary)}</td></tr>`).join('')
       : '<tr><td colspan="2" class="muted">No ≥50ms ticks captured in the latest engine profile.</td></tr>';

@@ -17,7 +17,7 @@ namespace BlockLogger.ServerHealth;
 public sealed class ServerHealthService : IDisposable
 {
     private const int SampleIntervalMs = 1000;
-    private const int MaxSamples = 1800; // 30 minutes at one sample/second.
+    private const int MaxSamples = 3600; // 60 minutes at one sample/second.
     private const int MaxSlowSpikes = 50;
     private const int MaxDiagnosticIncidents = 100;
     private const double SlowSpikeThresholdMs = 150;
@@ -74,6 +74,8 @@ public sealed class ServerHealthService : IDisposable
         new(StringComparer.OrdinalIgnoreCase);
     private readonly List<double> profileTickDurationsMs = new();
     private readonly List<ServerProfileSlowTick> capturedSlowProfileTicks = new();
+    private readonly Dictionary<string, ServerProfileSlowCause> capturedSlowCauses = new(StringComparer.Ordinal);
+    private List<ServerProfileSlowCause> lastSlowCauses = new();
     private readonly List<ProfileLeafSample> profileLeafBuffer = new(256);
     private List<ModIdentity> modIdentities = new();
 
@@ -205,6 +207,7 @@ public sealed class ServerHealthService : IDisposable
         {
             int count = lastProfileSlowTicks.Count;
             lastProfileSlowTicks.Clear();
+            lastSlowCauses.Clear();
             cachedSmartAnalysis = new ServerSmartAnalysis();
             cachedSmartAnalysisUnixMilliseconds = 0;
             return count;
@@ -322,7 +325,7 @@ public sealed class ServerHealthService : IDisposable
     {
         lock (sync)
         {
-            int boundedWindowSeconds = Math.Clamp(windowSeconds, 60, 1800);
+            int boundedWindowSeconds = Math.Clamp(windowSeconds, 60, 3600);
             long cutoff = DateTimeOffset.UtcNow
                 .AddSeconds(-boundedWindowSeconds)
                 .ToUnixTimeMilliseconds();
@@ -366,7 +369,8 @@ public sealed class ServerHealthService : IDisposable
                 Hotspots = lastHotspots.Take(30).ToList(),
                 ModHotspots = lastModHotspots.Take(30).ToList(),
                 Phases = lastPhases.Take(30).ToList(),
-                ProfileSlowTicks = lastProfileSlowTicks.Take(30).ToList(),
+                ProfileSlowTicks = lastProfileSlowTicks.Take(60).ToList(),
+                ProfileSlowCauses = lastSlowCauses.ToList(),
                 OffThreadReports = lastOffThreadReports.Take(30).ToList(),
                 LoadedModCount = modIdentities.Count > 0
                     ? modIdentities.Count
@@ -477,6 +481,7 @@ public sealed class ServerHealthService : IDisposable
             modAccumulators.Clear();
             profileTickDurationsMs.Clear();
             capturedSlowProfileTicks.Clear();
+            capturedSlowCauses.Clear();
             profileAttributionCache.Clear();
             // Mod-token catalog construction is intentionally deferred to finalization. The profile
             // capture window should do the minimum possible work on the already-stressed game thread.
@@ -1851,6 +1856,13 @@ public sealed class ServerHealthService : IDisposable
             // Preserve the worst profiled ticks with their leading causes.
             if (tickMs >= 50)
             {
+                var leading = TopProfileLeaves(profileLeafBuffer, 1).FirstOrDefault();
+                string marker = leading.Path ?? "<no leaf markers>";
+                if (!capturedSlowCauses.ContainsKey(marker) && capturedSlowCauses.Count >= 256) marker = "<other leading markers>";
+                if (!capturedSlowCauses.TryGetValue(marker, out var cause))
+                    capturedSlowCauses[marker] = cause = new ServerProfileSlowCause { Marker = marker };
+                cause.Count++;
+                cause.WorstTickMs = Math.Max(cause.WorstTickMs, tickMs);
                 var causes = TopProfileLeaves(profileLeafBuffer, 4)
                     .Select(x => $"{ShortCode(x.Path, 72)} ({x.ElapsedMs:0.0}ms)")
                     .ToList();
@@ -2121,6 +2133,27 @@ public sealed class ServerHealthService : IDisposable
                     identity.Tokens.Add(new ModToken(assemblyName, 100, "High"));
             }
 
+            // Some entity/AI handlers live outside their ModSystem namespace. Include
+            // concrete types from the mod's own assemblies, never engine assemblies.
+            foreach (var assembly in mod.Systems.Where(x => x != null).Select(x => x.GetType().Assembly).Distinct())
+            {
+                string name = assembly.GetName().Name ?? "";
+                if (name.StartsWith("Vintagestory", StringComparison.OrdinalIgnoreCase)) continue;
+                Type[] types;
+                try { types = assembly.GetTypes(); }
+                catch (System.Reflection.ReflectionTypeLoadException ex) { types = ex.Types.Where(x => x != null).Cast<Type>().ToArray(); }
+                catch { continue; }
+                foreach (var type in types.Take(256))
+                {
+                    if (type.IsNested || type.Name.Contains('<') || string.IsNullOrWhiteSpace(type.FullName)) continue;
+                    identity.Tokens.Add(new ModToken(type.FullName!, 115, "High"));
+                    if (type.Name.Length >= 8) identity.Tokens.Add(new ModToken(type.Name, 90, "Medium"));
+                }
+            }
+            var unique = identity.Tokens.GroupBy(x => x.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.OrderByDescending(t => t.Score).First()).ToList();
+            identity.Tokens.Clear();
+            identity.Tokens.AddRange(unique);
             result.Add(identity);
         }
 
@@ -2327,6 +2360,7 @@ public sealed class ServerHealthService : IDisposable
         modAccumulators.Clear();
         profileTickDurationsMs.Clear();
         capturedSlowProfileTicks.Clear();
+        capturedSlowCauses.Clear();
         profileLeafBuffer.Clear();
         if (profileLeafBuffer.Capacity > ManualMaxProfileLeafSamplesPerTick)
             profileLeafBuffer.Capacity = ManualMaxProfileLeafSamplesPerTick;
@@ -2516,9 +2550,14 @@ public sealed class ServerHealthService : IDisposable
                 .Take(120)
                 .ToList();
 
+            lastSlowCauses = capturedSlowCauses.Values.Select(c => {
+                var owner = ResolveModAttribution(c.Marker);
+                return new ServerProfileSlowCause { Marker = c.Marker, Count = c.Count, WorstTickMs = c.WorstTickMs,
+                    ModId = owner.IsAttributed ? owner.ModId : "", Confidence = owner.Confidence };
+            }).OrderByDescending(c => c.Count).ThenByDescending(c => c.WorstTickMs).ToList();
             lastProfileSlowTicks = capturedSlowProfileTicks
                 .OrderByDescending(x => x.TickMs)
-                .Take(30)
+                .Take(60)
                 .ToList();
 
             cachedSmartAnalysisUnixMilliseconds = 0;
@@ -2665,6 +2704,7 @@ public sealed class ServerHealthSnapshot
     public List<ServerProfilerModHotspot> ModHotspots { get; set; } = new();
     public List<ServerProfilerPhase> Phases { get; set; } = new();
     public List<ServerProfileSlowTick> ProfileSlowTicks { get; set; } = new();
+    public List<ServerProfileSlowCause> ProfileSlowCauses { get; set; } = new();
     public List<ServerProfilerOffThreadReport> OffThreadReports { get; set; } = new();
     public int LoadedModCount { get; set; }
     public bool ProfileRunning { get; set; }
@@ -2909,6 +2949,15 @@ public sealed class ServerProfilerPhase
     public double PercentOfProfileTickTime { get; set; }
     public string ModId { get; set; } = "";
     public string AttributionConfidence { get; set; } = "Low";
+}
+
+public sealed class ServerProfileSlowCause
+{
+    public string Marker { get; set; } = "";
+    public int Count { get; set; }
+    public double WorstTickMs { get; set; }
+    public string ModId { get; set; } = "";
+    public string Confidence { get; set; } = "Low";
 }
 
 public sealed class ServerProfileSlowTick
