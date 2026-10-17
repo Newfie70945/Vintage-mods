@@ -24,7 +24,7 @@ Final default-active, master-disabled and Suite 1.2.44 co-load checks used a dis
 
 The active idle capture recorded real online-snapshot replacement calls. The bulk-copy path was not invoked by that idle world; its correctness/performance evidence comes from the differential tests and component measurements, not an invented idle traffic workload.
 
-Summaries are in `research/server-smoke-summary-0.2.0.json`. These were approximately 30-second **functional smoke checks**, with no authenticated clients. They do not establish multiplayer performance, long-session stability, retained-memory improvements, graphical behavior or complete modpack compatibility.
+Summaries and binary hashes are in `research/server-smoke-summary-0.2.0.json`. The final shipping Suite co-load was repeated after refining runtime-name detection to allow StratumLoadTester while blocking StratumServer; the earlier active/disabled runs exercised the same API prefix implementations. These were approximately 30-second **functional smoke checks**, with no authenticated clients. They do not establish multiplayer performance, long-session stability, retained-memory improvements, graphical behavior or complete modpack compatibility.
 
 ## External workload
 
