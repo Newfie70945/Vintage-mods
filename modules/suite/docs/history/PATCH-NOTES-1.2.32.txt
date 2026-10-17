@@ -1,0 +1,65 @@
+Newfie's Server Suite 1.2.32 - Dashboard + ChatGuard Integration Polish
+
+Changes
+- Added Clear All for retained Log Intelligence Issue Signatures without deleting server logs or Bad Block Entity Tracker history.
+- Added custom one-off restart scheduling with a delay and custom reason, independent of the recurring UTC restart scheduler.
+- Added persisted per-command enable/disable overrides with individual controls in Command Availability.
+- Added Tick Debugging enable/disable controls, explicit sidebar ON/OFF state, and a horizontal six-metric summary strip.
+- Made the Web Endpoint Safety Matrix a shorter scrollable table.
+- Added a dedicated ChatGuard Banned Words tab/editor while keeping ChatGuard at 2.1.1.
+- Strengthened Supporter Lamp client rendering and raised the emitted dynamic-light level; Player List is 1.1.1 BuildFix4.
+- Improved the existing ChatGuard WebPanel page for ChatGuard 2.1.1 with Protection Posture, per-rule session hits, a server-authoritative dry-run Rule Tester, online-player context, and recent-activity filters.
+- Added full WebPanel parity for Newfie's ChatGuard 2.1.1 moderation state and actions.
+- Added permanent mute support to the Suite ChatGuard control surface.
+- Added active warning inspection and warning clearing.
+- Added reasoned unmute handling and raised WebPanel temporary mute maximum to ChatGuard's 30-day ceiling.
+- Added a ChatGuard player moderation inspector.
+- Improved the main Dashboard with a Needs Attention panel and Operations Snapshot.
+- Needs Attention highlights Action Center alerts, main-thread delay, BlockLogger loss/backlog, ChatGuard LogOnly mode, and Smart Diagnosis investigate state with direct page links.
+- Operations Snapshot summarizes players, alerts/actions, ChatGuard sanctions, BlockLogger state, latest lag evidence, and WebPanel sessions.
+
+Additional retained 1.2.32 polish
+- Renamed the visible System Health page to Suite Health while retaining internal health route/API identifiers.
+- Added supporter nicknames and WebPanel Nickname (RealName) identity presentation.
+- Added compact server-backed Clear controls for long-running Profiler, lag-incident, and Tick Debugger diagnostic lists.
+- Improved the global WebPanel status strip with overall Suite health, page context, prioritized live metrics, and clickable module health chips.
+- Added clickable yellow/red lag-spike markers that open the right-side lag-spike investigation drawer with archived and live evidence.
+- Fresh chat-display configs default to bold player names with timestamps disabled.
+- Retained the ChatDisplay global::System.Func compile fix and duplicate SafeFileLength removal.
+
+Version invariants
+- Server Suite: 1.2.32
+- Client Integrity: 1.1.24
+- Anti-Cheat protocol: 13
+- Player List: 1.1.1 BuildFix4
+- ChatGuard: 2.1.1
+
+Current Build ID
+newfies-server-essentials-suite-1.2.32-nicknamechatfix1-2026.09.24
+
+Patch Studio / OreShield / Profiler retained upgrade (2026-09-24)
+- Added Server Tools > Patch Studio with constrained declarative Harmony recipes, editing, disabled template generation, runtime telemetry, and profiler-driven investigation suggestions.
+- OreShield now conceals all protected ore in shared chunk packets and restores only nearby exposed ore per recipient; revision races fail closed.
+- Automatic engine-profiler bursts reduced to 3s / 750ms+ trigger / 300s cooldown with 512-leaf cap, 100ms sampling, deferred mod attribution, and no automatic off-thread collection.
+
+Administration customization / Anti-Cheat / teleport role policy retained upgrade (2026-09-24)
+- Added Administration > Suite Customization for safe WebPanel branding/presentation settings and live preview.
+- Added a Quick Enforcement Setup for Anti-Cheat with common actions, risk thresholds, timed duration, validation, and review-before-save behavior while retaining the advanced consequence editor.
+- Added per-role access and cooldown policy for /spawn, /home, /back, /warp, and /rtp. Cooldown -1 inherits, 0 disables cooldown, and positive values override per role.
+- Role policy is backwards-compatible when no override exists; existing per-warp access rules still apply in addition to the global /warp role policy.
+
+MOTD runtime compatibility + JSON/Recipe Patch Studio retained upgrade (2026-09-24)
+- Community MOTD GUI no longer calls AddDialogTitleBar, avoiding a Vintage Story 1.22.7 runtime MissingMethodException caused by reference/runtime overload drift.
+- Patch Studio now includes JSON & Recipe Patches. Enabled definitions generate a managed NewfiesSuiteContentPatches content mod under the server data Mods directory and are applied on the next restart.
+- Supports add, addMerge, addEach, remove, replace, move, and copy plus recipe helpers for output quantity, ingredient quantity/code, and recipe enable/disable.
+- Content patch writes are owner-controlled, validated as JSON, audited, and surfaced as restart-required instead of mutating loaded recipes at runtime.
+
+MS5 UI polish (versions unchanged):
+- ChatGuard standalone GUI header/top-right controls moved inward to avoid edge overlap.
+- Added a dedicated Banned Words tab for enabling the blocked-term rule, choosing action/mute duration, and adding/removing/clearing/saving blocked words and phrases.
+- Web Map Layers control/panel polished with a visible enabled-layer count, clearer grouping, hover states, and improved panel styling.
+- Web Map marker popup polished with stronger separation, spacing, close-button placement, and a subtle open animation.
+
+- Discord module updated to 1.0.7 with Community MOTD feed-provider support for Announcements, Updates, and Events Discord channels.
+
+- Community MOTD Community tab removed from the player GUI and WebPanel editor for now; compatibility config fields remain internal and are forced disabled.

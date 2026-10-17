@@ -1,0 +1,18 @@
+OreShield v3.2.7 - public-player routing cleanup
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v327-routingcleanup1-ac1126-2026.09.27
+
+Fixes applied from the v3.2.6 audit:
+- Removed ConnectedClient/DidSendChunk gating from LOS discovery, reveal dispatch and client resync.
+- Converted all-player discovery/exposure/bulk correction paths to api.World.AllOnlinePlayers / IServerPlayer.
+- Client Integrity sync is now the primary reveal path; native SetBlock runs only when custom sync is unavailable or fails.
+- Recipient chunk hook resolves the public player by UID/ClientId and masks fail-closed when mapping cannot be resolved.
+- Extended server fallback delay from 1.2s to 9s, beyond the client's 5s deferred-load window plus 2.5s stabilization window.
+- Final failed ACKs retire old pending server sequences; the client resync request owns retry.
+- Superseded client cell syncs retire their older sequence bookkeeping instead of stranding ACKs.
+- Fixed dimension reconstruction for chunk-local block positions on both server and client.
+- Removed unused legacy custom SetBlocks sender/packer.
+
+Versions remain:
+- Server Suite 1.2.35
+- Client Integrity 1.1.26
+- Protocol 13

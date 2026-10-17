@@ -1,0 +1,26 @@
+Newfie's Server Suite 1.2.35 - OreShield v3.1 Hardening
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-oreshield-v31-hardening1-2026.09.27
+
+OreShield v3.1 improvements:
+- LOS now uses Vintage Story's real block selection/intersection geometry. Partial blocks, doors, slabs and modded selectable geometry can block discovery instead of being ignored by the host-rock cube classifier.
+- Added a per-chunk exposed-ore candidate index. Periodic LOS discovery no longer revisits every fully buried protected ore.
+- Visibility scans are movement/view driven. Stationary players are skipped until movement, a meaningful turn, or the bounded idle safety rescan is due.
+- Added configurable server view cone (default 140 degrees) and idle safety rescan (default 3000 ms).
+- Per-player discovery storage is now chunk-local, making recipient chunk masking and discovery lookups O(1) by chunk instead of walking the full session discovery history.
+- Optional whole-vein reveal remains OFF by default. If enabled, traversal remains 6-face only and now requires the same host rock and ore-family key, preventing touching unrelated ores from merging into one revealed vein.
+- Added cheap outbound leak-invariant auditing for OreShield-owned chunk/update paths. WebPanel reports checks and violations.
+- Chunk-boundary load handling now refreshes only exposure-index boundary candidates; masking no longer depends on neighboring chunk availability.
+- Existing miner fast-path remains: newly exposed face-adjacent ore is authorized to the player who actually broke the covering block before correction synchronization.
+- No forceSendChunks and no ExchangeBlock reveal path.
+
+Config schema: 60
+New settings:
+- OreShieldViewConeDegrees: 140 (90-180)
+- OreShieldIdleRescanMs: 3000 (500-15000)
+- OreShieldLeakAuditEnabled: true
+
+Module versions unchanged:
+- Server Suite 1.2.35
+- Community MOTD 2.1.2
+- Discord 1.0.8
+- Anti-Cheat Client 1.1.26 / protocol 13

@@ -1,0 +1,16 @@
+Newfie's Server Suite 1.2.35 - MS11 Polish Pass 1
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-oreshield-v329-breakfix2-polish1-ac1126-2026.09.27
+
+No public component versions changed. OreShield reveal/mining behavior remains the working v3.2.9 BreakFix2 baseline.
+
+Polish changes:
+- Updated OreShield WebPanel copy from stale v3.1 wording to v3.2.9 runtime behavior.
+- Renamed old native-correction-era telemetry labels to sync-only terminology.
+- Added live pending-sync and per-runtime discovery-cache telemetry.
+- Surface OreShield sync protocol/capability/build marker directly in Runtime Efficiency.
+- Keep the forced unknown-neighbor concealment control visibly read-only for all WebPanel roles.
+- Fixed duplicated Leak Audit detail in the generated WebPanel source.
+- Treat sync timeouts, unsupported clients, player-resolution misses, rejected hellos and apply failures as degraded dashboard health.
+- Updated runtime status text and stale v3.1 source comments.
+- Normalized VERSIONS/current build metadata to BreakFix2 Polish1.
+- Refreshed workspace documentation to describe the current MS11 baseline instead of old MS5 development notes.

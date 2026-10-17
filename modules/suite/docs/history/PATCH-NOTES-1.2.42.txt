@@ -1,0 +1,72 @@
+# Suite 1.2.42 — consolidated improvement pass
+
+Changes after public Suite **1.2.41**. Includes the MapMemory1, MemoryAudit1, MemoryAudit2 and Improve1 passes, now aligned to the real public versions. Internal draft numbers do not represent separate public releases. Website source is **2.7.4**.
+
+## Server Essentials Suite 1.2.42
+
+- Decode startup map exports without loading world chunks or reconstructing saved entities, block entities, decorations and mod data. Missing height metadata uses a detached terrain scan.
+- Reduce export chunk pools, release their arrays when export finishes, and avoid retaining large overview buffers in shared pools. Add export cleanup and memory diagnostics.
+- Preserve the current map and pending terrain changes after database read failures; avoid silently falling back to the heavier world loader.
+- Bound and expire PacketGuard diagnostic identities; clear disconnected-player and stopped-service state.
+- Limit Mod DB verification to 512 pending/in-progress requests, 1,024 cached results and an estimated 64 MiB. Prioritize installed baselines; cancellation releases reservations and prevents late publication.
+- Explain substantial GC fragmentation when the post-GC memory floor is stable or falling.
+- Complete waiting logger requests with errors when workers stop or migrations fail. Reject new requests on stopped workers and make shutdown repeatable.
+- Show failed SQLite searches as errors instead of empty results.
+- Retain and retry dirty-map journal rows after write failures. Bound append batches and combine burst wakeups.
+- Make dirty-map snapshot generations and export acknowledgements atomic; protect newer edits and preserve state after failed compaction.
+- Serialize admin snapshot capture and persistence so an old save cannot clear or overwrite a newer request.
+- Load inventory snapshot headers at startup and fetch item data only when requested, reducing memory retained for historical players.
+- Release snapshot payloads only after successful commits; preserve unsaved data for retry and unloaded historical data on disk.
+- Validate all snapshot items and backpack capacity before restoring an inventory; restore bags before their contents.
+- Avoid repeating retention SQL for every historical player on every save.
+- Reject invalid and overflowing moderation durations.
+- Preserve map opt-outs when their saved file is unreadable, malformed or incompatible; hide coordinates until privacy state is recovered.
+- Commit waypoint changes only after successful saves; protect unreadable and unsupported stored data.
+- Prevent stale public map and activity refreshes from publishing after settings or privacy changes.
+- Clear WebPanel diagnostic snapshot caches when the listener stops; paused cold requests do no snapshot work.
+- Improve role draft controls and unsaved-change navigation protection. Prevent overlapping or outdated player-role, console and database responses.
+- Dispose Shift+L resources when closed, stop profiler polling, ignore late replies and unregister temporary waypoint dialogs.
+- Align project, assembly, runtime build identity, Windows/Linux build scripts and packages to **1.2.42**. Enforce exactly the next public patch for edited published mods.
+
+## Discord Integration 1.0.12
+
+- Prune expired linking codes, issuance cooldown records and failed-attempt histories, including idle cleanup.
+- Bound pending codes and temporary identities while preserving active cooldowns and rate limits. Clear temporary linking state on shutdown.
+- Cache Discord MOTD feeds for 30 seconds, handle background failures with bounded retries, suppress unchanged feed events and ignore late completion after disposal.
+- Protect unreadable linked-account and role synchronization stores from replacement. Stop role mutations when ownership state is unavailable.
+- Roll back in-memory mappings on failed writes and consume linking codes only after successful persistence.
+- Align runtime reporting and compiled packages to **1.0.12**, following public 1.0.11.
+
+## Client Integrity 1.1.28
+
+- Release and unregister closed transfer-consent dialogs and textures. Keep accept/decline decisions one-time.
+- Preserve protocol **13** and networkVersion compatibility label **1.1.21**.
+
+## Community MOTD 2.1.5
+
+- Dispose replaced composers and textures on tab changes and live refreshes.
+- Reuse one dialog for repeated requests. Release textures on close; unregister the dialog and remove its temporary logo at shutdown.
+
+## ChatGuard 2.1.4
+
+- Release closed/replaced GUI textures and dialog/hotkey registrations.
+- Ignore late or out-of-order admin replies and handle reconnect send failures.
+
+## Player List 1.1.2
+
+- Unregister disposed HUDs and release replaced compositor textures.
+- Reuse unchanged supporter light state and validate packet color ranges.
+- Match the compiled assembly version with release metadata.
+
+## Website 2.7.4
+
+- Reduce the new password minimum from 12 to **6 characters** across registration, password changes, bootstrap and owner reset tools. Maximum stays 128; usernames stay 3–24.
+- Count Unicode password characters consistently in PHP, Node and browser validation.
+- Add accessible password reveal controls and immediate confirmation checks. Reject malformed bootstrap usernames and explain missing PHP reset input.
+- Improve editor preview scheduling, field validation and focus feedback; preserve the cursor during Ctrl+S.
+- Preserve map detail when switching layers after panning; improve dimension-aware searches and responsive controls.
+- Cancel stale map requests and clean up image work, polling and observers when leaving the page.
+
+Website Connector **1.1.1** is unchanged; no matching public listing was verified. OreShield sync v3 and existing configuration choices are preserved.
+
+The memory fixes address reproduced retention and resource-lifetime defects. They do not establish the cause of the entire production server's reported memory footprint.

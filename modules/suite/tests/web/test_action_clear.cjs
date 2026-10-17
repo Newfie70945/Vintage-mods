@@ -1,0 +1,19 @@
+const assert=require('node:assert/strict'),{chromium}=require('playwright'),html=process.env.NSS_UI_HTML?require('fs').readFileSync(process.env.NSS_UI_HTML,'utf8'):require('./embedded_page.cjs')();
+(async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];let accept=true,fail=false;
+ const data={diagnosticsEnabled:true,alerts:[{id:'one',status:'Active',severity:'High',category:'Memory',title:'Memory alert',evidence:'Measured example',occurrences:1}],actions:[{id:'todo',status:'Open',priority:'High',category:'Memory',title:'Review memory',reason:'Measured example',sourceKey:'memory'}]};
+ page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>accept?d.accept():d.dismiss());
+ await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url());if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:html});let body={};
+ if(u.pathname==='/api/operations/overview')body=data;
+ if(u.pathname==='/api/operations/clear'){const posted=req.postDataJSON();writes.push(posted);if(fail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'Fixture save failed'})});if(posted.target==='actions'){for(const item of data.actions)if(posted.ids.includes(item.id))item.status='Cleared';}else data.alerts=data.alerts.filter(x=>!posted.ids.includes(x.id));body={success:true,cleared:posted.ids.length};}
+ return route.fulfill({contentType:'application/json',body:JSON.stringify(body)});});
+ await page.goto('http://action-clear.invalid/');await page.evaluate(()=>{showApp({username:'Fixture',role:'Owner',owner:true,safeDiagnosticsMode:true});setSection('actionCenter',false);});await page.evaluate(()=>loadActionCenter());
+ assert.match(await page.textContent('#actionRows'),/Review memory/);accept=false;await page.click('#actionClearAll');assert.equal(writes.length,0,'Cancelled clear sends nothing');
+ accept=true;fail=true;await page.click('#actionClearAll');await page.waitForFunction(()=>!actionClearBusy);assert.match(await page.textContent('#actionRows'),/Review memory/,'Failure retains rows');
+ fail=false;await page.click('[data-action-clear="todo"]');await page.waitForFunction(()=>!actionClearBusy);assert(!/Review memory/.test(await page.textContent('#actionRows')));assert.equal(await page.locator('#actionClearAll').isDisabled(),true);assert.match(await page.textContent('#alertRows'),/Memory alert/,'Clearing actions does not clear alerts');
+ await page.click('#alertClearAll');await page.waitForFunction(()=>!actionClearBusy);assert.equal(await page.locator('#alertClearAll').isDisabled(),true);assert.deepEqual(writes.at(-1),{target:'alerts',ids:['one']});
+ data.alerts=[{id:'new',status:'Active',severity:'High',category:'Storage',title:'New alert'}];data.actions=[{id:'new-action',status:'Open',title:'New action'}];await page.evaluate(()=>loadActionCenter());
+ for(const width of [390,320]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Clear controls fit mobile');}
+ const before=writes.length;await page.evaluate(()=>{currentSessionRole='ReadOnly';renderActionCenter(operationsData);clearActionCenter('alerts');clearActionCenter('actions');});assert.equal(writes.length,before);assert.equal(await page.locator('#alertClearAll').isDisabled(),true);assert.equal(await page.locator('#actionClearAll').isDisabled(),true);assert.equal(await page.locator('[data-action-clear]').isDisabled(),true);
+ assert.deepEqual(errors,[]);console.log('PASS: Action Center bulk/per-item clear, cancel/failure retention, independent queues, empty state, reviewed ID payloads, read-only guards and mobile controls.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

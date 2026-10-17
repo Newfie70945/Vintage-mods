@@ -1,0 +1,12 @@
+OreShield v3.2.9 - sync validation and apply recovery
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v329-syncvalidation1-ac1126-2026.09.27
+
+- Client Integrity public version remains 1.1.26 and Anti-Cheat protocol remains 13.
+- OreShield dedicated sync sub-protocol is bumped from v1 to v2.
+- The sync hello now carries exact capability and build markers (sync-remesh-v2 / ac1126-oreshield-v329).
+- Stale experimental 1.1.26 clients are not marked sync-ready; rejected hello attempts are counted and logged.
+- Final client ACKs now track applied and failed entries separately.
+- A final ACK containing failed applies is not treated as success; OreShield rebuilds the currently-authorized chunk state and retries once.
+- WebPanel adds rejected hello, applied block, client apply failure, failure-batch, and failure-resync telemetry.
+- Single SetBlock and player-placement hook positions now preserve embedded InternalY dimensions and fall back to the player's server dimension when hook Y is local.
+- Native SetBlock reveal transport remains retired; Client Integrity sync remains the sole reveal/reconceal transport.

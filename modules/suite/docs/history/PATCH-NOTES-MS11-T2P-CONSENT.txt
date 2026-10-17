@@ -1,0 +1,14 @@
+Newfie's Server Suite 1.2.35 - T2P Consent
+
+- /t2p <player> no longer teleports immediately.
+- The destination player must accept with /tpaccept within 60 seconds.
+- After acceptance, /t2p waits 10 seconds and then teleports the requester to the target player's current position.
+- /tpaccept now handles both /t2p and /t2m consent requests.
+- The requester's configured role/cooldown policy is rechecked at acceptance and completion.
+- The /t2p cooldown is charged only after a successful accepted teleport.
+- Disconnects, jail state, disabled commands, conflicting teleports, and expired requests cancel safely.
+
+Unchanged companion versions:
+- Client Integrity / Anti-Cheat Client 1.1.26 (protocol 13)
+- Discord 1.0.8
+- Community MOTD 2.1.2

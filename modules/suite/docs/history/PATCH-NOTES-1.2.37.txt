@@ -1,0 +1,16 @@
+Newfie's Server Essentials 1.2.37 - OreShield MaskHookFix2
+2026-09-28
+
+- Fixes the MaskHookFix1 compile typo in OreShieldService.cs.
+- Broadens recipient chunk masking discovery across every compatible ServerSystemSendChunks method that returns Packet_ServerChunk and carries both ServerChunk and ConnectedClient context; no longer depends on the method being named collectChunk.
+- Logs every patched chunk-send method signature at startup for live verification.
+- Adds per-packet deduplication so nested compatible send wrappers cannot process the same Packet_ServerChunk instance twice.
+- Makes masking decisions from the authoritative ServerChunk instead of trusting packet bytes, keeping concealment/reveal idempotent even if another wrapper sees an already-masked packet.
+- Unsupported chunk compression and masking exceptions now substitute a fail-closed authoritative chunk payload with protected ore concealed instead of allowing the original ore-bearing packet through.
+- Single/bulk protected-ore update hook failures now fail closed too: protected ore is replaced/stripped, and a bulk packet is dropped if its safety filter cannot complete.
+- Protected natural ore with no valid host mapping is concealed as air and counted as a fail-closed cell instead of leaking the real ore ID.
+- Adds ChunkMaskUniquePackets, FailClosedChunkPackets, and FailClosedCells telemetry.
+- WebPanel now distinguishes hook-dead, hook-running-but-ineligible, and mask-eligible-but-ineffective states. A leak audit with zero checks is shown as Not exercised instead of Clean.
+- Preserves per-player discovery state and verified sync readiness across an OreShield settings-only runtime restart, avoiding rediscovery and the prior 30-second readiness gap.
+- Retains the 180-degree LOS correction from MaskHookFix1: 180 degrees means the forward hemisphere, not 360-degree discovery.
+- Client Integrity is unchanged at 1.1.27. OreShield sync remains v3 / sync-remesh-v3 / ac1127-oreshield-v329-perf1.

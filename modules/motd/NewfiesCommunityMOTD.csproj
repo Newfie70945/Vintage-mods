@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>NewfiesCommunityMOTD</AssemblyName>
+    <RootNamespace>NewfiesCommunityMOTD</RootNamespace>
+    <Version>2.1.6</Version>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!--
+      Output goes to bin\Debug\ or bin\Release\ without a framework subfolder,
+      making it easy to copy directly to your Mods folder.
+    -->
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!--
+    ══════════════════════════════════════════════════════════════════════════
+      Set the VINTAGE_STORY environment variable to your VS install path.
+
+      Windows — System Properties → Environment Variables → New:
+        Name:   VINTAGE_STORY
+        Value:  C:\Program Files\Vintagestory
+
+      Or override per-machine by creating Directory.Build.props next to the
+      .sln file (do not commit this file):
+        <Project><PropertyGroup>
+          <VINTAGE_STORY>C:\your\path\here</VINTAGE_STORY>
+        </PropertyGroup></Project>
+    ══════════════════════════════════════════════════════════════════════════
+  -->
+
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)\VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VintagestoryLib">
+      <HintPath>$(VINTAGE_STORY)\VintagestoryLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Vintage Story 1.22.x ships Cairo in Lib; GuiDialogMotd uses ImageSurface for server-provided PNG rendering. -->
+    <Reference Include="cairo-sharp" Condition="Exists('$(VINTAGE_STORY)\Lib\cairo-sharp.dll')">
+      <HintPath>$(VINTAGE_STORY)\Lib\cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="CairoSharp" Condition="!Exists('$(VINTAGE_STORY)\Lib\cairo-sharp.dll') and Exists('$(VINTAGE_STORY)\Lib\CairoSharp.dll')">
+      <HintPath>$(VINTAGE_STORY)\Lib\CairoSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(VINTAGE_STORY)\Lib\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VINTAGE_STORY)\Lib\protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Copy mod assets and modinfo alongside the DLL on every build -->
+  <ItemGroup>
+    <Content Include="$(MSBuildProjectDirectory)\assets\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)\modinfo.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(MSBuildProjectDirectory)\ModConfig\newfiescommunitymotd.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>ModConfig\newfiescommunitymotd.json</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

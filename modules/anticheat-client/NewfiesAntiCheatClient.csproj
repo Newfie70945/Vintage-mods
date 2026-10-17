@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>NewfiesAntiCheatClient</AssemblyName>
+    <RootNamespace>NewfiesAntiCheatClient</RootNamespace>
+    <Version>1.1.28</Version>
+    <Product>Newfies AntiCheat Client</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <None Update="modinfo.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+  </ItemGroup>
+  <Target Name="ValidateVintageStoryReferences" BeforeTargets="ResolveReferences">
+    <!--
+      Do not validate the game version with GetAssemblyIdentity here. Some official
+      Vintage Story 1.22.7 installations report a generic VintagestoryAPI assembly
+      identity (for example 1.0.0.0). Ore Shield performs the exact 1.22.7 safety
+      check at runtime by reflecting GameVersion.ShortGameVersion from the assembly
+      actually loaded by the server.
+    -->
+    <Error
+      Condition="'$(VINTAGE_STORY)' == ''"
+      Text="VINTAGE_STORY is not set. Point it to your Vintage Story 1.22.7 install folder before building." />
+    <Error
+      Condition="'$(VINTAGE_STORY)' != '' and !Exists('$(VINTAGE_STORY)/VintagestoryAPI.dll')"
+      Text="VINTAGE_STORY must point to the Vintage Story install folder. VintagestoryAPI.dll was not found at $(VINTAGE_STORY)." />
+  </Target>
+
+</Project>

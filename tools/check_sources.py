@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""Catch fixture drift, version inconsistencies and oversized ModDB descriptions."""
+"""Check version, fixture and listing consistency for the active author sources."""
 from pathlib import Path
-import json,re
-root=Path(__file__).resolve().parents[1]
-cs=(root/'suite/source/BlockLogger.WebDashboard/WebDashboardMotdScript.cs').read_text()
+import json,re,xml.etree.ElementTree as ET
+root=Path(__file__).resolve().parents[1];manifest=json.loads((root/'modules/manifest.json').read_text())
+cs=(root/'modules/suite/src/WebDashboard/WebDashboardMotdScript.cs').read_text()
 for key in ['Declarations','Bindings']:
-    match=re.search(r'public const string '+key+r' = ("(?:[^"\\]|\\.)*");',cs)
-    assert match, key
-    assert json.loads(match[1])==(root/'tests/web'/('motd-editor-'+key+'.js')).read_text(), 'Embedded editor fixture drift: '+key
-for name in ['suite','motd']:
-    version=json.loads((root/name/'release/modinfo.json').read_text())['version']
-    info=(root/name/'source/Properties/AssemblyInfo.cs').read_text()
-    assert 'AssemblyVersion("'+version+'.0")' in info
-for path in (root/'descriptions').glob('*.html'):
-    assert path.stat().st_size<60000,path
-print('Source consistency checks passed')
+ match=re.search(r'public const string '+key+r' = """\n(.*?)\n""";',cs,re.S)
+ assert match and match[1]==(root/'tests/web'/('motd-editor-'+key+'.js')).read_text(),'Editor fixture drift: '+key
+for item in manifest['mods']:
+ path=root/item['path'];version=json.loads((path/'modinfo.json').read_text())['version']
+ project=ET.parse(path/(item['assembly']+'.csproj')).getroot()
+ assert version==item['version']==project.findtext('.//Version'),item['id']
+print('Module versions and editor fixtures are consistent')

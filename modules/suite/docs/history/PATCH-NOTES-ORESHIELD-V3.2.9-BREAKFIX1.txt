@@ -1,0 +1,13 @@
+OreShield v3.2.9 BreakFix1
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v329-breakfix1-ac1126-2026.09.27
+
+- Fixed protected ore sometimes reappearing immediately after being mined, forcing the player to break the same block twice.
+- Root cause: Client Integrity intentionally stabilizes a revealed/concealed OreShield cell for 2.5 seconds; if the real block was mined during that window, the stale pending cell could see the vanilla air update and write the old ore/host state back.
+- Protected ore breaks now send the server's post-break block state (normally air) through a new apply-once OreShield sync mode. Apply-once packets supersede the stale pending cell but do not start another 2.5-second stabilization window.
+- The client also treats authoritative air observed after a stabilized cell has already applied as a real removal and retires the stale cell instead of resurrecting it.
+- Failed/timeout apply-once packets retry the same coordinate in apply-once mode using the server's current block state.
+- A placement into a protected-ore cell mined within the last 10 seconds sends one apply-once current-state correction, closing the mine-then-immediately-place race without adding extra packets to normal building everywhere.
+- Air block ID 0 is explicitly accepted by the client sync validator.
+- OreShield sync protocol remains v2, but the exact build marker is now `ac1126-oreshield-v329-breakfix1`, so both Server Suite and Client Integrity must be rebuilt for this test.
+- Public Client Integrity stays 1.1.26 and Anti-Cheat protocol stays 13.
+- Native SetBlock reveal remains retired; Client Integrity sync remains the sole OreShield reveal/correction transport.

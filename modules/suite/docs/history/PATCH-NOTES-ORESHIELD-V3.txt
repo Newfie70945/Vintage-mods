@@ -1,0 +1,35 @@
+Newfie's Server Suite 1.2.35 - OreShield v3 LOS discovery pass
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-oreshield-v3-los1-2026.09.27
+
+Security model
+- All protected ore is concealed by default, including ore exposed to cave air.
+- Chunk masking now runs at the recipient-aware ServerSystemSendChunks.collectChunk stage.
+- A player receives the real ore ID only after server-side line-of-sight from that player's authoritative character/eye position.
+- Legitimate discoveries are one-way for the current session.
+- Geometry exposure is only a cheap eligibility filter; exposure alone never authorizes reveal.
+- Whole-vein reveal defaults OFF and schema migration 59 disables it on upgrade from older schemas.
+- If operators re-enable whole-vein reveal, connected-vein traversal is face-adjacent (6-neighbor), not diagonal/corner 26-neighbor.
+
+Reliability/performance
+- Recipient chunk packets use a common fully-concealed cache for players with no discoveries in that chunk.
+- Recipient-specific discovered chunks are rebuilt from the authoritative packet and are not cached as shared payloads.
+- The protected-ore candidate index is mandatory for cached chunk reuse; if the index was evicted, it is rebuilt instead of serving an untraceable cached chunk.
+- LOS discovery scans only chunks already sent to the player and only protected ore candidates.
+- Fully enclosed candidates are rejected before ray tracing.
+- Ray checks are bounded by OreShieldMaxLosChecksPerPass and run at OreShieldVisibilityScanIntervalMs.
+- Missing candidate indexes are rebuilt on demand from the authoritative loaded ServerChunk.
+- Break/place/world-change events immediately re-evaluate nearby candidates so newly visible ore does not wait for a full scan cycle.
+- No forceSendChunks, no full chunk resend loops, no radius-only reveal, and no re-conceal after legitimate discovery.
+
+Defaults
+- OreShieldDiscoveryRangeBlocks: 96
+- OreShieldVisibilityScanIntervalMs: 250
+- OreShieldMaxLosChecksPerPass: 96
+- OreShieldRevealWholeVeinOnMine: false
+- Config schema: 59
+
+Unchanged module versions
+- Server Suite: 1.2.35
+- Community MOTD: 2.1.2
+- Discord: 1.0.8
+- Anti-Cheat Client: 1.1.26 / protocol 13

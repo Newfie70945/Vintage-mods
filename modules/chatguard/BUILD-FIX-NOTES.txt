@@ -1,0 +1,7 @@
+Newfie's ChatGuard 2.0.0 - BuildFix1 (retained in 2.1.0)
+
+Vintage Story 1.22.7 compile compatibility fixes:
+- Replaced the direct IServerEventAPI.UnregisterEventBusListener call with a runtime compatibility shim. Some 1.22.7 reference sets do not expose that method on IServerEventAPI; the callback is still guarded by the disposed flag when unregister is unavailable.
+- Fixed FindOnline return typing by filtering api.World.AllOnlinePlayers (IPlayer[]) through OfType<IServerPlayer>() before FirstOrDefault.
+
+Originally shipped without a public version bump; fixes are retained in 2.1.0.

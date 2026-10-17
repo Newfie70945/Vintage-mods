@@ -1,0 +1,16 @@
+{
+  "type": "code",
+  "modid": "newfiesplayerlist",
+  "name": "Newfie's Player List",
+  "authors": [
+    "Newfie"
+  ],
+  "description": "Standalone-capable universal player list for Vintage Story. Install it on a server for automatic client distribution, or install it locally for standalone use; Server Suite integration is optional.",
+  "version": "1.1.2",
+  "side": "Universal",
+  "requiredOnServer": false,
+  "requiredOnClient": true,
+  "dependencies": {
+    "game": "1.22.7"
+  }
+}

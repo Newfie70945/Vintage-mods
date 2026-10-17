@@ -1,0 +1,15 @@
+{
+  "SchemaVersion": 3,
+  "ShowRoleBeforeName": false,
+  "BoldPlayerName": true,
+  "ShowTimestampBeforeMessage": false,
+  "TimestampFormat": "HH:mm",
+  "UseUtcTimestamp": false,
+  "FormatGeneralChat": true,
+  "FormatOtherChatGroups": false,
+  "AdditionalFormattedChatGroupIds": [],
+  "MarkdownEnabled": true,
+  "MarkdownAllowColors": false,
+  "MarkdownAllowLinks": false,
+  "MarkdownAllowedRoleCodes": []
+}

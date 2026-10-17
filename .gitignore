@@ -26,3 +26,15 @@ Cache/
 Logs/
 artifacts/
 dist/
+
+**/Directory.Build.props
+**/ModConfig/
+website/website.config.json
+website/website.config.php
+website/node_modules/
+website/data/
+website/dist/
+
+# Website and listing descriptions are maintained separately.
+/website/
+/descriptions/

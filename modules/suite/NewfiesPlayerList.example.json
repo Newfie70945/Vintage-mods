@@ -1,0 +1,33 @@
+{
+  "SchemaVersion": 6,
+  "ServerName": "Newfie's Server",
+  "BackgroundOpacity": 0.72,
+  "ShowRoles": true,
+  "ShowPing": true,
+  "ShowSessionTime": true,
+  "LayoutScale": 1.0,
+  "RowsPerColumn": 8,
+  "MaxColumns": 4,
+  "Alignment": "CenterTop",
+  "OffsetX": 0,
+  "OffsetY": 22,
+  "ShowPlayerInitials": true,
+  "ShowCapacityBar": true,
+  "ShowColumnHeaders": false,
+  "CompactRows": false,
+  "ShowPingBars": true,
+  "ShowFooterHint": false,
+  "AccentHex": "#D6AE63",
+  "UseRoleNameColors": false,
+  "RoleNameColors": {
+    "Supporter": "#FEC500",
+    "Admin": "#EDC26B"
+  },
+  "ReservedSlotsEnabled": false,
+  "ReservedSlots": 0,
+  "ReservedSlotRoles": [
+    "admin"
+  ],
+  "ReservedSlotsFullMessage": "Only reserved slots are left on this server.",
+  "DebugLogging": false
+}

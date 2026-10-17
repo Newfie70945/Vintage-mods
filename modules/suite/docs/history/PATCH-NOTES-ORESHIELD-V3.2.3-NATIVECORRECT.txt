@@ -1,0 +1,11 @@
+OreShield v3.2.3 native correction reliability pass
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+
+- Authorized ore corrections no longer use OreShield's manual compressed SetBlocks payload.
+- Corrections are recipient-only native Packet_ServerSetBlock (packet ID 7) with InternalY.
+- Normal bulk block changes beside ore stay on Vintage Story's untouched vanilla SetBlocks path.
+- Bulk updates only peel out coordinates that are themselves maskable natural ore; those are sent recipient-by-recipient.
+- Breaker-adjacent ore is always re-corrected even when the server already marked it discovered earlier.
+- Small reveal sets are reasserted at 120 ms and 400 ms to beat late block-behavior updates.
+- Player-placed ore exemption and the Web Map top-bar leaderboard remain present.
+- Anti-Cheat Client remains 1.1.26, protocol 13. This pass changes Suite only.

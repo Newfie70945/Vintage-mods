@@ -1,0 +1,180 @@
+﻿Newfie's Server Suite 1.2.34 - Community, Teleport, and Reliability Update
+
+Discord / Community MOTD
+- Fixed MOTD Announcements, Updates, and Events channel IDs reverting to 0 in the WebPanel after Save/refresh.
+- Discord control snapshots now return the saved MOTD feed channel IDs, feed enable state, and feed limit through the Suite bridge.
+- Retains the Shift+L Community MOTD configuration tab introduced with 1.2.33.
+
+Client Integrity / Anti-Cheat
+- Duplicate client hello retries no longer replace a healthy challenge already in progress.
+- Exact duplicate challenge packets are ignored client-side instead of starting the same scan twice.
+- Duplicate reports for an already-consumed challenge remain rejected but are classified as duplicate traffic without adding cheat risk.
+- Manual rescan requests no longer replace a healthy scan already in progress.
+- A cryptographically valid bound heartbeat can recover a temporary HEARTBEAT_TIMEOUT coverage state.
+- Client Integrity is now version 1.1.25, protocol 13.
+- 1.1.25 adds a client performance pass without changing the anti-cheat protocol or weakening the deep attestation requirements.
+
+OreShield
+- Retains the 1.2.33 movement-sensitive proximity reveal fix so protected veins reveal when the player enters the configured radius without requiring a nearby block update.
+- Retains the periodic repair pass for late chunk/update ordering.
+
+Animal Limiter WebPanel Exclusions
+- Added an Exclusions editor to the Animal Limiter WebPanel page.
+- Administrators can add exact entity codes or wildcard patterns that Animal Limiter must never remove.
+- Exclusion edits are applied on the server thread, persisted immediately, and reconcile current limiter buckets.
+- The built-in game:player safety exclusion is normalized back into older/custom configs and cannot be removed from the WebPanel.
+
+Player Commands - /t2p and /t2m
+- Added /t2p <player> to teleport yourself to an online player.
+- Added /t2m <player> as a consent-based request to teleport an online player to your current position.
+- Added /nse t2p <player>, /nse t2m <player>, and /nse tpaccept fallbacks when another mod owns a root command.
+- Added independent enable switches and configurable global cooldowns for both commands.
+- Extended Teleport Role Access & Cooldowns to include /t2p and /t2m with per-role allow/deny and cooldown overrides.
+- Roles with no explicit /t2p or /t2m policy default to controlserver/root only; explicit role policies can safely grant access to custom roles.
+- Successful player-to-player teleports use Suite PacketGuard trust handling and participate in /back origin tracking.
+- Player Commands config schema advanced from 3 to 4.
+
+Web Map Leaderboards
+- Added a public Leaderboards view directly inside Newfie's Web Map.
+- Added Overview, Skills, and Playtime tabs with responsive ranking cards.
+- Added optional runtime XSkills/XLib integration with no hard XLib project reference.
+- Shows configurable Top N rankings for each registered XSkills skill by level and current XSkills XP.
+- Added overall total-skill-level and cumulative-skill-XP rankings.
+- Added Suite-backed total playtime, current-session, and first-seen veteran rankings.
+- Clicking a player opens a public progression profile with playtime, first/last seen, skill totals, and top skills.
+- Added WebPanel controls for leaderboard enablement, playtime/XSkills sections, Top N size, and refresh interval.
+- Leaderboard data is cached and XSkills reflection is performed on the server thread; public HTTP requests only serialize the cache.
+- Public payloads exclude UIDs, IPs, Anti-Cheat/Client Integrity state, moderation records, private notes, and other staff-only fields.
+- Existing `/webmap live off` privacy is honored: hidden players are omitted from public rankings/profiles, and live online/session indicators only use the privacy-filtered public player cache.
+- Web Map provider version advanced from 14 to 15.
+
+Web Map Leaderboard Polish
+- Added a top-three podium treatment for the main community ranking and playtime champions.
+- Added live leaderboard status chips for tracked players, online players, XSkills availability/skill count, and refresh cadence.
+- Added skill search plus skill-card sorting by name, highest level, or highest current XP.
+- Added a Most Skills Progressed overview ranking derived from the public player profiles.
+- Improved gold/silver/bronze rank emphasis, card hover/spacing, profile top-skill presentation, and responsive mobile layout.
+
+Anti-Cheat WebPanel Usability
+- Anti-Cheat Players columns can now be clicked to sort Player, Risk, Mods, Evidence, and Last Scan ascending/descending.
+- Evidence sorting prioritizes total findings, then stronger findings and server-authoritative evidence for easier triage.
+- Added an Administrator/Owner-only mod ZIP fingerprint uploader to Client Mods.
+- Uploaded ZIPs are chunked, capped at 96 MB, inspected for one root modinfo.json, and hashed without installing, loading, extracting, or executing the mod.
+- A successful upload approves the exact ModID + version + normalized content SHA-256 using the existing custom-fingerprint approval store; package SHA-256 is retained as diagnostic context.
+- Temporary upload files expire automatically and are removed after approval, rejection, cancellation, or WebPanel shutdown.
+
+Chat Display / Player List
+- Moved shared Role Name Colors controls from the Player List WebPanel page to Chat Display, where the colors are easier to see and configure alongside chat presentation.
+- Existing Player List role-color storage and rendering behavior are preserved for compatibility; Chat Display is now the WebPanel management surface.
+- Saving Player List appearance/reserved-slot settings preserves the shared role-color configuration.
+
+Companion versions
+- Community MOTD: 2.1.1
+- Discord: 1.0.7
+- Player List: 1.1.1 BuildFix4
+- ChatGuard: 2.1.1
+- Client Integrity: 1.1.25 / protocol 13
+
+Build ID:
+newfies-server-essentials-suite-1.2.34-t2m-tpaccept1-2026.09.26
+
+Performance hotfix:
+- Replaced the once-per-minute navigation Anti-Cheat poll with a lightweight /api/anticheat/status snapshot.
+- The navigation/status refresh no longer serializes every online player mod, assembly, finding, evidence candidate, and collected evidence record.
+- The full /api/anticheat payload is now requested only when the Anti-Cheat page itself is opened/refreshed or after an Anti-Cheat action.
+- This specifically addresses large cumulative /api/anticheat transfer volume and serialization pressure visible in Web Endpoint Diagnostics.
+- Full player details and existing Anti-Cheat functionality are unchanged.
+
+
+Leaderboard compile fix:
+- Qualified WebMapLeaderboardService delegate declarations with global::System.Func to avoid the Vintage Story API Func<T1, TResult> ambiguity under VS 1.22.7.
+
+Client Integrity 1.1.25 performance pass:
+- Keeps 15-second liveness heartbeats lightweight while preserving protocol 13 and the existing server-version gate.
+- Heartbeat telemetry now uses a cheap managed-assembly identity marker and reuses the last full runtime census when no assembly was loaded/unloaded; Harmony and self-integrity telemetry still refresh independently.
+- Signed Client Integrity build-manifest data is cached by source size/mtime metadata instead of reopening and reparsing the same ZIP every telemetry refresh.
+- Package/file hashing uses pooled I/O buffers and reuses a single directory hashing buffer to reduce allocation and GC pressure during large mod scans.
+- Assembly and Harmony reflection sweeps yield cooperatively during large censuses to reduce CPU contention with rendering/chunk workers.
+- Harmony reflection entry points are cached after first discovery instead of re-resolving HarmonyLib metadata every scan.
+
+
+
+T2M Request / Acceptance Flow
+- /t2m <player> now sends a consent-based teleport request instead of moving the target immediately.
+- The target must use /tpaccept within 60 seconds.
+- After acceptance there is a fixed 10-second wait before the teleport completes.
+- Existing /t2m global and per-role cooldown configuration is preserved; cooldown is consumed only after a successful accepted teleport.
+- Pending requests are cancelled safely if either player disconnects, becomes jailed, loses access, or enters a conflicting Suite teleport.
+- Added /nse tpaccept fallback when another mod owns the root command.
+
+
+OreShield close-range reveal hotfix
+- Reworked the player proximity reveal index so it is built only from authoritative live chunk block IDs instead of sharing the outgoing packet ore-index cache.
+- Prevents masked/cached chunk packet state from poisoning the list of ores that should be restored when a player approaches them.
+- Removed the internal DidSendChunk gate from player-local reveal/re-conceal corrections. Close-range corrections are now sent directly to the intended player; if their chunk has not arrived yet the periodic repair pass safely reasserts the state after it loads.
+- Proximity refresh now uses the same runtime-compatible authoritative player-position resolver for every connected player and no longer skips a player solely because ConnectedClient.Entityplayer is temporarily unavailable.
+- The existing 250 ms movement pass and 1 second forced repair pass remain in place, with real ore restored only inside the configured reveal radius.
+- Distant shared chunk data remains concealed and no real ore IDs are added back to shared chunk packets.
+
+Build ID:
+newfies-server-essentials-suite-1.2.34-oreshield-reveal2-2026.09.26
+
+OreShield proximity reveal hotfix 3
+- Fixed the remaining close-range reveal failure where ore could stay disguised until a nearby block was broken.
+- Wired OreShield into Vintage Story 1.22.7's authoritative mainThreadLoadChunkColumn completion hook and invalidate proximity ore indexes when a column finishes loading.
+- Live ore-index cache entries now also bind to the authoritative IWorldChunk object identity, preventing stale indexes from surviving an unload/reload that did not pass through an OreShield block revision.
+- Close-range reveal/re-conceal repairs now use recipient-specific SetBlocks packets in the same client block-update format used by normal world changes, rather than one ExchangeBlock packet per ore.
+- Proximity corrections remain per-player only and never mutate the authoritative server world.
+- The 250 ms movement pass and 1 second forced repair pass remain; newly completed chunks are picked up by the next repair without requiring a player to mine/place a block.
+- Shared outgoing chunk packets remain fully concealed outside the configured reveal radius.
+
+Build ID:
+newfies-server-essentials-suite-1.2.34-oreshield-reveal5-2026.09.26
+
+OreShield Proximity Reveal Hotfix 4
+- Close-range reveal/re-conceal corrections now use recipient-specific ExchangeBlock packets, matching the packet path already proven to refresh ore after nearby mining.
+- Removed the DidSendChunk gate from periodic proximity corrections; 1.22.7 chunk-send bookkeeping could lag the visible client and suppress movement-based reveals indefinitely.
+- The 1-second repair pass keeps retrying corrections, so packets sent before a client chunk is ready are naturally repaired without changing the authoritative server world.
+
+OreShield Reveal Hotfix 5
+- Replaced periodic recipient proximity corrections with direct Packet_ServerSetBlock packets.
+- This uses the full client block-replacement/remesh path instead of ExchangeBlock.
+- Direct packet send bypasses OreShield's SendSetBlock masking hook while never modifying server world state.
+- Added separate Real-ore sends and Re-conceal sends diagnostics to verify packet intent.
+
+
+
+Chat / Command Isolation Hotfix
+-------------------------------
+- Fixed slash commands such as /t2p, /t2m, /tpaccept, /home, /back, /rtp and /warp passing through Suite Chat Display formatting as normal player chat.
+- Command detection now happens after Vintage Story's sender VTML prefix is stripped, so commands remain untouched even when PlayerChat arrives as "<strong>Player:</strong> /command ...".
+- ChatGuard now ignores slash-command bodies entirely instead of counting them toward spam/repeat/content rules or consuming them before command dispatch.
+- This is a global command/chat boundary fix, not only a /t2p-specific workaround.
+
+Build ID:
+newfies-server-essentials-suite-1.2.34-chatcommands1-2026.09.26
+
+
+Master Source 6 - OreShield Bulk Reveal Fix
+-------------------------------------------
+- Established this workspace as the Master Source 6 baseline.
+- Fixed the incomplete OreShield proximity-refactor: the reveal path now actually sends recipient-specific Vintage Story SetBlocks packets instead of looping individual SetBlock packets.
+- Close-range reveal and re-conceal blocks are batched up to 512 corrections per packet and sent directly to the intended client, bypassing OreShield's outgoing masking hook without changing authoritative server world state.
+- Kept the proximity path independent of ConnectedClient.DidSendChunk bookkeeping; on 1.22.7 that state can lag the visible client. The existing forced repair pass safely reasserts corrections after chunk arrival.
+- Real-ore / re-conceal counters continue to count the recipient-specific block corrections intentionally sent by OreShield.
+- Renamed the WebPanel metric from Proximity SetBlock to Proximity corrections so it accurately covers the bulk correction path.
+
+Build ID:
+newfies-server-essentials-suite-1.2.34-ms6-oreshield-exchangereveal1-2026.09.26
+
+MS6 OreShield Exchange reveal hotfix (2026-09-26)
+--------------------------------------------------
+Build ID:
+newfies-server-essentials-suite-1.2.34-ms6-oreshield-exchangereveal1-2026.09.26
+
+- Replaced proximity/vein client correction delivery with recipient-specific Vintage Story ExchangeBlock packets. This supersedes the earlier MS6 bulk-SetBlocks proximity attempt documented above.
+- ExchangeBlock directly replaces the client-side masked host-rock cell and triggers the client block-changed path, avoiding the bulk SetBlocks accessor/commit path that was still not making nearby ore visible.
+- The server's authoritative world remains untouched; only the selected player's client view is corrected.
+- The one-second forced repair pass remains, so corrections racing initial chunk arrival are resent after the chunk is loaded.
+- Adjacent protected-ore corrections from single-block changes now use the same ExchangeBlock delivery path.
+- Existing Proximity corrections / Real-ore sends / Re-conceal sends metrics remain compatible.

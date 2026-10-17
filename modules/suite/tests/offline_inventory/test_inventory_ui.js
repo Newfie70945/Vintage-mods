@@ -1,0 +1,19 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const page=fs.readFileSync(path.join(__dirname,'../../src/WebDashboard/WebDashboardPage.cs'),'utf8');
+function fn(name){const match=new RegExp('(?:async )?function '+name+'\\(').exec(page);assert(match,`Missing production function ${name}`);const tail=page.slice(match.index),next=/\n(?:async )?function [a-zA-Z]/.exec(tail);return next?tail.slice(0,next.index):tail;}
+const elements=new Map();const el=id=>{if(!elements.has(id))elements.set(id,{value:'',textContent:'',innerHTML:'',hidden:false,disabled:false});return elements.get(id);};
+let apiCalls=0;
+const c={console,currentSessionRole:'Administrator',adminInventoryStatus:{},adminInventoryData:[],adminSelectedInventorySlot:null,adminSelectedPlayer:'alice',adminPlayerRequestVersion:0,antiCheatSelectedPlayer:'alice',antiCheatInventoryStatus:{},$:el,esc:x=>String(x??'').replace(/</g,'&lt;'),fmtAdminTime:x=>String(x),toast:()=>{},confirm:()=>true,api:async()=>{apiCalls++;return{};},renderAdminInventorySnapshots:()=>{},renderAdminInventoryHistory:()=>{},loadAdmin:async()=>{},selectAdminPlayer:async()=>{}};
+vm.createContext(c);vm.runInContext(['inventoryCanEdit','inventoryEvidenceText','adminInventoryKey','renderAdminInventory','renderAdminSelectedSlot','adminInventoryMutation','acInventoryMutation','refreshAdminInventory'].map(fn).join('\n'),c);
+(async()=>{
+  const live={available:true,readOnly:false,source:'live',capturedUnixMilliseconds:100};
+  const offline={available:true,readOnly:true,source:'disconnect-capture',capturedUnixMilliseconds:200,message:'Saved server inventory.'};
+  assert.equal(c.inventoryCanEdit(live),true);assert.equal(c.inventoryCanEdit(offline),false);assert.equal(c.inventoryCanEdit({...offline,readOnly:false}),false);
+  c.currentSessionRole='ReadOnly';assert.equal(c.inventoryCanEdit(live),false);c.currentSessionRole='Administrator';
+  c.adminInventoryStatus=offline;c.adminInventoryData=[{inventory:'hotbar-alice',slot:2,section:'Hotbar',empty:false,name:'Copper ingot',code:'game:ingot-copper',stackSize:5}];c.adminSelectedInventorySlot=c.adminInventoryData[0];
+  c.renderAdminInventory();assert.equal(el('adminInventoryEditWorkbench').hidden,true);assert.equal(el('adminInventorySnapshot').disabled,true);assert.match(el('adminInventoryEvidence').textContent,/Disconnect capture.*Captured 200.*Read only/);assert.doesNotMatch(el('adminSelectedSlotActions').innerHTML,/Edit Quantity|Remove|Replace/);assert.match(el('adminInventoryGrid').innerHTML,/5x Copper ingot/);
+  await c.adminInventoryMutation({action:'remove'});c.antiCheatInventoryStatus=offline;await c.acInventoryMutation({action:'remove'});assert.equal(apiCalls,0,'Offline mutations must be refused before network calls.');
+  c.adminInventoryStatus=live;c.renderAdminInventory();assert.equal(el('adminInventoryEditWorkbench').hidden,false);assert.equal(el('adminInventorySnapshot').disabled,false);assert.match(el('adminSelectedSlotActions').innerHTML,/Edit Quantity/);
+  const pending=[];c.api=()=>new Promise(resolve=>pending.push(resolve));const alice=c.refreshAdminInventory();c.adminSelectedPlayer='bob';const bob=c.refreshAdminInventory();pending[1]({inventory:[{inventory:'hotbar-bob',slot:0,empty:false,name:'Bob item',stackSize:1}],inventoryStatus:offline});await bob;pending[0]({inventory:[{inventory:'hotbar-alice',slot:0,empty:false,name:'Alice item',stackSize:1}],inventoryStatus:live});await alice;assert.equal(c.adminInventoryData[0].name,'Bob item','A late previous-player response must not replace the selected player inventory.');assert.equal(c.adminInventoryStatus.readOnly,true);
+  console.log('Inventory UI tests passed: online/ReadOnly/offline access, evidence labels, visible saved slots, no offline network mutation and late-response isolation.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

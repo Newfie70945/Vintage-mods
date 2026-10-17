@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": 2,
+  "Warps": [
+    {
+      "Name": "market",
+      "DisplayName": "Market",
+      "Enabled": true,
+      "X": 124.5,
+      "Y": 112.0,
+      "Z": -83.5,
+      "CooldownSeconds": -1,
+      "WarmupSeconds": -1,
+      "CancelOnMove": null,
+      "CostEnabled": true,
+      "CostItemCode": "game:gear-rusty",
+      "CostQuantity": 2,
+      "AccessMode": "any",
+      "AllowedRoles": [],
+      "RequiredPrivileges": []
+    }
+  ]
+}

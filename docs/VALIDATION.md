@@ -1,22 +1,25 @@
-# Validation and limits
+# Author-source restoration validation
 
-Built against the official Vintage Story 1.22.7 assemblies using .NET SDK 10.0.402.
+Validated on 17 October 2026 against official Vintage Story 1.22.7 with .NET 10 SDK.
 
-- Suite: clean compile completed with 0 errors and 34 existing/recovery warnings (obsolete APIs, unawaited existing cache work and module-initializer analysis). These warnings were not silenced. The final incremental build log alone may show fewer warnings; the improvement archive’s `validation/suite-build-final.log` contains the full compile.
-- MOTD: 0 errors, 0 warnings.
-- 22 C# checks passed for UID targeting, duplicate display names, renamed players, formatting, escaping, date handling, unread IDs, merge/fallback behavior and the feed cap.
-- 7 JavaScript post-builder checks passed. The extracted embedded editor declarations and bindings pass Node syntax checking.
-- A disposable local official 1.22.7 server loaded both new installable ZIPs. `/nsefeatures list`, `/motdreload`, `/stats`, `/save` and `/stop` were exercised. The corrected run produced no server errors, exited with code 0 and passed SQLite save integrity checking.
-- The first run found a real pre-existing null-player failure in SuiteFeatureCommands.Reply from the server console. This was fixed before the successful repeat.
-- Archive checks confirm one own mod DLL per installable ZIP, correct versions, no duplicate archive entries and no traversal paths. Game/native SQLite assemblies are not bundled.
-- Suite HTML is approximately 11 KB; MOTD HTML is approximately 5.7 KB. Both are under the requested 60,000-byte limit. Exact sizes/hashes are in the improvement archive’s `validation/summary.json`.
+## Completed
 
-This is a startup/reload/save check with no authenticated clients, not a multiplayer benchmark. No graphical game client was available. The final in-game layout, live read/unread interaction and end-to-end interaction with Simple Roleplay Nametag Updated still require staging validation with a real client and your modpack. The underlying UID selection behavior is covered by the checks; this does not establish compatibility with every version of a third-party mod.
+- All seven regular mod projects build successfully: Suite, MOTD, AntiCheat Client, ChatGuard, Discord Link, Website Connector and Player List. Each build reported 0 errors and 0 warnings.
+- The central build script produced installable ZIPs using current manifest versions. Native and managed game dependencies are not copied into the mod roots; Discord Link's required third-party managed dependencies are included.
+- 22 C# checks passed for stable UID selection, duplicate/renamed display names, feed markup, dates, unread identifiers and local/Discord merge behavior.
+- 7 JavaScript post-builder checks passed. Embedded editor declarations and bindings pass syntax/fixture consistency checks.
+- Restored Website Connector tests passed: authentication, read-only routing, account-link expiry and replay protection, bounded input, cache coalescing and shutdown.
+- Restored offline-inventory tests passed: UID isolation, missing/corrupt/oversized data, immutable database access and cache invalidation.
+- A disposable dedicated 1.22.7 server loaded the newly built Suite and MOTD. Feature-list, MOTD reload, stats, save and stop commands worked. The run exited with code 0, logged no server errors and passed SQLite world-save integrity checking.
+- A credential-literal scan found no embedded credentials. The signing-key generation utility contains PEM boundary strings, not a private key.
+- The active Git tree excludes the standalone website, ModDB description files, generated build output, binaries, world saves and live configuration.
 
-The normal startup self-test warns that integrated Anti-Cheat is disabled in the disposable test configuration. The startup/save generated isolated tick-overload warnings; this check makes no performance claims.
+## Scope and limits
 
-ModDB source for the compatibility request: https://mods.vintagestory.at/show/mod/67501 (Ambredjazz, account Valkyo / roleplay name Lorreth).
-Roleplay mod: https://mods.vintagestory.at/rpnameupdated
-MOTD public baseline metadata: https://mods.vintagestory.at/api/mod/newfiescommunitymotd
+The dedicated-server check used no authenticated clients and is not a performance benchmark. No graphical client was available: final GUI appearance and complete compatibility with the roleplay-name mod still need a staging check with a real client and the full modpack.
 
-No ModDB descriptions or releases were published. The HTML is supplied for owner review and manual upload.
+The entire historical recovered test collection has not been run. Tests requiring the game need `VINTAGE_STORY` set; older runtime probes may need environment-specific fixtures. The optimizer remains its previously delivered experimental snapshot and was not changed or newly benchmarked during this restoration.
+
+GitHub Actions runs the standalone Suite/MOTD checks and Connector protocol tests without distributing proprietary game assemblies. Full module builds require an owner-provided game installation.
+
+The uploaded archive and pre-restoration Git bundle are kept outside the active repository as backups. Source provenance and archive SHA-256 are recorded in SOURCE-PROVENANCE.json.

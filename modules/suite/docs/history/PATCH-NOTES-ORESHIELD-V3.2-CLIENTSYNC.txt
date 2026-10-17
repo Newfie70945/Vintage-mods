@@ -1,0 +1,37 @@
+OreShield v3.2 Client Sync
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v32-ac1126-2026.09.27
+
+Compile fix: explicitly qualifies System.Func<IServerPlayer, bool> in OreShield client-sync constructors/fields to avoid Vintagestory.API.Common.Func ambiguity.
+
+Versions
+- Server Suite: 1.2.35
+- Client Integrity / Anti-Cheat Client: 1.1.26
+- Anti-Cheat protocol: 13 (unchanged)
+- Community MOTD: 2.1.2
+- Discord: 1.0.8
+
+Server authority
+- Suite remains the only authority that decides whether protected ore is discovered.
+- Client messages cannot request undiscovered ore IDs.
+- LOS, miner fast-path, view cone, exposed-candidate index, leak audit and one-way session discovery remain server-side.
+
+Client sync
+- Adds the optional OreShieldClientSync capability on Client Integrity 1.1.26.
+- Uses a separate `newfiesoreshieldsync` channel; main Anti-Cheat protocol stays at 13.
+- Server sends recipient-specific authorized chunk-local block batches with sequence + revision.
+- Client applies the authorized block ID locally and calls MarkBlockDirty to force retessellation.
+- Updates can defer until the target client chunk is loaded.
+- Client ACKs applied/deferred/failed counts.
+- Deferred or missing application can request a resync of already-authorized discoveries for that already-sent chunk.
+- Server rate-limits resync requests and validates that the chunk was sent to the player.
+- If a sync batch does not complete its ACK, Suite falls back to the existing recipient-only vanilla SetBlocks correction after 1.2 seconds.
+
+Telemetry
+- WebPanel exposes client-sync batches, entries, ACKs, deferred ACKs, fallbacks and resync requests.
+
+
+Client sync reliability follow-up (1.1.26)
+- Miner face-adjacent discovery no longer depends on ConnectedClient.DidSendChunk bookkeeping after an authoritative block break.
+- Client network callbacks enqueue OreShield batches only; block writes/remeshes happen on the client game tick.
+- Client authorized reveals now use BulkBlockAccessor.SetBlock + Commit, mirroring Vintage Story's vanilla SetBlocks handler.
+- Client verifies the resulting solid block ID before completing the stabilized ACK.

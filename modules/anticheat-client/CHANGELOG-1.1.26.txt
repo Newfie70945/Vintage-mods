@@ -1,0 +1,15 @@
+Newfies AntiCheat Client / Client Integrity 1.1.26
+
+- Client semantic version: 1.1.26
+- Internal protocol: 13 (unchanged)
+- Vintage Story networkVersion compatibility label: 1.1.21 (unchanged)
+- Release pairing bump for Server Suite 1.2.35 / MS7.
+- No anti-cheat capability or wire-format downgrade was made. Protocol-13 self-integrity, randomized self-attestation, bound heartbeat, challenge queueing, report hashing, and mod-transfer consent remain required exactly as in 1.1.25.
+
+OreShield development retained under 1.1.26
+- Adds optional OreShieldClientSync capability (bit 16) on the separate `newfiesoreshieldsync` channel.
+- Network callbacks only enqueue server-authorized OreShield state; client-world mutations run on the client game-tick thread.
+- Authorized ore cells use Vintage Story's client BulkBlockAccessor + Commit path and verify the committed solid block ID.
+- Supports deferred application, ACK telemetry, authorized-state resync, and dedicated sync timeout/retry telemetry.
+- Authorized OreShield cells use the 2.5-second stabilization/reapply window developed during the unreleased internal OreShield iterations.
+- Anti-Cheat protocol remains 13 and Vintage Story networkVersion remains 1.1.21.

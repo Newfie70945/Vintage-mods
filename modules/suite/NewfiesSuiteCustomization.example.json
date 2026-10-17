@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": 4,
+  "PanelName": "Newfie's Server Suite",
+  "HeaderSubtitle": "WebPanel",
+  "LoginKicker": "Secure Administration Console",
+  "DashboardTitle": "Server Dashboard",
+  "DashboardSubtitle": "Actionable server and Suite overview: what needs attention, current operations state, health evidence, and recent lag.",
+  "AccentHex": "#69AEFA",
+  "ShowBuildId": true,
+  "SurfaceTexture": "slate",
+  "TextureStrength": 12,
+  "ShowModuleIcons": true,
+  "HighContrastBorders": false
+}

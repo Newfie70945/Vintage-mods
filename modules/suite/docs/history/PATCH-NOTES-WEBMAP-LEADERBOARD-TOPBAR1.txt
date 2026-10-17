@@ -1,0 +1,22 @@
+Newfie's Server Suite 1.2.35 - Web Map Leaderboard Top Bar Fix
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v32-ac1126-2026.09.27
+Date: 2026-09-27
+
+Changes
+- Moved the public Web Map Leaderboard button out of the vertical right-side map toolbar and into the Web Map top header bar.
+- Opening the Web Map Leaderboard now changes the browser URL to /leaderboard using History API navigation.
+- Closing the Leaderboard after opening it from the map returns to the previous map URL, including map-coordinate hash state.
+- Browser Back closes the Leaderboard and Browser Forward reopens it without reloading the map.
+- Direct visits to /leaderboard, /leaderboard/, and /leaderboard.html still open the Leaderboard automatically.
+- Direct leaderboard visits return to / when the close button is used.
+
+Versions
+- Server Suite: 1.2.35
+- Client Integrity / Anti-Cheat Client: 1.1.26
+- Anti-Cheat protocol: 13
+- Community MOTD: 2.1.2
+- Discord: 1.0.8
+
+Recompile
+- Server Suite only.
+- Anti-Cheat Client 1.1.26 is unchanged by this UI fix.

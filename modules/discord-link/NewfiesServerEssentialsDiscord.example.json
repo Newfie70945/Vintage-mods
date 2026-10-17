@@ -1,0 +1,131 @@
+{
+  "Enabled": false,
+  "BotToken": "PUT_BOT_TOKEN_HERE",
+  "GuildId": 0,
+  "InviteUrl": "https://discord.gg/YOURINVITE",
+  "Chat": {
+    "Enabled": false,
+    "ChannelId": 0,
+    "GameToDiscord": false,
+    "DiscordToGame": false,
+    "GameToDiscordFormat": "{player}: {message}",
+    "DiscordToGameFormat": "{user}: {message}",
+    "BoldGameSenderLabel": true,
+    "UseGameRoleColor": false,
+    "DiscordNameColor": "#5865F2",
+    "ShowDiscordTag": false,
+    "BoldDiscordSenderName": false
+  },
+  "Events": {
+    "PlayerJoin": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83d\udce5 ***Player {player} connected ({online}/{max})***"
+    },
+    "PlayerLeave": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83d\udce4 ***Player {player} disconnected ({online}/{max})***"
+    },
+    "PlayerDeath": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\u2620\ufe0f **{player} died**"
+    },
+    "ServerStarted": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\u2705 **Server started**"
+    },
+    "ServerStopping": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83d\uded1 **Server stopping**"
+    },
+    "DiscordLinked": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83d\udd17 **{player} linked Discord account {discord}**"
+    },
+    "DiscordUnlinked": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83d\udd13 **{player} unlinked Discord account {discord}**"
+    }
+  },
+  "AdminAudit": {
+    "Enabled": false,
+    "ChannelId": 0,
+    "ObserveSlashCommands": false,
+    "IncludeArguments": false,
+    "RedactedCommands": [
+      "auth",
+      "login",
+      "token",
+      "password"
+    ],
+    "MinimumRoleCode": "admin"
+  },
+  "AntiCheat": {
+    "Enabled": false,
+    "ChannelId": 0,
+    "MinimumSeverity": "Medium",
+    "IncludePosition": false,
+    "IncludeEvidenceSummary": false,
+    "PingOnCritical": false,
+    "CriticalRoleId": 0
+  },
+  "Safety": {
+    "MaxDiscordToGameLength": 500,
+    "MaxGameToDiscordLength": 1800,
+    "StripEveryoneHereMentions": true,
+    "IgnoreBots": true,
+    "OutboundQueueCapacity": 500
+  },
+  "Commands": {
+    "Enabled": false,
+    "EnablePlayerInfoCommands": false,
+    "EnableStaffCommands": false,
+    "EnableRestartCommands": false,
+    "AllowDiscordAdministrators": false,
+    "StaffRoleIds": [
+      123456789012345678
+    ],
+    "RulesText": "Read the full rules in #rules.",
+    "EnableLinkCommands": false
+  },
+  "Linking": {
+    "Enabled": false,
+    "CodeLength": 8,
+    "CodeExpirySeconds": 300,
+    "CodeCooldownSeconds": 30,
+    "MaxFailedAttemptsPerDiscordUser": 8,
+    "FailedAttemptWindowSeconds": 300,
+    "AllowOneDiscordAccountToLinkMultiplePlayers": false,
+    "LogLinkChanges": false,
+    "RoleSync": {
+      "Enabled": false,
+      "SyncIntervalSeconds": 60,
+      "EligibleBaseRoleCodes": [
+        "suplayer"
+      ],
+      "NotifyPlayers": true,
+      "LogChanges": true,
+      "Mappings": [
+        {
+          "Enabled": true,
+          "DiscordRoleId": 123456789012345678,
+          "GameRoleCode": "supporter",
+          "Priority": 100
+        }
+      ]
+    }
+  },
+  "Motd": {
+    "Enabled": true,
+    "AnnouncementsChannelId": 0,
+    "UpdatesChannelId": 0,
+    "EventsChannelId": 0,
+    "MaxItemsPerFeed": 8
+  }
+}

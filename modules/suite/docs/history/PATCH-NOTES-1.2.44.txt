@@ -1,0 +1,12 @@
+# Suite 1.2.44 — MemoryAudit2
+
+- Fixed logger queries remaining unfinished when their worker stops or migration fails. Waiting requests now finish with an error, release their queued state, and stopped/disposed workers reject new requests.
+- Failed SQLite searches now show an error rather than misleadingly returning no records.
+- Made logger shutdown safe to call more than once.
+- Fixed dirty-map changes being discarded from the persistence queue when a disk append fails. Retained rows retry automatically after storage recovers.
+- Limited each journal append buffer to small batches and combined burst wakeups, preventing thousands of redundant background delays after large build/mining bursts.
+- Made dirty-map snapshots and generations atomic. Export acknowledgement preserves newer edits, and compaction cannot overwrite an intervening append. Failed compaction preserves dirty state for retry.
+- Fixed an admin save clearing a newer save request. Snapshot capture and persistence now share the same save gate, preventing stale background snapshots from overwriting newer saves.
+- Retains all 1.2.43 memory fixes. Client Integrity 1.1.28, Discord 1.0.12, MOTD 2.1.5, ChatGuard 2.1.3, Player List 1.1.1, Website Connector 1.1.1 and website 2.7.3 are unchanged in this pass.
+
+These are reproduced source/runtime defects; they do not establish the cause of the entire production server's high memory use.

@@ -1,3 +1,13 @@
+# Original-source restoration and repository cleanup
+
+- Restored original Suite and companion author sources from the uploaded CENTER1 archive.
+- Replaced temporary decompiled projects while preserving current Suite 1.2.44 and MOTD 2.1.6 fixes.
+- Added AntiCheat Client, ChatGuard, Discord Link, Website Connector, Player List and shared source.
+- Consolidated modules under stable names, updated shared/test paths and added a central module manifest.
+- Added one build/package entry point for all seven regular mods.
+- Excluded the standalone website and ModDB descriptions at the owner's request.
+- Kept historical source notes and protected earlier work in Git history and a local backup bundle.
+
 # Suite 1.2.44 and Community MOTD 2.1.6
 
 This changelog covers this improvement pass against the recovered public Suite 1.2.43 and MOTD 2.1.5 baselines. It does not claim to include work lost with the earlier workspace.

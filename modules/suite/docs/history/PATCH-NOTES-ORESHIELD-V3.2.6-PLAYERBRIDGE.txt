@@ -1,0 +1,32 @@
+OreShield v3.2.6 - API player bridge + reveal dispatch decoupling
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v326-playerbridge1-ac1126-2026.09.27
+
+Observed runtime failure:
+- Client Integrity sync-ready: 1
+- Sync hellos: >0
+- Reveal dispatch requested cells: >0
+- Recipient-resolution misses: every requested reveal
+- Direct sends: 0
+- Client sync batches: 0
+- LOS player checks advanced while LOS ray checks remained 0
+
+Root cause addressed:
+OreShield still depended in several internal paths on ConnectedClient.Player being the public IServerPlayer object. On the affected Vintage Story 1.22.7 runtime that assumption was false, so reveal delivery and chunk-sent checks could reject a valid online player even though the public API and custom sync channel both knew the player was connected.
+
+Changes:
+1. Resolve online IServerPlayer instances from api.World.AllOnlinePlayers by stable PlayerUID.
+2. Send Client Integrity OreShield sync before and independently of ConnectedClient resolution.
+3. Resolve the internal ConnectedClient secondarily via public ClientId, candidate Id, or ConnectedClient.Entityplayer.PlayerUID.
+4. Replace OreShield loops that required client.Player is IServerPlayer with the new bridge.
+5. DidSendChunkForPlayer/WasChunkSent now resolve the internal client from an already-valid IServerPlayer instead of round-tripping through PlayerByUid.
+6. Native SetBlock remains a secondary repair path; failure of that internal path no longer suppresses custom client sync.
+
+Expected test telemetry after mining/revealing ore:
+- Sync-ready clients >= 1
+- Reveal dispatch requests > 0
+- Client sync batches > 0
+- Client sync ACKs > 0 after stabilization
+- LOS ray checks > 0 when exposed protected ore is within the player's sent chunks/range
+- Direct sends should also increase when ConnectedClient resolution succeeds, but Client Integrity sync no longer depends on it.
+
+Client Integrity remains version 1.1.26, protocol 13.

@@ -1,0 +1,26 @@
+Newfie's Server Essentials Suite 1.2.36 - OreShield Live Performance Pass
+
+OreShield sync recovery
+- Unloaded client chunks are now classified as harmless skips instead of apply failures.
+- Removed the client-side duplicate chunk-resync request path; the server is the single recovery authority for genuine apply failures.
+- Genuine failure recovery is rate-limited to one retry per player/chunk every 5 seconds.
+- Per-sequence timeout messages are Debug-level instead of console-spamming Warning-level output.
+- Apply-failure warnings are aggregated and emitted at most once every 30 seconds.
+- Added unloaded/harmless skip telemetry so live diagnostics distinguish movement/chunk unloads from real failures.
+
+OreShield LOS scaling
+- Added an adaptive global LOS ray budget. The configured Max LOS Checks remains the per-player ceiling, while one scan cycle is capped to approximately four full per-player budgets and shared across active players.
+- This prevents LOS CPU cost from scaling linearly without bound as player count rises.
+
+Sync protocol
+- OreShield sync protocol bumped to v3 for skipped-entry acknowledgement support.
+- Requires Client Integrity 1.1.27.
+- Client Integrity protocol remains 13.
+
+Compatibility
+- Server Suite: 1.2.36
+- Client Integrity: 1.1.27
+- Discord Integration: 1.0.9 unchanged
+- Community MOTD: 2.1.2 unchanged
+- Player List: 1.1.1 unchanged
+- ChatGuard: 2.1.1 unchanged

@@ -1,0 +1,171 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyName>NewfiesServerEssentialsSuite</AssemblyName>
+    <RootNamespace>BlockLogger</RootNamespace>
+    <Version>1.2.44</Version>
+    <Product>Newfies Server Essentials Suite</Product>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+<Reference Include="Microsoft.Data.Sqlite"><HintPath>$(VINTAGE_STORY)/Lib/Microsoft.Data.Sqlite.dll</HintPath><Private>false</Private></Reference>
+<Reference Include="SQLitePCLRaw.core"><HintPath>$(VINTAGE_STORY)/Lib/SQLitePCLRaw.core.dll</HintPath><Private>false</Private></Reference>
+<Reference Include="SQLitePCLRaw.provider.e_sqlite3"><HintPath>$(VINTAGE_STORY)/Lib/SQLitePCLRaw.provider.e_sqlite3.dll</HintPath><Private>false</Private></Reference><Compile Remove="tests/**/*.cs" /></ItemGroup>
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Ore Shield virtualizes outgoing chunk/block packets using the standard 1.22.7 server runtime. -->
+    <Reference Include="VintagestoryLib">
+      <HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSSurvivalMod">
+      <HintPath>$(VINTAGE_STORY)/Mods/VSSurvivalMod.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSEssentials">
+      <HintPath>$(VINTAGE_STORY)/Mods/VSEssentials.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSMath" Condition="Exists('$(VINTAGE_STORY)/VSMath.dll')">
+      <HintPath>$(VINTAGE_STORY)/VSMath.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(VINTAGE_STORY)/Lib/Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Vintage Story 1.22.x ships Cairo as Lib/cairo-sharp.dll. Required by the custom Shift+L suite panel renderer. -->
+    <Reference Include="cairo-sharp" Condition="Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Legacy/fallback filename for non-standard development installs. -->
+    <Reference Include="CairoSharp" Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/CairoSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Vintage Story loads mod assemblies into a shared load context. Keep the managed
+         SQLitePCLRaw 2.1.11 identities for compatibility with the server/mod ecosystem,
+         while overriding only the native SQLite payload to a patched release. -->
+    <!-- This assembly version must match the verified 1.22.7 game dependency; a newer
+         private copy collides when Vintage Story has already loaded its own copy. -->
+    <None Update="modinfo.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+    <!-- Keep the public mod icon in source control and always ship it with compiled output. -->
+    <None Update="modicon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Update="assets\**\*"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="guides\**\*"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesAutomatedRestarts.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesAntiCheat.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesChatDisplay.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesPlayerCommands.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesSuiteCustomization.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesWebMap.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesAfk.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesSupporterNicknames.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesWarps.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+  </ItemGroup>
+  <Target Name="ValidateModIcon" BeforeTargets="BeforeBuild">
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)/modicon.png')"
+      Text="Server Essentials mod icon is missing. Expected source file: ServerEssentials\modicon.png" />
+  </Target>
+
+  <Target Name="ValidateVintageStoryCairo" BeforeTargets="ResolveReferences">
+    <Error
+      Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and !Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')"
+      Text="Vintage Story Cairo assembly was not found. VINTAGE_STORY must point to the Vintage Story 1.22.7 install folder containing VintagestoryAPI.dll and Lib\cairo-sharp.dll." />
+  </Target>
+
+  <Target Name="PurgeStaleSqliteOutput" BeforeTargets="ResolveReferences" Condition="'$(NoBuild)' != 'true'">
+    <!-- Prevent stale SQLite DLLs from an older restore/build being mixed into a new mod zip. -->
+    <ItemGroup>
+      <_StaleSqliteOutput Include="$(OutputPath)Microsoft.Data.Sqlite*.dll" />
+      <_StaleSqliteOutput Include="$(OutputPath)SQLitePCLRaw*.dll" />
+      <_StaleSqliteOutput Include="$(OutputPath)runtimes\**\*e_sqlite3*" />
+      <_StaleSqliteOutput Include="$(OutputPath)native\runtimes\**\*e_sqlite3*" />
+    </ItemGroup>
+    <Delete Files="@(_StaleSqliteOutput)" TreatErrorsAsWarnings="false" />
+  </Target>
+
+  <!-- NuGet emits native SQLite beneath runtimes/. Vintage Story refuses DLLs there.
+       Normalize ordinary Visual Studio/dotnet output too, so directly zipped builds work. -->
+  <Target Name="NormalizeBuildNativeRuntimes" AfterTargets="Build">
+    <ItemGroup>
+      <_BuildNativeRuntime Include="$(TargetDir)runtimes/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BuildNativeRuntime)"
+          DestinationFiles="@(_BuildNativeRuntime->'$(TargetDir)native/runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <RemoveDir Directories="$(TargetDir)runtimes" Condition="Exists('$(TargetDir)runtimes')" />
+  </Target>
+
+  <Target Name="NormalizePublishNativeRuntimes" AfterTargets="Publish">
+    <ItemGroup>
+      <_PublishNativeRuntime Include="$(PublishDir)runtimes/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PublishNativeRuntime)"
+          DestinationFiles="@(_PublishNativeRuntime->'$(PublishDir)native/runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <RemoveDir Directories="$(PublishDir)runtimes" Condition="Exists('$(PublishDir)runtimes')" />
+  </Target>
+
+  <Target Name="EnsureModInfoInBuildOutput" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/modinfo.json"
+          DestinationFiles="$(TargetDir)modinfo.json"
+          SkipUnchangedFiles="false" />
+    <Error Condition="!Exists('$(TargetDir)modinfo.json')"
+           Text="Build output is missing modinfo.json. Vintage Story mod packages must contain modinfo.json at the ZIP root." />
+  </Target>
+
+  <Target Name="EnsureModInfoInPublishOutput" AfterTargets="Publish">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/modinfo.json"
+          DestinationFiles="$(PublishDir)modinfo.json"
+          SkipUnchangedFiles="false" />
+    <Error Condition="!Exists('$(PublishDir)modinfo.json')"
+           Text="Publish output is missing modinfo.json. Vintage Story mod packages must contain modinfo.json at the ZIP root." />
+  </Target>
+
+  <Target Name="ValidateVintageStoryReferences" BeforeTargets="ResolveReferences">
+    <!--
+      Do not validate the game version with GetAssemblyIdentity here. Some official
+      Vintage Story 1.22.7 installations report a generic VintagestoryAPI assembly
+      identity (for example 1.0.0.0). Ore Shield performs the exact 1.22.7 safety
+      check at runtime by reflecting GameVersion.ShortGameVersion from the assembly
+      actually loaded by the server.
+    -->
+    <Error
+      Condition="'$(VINTAGE_STORY)' == ''"
+      Text="VINTAGE_STORY is not set. Point it to your Vintage Story 1.22.7 install folder before building." />
+    <Error
+      Condition="'$(VINTAGE_STORY)' != '' and !Exists('$(VINTAGE_STORY)/VintagestoryAPI.dll')"
+      Text="VINTAGE_STORY must point to the Vintage Story install folder. VintagestoryAPI.dll was not found at $(VINTAGE_STORY)." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="../shared/Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

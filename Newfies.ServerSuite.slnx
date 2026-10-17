@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/modules/" />
+  <Folder Name="/modules/anticheat-client/">
+    <Project Path="modules/anticheat-client/NewfiesAntiCheatClient.csproj" />
+  </Folder>
+  <Folder Name="/modules/chatguard/">
+    <Project Path="modules/chatguard/NewfiesChatGuard.csproj" />
+  </Folder>
+  <Folder Name="/modules/discord-link/">
+    <Project Path="modules/discord-link/NewfiesServerEssentialsDiscord.csproj" />
+  </Folder>
+  <Folder Name="/modules/motd/">
+    <Project Path="modules/motd/NewfiesCommunityMOTD.csproj" />
+  </Folder>
+  <Folder Name="/modules/player-list/">
+    <Project Path="modules/player-list/NewfiesPlayerList.csproj" />
+  </Folder>
+  <Folder Name="/modules/suite/">
+    <Project Path="modules/suite/NewfiesServerEssentialsSuite.csproj" />
+  </Folder>
+  <Folder Name="/modules/website-connector/">
+    <Project Path="modules/website-connector/NewfiesWebsiteConnector.csproj" />
+  </Folder>
+</Solution>

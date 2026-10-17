@@ -1,0 +1,93 @@
+{
+  "SchemaVersion": 4,
+  "SpawnEnabled": true,
+  "SpawnCooldownSeconds": 60,
+  "SpawnWarmupSeconds": 5,
+  "SpawnCancelOnMove": true,
+  "PrivateMessagesEnabled": true,
+  "ReplyEnabled": true,
+  "RespectSuiteMutes": true,
+  "MaxPrivateMessageLength": 500,
+  "StarterKitEnabled": true,
+  "StarterKitProvider": "Auto",
+  "WarpsEnabled": true,
+  "WarpCommandEnabled": true,
+  "WarpDefaultCooldownSeconds": 60,
+  "WarpDefaultWarmupSeconds": 5,
+  "WarpDefaultCancelOnMove": true,
+  "BackEnabled": true,
+  "BackCooldownSeconds": 30,
+  "BackWarmupSeconds": 5,
+  "BackCancelOnMove": true,
+  "BackTrackDeaths": true,
+  "BackTrackTeleports": true,
+  "HomesEnabled": true,
+  "HomeGlobalLimit": 2,
+  "HomeRoleLimits": {
+    "supporter": 5
+  },
+  "HomePlayerLimits": {},
+  "HomeCooldownSeconds": 60,
+  "HomeWarmupSeconds": 5,
+  "HomeCancelOnMove": true,
+  "T2pEnabled": true,
+  "T2pCooldownSeconds": 30,
+  "T2mEnabled": true,
+  "T2mCooldownSeconds": 30,
+  "RtpEnabled": true,
+  "RtpMinRadius": 1000,
+  "RtpMaxRadius": 10000,
+  "RtpCooldownSeconds": 1800,
+  "RtpWarmupSeconds": 10,
+  "RtpCancelOnMove": true,
+  "RtpCostEnabled": false,
+  "RtpCostItemCode": "game:gear-rusty",
+  "RtpCostQuantity": 1,
+  "RtpMaxSearchAttempts": 20,
+  "RtpAvoidWaterAndLava": true,
+  "RtpCenterOnPlayerPosition": false,
+  "TeleportRolePolicies": {
+    "spawn": {
+      "supporter": {
+        "Allowed": true,
+        "CooldownSeconds": 15
+      }
+    },
+    "home": {
+      "supporter": {
+        "Allowed": true,
+        "CooldownSeconds": 15
+      }
+    },
+    "back": {
+      "supporter": {
+        "Allowed": true,
+        "CooldownSeconds": 10
+      }
+    },
+    "warp": {
+      "supporter": {
+        "Allowed": true,
+        "CooldownSeconds": 10
+      }
+    },
+    "rtp": {
+      "supporter": {
+        "Allowed": true,
+        "CooldownSeconds": 600
+      }
+    },
+    "t2p": {
+      "moderator": {
+        "Allowed": true,
+        "CooldownSeconds": 5
+      }
+    },
+    "t2m": {
+      "moderator": {
+        "Allowed": true,
+        "CooldownSeconds": 5
+      }
+    }
+  }
+}

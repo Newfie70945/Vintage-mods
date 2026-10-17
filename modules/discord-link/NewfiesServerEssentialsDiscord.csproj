@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>NewfiesServerEssentialsDiscord</AssemblyName>
+    <RootNamespace>NewfiesServerEssentials.Discord</RootNamespace>
+    <Version>1.0.13</Version>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)\VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net.WebSocket" Version="3.20.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="modinfo.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="EnsureModInfoInBuildOutput" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/modinfo.json"
+          DestinationFiles="$(TargetDir)modinfo.json"
+          SkipUnchangedFiles="false" />
+    <Error Condition="!Exists('$(TargetDir)modinfo.json')"
+           Text="Build output is missing modinfo.json. Vintage Story mod packages must contain modinfo.json at the ZIP root." />
+  </Target>
+
+  <Target Name="EnsureModInfoInPublishOutput" AfterTargets="Publish">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/modinfo.json"
+          DestinationFiles="$(PublishDir)modinfo.json"
+          SkipUnchangedFiles="false" />
+    <Error Condition="!Exists('$(PublishDir)modinfo.json')"
+           Text="Publish output is missing modinfo.json. Vintage Story mod packages must contain modinfo.json at the ZIP root." />
+  </Target>
+
+  <Target Name="ValidateDiscordRuntimeDependencies" AfterTargets="Build">
+    <ItemGroup>
+      <DiscordRuntimeDependency Include="$(TargetDir)Discord.Net.Core.dll" />
+      <DiscordRuntimeDependency Include="$(TargetDir)Discord.Net.Rest.dll" />
+      <DiscordRuntimeDependency Include="$(TargetDir)Discord.Net.WebSocket.dll" />
+      <DiscordRuntimeDependency Include="$(TargetDir)Discord.Net.Dave.dll" />
+      <DiscordRuntimeDependency Include="$(TargetDir)Newtonsoft.Json.dll" />
+    </ItemGroup>
+    <Error Condition="!Exists('%(DiscordRuntimeDependency.Identity)')"
+           Text="Discord runtime dependency missing from build output: %(DiscordRuntimeDependency.Filename)%(DiscordRuntimeDependency.Extension). Do not package only NewfiesServerEssentialsDiscord.dll; package the dependency DLLs from bin/Release/net10.0 as well." />
+  </Target>
+
+</Project>

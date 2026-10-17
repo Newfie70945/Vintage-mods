@@ -1,0 +1,64 @@
+{
+  "SchemaVersion": 1,
+  "Enabled": true,
+  "Mode": "Enforce",
+  "NotifyPlayers": true,
+  "NotificationPrefix": "[ChatGuard]",
+  "ExemptRoleCodes": [
+    "admin",
+    "moderator"
+  ],
+  "ExemptPlayerUids": [],
+  "Spam": {
+    "Enabled": true,
+    "MaxMessages": 5,
+    "WindowSeconds": 4,
+    "Action": "Mute",
+    "MuteMinutes": 2
+  },
+  "Repeat": {
+    "Enabled": true,
+    "MaxRepeats": 3,
+    "WindowSeconds": 20,
+    "Action": "Warn",
+    "MuteMinutes": 5
+  },
+  "Caps": {
+    "Enabled": true,
+    "MinLetters": 12,
+    "MaxUppercasePercent": 75,
+    "Action": "Warn",
+    "MuteMinutes": 5
+  },
+  "Links": {
+    "Enabled": false,
+    "AllowedDomains": [],
+    "Action": "Warn",
+    "MuteMinutes": 10
+  },
+  "Mentions": {
+    "Enabled": true,
+    "MaxMentions": 5,
+    "Action": "Warn",
+    "MuteMinutes": 5
+  },
+  "Length": {
+    "Enabled": true,
+    "MaxCharacters": 500,
+    "Action": "Block",
+    "MuteMinutes": 5
+  },
+  "BlockedTerms": {
+    "Enabled": false,
+    "Terms": [],
+    "Action": "Warn",
+    "MuteMinutes": 10
+  },
+  "Escalation": {
+    "Enabled": true,
+    "WarningWindowMinutes": 60,
+    "WarningsBeforeMute": 3,
+    "MuteMinutes": 10
+  },
+  "AuditMessagePreviewCharacters": 160
+}

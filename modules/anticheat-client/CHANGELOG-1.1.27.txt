@@ -1,0 +1,12 @@
+Newfies Client Integrity 1.1.27
+
+OreShield live-server performance
+- OreShield sync protocol v3.
+- Treats a target chunk unloading before apply as a harmless skip instead of a failed apply.
+- Removes duplicate client-initiated resync recovery; genuine apply failures are reported once to the server for bounded recovery.
+- Removes the redundant immediate/deferred receipt ACK so normal OreShield traffic uses one final ACK per sequence.
+- Extends the OreShield readiness hello interval from 5 seconds to 30 seconds.
+- Preserves the existing reveal/remesh, mining cancellation and sequence-ordering behavior.
+
+Anti-Cheat protocol remains 13.
+networkVersion compatibility label remains 1.1.21.

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+<ItemGroup>
+<Compile Include="../../src/Commands/PlayerRollbackCommands.cs" Link="PlayerRollbackCommands.cs" />
+<Compile Include="../../src/Services/RecoveryReceiptIndex.cs" Link="RecoveryReceiptIndex.cs" />
+<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
+<Compile Include="../../src/Services/RecoveryJournal.cs" Link="RecoveryJournal.cs" />
+<Compile Include="../../src/Services/RollbackRecoveryPlanner.cs" Link="RollbackRecoveryPlanner.cs" />
+<Compile Include="../../src/Models/LogEventRecord.cs" Link="LogEventRecord.cs" />
+<Compile Include="../../src/Models/LogActionType.cs" Link="LogActionType.cs" />
+<Compile Include="../../src/Models/ContainerSnapshotRecord.cs" Link="ContainerSnapshotRecord.cs" />
+<Compile Include="../../src/Models/ContainerSnapshotSlot.cs" Link="ContainerSnapshotSlot.cs" />
+</ItemGroup>
+</Project>

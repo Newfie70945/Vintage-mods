@@ -1,0 +1,112 @@
+MS11 InteractionFix1 / SqliteFix1
+- Normal builds/publishes automatically place SQLite native DLLs under native/runtimes.
+- Fixed directly zipped build output being rejected by the Vintage Story loader.
+- See SQLITEFIX1-NOTES.md and VALIDATION-SQLITEFIX1.md.
+
+MS11 AdminPanel2 / InteractionFix1
+- Fixed Entity.Pos field/property compatibility exceptions disconnecting players on interactions.
+- Added an independent live PacketGuard ingress toggle in Anti-Cheat > Packet Protection.
+- See INTERACTIONFIX1-NOTES.md and VALIDATION-INTERACTIONFIX1.md.
+
+MS11 AdminPanel2 / ApiCompat1
+- Fixed reported save-path, optional selection-ID and backpack namespace compile errors.
+- Preserved packet bounds, detached offline bag decoding and dimension-aware chunk indices.
+- Addressed reported nullable/analyzer warnings and expanded the complete release changelog.
+- See APICOMPAT1-NOTES.md and VALIDATION-APICOMPAT1.md.
+
+MS11 AdminPanel2
+- Added searchable Role Config for definitions, names/colors, privileges, claims, role home limits and teleport cooldowns/access.
+- Added online/offline player role assignment, protected deletion and stale-edit conflict checks; existing settings pages share the same policies.
+- Improved mobile login/retries and fixed sideways scrolling when controls receive focus.
+- Expanded Suite Customization with themes, palette/logo controls, reduced motion and effective spacing/radius settings.
+- Added optional recent public game chat to Web Console with a bounded memory buffer.
+- Improved Database Storage attribution with exact read-only system SQLite analysis or clearly labeled bounded payload estimates.
+- Improved Discord slash replies, help, player pagination, guild checks and queued-action expiry; Discord companion is now 1.0.10.
+- Made fresh OreShield configs default to off and added the Beta note; existing saved settings are retained.
+- Preserved Website 2.5.0, Website Connector 1.1.0 and existing client protocols.
+
+MS11 PlayerPanel1
+- Rebuilt Player Commands with Commands, Teleports, Messages & Kits, Role Policies and Player Permissions tabs.
+- Added searchable command cards, provider/availability filters and clear Suite fallback ownership.
+- Kept policy drafts through navigation, refresh attempts, failed saves and permission changes; added save/discard status and duplicate-save guards.
+- Added strict numeric, home-limit and RTP validation; invalid edits remain available for correction.
+- Replaced the wide role matrix with one-command views and explicit Inherited/Override policies; preserved wildcard and saved-role policies and fixed clearing overrides.
+- Added searchable online-player permissions, expandable role privileges and shared privilege suggestions; permission data loads when opened.
+- Isolated Warp Management default saves from other Player Commands settings; omitted warp fields now preserve existing values while older explicit requests remain supported.
+- Improved phone layouts, wrapped switch labels and keyboard tab navigation.
+- Main Suite remains 1.2.38 with a new build ID. Companion mods and Website 2.5.0 remain unchanged.
+
+MS11 Sync1
+- Fixed OreShield timeout/retry log bursts with a bounded sync worker, coalesced updates and server-stall grace.
+- Avoided mined-cell broadcasts to unrelated players; kept pre-install authorized reveals and mining cancellations working.
+- Added sync backpressure/queue telemetry; deferred client resync work and bounded apply-failure retries.
+- Reduced Anti-Cheat overview payloads; mod comparisons load on demand and full investigations retain inventories/evidence.
+- Added cached gzip for the main WebPanel page; existing client versions and protocols unchanged.
+
+MS11 Generator1
+- Whole-vein reveal: diagonal/mixed-grade connections, fair progress, per-player isolation and configured limits.
+- Server Status: daily average replaces daily low; existing layout retained.
+- Guided Patch Generator: loaded recipes/items/blocks, property controls, array recipes, before/after previews, drafts and restart staging.
+- Download native JSON or enabled content pack; atomic generated files and failed-save rollback.
+- Client/both-side content changes require the exported patch mod on clients; server restart applies enabled changes.
+- Main Suite only; companions, config schemas and protocols unchanged.
+
+MS11 Perf4
+- Fixed malformed hotbar/backpack false reports and duplicate confidence inflation; bounded custom message IDs.
+- Added repeated confirmed speed risk (50/75/100) and a Packet Guard toggle for kicking (enabled by default).
+- OreShield observes direct server-side mining perks, cancels stale mined ore visuals in batches and defers exposure/LOS work.
+- Added placed-ore save shards, compact reload/reconnect state and actual workload counters.
+- Reduced web cache invalidation waste, bounded cache/audit state, abandoned expired GETs and retained operation leases.
+- Moved evidence file work to bounded workers; indexed rollback receipts and cleaned expired preview state.
+- See PERF4-NOTES.md and VALIDATION-PERF4.md. Main Suite stays 1.2.38; companions/protocols are unchanged.
+
+MS11 PacketPage1
+- Added normal WebPanel controls for movement-mode speeds and Draconis/Jaunt, Shipwright and other mount profiles.
+- Reorganized Packet Protection into five responsive sections; improved field labels, units, diagnostics and mobile risk controls.
+- Preserve unsaved drafts through refreshes and failed saves; optional save fields retain settings for older web/Shift+L clients.
+- Existing speed defaults and companion versions remain unchanged.
+
+# NSS 1.2.38 / MS11 Perf3
+
+Main Suite version remains **1.2.38**. This performance build follows Audit1 and retains all previous .37/.38 protections, rollback, offline inventories, map, Shift+L, profiler and MOTD changes. Targets Vintage Story 1.22.7 and .NET 10. Companion versions and wire protocols are unchanged.
+
+## Changes
+
+- Recovery journals retain their file handles and serialize/append/fsync on a background worker. Durable intent and receipt writes are awaited before each mutation. World changes remain on the game thread, one operation per dispatch, with a 10 ms yield between applied operations. No fsync was removed.
+- Recovery checks occupancy, live block/inventory state and changes again after the intent write. Cancelled or conflicting operations with a durable intent retain conservative receipts. This can skip an operation that was never applied; preserve the journal and inspect it rather than deleting receipts blindly.
+- Preview validation yields after a cooperative 4 ms budget or 64 operations. Planning and preview report serialization/writes run off the game thread. A single world/API call can still exceed a cooperative budget.
+- Recovery reads admit one query per logger, enforce a 30-second query deadline, and interrupt native SQLite with cancellation/progress guards. `/rollback cancel` and shutdown cancel reads/planning. SQLite busy handling and individual native/API calls can delay cancellation; this is not a hard real-time guarantee.
+- Selected cells and pre-window baselines are materialized once per query instead of looking up historical snapshots repeatedly for each event/snapshot row. Existing time/area/world filtering, retained later conflicts, caps and ordering remain unchanged. No additional persistent database indexes or schema migration are required.
+- Dense OreShield discoveries use a 4 KiB bitset after 256 cells; sparse records remain sets. Recipient snapshots clone compact state. Discoveries are preserved across reconnects.
+- A chunk-to-player index targets mined-cell invalidation at owners of that chunk, rather than scanning every retained player.
+- OreShield revisions are capped at 16,384 entries. Compaction advances a monotonic epoch, preventing old in-flight revision comparisons from becoming valid again; cached masks refresh as needed. A compaction can temporarily reduce cache hits.
+- WebPanel OreShield diagnostics expose discovery chunk/owner records, targeted invalidation work and revision count/compactions. Discovery coordinates are still retained for the runtime; memory can grow with legitimate discoveries, so these changes do not impose a destructive discovery TTL.
+- Extracted the HTTP parser and MOTD browser logic into separate source files while retaining embedded deployment. Header scans resume across reads and the parser avoids two full request-buffer copies.
+- Centralized runtime release metadata and inject it into the browser, diagnostics and public build labels. Metadata/package checks still validate mod and DLL versions.
+
+## Synthetic evidence
+
+A local in-memory SQLite fixture with 50,000 events, 2,000 snapshots and 500 cells returned identical pre/post rows and ordering:
+
+| Query | Before | Perf3 |
+|---|---:|---:|
+| Player event history | 9,032.66 ms | 37.63 ms |
+| Area event history | 11,418.22 ms | 25.71 ms |
+| Player snapshots | 395.90 ms | 12.21 ms |
+| Area snapshots | 503.33 ms | 8.33 ms |
+
+The benchmark includes EXPLAIN QUERY PLAN output. Thirty seeded randomized databases also compare all selected values and ordering against the pre-Perf3 SQL for player/area event and snapshot queries.
+
+Constructing 64 dense discovery records of 32,768 cells allocated **71,700,992 bytes** using the previous HashSet representation and **1,095,168 bytes** using compact records. In that run, insertion took 21 ms versus 30 ms; the measured benefit is reduced allocation, not a claimed insertion CPU speedup. Dense retained bit arrays use 4 KiB each, plus object overhead.
+
+These are synthetic local fixtures, not live-server CPU/tick benchmarks. Validate representative worlds, disk latency, logger traffic and player counts before inferring production results.
+
+## Installation
+
+Stop the server, back up world and Suite data, remove the previous Suite ZIP, and install the **1.2.38-MS11-Perf3** Suite ZIP. Do not install Audit1 and Perf3 together. Existing configuration and data are retained; no companion upgrade is required for this pass. Native SQLite remains under `native/runtimes/` for the game loader.
+
+Test recovery on a world copy before restoring production damage. The WebPanel still accepts fixed-length HTTP bodies; proxies must not forward duplicate headers or unsupported chunked framing.
+
+See `VALIDATION-PERF3.md` for verification and `ServerEssentials-1.2.45/tests/runtime/README.md` for runtime commands. The source folder name is retained from the supplied baseline.
+
+Remaining larger follow-ups: full WebPanel auth/router modularization, further browser module extraction, and representative live-server tick/memory benchmarks. This pass makes concrete improvements without claiming those broader refactors are finished.

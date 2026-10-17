@@ -1,19 +1,17 @@
-# Module availability
+# Modules and provenance
 
-## Included
+All seven regular mods now use original author source restored from the uploaded CENTER1 archive. Versioned archive directory names were replaced with stable module names; manifest versions are authoritative.
 
-- Suite 1.2.44: all integrated modules present in the recovered Suite project, including Administration, Anti-Cheat/PacketGuard/OreShield, BlockLogger, Player Commands, Roles, WebDashboard, WebMap, diagnostics and integration bridges.
-- Community MOTD 2.1.6: full reconstructed companion project and assets.
-- Optimizer 0.1.0-preview: delivered experimental source snapshot, documentation and tests. This is not the lost optimizer's later versions and is not a production performance claim.
+- `modules/suite`: original Suite 1.2.43 source with the current 1.2.44 UID-targeting, post-builder and console fixes ported onto it.
+- `modules/motd`: original MOTD 2.1.6 source with the current feed formatter and all-tab normalisation improvements preserved.
+- `modules/anticheat-client`: 1.1.28.
+- `modules/chatguard`: 2.1.4.
+- `modules/discord-link`: 1.0.13.
+- `modules/website-connector`: 1.1.1, the standalone server-side bridge.
+- `modules/player-list`: 1.1.2.
+- `modules/shared`: shared storage source linked by Suite and ChatGuard.
+- `modules/optimizer`: previously delivered 0.1.0-preview snapshot. It is experimental and was not recovered from this archive.
 
-## Not recovered as standalone source
+The standalone website and ModDB descriptions are deliberately excluded at the owner's request. The recovered upload and excluded files are kept as local backups outside the repository.
 
-- Discord Link
-- Client Integrity
-- Player List
-- Website Connector
-- Private PHP website backend/editor
-
-Suite integration code for some companions exists inside the Suite; that does not replace their standalone projects. These can be added once their source is recovered or supplied.
-
-The publicly recovered website frontend is not a complete website/backend and is not included here. Production configuration and public player-data snapshots are also excluded.
+Original module-level historical changelogs and notes are retained. The root README and `modules/manifest.json` describe the active layout and versions. Historical notes may mention older build labels.

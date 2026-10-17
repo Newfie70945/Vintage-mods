@@ -1,18 +1,25 @@
-# Newfies Server Suite
+# Newfies Vintage Story Mods
 
-Source repository for Newfie's Vintage Story server tools, maintained by [Newfie70945](https://github.com/Newfie70945).
+Author source for Newfie's Server Essentials Suite and companion modules, maintained by [Newfie70945](https://github.com/Newfie70945).
 
-| Project | Version | Source | Status |
-| --- | --- | --- | --- |
-| Server Essentials Suite | 1.2.44 | [`suite/source`](suite/source) | Reconstructed public source plus MOTD/roleplay-name fixes |
-| Community MOTD | 2.1.6 | [`motd/source`](motd/source) | Reconstructed public source plus news/update formatting improvements |
-| Server Optimizer | 0.1.0-preview | [`modules/optimizer`](modules/optimizer) | Previously delivered experimental snapshot; independent of the Suite |
+| Module | Version | Source |
+| --- | --- | --- |
+| Server Essentials Suite | 1.2.44 | [modules/suite](modules/suite) |
+| Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
+| AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
+| ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
+| Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
+| Website Connector | 1.1.1 | [modules/website-connector](modules/website-connector) |
+| Player List | 1.1.2 | [modules/player-list](modules/player-list) |
+| Server Optimizer | 0.1.0-preview | [modules/optimizer](modules/optimizer) |
 
-The Suite includes its integrated anti-cheat, administration, roles, player commands, logging, webpanel, map and other subsystems. Standalone companion mods are separate projects; see [module availability](docs/MODULES.md).
+Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
-## Build
+**The standalone website and ModDB HTML descriptions are maintained separately and are excluded from this source repository.** The Website Connector is a server-side mod and remains included.
 
-Requires .NET 10 SDK and your own official Vintage Story 1.22.7 installation. Set `VINTAGE_STORY` to the installation directory, containing `VintagestoryAPI.dll`, `Lib` and `Mods`.
+## Build and package
+
+Requires .NET 10 SDK, Python 3 and your own official Vintage Story 1.22.7 installation. Set `VINTAGE_STORY` to the directory containing `VintagestoryAPI.dll`, `Lib` and `Mods`.
 
 ```sh
 export VINTAGE_STORY=/path/to/vintagestory
@@ -26,33 +33,36 @@ $env:VINTAGE_STORY = 'C:\Path\To\Vintagestory'
 python tools/build.py
 ```
 
-The build script creates installable Suite and MOTD ZIPs in `artifacts/`. It packages only each mod's own assembly, manifest and assets/documentation. Game, Harmony and SQLite dependencies must not be copied into the mod ZIPs.
+To build selected modules:
 
-For the optimizer, use its separate [build instructions](modules/optimizer/README.md).
+```sh
+python3 tools/build.py --module suite --module motd
+```
 
-## Checks
+Installable ZIPs appear in the ignored `artifacts/` directory. The build script excludes game-provided assemblies and includes required third-party managed dependencies, such as Discord Link's Discord.Net assemblies. Do not zip an entire build output manually or put native SQLite DLLs in a mod's root.
+
+The experimental optimizer retains its independent [build and validation instructions](modules/optimizer/README.md).
+
+## Source checks
 
 ```sh
 dotnet run --project tests/Checks.csproj -c Release
 node tests/editor-checks.js tests/web/motd-editor-Declarations.js
-node --check tests/web/motd-editor-Declarations.js
-node --check tests/web/motd-editor-Bindings.js
+python3 tools/check_sources.py
 ```
 
-GitHub Actions runs the standalone C# and JavaScript checks without requiring proprietary game assemblies. Full builds require your local game installation. See [validation and limits](docs/VALIDATION.md).
+GitHub Actions runs these standalone checks without proprietary game DLLs. Additional recovered tests remain with their owning module. See [validation](docs/VALIDATION.md) for the checks run during restoration and their limits.
 
 ## Install
 
-Back up your world and configuration. Replace old mod ZIPs; do not leave duplicate builds installed. Install the Suite on the server, with matching optional staff-client installation for Shift+L. Install matching MOTD builds on the server and clients using its window.
+Back up your world and configuration, stop the server, and replace the old mod ZIPs without leaving duplicate builds installed. Install the Suite on the server, with a matching optional client installation for staff using Shift+L. Install matching MOTD builds on the server and participating clients.
 
-See [changes](CHANGELOG.md), [installation details](docs/BUILD-AND-INSTALL.md) and the [ModDB HTML descriptions](descriptions/).
+Each module has its own manifest, configuration and installation requirements. Check its README before deploying.
 
-## Recovery and project history
+## Source recovery
 
-The Suite and MOTD authoring workspace was lost. This repository starts from reconstructed public Suite 1.2.43 and MOTD 2.1.5 assemblies, with subsequent fixes applied. It does not contain the lost original Git history, original comments or unreleased changes. The optimizer directory comes from the delivered 0.1.0-preview source archive, rather than later unverified working files.
+The original author sources were restored from `NSS-1.2.43-MS11-CENTER1-source-with-Website-2.7.5.zip`. They replace the temporary decompiled projects initially imported into this repository. Original comments, helper scripts and available tests are preserved; the newer Suite UID-targeting/console fixes and MOTD/editor formatting changes were ported onto them.
 
-No live configuration, website accounts, tokens, world saves, server logs or proprietary game DLLs are included. Keep your own machine's private files outside this repository.
+Earlier reconstructed files remain in Git history and the local backup bundle. The optimizer is the previously delivered 0.1.0-preview snapshot, not the lost later optimizer project. See [module provenance](docs/MODULES.md).
 
-## Rights
-
-No open-source licence has been selected for this repository. No additional licence grant is implied. Third-party and game components retain their respective terms.
+No live configuration, credentials, world saves or proprietary game binaries belong in this repository. No open-source licence has been selected; no additional licence grant is implied. Third-party components retain their respective terms.

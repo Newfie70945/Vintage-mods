@@ -1,0 +1,22 @@
+OreShield v3.2.5 - direct sync readiness + forced client remesh
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v325-syncremesh1-ac1126-2026.09.27
+
+Problem targeted
+- Discovery and vein authorization could succeed while the player still saw host rock.
+- Client Integrity sync readiness depended on Anti-Cheat session capability bookkeeping. Heartbeat-recovered sessions can temporarily advertise only Core.
+- If a native SetBlock changed the client block ID but the chunk mesh stayed stale, the client sync path saw the correct ID and skipped the redraw.
+
+Changes
+- Added OreShieldSyncHelloPacket on the dedicated newfiesoreshieldsync channel. Client Integrity 1.1.26 sends readiness every 5 seconds.
+- Server tracks sync-ready players independently of Anti-Cheat session capability flags.
+- First ready hello after a server/OreShield reload re-syncs that player's already-authorized discoveries.
+- Client apply now forces MarkBlockDirty on first authorization even when the block ID already matches, and repairs boundary chunk redraws where needed.
+- Client writes explicitly target BlockLayersAccess.Solid.
+- Added WebPanel counters for Sync-ready clients and Sync hellos.
+
+Expected test
+1. Join with Client Integrity 1.1.26.
+2. Wait a few seconds: Sync-ready clients should show 1 and Sync hellos should increment.
+3. Mine into protected ore.
+4. Client sync batches/entries and ACKs should increase.
+5. Revealed ore should visibly remesh from host rock to the real ore.

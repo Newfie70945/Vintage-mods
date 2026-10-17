@@ -1,0 +1,8 @@
+OreShield v3.2.1 placed-ore fix
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v32-ac1126-2026.09.27
+
+- Player-placed ore is not natural geology and is never virtualized to host rock.
+- Exemptions persist in save data under newfies:oreshield-playerplaced-v1.
+- Placer receives a trusted direct correction even if ConnectedClient.DidSendChunk bookkeeping is stale.
+- Natural ore masking, LOS discovery, client-sync and leak auditing remain unchanged.
+- Server Suite 1.2.35 changed; Client Integrity 1.1.26 / protocol 13 unchanged.

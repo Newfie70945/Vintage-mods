@@ -1,0 +1,10 @@
+SharedLoadFix1
+- Fixed SQLite managed assembly identity conflicts with the game’s preloaded dependencies.
+- Fixed inherited OreShield block-break hook startup failure.
+- See SHAREDLOADFIX1-NOTES.md and VALIDATION-SHAREDLOADFIX1.md.
+
+Suite 1.2.40
+- Updated Suite release/assembly/mod metadata and WebPanel version to 1.2.40.
+- Renamed the source folder to ServerEssentials-1.2.45.
+- Retains all prior features, interaction/ingress fixes and native SQLite packaging fixes.
+- See RELEASE-1.2.40.md, CHANGELOG-1.2.40.md and VALIDATION-1.2.40.md.

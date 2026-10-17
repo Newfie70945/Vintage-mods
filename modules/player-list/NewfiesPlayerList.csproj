@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyName>NewfiesPlayerList</AssemblyName>
+    <RootNamespace>NewfiesPlayerList</RootNamespace>
+    <Version>1.1.2</Version>
+    <Product>Newfie's Player List</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Vintage Story 1.22.x ships Cairo as Lib/cairo-sharp.dll. -->
+    <Reference Include="cairo-sharp" Condition="Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Legacy/fallback filename for non-standard development installs. -->
+    <Reference Include="CairoSharp" Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/CairoSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <None Update="modinfo.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="ValidateVintageStoryCairo" BeforeTargets="ResolveReferences">
+    <Error
+      Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and !Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')"
+      Text="Vintage Story Cairo assembly was not found. VINTAGE_STORY must point to the Vintage Story 1.22.7 install folder containing VintagestoryAPI.dll and Lib\cairo-sharp.dll." />
+  </Target>
+</Project>

@@ -1,0 +1,47 @@
+# Suite 1.2.45 — full improvement pass
+
+Changes since the 1.2.44 MemoryAudit2 build. Includes website 2.7.4.
+
+## Server Essentials Suite 1.2.45
+
+- Load saved inventory snapshot headers at startup and read item data only when needed, reducing memory retained for historical players.
+- Release saved snapshot payloads only after a successful database commit. Keep unsaved snapshots available for retry.
+- Validate snapshot items and backpack capacity before restoring inventories; restore bags before their contents.
+- Avoid repeating snapshot retention SQL for every historical player on every save.
+- Reject invalid or overflowing moderation durations.
+- Preserve map opt-outs when their saved file cannot be read. Hide player coordinates until privacy state is recovered.
+- Commit waypoint changes only after they save successfully. Preserve unreadable or unsupported saved data.
+- Prevent outdated map and activity refreshes from publishing after settings or privacy changes.
+- Release webpanel diagnostic snapshot caches when the listener stops; paused cold reads do no snapshot work.
+- Improve role draft controls and navigation protection; prevent overlapping or outdated player-role, console and database responses.
+- Release Shift+L GUI resources on close, stop profiler polling, and ignore late replies while closed. Unregister temporary waypoint teleport dialogs.
+
+## Website 2.7.4
+
+- Reduce new website password minimum from 12 to **6 characters**, consistently across registration, password changes and owner reset tools. Maximum remains 128; usernames remain 3–24.
+- Count Unicode password characters consistently in PHP, Node and browser validation.
+- Add accessible password reveal controls and immediate confirmation validation. Reject trailing-newline bootstrap usernames and handle missing PHP reset input clearly.
+- Improve editor preview scheduling, field validation and focus feedback.
+- Preserve map detail when switching layers after panning; improve dimension-aware searches and responsive controls.
+- Clean up map requests and image work when leaving the page.
+
+## Discord Integration 1.0.13
+
+- Cache Discord MOTD feeds instead of fetching them repeatedly for joining players and every getter.
+- Observe background refresh failures and retain bounded retry behavior. Suppress unchanged feed events and ignore completions after shutdown.
+- Preserve unreadable linked-account and role synchronization stores; refuse mutations until saved state can be recovered.
+- Keep in-memory link/role state consistent after failed persistence. Skip role changes when ownership state is unavailable, and consume linking codes only after successful persistence.
+
+## ChatGuard 2.1.4
+
+- Release closed/replaced GUI textures and dialog/hotkey registrations. Ignore late or out-of-order admin responses and handle reconnect send failures.
+
+## Player List 1.1.2
+
+- Unregister the HUD on disposal and release replaced compositor textures.
+- Avoid replacing unchanged supporter light state on every poll and validate packet color ranges.
+- Match compiled assembly version with release metadata.
+
+## Included unchanged companions
+
+Client Integrity 1.1.28, Community MOTD 2.1.5 and Website Connector 1.1.1 retain their existing behavior. The Discord MOTD feed improvement is in the Discord mod. Client Integrity protocol 13, its network compatibility label, and OreShield sync v3 remain unchanged.

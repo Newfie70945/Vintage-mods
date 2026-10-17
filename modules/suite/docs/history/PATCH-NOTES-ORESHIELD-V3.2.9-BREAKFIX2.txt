@@ -1,0 +1,10 @@
+OreShield v3.2.9 BreakFix2
+
+- Fixes already-discovered ore becoming concealed again after its chunk unloads and is sent again.
+- Recipient chunk masking now consumes PlayerUID directly instead of requiring reconstruction of IServerPlayer from the internal ConnectedClient.
+- Adds a stable ClientId -> PlayerUID bridge learned from the public player state / OreShield sync hello.
+- If recipient UID truly cannot be resolved, chunk masking remains fail-closed and conceals natural protected ore.
+- Legitimate discovery state is preserved across player disconnect/reconnect for the lifetime of the current OreShield runtime; the sync hello replays known discoveries on reconnect.
+- Retains BreakFix1 authoritative post-break apply-once behavior and fast break/place ordering safeguards.
+- Client Integrity remains 1.1.26, Anti-Cheat protocol 13, OreShield sync protocol 2.
+- Sync build marker remains ac1126-oreshield-v329-breakfix1; no Client Integrity rebuild is required from BreakFix1.

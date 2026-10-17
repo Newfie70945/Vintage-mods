@@ -1,0 +1,39 @@
+# Suite 1.2.43 — Polish1
+
+Changes since public Suite **1.2.42 / Improve1**. Website advances from **2.7.4 to 2.7.5**. Companion binaries are unchanged in this pass.
+
+## Server Essentials Suite 1.2.43
+
+- Added a manual Module Retention & Queues view in Memory & GC, with WebPanel cache lifetimes, refresh failures/cleanup counters, logger queues, inventory-history retention, estimated Mod DB cache usage and pending OreShield reveals.
+- Added a downloadable diagnostic snapshot. Counts and sampled binary item bytes are labelled separately from whole-process memory; no forced GC or heap walk runs.
+- Added a player Investigation Overview combining restrictions, anti-cheat findings, consequence explanations, recorded risk changes, effective role policies and inventory snapshot headers.
+- Made player selection defer inventory contents and block history until requested. Investigation block history uses exact account UIDs instead of player-name prefixes, retaining history after renames and avoiding unrelated-account matches.
+- Protected investigation views from responses arriving after another player is selected. Added local JSON investigation export.
+- Added saved-player effective role previews, including direct grants/denials, live privileges for the current online role, player-specific home limits, inherited cooldowns and extra claim allowances.
+- Added unsaved role-definition previews showing affected player counts without saving the definition.
+- Added preview-first bulk assignment for up to 50 selected players. Recheck role revisions and expected memberships before applying; preserve direct grants/denials and report partial failures.
+- Added per-player consequence-rule state and confirmed-speed report/bonus explanations. Mounted and review-only observations do not count toward the dedicated unmounted repeated-speed kick; enforcement thresholds are unchanged.
+- Improved Shift+L navigation with Back, Resume Workspace and Copy View controls, including navigation through direct shortcuts. Existing searches, page selection and resource cleanup are retained.
+- Fixed whole-vein reveal scheduling repeatedly favoring the first dictionary entry. Serve the least recently processed player's job and expose pending-job age and limit counters.
+- Kept native/XSkills break handling, mineral-family matching, diagonal connectivity and reveal limits intact. OreShield remains beta and off by default for new configurations.
+- Excluded claimed land from rollback by default. Added explicit `--include-claims` recovery with access checks during preview and execution, including after durable intent is written.
+- Added affected-chunk counts and claim inclusion to rollback preview reports. Existing receipts, live-change checks, cancellation and partial-completion journals remain active.
+- Aligned runtime, assembly, build scripts and packages to **1.2.43**, exactly one patch after the verified public Suite release.
+
+## Website 2.7.5
+
+- Added reusable homepage sections that admins can show, hide and reorder. Discord and the joining hero stay at the top.
+- Added hero focal-point and brightness controls with private desktop/mobile previews.
+- Apply presentation settings through permitted DOM style updates without weakening the content security policy.
+- Preserve existing editor revisions, private drafts, history, owner text and image selection. Older content without the new options remains valid.
+- Avoid polling discussion/news/ranking feeds for hidden homepage sections when those feeds are not needed elsewhere on the homepage.
+- Expanded owner connection checks to cover authentication, running game version/snapshot freshness, map/export readiness and tracked-player totals, with suggested next steps.
+- Retained six-character password minimums, account permissions, PHP/Node parity and narrow-screen layouts.
+
+Included unchanged: Client Integrity **1.1.28**, ChatGuard **2.1.4**, Discord **1.0.12**, MOTD **2.1.5**, Player List **1.1.2**, Website Connector **1.1.1**. Protocol 13 and OreShield sync v3 remain unchanged.
+
+UI1: grouped administration/role/profiler views; shared dark styling; independent bulk claim previews; aligned preview validation; text/unit sorting; Shift+L dark inset surfaces. See CHANGELOG-1.2.43-UI1.md.
+
+MS11-UI2: configurable frame textures, icons, role color chips, custom chat layouts and canonical relay handling; Discord 1.0.13 fixes normal-player /discordlink registration. See CHANGELOG-1.2.43-UI2.md.
+
+MS11-CENTER1: clearable Action Center queues and improved announcement/update editing and feeds; Community MOTD 2.1.6. Separate optimizer cancelled; no game-engine patch in this release.

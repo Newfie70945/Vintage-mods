@@ -1,0 +1,12 @@
+Required runtime contents of NewfiesServerEssentialsDiscord_1.0.10.zip
+==================================================================
+modinfo.json
+NewfiesServerEssentialsDiscord.dll
+Discord.Net.Core.dll
+Discord.Net.Rest.dll
+Discord.Net.WebSocket.dll
+Discord.Net.Dave.dll
+Newtonsoft.Json.dll
+
+Additional .dll/.json files produced by the Release build may also be packaged.
+Use build-release.ps1 or build-release.sh; do not package only the main mod DLL.

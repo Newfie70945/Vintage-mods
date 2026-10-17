@@ -1,0 +1,15 @@
+Newfies Server Essentials Suite 1.2.42 — MS11 MapMemory1
+Target: Vintage Story 1.22.7 / .NET 10
+
+- Startup map exports decode only terrain; entities, block entities and mod data are skipped.
+- Export-owned chunk pools are smaller and cleared after use.
+- Large overview buffers are no longer retained by shared pools.
+- Missing height metadata uses a detached column scan.
+- Failed DB reads keep the published map and dirty journal instead of silently using the world loader.
+- Added memory and resource-release diagnostics.
+
+Keep UseDirectSaveDatabaseTerrain=true (the default). Explicitly disabling it still selects the legacy compatibility loader, which can reconstruct entity/mod state.
+The server continues running when the export completes; no second restart is required.
+.NET reserved memory and Linux/container file caches can remain high after export objects are released.
+
+Only the Suite changed in this release; companion and website versions are unchanged.

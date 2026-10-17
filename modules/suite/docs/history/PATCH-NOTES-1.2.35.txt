@@ -1,0 +1,160 @@
+OreShield v3.2.9 sync validation path (current)
+newfies-server-essentials-suite-1.2.35-ms11-oreshield-v329-breakfix2-polish1-ac1126-2026.09.27
+- Client Integrity 1.1.26 / protocol 13 is the sole recipient reveal transport.
+- Native SetBlock reveal fallback is retired after runtime testing showed it did not reveal ore.
+- Reveal/LOS/resync use public IServerPlayer routing and do not depend on DidSendChunk.
+- Missing final sync ACKs time out after 9 seconds and retry once on the same dedicated channel.
+- WebPanel reports sync batches, ACKs, timeouts, retries and unsupported-client skips directly.
+- OreShield remains on sync sub-protocol v2 with exact capability/build markers (`sync-remesh-v2` / `ac1126-oreshield-v329-breakfix1`); stale 1.1.26 experimental clients are rejected as sync-incompatible.
+- BreakFix1 prevents stale reveal stabilization from resurrecting ore after a successful break; BreakFix2 preserves legitimate discoveries across chunk unload/reload and reconnect for the lifetime of the active OreShield runtime.
+- Final ACKs track applied vs failed blocks separately. Failed client applies trigger one authoritative chunk re-sync and are exposed as WebPanel failures instead of being treated as success.
+- Single-block and placement hook coordinates now preserve embedded InternalY dimension data and use the player's server dimension as a fallback when hook coordinates are local-Y.
+
+OreShield v3.2.3 native correction reliability
+newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+- Native recipient-only SetBlock corrections replace custom SetBlocks correction packing.
+- Vanilla bulk updates beside ore are no longer suppressed/repacked.
+- Already-discovered adjacent ore is always re-sent after a legitimate break.
+
+OreShield v3.2.2 deterministic reveal hotfix
+
+- Player-placed protected ore is pre-exempted before the engine placement path can emit its first block packet, eliminating the initial ore->rock virtualization race.
+- Failed placements roll back only the provisional exemption; successful protected-ore placements persist globally.
+- The breaker fast-path now reads all six authoritative neighboring cells directly after DidBreakBlock and authorizes protected ore without depending on exposure-index, FOV, LOS, or DidSendChunk bookkeeping.
+- Authorized corrections are sent immediately over BOTH recipient-only vanilla SetBlocks and Client Integrity OreShield sync.
+- Client Integrity 1.1.26 keeps authorized client cells stabilized for 2.5 seconds to win late masked-packet ordering races.
+- Periodic cave LOS accepts body/head angle representations before performing the authoritative server ray, reducing false negatives from player-angle synchronization.
+- Web Map leaderboard top-bar placement and /leaderboard history URL behavior remain included.
+- Server Suite remains 1.2.35; Anti-Cheat protocol remains 13.
+
+Build ID:
+newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+
+Newfie's Server Suite 1.2.35 - OreShield v3.2.1 placed-ore fix
+
+- Player-placed protected ore is now globally exempt from OreShield masking.
+- The exemption is persisted in save data so placed ore stays visible after reconnect, chunk reload and server restart.
+- Breaking/replacing a player-placed ore removes its exemption.
+- Placement now sends a trusted interactive correction to the placer, bypassing stale DidSendChunk bookkeeping.
+- The miner direct-exposure correction uses the same trusted interactive delivery path.
+- Natural/worldgen ore remains fully protected by LOS/discovery rules.
+- Client Integrity remains 1.1.26 / protocol 13; no client code changed in this hotfix.
+
+Build ID:
+newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+
+Newfie's Server Suite 1.2.35 - Consolidated MS11 Release
+
+Target
+- Vintage Story 1.22.7 / .NET 10
+- Server Suite: 1.2.35
+- Client Integrity / Anti-Cheat Client: 1.1.26
+- Client Integrity protocol: 13
+- Community MOTD: 2.1.2
+- Discord Integration: 1.0.8
+- Player List: 1.1.1
+- ChatGuard: 2.1.1
+
+Build ID
+newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+
+Important release-line note
+- This requested 1.2.35 release retains the later MS8, MS9, MS10, and MS11 feature work even though the Suite semantic version was intentionally moved back to 1.2.35.
+- Do not interpret this archive as the historical MS7-only 1.2.35 build.
+
+WebPanel Leaderboard
+- Leaderboard is present in the authenticated WebPanel TOP BAR through leaderboardTopBtn; it is not a sidebar-only feature.
+- Authenticated leaderboard views include Overview, Skills, Playtime, and player progression/profile detail.
+- Leaderboard generation starts from Suite all-player history and merges persisted XSkills/XLib disconnected-player skill sets, so known offline players can rank.
+- Offline XSkills UIDs are resolved to last-known Vintage Story player names; UIDs are not exposed to browser leaderboard payloads.
+- Authenticated leaderboard availability is independent of whether the public Web Map leaderboard is enabled.
+
+Standalone Leaderboard URL
+- Authenticated WebPanel supports /leaderboard, /leaderboard/, and /leaderboard.html and opens the top-bar leaderboard view after authentication/session restore.
+- Public Web Map supports /leaderboard, /leaderboard/, and /leaderboard.html using the privacy-sanitized public leaderboard feed.
+- Public leaderboard-only mode avoids the normal terrain/map polling loop.
+- Existing public visibility controls and /webmap live off privacy continue to apply.
+
+Community MOTD 2.1.2 pairing
+- MOTD refresh is open-driven rather than a recurring 30-second broadcast to every online player.
+- Config save/reload no longer pushes a live MOTD refresh to all connected players.
+- Routine MOTD refresh logging remains reduced to avoid recurring console spam.
+- The standalone /leaderboard URL can be linked directly from MOTD/community content.
+
+Discord Integration 1.0.8 pairing
+- /players and /serverinfo use corrected connected/playing player-state counting with UID de-duplication and fallback handling.
+- /date and /serverinfo game time use HH:mm formatting.
+- Disabled/stale slash commands respond instead of silently timing out.
+- Suite owns the server-side moderation execution path for Discord /ban, /unban, /mute, and /unmute through newfiesse:discord-staff-command.
+
+Player Teleport Consent
+- /t2p <player> requires the destination player's consent through /tpaccept.
+- /t2m <player> and /t2p <player> share the consent engine.
+- Requests expire after 60 seconds.
+- Accepted teleports use a 10-second warmup.
+- /t2p resolves the destination player's live position at completion and charges cooldown only after successful teleport.
+- Existing PacketGuard trusted teleport handling and /back origin recording remain intact.
+
+AFK
+- AFK spin is server-authoritative and does not require Server Suite to be installed on the AFK player's client.
+- The server rotates the player's authoritative yaw during AFK lock, allowing other clients to see the spin through normal entity replication.
+- The optional Suite client camera/orbit effect remains visual polish only.
+- NewfiesAfk EnableServerEntitySpin defaults true and uses CameraOrbitSpeedDegreesPerSecond.
+
+OreShield v3
+- All protected ore is concealed by default in recipient chunk data, including cave-exposed ore.
+- Cave air alone does not authorize a real ore ID.
+- Recipient-aware chunk masking runs at the client-aware chunk-send stage.
+- Server-side line-of-sight from the authoritative player eye position authorizes one-way per-player discovery.
+- Mining has a secure fast-path: protected ore on the newly opened six adjacent faces is authorized immediately for the player who actually broke the block.
+- Discovery corrections use recipient-only SetBlocks updates rather than ExchangeBlock.
+- No forceSendChunks reveal path remains, preventing the prior black-world/chunk flashing regression.
+- Whole-vein reveal defaults off. When enabled, it uses face-connected (6-neighbor) connectivity rather than diagonal 26-neighbor connectivity.
+- LOS work is bounded and candidate indexes rebuild on demand after cache/index eviction.
+- The authoritative server world is never rewritten by OreShield virtualization.
+
+WebPanel / OreShield telemetry
+- Telemetry reflects the current LOS/discovery architecture instead of the removed proximity-radius repair loop.
+- Client Integrity 1.1.26 adds acknowledged OreShield client sync; WebPanel now reports sync batches, entries, ACKs, deferred ACKs, resync requests, and vanilla fallbacks.
+- Vanilla correction counters remain available for clients that do not advertise the new capability or fail to complete an ACK.
+
+Recompile / deployment scope
+- Current OreShield, leaderboard, T2P consent, AFK spin, and WebPanel changes are in Server Suite.
+- Anti-Cheat Client 1.1.26 / protocol 13 includes the latest OreShield deterministic reveal stabilization and must be recompiled/deployed with this build.
+- Community MOTD remains 2.1.2 unless separately edited.
+- Discord remains 1.0.8 unless separately edited.
+
+
+OreShield v3.1 hardening
+- Real selection-geometry LOS blockers
+- Exposed-ore candidate index
+- Movement/view-driven scans with 140-degree default view cone
+- 3-second idle safety rescan
+- Chunk-local discovery state
+- Same-family 6-face whole-vein traversal when explicitly enabled
+- Outbound leak-invariant audit telemetry
+- Config schema 60
+
+
+OreShield v3.2 client sync
+- Suite remains the sole authority for ore discovery.
+- Client Integrity 1.1.26 advertises OreShieldClientSync on protocol 13.
+- Separate newfiesoreshieldsync channel carries only already-authorized block IDs.
+- Client applies authorized IDs locally, calls MarkBlockDirty for retessellation, and ACKs applied/deferred/failed entries.
+- Deferred updates wait for the target chunk; resync requests can only recover already-authorized discoveries for already-sent chunks.
+- Server rate-limits resync requests.
+- Missing/incomplete ACKs fall back to recipient-only vanilla SetBlocks after 1.2 seconds.
+
+
+OreShield v3.2 client-sync reliability follow-up (Anti-Cheat 1.1.26)
+- Some reveals were succeeding, confirming authorization/delivery was intermittent rather than completely broken.
+- The breaking player's face-adjacent ore discovery no longer depends on ConnectedClient.DidSendChunk bookkeeping.
+- Anti-Cheat Client applies authorized OreShield cells only from the client game-tick thread.
+- Client application now mirrors vanilla SetBlocks with BulkBlockAccessor + Commit and verifies the resulting solid block ID before final ACK.
+- Protocol remains 13; networkVersion remains 1.1.21.
+
+
+Web Map leaderboard top-bar / URL correction (2026-09-27)
+- Public Web Map Leaderboard control moved from the vertical map toolbar into the top header bar.
+- Opening Leaderboard now navigates to /leaderboard; close/back returns to the map URL.
+- /leaderboard, /leaderboard/, and /leaderboard.html remain directly routable.

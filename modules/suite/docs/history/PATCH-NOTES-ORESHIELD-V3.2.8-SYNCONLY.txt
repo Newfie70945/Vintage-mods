@@ -1,0 +1,23 @@
+OreShield v3.2.8 - sync-only reveal path
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v328-synconly1-ac1126-2026.09.27
+
+Why this revision exists
+- Native recipient SetBlock corrections were confirmed ineffective on the target Vintage Story 1.22.7 runtime.
+- Keeping that path as fallback obscured whether the dedicated Client Integrity reveal channel was actually working.
+
+Changes
+1. Client Integrity OreShield sync is now the sole reveal/reconceal transport.
+2. Removed ConnectedClient/native SetBlock fallback from reveal delivery and ACK timeout handling.
+3. A sync sequence that receives no final ACK after 9 seconds is counted as a timeout and retried once on the same dedicated channel.
+4. A second timeout remains visible in telemetry/logs and is not hidden by another transport.
+5. WebPanel removes Direct sends / Direct send errors / Unsent-chunk skips from the active diagnostics and adds Sync timeouts / Sync retries / Sync unsupported.
+6. Legacy JSON fields are retained as zero for compatibility with older WebPanel consumers.
+7. Client Integrity remains version 1.1.26 with protocol 13.
+
+Expected healthy reveal telemetry
+- Sync-ready clients > 0
+- Sync hellos > 0
+- Client sync batches > 0 after a reveal
+- Client sync ACKs > 0
+- Sync timeouts = 0 in the normal case
+- Sync retries = 0 in the normal case

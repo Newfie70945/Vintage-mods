@@ -1,0 +1,11 @@
+OreShield v3.2.5 BuildFix1 - Vintage Story 1.22.7 API compatibility
+
+Client Integrity remains 1.1.26 / protocol 13.
+
+Fixes:
+- Removed invalid IBlockAccessor.RedrawNeighbouringChunk calls from the client reveal/remesh path.
+- Uses the supported client-side IBlockAccessor.MarkBlockDirty(BlockPos) API for the revealed cell.
+- At chunk boundaries, marks one loaded adjacent block dirty so the neighbouring chunk is also retessellated.
+- Fixed the nullable MethodBody warning in SelfAttestationEngine by explicitly validating MethodBody before use.
+
+OreShield behaviour from v3.2.5 is otherwise unchanged: dedicated sync readiness hello, authorized-discovery resync, and forced first-remesh remain enabled.

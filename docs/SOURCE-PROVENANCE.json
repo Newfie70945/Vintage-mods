@@ -1,0 +1,26 @@
+{
+  "archive": "NSS-1.2.43-MS11-CENTER1-source-with-Website-2.7.5.zip",
+  "sha256": "0cd9df6a2208ba1379e439a2c208563a4782ced5476b94096dca2f09686b37ed",
+  "restored": "2026-10-17",
+  "imported": [
+    "suite",
+    "motd",
+    "anticheat-client",
+    "chatguard",
+    "discord-link",
+    "website-connector",
+    "player-list",
+    "shared"
+  ],
+  "excluded": [
+    "standalone website",
+    "ModDB descriptions"
+  ],
+  "preservedChanges": [
+    "Suite stable UID admin targeting",
+    "Suite console feature replies",
+    "Suite post-builder formatting and escaping",
+    "MOTD feed formatting and normalisation"
+  ],
+  "optimizer": "Retained delivered 0.1.0-preview snapshot, absent from recovered archive"
+}

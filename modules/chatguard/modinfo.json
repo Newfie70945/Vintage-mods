@@ -1,0 +1,16 @@
+{
+  "type": "code",
+  "modid": "newfieschatguard",
+  "name": "Newfie's ChatGuard",
+  "authors": [
+    "Newfie"
+  ],
+  "description": "Standalone chat moderation for Vintage Story with spam, repeat, caps, links, mention, length and phrase rules, persistent warnings/mutes, an optional staff in-game GUI, and Server Suite WebPanel integration. Server moderation does not require clients to install ChatGuard.",
+  "version": "2.1.4",
+  "side": "Universal",
+  "requiredOnClient": false,
+  "dependencies": {
+    "game": "1.22.7"
+  },
+  "requiredOnServer": true
+}

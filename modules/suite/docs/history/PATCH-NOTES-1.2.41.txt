@@ -1,0 +1,18 @@
+Suite 1.2.41 — AuditFix1
+
+- Fixed home-data loss after a failed load and incorrect success replies after failed home saves.
+- Added safe recovery copies for damaged reports, anti-cheat history, analytics and moderation state.
+- Added report-history limits, smaller list responses and paged notes/timelines.
+- Moved report, incident, analytics and ChatGuard JSON writes into background workers with retry/flush handling.
+- Reduced repeated back-position saves and cleaned up expired cooldown/chat history entries.
+- Added bounded live-log reads, UTF-8/context carry and backlog diagnostics.
+- Added dependency-version and ZIP safety checks before staging mod updates.
+- Fixed formatted chat in Discord/web console and blocked-message relay handling.
+- Added rotating ChatGuard audit logs and visible persistence warnings.
+- Cached MOTD logo images/hashes and rejected oversized files before reading them.
+- Fixed missing-slot handling in inventory, rollback and hotbar initialization paths.
+- Polished report paging, read-only controls, storage warnings and response-race handling.
+- Kept the improved chat parser and private `/chatformat` guide.
+- Verified public versions; updated Suite 1.2.41, ChatGuard 2.1.3, Discord 1.0.11, MOTD 2.1.4.
+
+Website remains 2.7.0; client 1.1.27, Player List 1.1.1 and Connector 1.1.0 are unchanged. Larger animal-cull, role crash-consistency and admin-storage scaling work remains listed in the [audit](AUDIT-1.2.41.md).

@@ -1,0 +1,11 @@
+{
+  "Enabled": true,
+  "BindAddress": "127.0.0.1",
+  "Port": 9466,
+  "AccessToken": "",
+  "SuitePublicOrigin": "http://127.0.0.1:9465",
+  "SnapshotCacheSeconds": 15,
+  "MaxConcurrentRequests": 16,
+  "UpstreamTimeoutSeconds": 8,
+  "Supporters": []
+}

@@ -1,0 +1,23 @@
+Ore Shield v3.2.4 - Recipient routing / reveal delivery fix
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+Date: 2026-09-27
+
+Observed failure
+- Server discovery bookkeeping worked: LOS/vein discovery counters increased.
+- Reveal transport did not: correction packets and real-ore packets remained at zero.
+- This proved Ore Shield was authorizing discoveries but dropping them before recipient packet dispatch.
+
+Changes
+- Resolve reveal recipients directly from ServerMain.Clients by stable PlayerUID instead of relying on the fragile PlayerByUid -> ClientId -> Clients dictionary chain.
+- Reuse the exact resolved ConnectedClient for chunk-sent checks and packet delivery.
+- Use the normal ServerMain.SendPacket queue for native recipient-only Packet_ServerSetBlock corrections.
+- Keep Client Integrity sync as an independent secondary stabilization/remesh path; lack of client-sync support no longer obscures the native reveal path.
+- Client-sync fallback and chunk-sent helpers now use the same robust recipient resolver.
+- Added WebPanel reveal-dispatch diagnostics: requested cells, recipient misses, unsent-chunk skips, stale/non-ore skips, native direct sends, direct-send errors, and client-sync unsupported skips.
+
+Expected test result
+- After mining into a protected ore, Reveal dispatch requested cells should increase.
+- Direct sends and Correction packets should become non-zero.
+- Real-ore packets should become non-zero for the discovering player.
+- If those remain zero, Recipient misses identifies recipient routing as still failing.
+- If Direct sends increase but the ore remains visually concealed, the next target is client SetBlock/remesh handling rather than discovery or server routing.

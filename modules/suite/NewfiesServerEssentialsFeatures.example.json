@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": 2,
+  "BlockLogger": true,
+  "IngameAdminGui": true,
+  "Administration": true,
+  "PlayerCommands": true,
+  "Afk": true,
+  "AntiCheat": true,
+  "AnimalLimiter": true,
+  "LoginProtection": true,
+  "WebDashboard": true,
+  "WebConsole": true,
+  "WebMap": true,
+  "Announcements": true,
+  "Reports": true,
+  "PlayerAnalytics": true,
+  "PerformanceDiagnostics": true,
+  "ModUpdateChecker": true,
+  "LogIntelligence": true,
+  "PerformanceCenter": true,
+  "OperationsCenter": true
+}

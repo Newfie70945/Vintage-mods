@@ -1,0 +1,7 @@
+{
+  "SchemaVersion": 1,
+  "CooldownMinutes": 1440,
+  "MinLength": 3,
+  "MaxLength": 20,
+  "Players": {}
+}

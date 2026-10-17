@@ -1,0 +1,22 @@
+OreShield v3.2.2 deterministic reveal
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-webmap-leaderboard-topbar1-oreshield-v324-recipientfix1-ac1126-2026.09.27
+
+Versions
+- Server Suite 1.2.35
+- Client Integrity / Anti-Cheat Client 1.1.26
+- Protocol 13 unchanged
+- MOTD 2.1.2 unchanged
+
+Fixes
+- Protected ore placed by a player is exempted before the authoritative placement executes, so its first packet is never intentionally masked.
+- Successful placed-ore exemptions persist; failed placement attempts roll back their provisional state.
+- Direct mining discovery scans the six authoritative neighbors of the broken cell and immediately marks any protected ore discovered for the breaker.
+- Direct mining discovery no longer depends on exposure-index membership, view cone, LOS, or DidSendChunk bookkeeping.
+- Authorized corrections use vanilla recipient-only SetBlocks immediately and also send Client Integrity sync when supported.
+- Client Integrity 1.1.26 extends the client stabilization/reapply window to 2.5 seconds.
+- Cave LOS view-cone testing accepts body, head, or combined angle representations before the authoritative ray test.
+
+Retained
+- Web Map Leaderboard is in the top bar and uses /leaderboard browser history routing.
+- Natural protected ore remains hidden until server-authorized discovery.
+- Whole-vein reveal remains off by default.

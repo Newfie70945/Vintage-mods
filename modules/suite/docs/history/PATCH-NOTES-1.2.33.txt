@@ -1,0 +1,28 @@
+﻿Newfie's Server Suite 1.2.33 - Community MOTD Dashboard Integration
+
+- Updated Suite WebPanel support for Newfie's Community MOTD 2.1.1.
+- Updated branding-path defaults/help for the dedicated NewfiesCommunityMOTD/branding/ data folder.
+- Preserved runtime discovery and independent buildability between Suite and MOTD.
+- Retains all 1.2.32 administration, Anti-Cheat, role cooldown, Patch Studio, OreShield,
+  profiler, Log Intelligence, restart, ChatGuard, Player Commands and WebPanel work.
+
+Build ID:
+newfies-server-essentials-suite-1.2.33-motd-dashboard1-2026.09.25
+
+OreShield proximity reveal fix
+- Proximity reveal now follows the server-authoritative player ServerPos rather than relying on a potentially stale generic Pos snapshot.
+- Added a 250ms movement-sensitive reveal pass so protected veins reveal as the player enters the configured radius, without requiring a nearby block update.
+- Added a 1s forced repair pass so late chunk/update packets cannot leave already-nearby ore visually concealed.
+
+Shift+L Community MOTD configuration
+- Shift+L -> Integrations -> Discord now includes a Community MOTD tab.
+- General controls cover title/subtitle, dimensions, join/display behavior, branding, link and Web Map buttons.
+- Pages & Feeds controls cover MOTD tabs, Discord feed usage, Suite status and Server Info categories.
+- Home and Rules retain free-form VTML editors.
+- Save & Apply, Reload Disk and Reset Seen State are available in-game.
+- All changes are authorized server-side and use the existing Community MOTD event-bus bridge; no hard Discord/MOTD dependency was added.
+
+Reliability fixes
+- Fixed Discord MOTD feed channel IDs reverting to 0 in the WebPanel display after save.
+- Retains OreShield proximity reveal fix.
+- Reduced Client Integrity challenge overlap/replay false positives and heartbeat stale-state persistence.

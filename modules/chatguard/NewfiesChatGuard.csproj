@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyName>NewfiesChatGuard</AssemblyName>
+    <RootNamespace>NewfiesChatGuard</RootNamespace>
+    <Version>2.1.4</Version>
+    <Product>Newfie's ChatGuard</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="cairo-sharp" Condition="Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="CairoSharp" Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')">
+      <HintPath>$(VINTAGE_STORY)/Lib/CairoSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(VINTAGE_STORY)/Lib/Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <None Update="modinfo.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="NewfiesChatGuard.example.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+  </ItemGroup>
+  <Target Name="ValidateVintageStory" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(VINTAGE_STORY)' == ''" Text="VINTAGE_STORY is not set. Point it to the Vintage Story 1.22.7 installation folder." />
+    <Error Condition="'$(VINTAGE_STORY)' != '' and !Exists('$(VINTAGE_STORY)/VintagestoryAPI.dll')" Text="VintagestoryAPI.dll was not found under $(VINTAGE_STORY)." />
+  </Target>
+  <ItemGroup>
+    <Compile Include="../shared/Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

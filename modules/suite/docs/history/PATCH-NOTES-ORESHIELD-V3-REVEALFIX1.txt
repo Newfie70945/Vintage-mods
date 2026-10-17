@@ -1,0 +1,14 @@
+Newfie's Server Suite 1.2.35 - OreShield v3 Reveal Fix 1
+Build ID: newfies-server-essentials-suite-1.2.35-ms11-oreshield-v3-revealfix1-2026.09.27
+
+Changes:
+- Removes ExchangeBlock from OreShield client reveal delivery.
+- Recipient corrections now use SetBlocks packet 47 so the client BulkBlockAccess path commits/remeshes the masked cell.
+- A player who actually breaks a block immediately discovers protected ore on the six newly opened adjacent faces.
+- Mining authorization is recorded before synchronization, removing the conceal-then-reveal race.
+- Server LOS remains required for natural cave exposure and for other nearby players.
+- LOS now tests the ore center plus exposed face centers to reduce shallow-angle false negatives.
+- Newly discovered ore is reasserted once after 120 ms to cover vanilla packet ordering.
+- Authoritative server world remains unchanged; no forceSendChunks path is used.
+
+Only Server Suite source changed. Anti-Cheat Client remains 1.1.26 / protocol 13.
