@@ -1,8 +1,8 @@
-# Single-block, container, player and area rollback — 1.2.52
+# Single-block, container, player and area rollback — 1.2.44
 
 This update reads the existing SQLite `events` and `snapshots` tables. It does not require new logging to recover information those tables already contain. It does not rewrite historical rows or add a recovery database schema. Existing logs must have captured the relevant actions.
 
-This pass advances the Suite to 1.2.52; companion versions remain unchanged. The complete Suite builds against Vintage Story 1.22.7. Planner, command/API-double and SQLite fixtures passed; test the world adapter on a COPY of the damaged world before production recovery.
+This pass advances the Suite to 1.2.44; companion versions remain unchanged. The complete Suite builds against Vintage Story 1.22.7. Planner, command/API-double and SQLite fixtures passed; test the world adapter on a COPY of the damaged world before production recovery.
 
 ## One block or container
 
@@ -27,13 +27,15 @@ Coordinates default to your current dimension; a looked-at target uses its own d
 
 Inventory recovery requires historical pre-change contents, logged item transfers and a matching final snapshot for surviving containers. Enable `LogContainerSnapshots` and `SnapshotOnSlotChange` in BlockLogger for future history; these settings cannot recreate missing past records. Recovery preserves matching live stack attributes, but reconstructed stacks have default attributes because old snapshots recorded codes/counts only. Items already taken elsewhere are not confiscated.
 
-An unchanged existing bookshelf or modded container can have its inventory restored through `IBlockEntityContainer`, subject to slot/item/state checks. Recreating a destroyed container is limited to supported basic storage classes; missing bookshelf shape/material, machine state and other metadata are not invented. For a damaged block ID with **surviving saved bookshelf metadata**, use the separate [inventory restoration workflow](BLOCK-ID-REPAIR.md#automatic-inventory-restoration-suite-1252).
+An unchanged existing bookshelf or modded container can have its inventory restored through `IBlockEntityContainer`, subject to slot/item/state checks. Recreating a destroyed container is limited to supported basic storage classes; missing bookshelf shape/material, machine state and other metadata are not invented. For a damaged block ID with **surviving saved bookshelf metadata**, use the separate [inventory restoration workflow](BLOCK-ID-REPAIR.md#automatic-inventory-restoration-suite-1244).
 
 Claimed land is excluded by default. Add `--include-claims` when intentional, subject to your current game permissions. Back up the world, close the container and review the preview before execution. Live changes invalidate recovery. Empty previews offer no execution token. Existing expiry, durable receipt, cancellation and duplication protections also apply here.
 
 Rollback replies are escaped as plain text and bounded before entering game chat, including help, historical values and exceptions. Private send failures do not leave recovery stuck. If an earlier build has already left broken markup in your chat history, use the client command `.clearchat` to discard that history; `.debug recomposechat` rebuilds the chat UI if needed.
 
 ## Start here
+
+Use `/rollback help` (or `/rollback` with no arguments) for the in-game guide. Help is available while the receipt index initializes or another recovery is running, and does not replace or cancel a preview.
 
 Keep the attacker banned and offline. Preserve a full world backup and Suite data before executing recovery.
 

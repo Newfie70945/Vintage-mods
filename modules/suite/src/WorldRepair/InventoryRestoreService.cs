@@ -98,7 +98,7 @@ public sealed partial class BlockIdRepairService
     {
         Guard();ValidateRestoreRequest(request);lock(gate){
             if(worker is{IsCompleted:false})throw new InvalidOperationException("Wait for or cancel the current scan/inspection.");
-            if(pending!=null||restorePending!=null)throw new InvalidOperationException("Cancel the staged job before creating another restore.");
+            if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Cancel the staged job before creating another restore.");
             var p=new InventoryRestorePlan{World=api.World.SavegameIdentifier,Registry=RestoreRegistry(),Request=request,ChunkKey=unchecked((long)ChunkPos.ToChunkIndex(request.X/32,request.Y/32,request.Z/32,request.Dimension)).ToString(System.Globalization.CultureInfo.InvariantCulture)};
             var catalog=CaptureRestoreCatalog();string worldPath=Database().DatabaseFilename,history=historyDatabasePath??"",receipt=RestoreReceiptPath(p);var server=(ServerMain)api.World;
             restorePreview=new(){Id=p.Id,World=p.World,Registry=p.Registry,Request=request,ChunkKey=p.ChunkKey};cancel?.Dispose();cancel=new();var token=cancel.Token;
@@ -111,7 +111,7 @@ public sealed partial class BlockIdRepairService
     {
         Guard();lock(gate){var p=restorePreview;if(p==null||p.Id!=id||p.State!="preview"||DateTime.UtcNow-p.CreatedUtc>TimeSpan.FromMinutes(15))throw new InvalidOperationException("A fresh successful inventory restore preview is required.");
             if(expected!=null&&expected!=p.Request)throw new InvalidOperationException("Restore options changed; generate a fresh preview.");
-            if(pending!=null||restorePending!=null)throw new InvalidOperationException("Another repair is already staged.");
+            if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Another repair is already staged.");
             ValidateRestoreRequest(p.Request);if(p.World!=api.World.SavegameIdentifier||p.Registry!=RestoreRegistry())throw new InvalidOperationException("World or item/block registry changed.");
             p.State="pending";Write(RestorePendingFile,p);restorePending=p;restorePreview=null;return p;}
     }
@@ -134,7 +134,6 @@ public sealed partial class BlockIdRepairService
         if(applying&&(p.EntityHash!=saved.PayloadSha256||p.Source!=source||p.Target!=target.Id||p.TargetCode!=code||p.EntityClass!=saved.Class))throw new InvalidOperationException("Saved container, block or class changed after preview; no restoration was applied.");
         byte[]? slots=null;var receipt=Read<RestoreReceipt>(receiptPath);
         if(request.Mode=="retained"){
-            if(saved.NonEmptyStacks==0)throw new InvalidOperationException("No retained item stacks exist to reconnect. Use snapshot mode for an empty container with historical inventory records.");
             if(receipt?.EntityHash==saved.PayloadSha256)throw new InvalidOperationException("This retained inventory has already had a restore intent recorded; inspect the previous result before retrying.");
             if(saved.Stacks.Any(s=>!catalog.KnownIds.Contains((s.Kind,s.Id))))throw new InvalidOperationException("Retained items contain unresolved IDs; restore their mods/mappings first.");
             p.Items=saved.SerializedItemQuantity;p.OccupiedSlots=saved.NonEmptyStacks;p.Fidelity="Retained block-entity payload is preserved byte for byte, including item attributes. Only this position's solid block ID changes.";
@@ -155,7 +154,7 @@ public sealed partial class BlockIdRepairService
     {
         var p=restorePending!;bool writes=false;ChunkDataPool? pool=null;
         try{
-            Guard();ValidateRestoreRequest(p.Request);if(pending!=null)throw new InvalidOperationException("Conflicting staged jobs; cancel them before restoring.");
+            Guard();ValidateRestoreRequest(p.Request);if(pending!=null||selectedPending!=null)throw new InvalidOperationException("Conflicting staged jobs; cancel them before restoring.");
             if(p.World!=api.World.SavegameIdentifier||p.Registry!=RestoreRegistry())throw new InvalidOperationException("World or block/item registry changed since preview.");
             var thread=(ChunkServerThread)AccessTools.Field(typeof(ServerMain),"chunkThread").GetValue(api.World)!;
             void Quiescent(){var queue=AccessTools.Field(typeof(ChunkServerThread),"requestedChunkColumns").GetValue(thread)!;

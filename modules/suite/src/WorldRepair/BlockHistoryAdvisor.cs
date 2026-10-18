@@ -70,9 +70,9 @@ public static class BlockHistoryAdvisor
                 token.ThrowIfCancellationRequested();using var cmd=db.CreateCommand();cmd.CommandTimeout=2;
                 // Force the matching existing index. An old/missing index produces a
                 // diagnostic instead of falling back to a scan of a multi-GB database.
-                cmd.CommandText=snapshots?"SELECT id,timestamp_ticks,substr(block_code,1,257),non_empty_slot_count,total_item_count,slot_count,length(slots_json),substr(slots_json,1,65537) FROM snapshots INDEXED BY idx_snapshots_world_dim_pos_time WHERE world_id=$world AND dimension=$dim AND x=$x AND y=$y AND z=$z AND timestamp_ticks<=$before ORDER BY timestamp_ticks DESC LIMIT 51":
-                    "SELECT id,timestamp_ticks,substr(block_code,1,257),action FROM events INDEXED BY idx_events_world_dim_pos_time WHERE world_id=$world AND dimension=$dim AND x=$x AND y=$y AND z=$z AND timestamp_ticks<=$before ORDER BY timestamp_ticks DESC LIMIT 201";
-                cmd.Parameters.AddWithValue("$world",report.World);cmd.Parameters.AddWithValue("$dim",report.Dimension.ToString(System.Globalization.CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$x",report.X);cmd.Parameters.AddWithValue("$y",report.Y);cmd.Parameters.AddWithValue("$z",report.Z);cmd.Parameters.AddWithValue("$before",report.BeforeUtc.Ticks);
+                cmd.CommandText=snapshots?"SELECT id,timestamp_ticks,substr(block_code,1,257),non_empty_slot_count,total_item_count,slot_count,length(slots_json),substr(slots_json,1,65537) FROM snapshots INDEXED BY idx_snapshots_world_dim_pos_time WHERE world_id=$world AND dimension IN ($dim,$legacy) AND x=$x AND y=$y AND z=$z AND timestamp_ticks<=$before ORDER BY timestamp_ticks DESC LIMIT 51":
+                    "SELECT id,timestamp_ticks,substr(block_code,1,257),action FROM events INDEXED BY idx_events_world_dim_pos_time WHERE world_id=$world AND dimension IN ($dim,$legacy) AND x=$x AND y=$y AND z=$z AND timestamp_ticks<=$before ORDER BY timestamp_ticks DESC LIMIT 201";
+                cmd.Parameters.AddWithValue("$world",report.World);cmd.Parameters.AddWithValue("$dim",report.Dimension.ToString(System.Globalization.CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$legacy",report.Dimension==0?"overworld":report.Dimension.ToString(System.Globalization.CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$x",report.X);cmd.Parameters.AddWithValue("$y",report.Y);cmd.Parameters.AddWithValue("$z",report.Z);cmd.Parameters.AddWithValue("$before",report.BeforeUtc.Ticks);
                 using var reader=cmd.ExecuteReader();int rows=0,limit=snapshots?50:200;
                 while(reader.Read())
                 {
@@ -98,7 +98,7 @@ public static class BlockHistoryAdvisor
             }
         }
         report.Candidates=Rank(evidence,targets).Take(10).ToList();if(report.Limited)foreach(var candidate in report.Candidates){candidate.Confidence="Low";candidate.Reason="History window reached its row limit; evidence is incomplete. "+candidate.Reason;}report.State="complete";
-        report.Message=report.Candidates.Count==0?"No usable exact-position block history found within the selected cutoff. Legacy rows without the same world/numeric dimension are not guessed.":"Suggestions from exact-position history. Review evidence and cutoff before choosing a destination; nothing has been staged.";
+        report.Message=report.Candidates.Count==0?"No usable exact-position block history found within the selected cutoff. World/dimension/coordinates must match; legacy overworld records are included as dimension 0.":"Suggestions from exact-position history. Review evidence and cutoff before choosing a destination; nothing has been staged.";
     }
     public static IEnumerable<Candidate> Rank(IEnumerable<Evidence> records,IReadOnlyDictionary<string,Target> targets)
     {

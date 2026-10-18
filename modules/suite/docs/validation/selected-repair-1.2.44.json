@@ -1,0 +1,128 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-selectedrepair1",
+  "gameVersion": "1.22.7",
+  "authenticatedPlayers": 0,
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "checks": {
+    "codecAndPreservation": 80,
+    "history": 16,
+    "officialChatParser": 5,
+    "generalSuite": 22,
+    "postBuilder": 7,
+    "commandAdapter": "Rollback help (including receipt initialization), fixed target/time, inventories, stale data, claims, cancellation and private reply failures",
+    "sql": "Production recovery SQL and 30 seeded equivalence fixtures",
+    "browser": "Imported in-game positions, orphaned bookshelf findings, untrusted text, selected preview/stage, edited inputs and refresh, permissions, Safe Diagnostics, inventory workflow and mobile layout"
+  },
+  "live": {
+    "selected-id": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "changedInputsRefused": true,
+      "conflictingJobRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "pendingConsumed": true,
+      "errors": [],
+      "source": 999999,
+      "targetCode": "game:rock-granite",
+      "preservationAssertions": 32775
+    },
+    "selected-air": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "changedInputsRefused": true,
+      "conflictingJobRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "pendingConsumed": true,
+      "errors": [],
+      "source": 0,
+      "targetCode": "game:rock-granite",
+      "preservationAssertions": 32774,
+      "airAcknowledgementRequired": true
+    },
+    "occupiedBookshelf": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "riskAcknowledgementRequired": true,
+      "changedInputsRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "engineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": [
+          {
+            "slot": 0,
+            "code": "game:clothes-nadiya-neck-tule-root-amulet",
+            "quantity": 7,
+            "text": "Keep this exact written text"
+          }
+        ]
+      },
+      "errors": [],
+      "retainedMismatchDetected": true,
+      "scannedChunks": 4648,
+      "inGameSelectionAdapter": {
+        "success": true,
+        "lockedSelection": {
+          "World": "765c8bbd-761c-4453-bd76-ea1e578d63d9",
+          "X": 517489,
+          "Y": 224,
+          "Z": 517472,
+          "Dimension": 0,
+          "SelectedUtc": "2026-10-18T19:33:09.0437777Z"
+        },
+        "aboveSelection": {
+          "World": "765c8bbd-761c-4453-bd76-ea1e578d63d9",
+          "X": 517490,
+          "Y": 225,
+          "Z": 517472,
+          "Dimension": 0,
+          "SelectedUtc": "2026-10-18T19:33:09.1751021Z"
+        }
+      }
+    },
+    "emptyBookshelf": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "riskAcknowledgementRequired": true,
+      "changedInputsRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "engineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": []
+      },
+      "errors": []
+    },
+    "staleSavedChunk": {
+      "suiteVersion": "1.2.44",
+      "gameVersion": "1.22.7",
+      "integrity": "ok",
+      "changedSavedChunkRefused": true,
+      "terrainUnchanged": true,
+      "pendingRejected": true,
+      "passed": true
+    }
+  },
+  "limits": [
+    "Tests used seeded fixtures and disposable copies of a stock world; no production saves or authenticated clients were used.",
+    "In-game selection adapter ran on the official server with a detached ServerPlayer fixture, not an authenticated player session.",
+    "Deleted plants already saved as air cannot be located/identified without exact-position logs or a backup; acknowledged one-position air restoration does not imply automatic detection.",
+    "Retained class/code mismatch detection is evidence, not a guarantee of recoverability. Unsupported metadata is counted separately.",
+    "Selected repair changes one saved solid block at startup and refuses changed chunk bytes. Fluid cells and generic container replacement are refused.",
+    "A test harness initially omitted its stop helper; staged selected jobs were completed by a corrected restart runner. An initial test-player proxy was incompatible with an internal API interface method; the final selection probe uses a detached official ServerPlayer. These failures did not require production code changes."
+  ],
+  "assemblySha256": "917091f7d8c4c9812d7f8209b66e9073511841d55768e85c44cead1acb2b0cf2",
+  "artifactSha256": "d19f630ebf3c540e29dd1cfa0020773739b8df1e50c1cfb5e9ae0aff4e28815b",
+  "executedArtifactSha256": "0ba9469eda4393fe22216d957835f4d0b4fd5849fd16d42b10b6f148a3a7f03a",
+  "packagingNote": "After live validation, only packaged guides were refreshed to match source documentation. The runtime DLL and all other mod entries are identical to the validated build."
+}

@@ -10,7 +10,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.Common;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,n)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib")}){var p=Path.Combine(folder,n.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
-if(args.Length==5&&args[0]=="verify-restore"){Checks.VerifyRestore(args[1],args[2],int.Parse(args[3]),args[4]);}else if(args.Length==5&&args[0]=="seed-restore"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]),args[4]=="empty");}else if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();RollbackChatChecks.Run();}
+if(args.Length==5&&args[0]=="verify-selected"){Checks.Verify(args[1],args[2],int.Parse(args[3]),int.Parse(args[4]));}else if(args.Length==3&&args[0]=="seed-air"){Checks.Seed(args[1],args[2],0);}else if(args.Length==5&&args[0]=="verify-restore"){Checks.VerifyRestore(args[1],args[2],int.Parse(args[3]),args[4]);}else if(args.Length==5&&args[0]=="seed-restore"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]),args[4]=="empty");}else if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();RollbackChatChecks.Run();}
 static class Checks
 {
  static int count;
@@ -18,9 +18,9 @@ static class Checks
  static void Var(Stream s,ulong n){while(n>=128){s.WriteByte((byte)(n|128));n>>=7;}s.WriteByte((byte)n);}
  static byte[] Field(int tag,byte[] bytes){using var s=new MemoryStream();Var(s,(ulong)((tag<<3)|2));Var(s,(ulong)bytes.Length);s.Write(bytes);return s.ToArray();}
  static byte[] Blob(byte[] solid,byte[] fluid,byte[]? decor=null,byte[]? entity=null){using var s=new MemoryStream();s.Write(Field(1,solid));s.Write(Field(16,fluid));s.WriteByte(120);s.WriteByte(2);s.Write(Field(90,Encoding.UTF8.GetBytes("opaque metadata must survive")));if(decor!=null)s.Write(Field(14,decor));if(entity!=null)s.Write(Field(8,entity));return s.ToArray();}
- public static void Verify(string beforePath,string afterPath,int target){
+ public static void Verify(string beforePath,string afterPath,int target,int source=999999){
   var before=File.ReadAllBytes(beforePath);var after=File.ReadAllBytes(afterPath);var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var codec=new BlockIdChunkCodec(pool);
-  Assert(codec.Inspect(before,id=>id==999999)[999999][0]==1,"seeded source present");Assert(codec.Inspect(after,id=>id==999999).Count==0,"repaired source absent");
+  if(source!=0){Assert(codec.Inspect(before,id=>id==source)[source][0]==1,"seeded source present");Assert(codec.Inspect(after,id=>id==source).Count==0,"repaired source absent");}else Assert(codec.ReadCells(before,[17])[17][0]==0,"selected air source present");
   var originalFields=BlockIdChunkCodec.Fields(before);var repairedFields=BlockIdChunkCodec.Fields(after);
   foreach(var f in originalFields.Where(x=>x.Tag!=1)){var g=repairedFields.Single(x=>x.Tag==f.Tag);Assert(before.AsSpan(f.Start,f.End-f.Start).SequenceEqual(after.AsSpan(g.Start,g.End-g.Start)),"untouched field "+f.Tag);}
   var layers=new List<ChunkDataLayer>();foreach(var blob in new[]{before,after}){var f=BlockIdChunkCodec.Fields(blob).Single(x=>x.Tag==1);var l=new ChunkDataLayer(pool);typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(l,[blob.AsSpan(f.Data,f.Length).ToArray()]);layers.Add(l);}
@@ -40,9 +40,9 @@ static class Checks
   else{Assert(newReport.NonEmptyStacks==1&&newReport.SerializedItemQuantity==1,"snapshot restored one book");Assert(oldEntity.AsSpan(0,oldReport.SlotsOffset).SequenceEqual(newEntity.AsSpan(0,newReport.SlotsOffset)),"entity prefix unchanged");Assert(oldEntity.AsSpan(oldReport.SlotsOffset+oldReport.SlotsLength).SequenceEqual(newEntity.AsSpan(newReport.SlotsOffset+newReport.SlotsLength)),"entity suffix unchanged");}
   Console.WriteLine($"{count} end-to-end inventory restoration assertions passed.");
  }
- public static void Seed(string input,string output){
+ public static void Seed(string input,string output,int source=999999){
   var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var blob=File.ReadAllBytes(input);var fields=BlockIdChunkCodec.Fields(blob);var solidField=fields.Single(x=>x.Tag==1);var layer=new BlockChunkDataLayer(pool);
-  typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,999999);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
+  typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,source);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
   using var target=new MemoryStream();foreach(var f in fields){if(f.Tag==1)target.Write(Field(1,compressed));else target.Write(blob,f.Start,f.End-f.Start);}File.WriteAllBytes(output,target.ToArray());Console.WriteLine("Seeded one out-of-range numeric block ID; untouched fields preserved.");
  }
  public static void SeedInventory(string input,string output,long key,bool empty=false){
@@ -105,6 +105,15 @@ static class Checks
   Assert(empty.AsSpan(0,emptySummary.SlotsOffset).SequenceEqual(restoredEntity.Bytes.AsSpan(0,emptySummary.SlotsOffset)),"block entity prefix outside inventory slots preserved byte for byte");
   Assert(empty.AsSpan(emptySummary.SlotsOffset+emptySummary.SlotsLength).SequenceEqual(restoredEntity.Bytes.AsSpan(restoredEntity.Summary.SlotsOffset+restoredEntity.Summary.SlotsLength)),"block entity suffix including metadata preserved byte for byte");
   foreach(var f in BlockIdChunkCodec.Fields(emptyBlob).Where(f=>f.Tag is not (1 or 8))){var g=BlockIdChunkCodec.Fields(restored).Single(g=>g.Tag==f.Tag);Assert(emptyBlob.AsSpan(f.Start,f.End-f.Start).SequenceEqual(restored.AsSpan(g.Start,g.End-g.Start)),"unrelated protobuf field preserved during restoration");}
+  var one=codec.ReplaceAt(blob,17,0,0,0,123456,42);var oneCells=codec.ReadCells(one,[17,32767,15]);Assert(oneCells[17][0]==42&&oneCells[32767][0]==123456&&oneCells[15][0]==42,"one-position repair never replaces neighbors sharing the same ID");
+  foreach(var f in BlockIdChunkCodec.Fields(blob).Where(f=>f.Tag!=1)){var g=BlockIdChunkCodec.Fields(one).Single(g=>g.Tag==f.Tag);Assert(blob.AsSpan(f.Start,f.End-f.Start).SequenceEqual(one.AsSpan(g.Start,g.End-g.Start)),"one-position repair preserves all non-solid fields");}
+  try{codec.ReplaceAt(inventoryBlob,17,0,0,0,123456,42);throw new Exception("Selected repair discarded retained inventory");}catch(InvalidOperationException){count++;}
+  try{codec.ReplaceAt(blob,23,0,0,0,0,42);throw new Exception("Selected repair ignored fluid");}catch(InvalidOperationException){count++;}
+  try{codec.ReplaceAt(blob,17,0,0,0,99,42);throw new Exception("Selected repair ignored stale source");}catch(InvalidOperationException){count++;}
+  var fromAir=codec.ReplaceAt(blob,18,0,0,0,0,42);Assert(codec.ReadCells(fromAir,[18,19])[18][0]==42&&codec.ReadCells(fromAir,[19])[19][0]==0,"explicit air restoration affects one cell only");
+  var mismatch=RetainedBlockFindings.Inspect(inventoryBlob,codec,_=>"game:rock-granite",_=>"",out var unverified);Assert(mismatch.Count==1&&mismatch[0].SavedCode=="game:bookshelf"&&mismatch[0].Stacks==1&&unverified==0,"registered host IDs still expose orphaned bookshelf metadata");
+  var emptyReconnect=codec.RestoreContainer(emptyBlob,17,0,0,0,123456,42,emptySummary.PayloadSha256,null);Assert(codec.EntityAt(emptyReconnect,17,0,0,0).Bytes.SequenceEqual(empty),"empty retained bookshelf metadata can be reconnected byte for byte");
+  Assert(RetainedBlockFindings.MappingMismatch(42,"bookshelf","game:rock-granite")&&!RetainedBlockFindings.MappingMismatch(42,"rock-granite","game:rock-granite")&&!RetainedBlockFindings.MappingMismatch(0,"game:plant","game:air"),"mapping mismatch detection normalizes codes and never globally remaps air");
   pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory restore and preservation checks passed against official serialization.");
  }
 }

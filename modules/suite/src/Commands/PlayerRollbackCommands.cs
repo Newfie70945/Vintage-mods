@@ -100,8 +100,9 @@ public sealed class PlayerRollbackCommands : IDisposable
     private void Command(IServerPlayer p,int g,CmdArgs args)
     {
         if(disposed)return;
-        if(!receiptReady){Reply(p,g,receiptFailure,true);return;}
         var mode=args.PopWord()?.ToLowerInvariant();
+        if(mode is null or "help" or "?"){Help(p,g);return;}
+        if(!receiptReady){Reply(p,g,receiptFailure,true);return;}
         if(mode=="cancel")
         {
             if(busy && activeAdmin!=p.PlayerUID) {Reply(p,g,"Another administrator owns the active operation.",true);return;}
@@ -177,6 +178,18 @@ public sealed class PlayerRollbackCommands : IDisposable
         operationCancellation=new();
         _=Preview(p,g,target??"",area,from,to,inventories,entities,includeClaims,center,radius);
         Reply(p,g,"Reading existing event rows and container snapshots; no new history is required.");
+    }
+    private void Help(IServerPlayer p,int g)
+    {
+        Reply(p,g,"Rollback help — previews never change the world. Privilege: newfies.rollback.");
+        Reply(p,g,"Look at a block/container: /rollback block 2h (inventories included automatically).");
+        Reply(p,g,"Missing block: /rollback block 30m at X Y Z [dimension N]. Coordinates are absolute.");
+        Reply(p,g,"Player: /rollback preview player NAME_OR_UID 2h [radius 30] [--inventories]. Target must be offline when executing.");
+        Reply(p,g,"Area, all actors: /rollback preview area 30 2h [--inventories]. Radius is a 3D sphere around you.");
+        Reply(p,g,"Time: 1s..7d (s/m/h/d), or from YYYY-MM-DDTHH:mm:ssZ to YYYY-MM-DDTHH:mm:ssZ; Z means UTC.");
+        Reply(p,g,"Review the block/slot changes, make a backup, then /rollback execute TOKEN within 10 minutes. /rollback cancel stops your operation.");
+        Reply(p,g,"Claims excluded by default; --include-claims still checks game permissions. --replace-entities is an explicit player/area option only.");
+        Reply(p,g,"Inventory recovery requires recorded snapshots/transfers. Rebuilt stacks use default attributes; taken items elsewhere are not removed. New previews replace old previews. /rollback help shows this guide.");
     }
     private static bool Utc(string? s,out DateTime utc)=>DateTime.TryParseExact(s,"yyyy-MM-dd'T'HH:mm:ss'Z'",CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal,out utc);
     private static bool Duration(string? s,out TimeSpan span)

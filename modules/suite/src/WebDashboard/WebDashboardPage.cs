@@ -3177,6 +3177,10 @@ __NSS_RETENTION_HTML__
     <div class="quickActions"><button id="brInspect">Inspect Saved Data</button></div>
     <div id="brInspectionStatus" class="compactNote" role="status">No inspection yet. Owner access is required to view retained inventory summaries.</div>
     <pre id="brInspection" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <h3>Containers missed by an ID-only scan</h3>
+    <p class="small">The scan also checks surviving block-entity records for a class/code mismatch, even when their host ID is registered or air. Select a finding to investigate it. Missing plants already saved as air require historical evidence at their original coordinates; empty air alone cannot reveal what used to grow there.</p>
+    <div id="brRetainedFindings"></div>
+    <button id="brUseGameSelection">Use Latest In-game Selection</button><div id="brGameSelection" class="small"></div>
     <h3>BlockLogger replacement suggestions</h3>
     <p>Use the absolute coordinates above to look up exact-position block events and saved container snapshots. Suggestions show their evidence and confidence; choosing one only fills the destination field.</p>
     <label>History cutoff (optional; your local time) <input id="brHistoryBefore" type="datetime-local"></label>
@@ -3185,6 +3189,15 @@ __NSS_RETENTION_HTML__
     <pre id="brHistoryReport" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
     <p class="small">History applies only to this location. A global ID remap affects every matching block. Snapshot logging must have been enabled and records retained. Existing BlockLogger snapshots store slot numbers, item codes and quantities, not complete attributes such as written book text, durability or bag contents. Snapshot contents are historical; later transfers must be checked before any restoration.</p>
     <p class="small">Reports show saved classes, block codes, positions, payload hashes and up to 64 serialized stack entries per entity. Custom data, oversized records and unsupported formats are marked partial. Finding stacks does not guarantee compatibility with automatic restoration. If data was discarded and saved over, a surviving backup is needed.</p>
+  </div>
+  <div class="card"><h3>Repair exactly one location — experimental</h3>
+    <p>Use the absolute coordinates above, or select a block in game with <code>/nseblockrepair select</code>. For a removed plant, look at the ground and use <code>/nseblockrepair select above</code>. Inspect, review the BlockLogger suggestions, then choose a replacement. This changes one solid block on restart; other occurrences of its ID are excluded.</p>
+    <label>Replacement block code or numeric ID <input id="brSelectedTarget" type="text" maxlength="256" placeholder="game:rock-granite"></label>
+    <label><input id="brSelectedAir" type="checkbox"> Allow this one position to be restored from air after reviewing its history (never a global air remap)</label>
+    <label><input id="brSelectedRisk" type="checkbox"> I reviewed this location, destination and backup options and accept the experimental repair risks.</label>
+    <p class="small">Uses the automatic/manual backup settings above. Retained block-entity metadata is protected: bookshelves and containers use the separate retained-inventory workflow below, including empty shelves. A plant removed and saved over cannot be located automatically without logs or a backup.</p>
+    <div class="quickActions"><button id="brSelectedPreview">Preview This Location</button><button id="brSelectedStage" class="danger" disabled>Stage This Location for Restart</button></div>
+    <div id="brSelectedStatus" class="compactNote" role="status"></div><pre id="brSelectedPlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
   </div>
   <div class="card"><h3>Automatic inventory restoration — experimental</h3>
     <p>Preview one location using the absolute coordinates above, then stage it for the next restart. A retained compatible vanilla bookshelf, shelf or chest block entity is required. Missing container metadata is never invented. Snapshot mode refuses non-empty inventories and later logged block/item changes.</p>
@@ -9620,13 +9633,14 @@ async function loadSynergy(){
   }
 }
 
+let brSelectedId='',brSelectedInvalidated=true;
 let brSnapshot=null,brBusy=false,brPreviewId='',brInvalidated=true,brError='',brRestoreId='',brRestoreInvalidated=true,brRestoreOptions='';
 function brCanEdit(){return !safeDiagnosticsModeGlobal && (currentSessionOwner || currentSessionRole==='Owner');}
 function renderBlockRepair(data){
   brSnapshot=data;
   const scan=data.scan,findings=scan?.Findings||scan?.findings||[];
   const value=(o,key)=>o?.[key]??o?.[key[0].toLowerCase()+key.slice(1)];
-  const status=scan?`${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported. ${value(scan,'Message')||''}`:'No saved-map scan yet.';
+  const status=scan?`${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported · ${value(scan,'RetainedContainerCount')||0} retained-container mismatches (${value(scan,'UnverifiedContainers')||0} unverified records). ${value(scan,'Message')||''}`:'No saved-map scan yet.';
   $('brStatus').textContent=brError?brError+' '+status:status;
   $('brManualBackupWarning').hidden=$('brAutoBackup').checked;
   const rows=scan?findings:(data.missingMappings||[]).map(x=>({Id:x.id,Code:x.code,Problem:x.problem}));
@@ -9649,9 +9663,21 @@ function renderBlockRepair(data){
   $('brRecommendations').replaceChildren();
   for(const candidate of value(history,'Candidates')||[]){
     const row=document.createElement('div');row.className='compactNote';const label=document.createElement('p');label.textContent=`${value(candidate,'Code')} · current ID ${value(candidate,'CurrentId')??'unregistered'} · ${value(candidate,'Confidence')} confidence · ${value(candidate,'SupportingRecords')} supporting records. ${value(candidate,'Reason')}`;
-    const button=document.createElement('button');button.textContent='Use as Destination';button.disabled=brBusy||!brCanEdit()||!value(candidate,'Selectable');button.onclick=()=>{$('brTarget').value=value(candidate,'Code');brInvalidate();};row.append(label,button);$('brRecommendations').append(row);
+    const button=document.createElement('button');button.textContent='Use as Destination';button.disabled=brBusy||!brCanEdit()||!value(candidate,'Selectable');button.onclick=()=>{$('brTarget').value=value(candidate,'Code');brInvalidate();};row.append(label,button);const selected=document.createElement('button');selected.textContent=value(candidate,'EntityClass')?'Use Retained Container Recovery':'Use for This Location';selected.disabled=brBusy||!brCanEdit()||value(candidate,'CurrentId')==null;selected.onclick=()=>{if(value(candidate,'EntityClass')){$('brRestoreMode').value='retained';$('brRestoreMode').dispatchEvent(new Event('input'));$('brRestorePreview').scrollIntoView({behavior:'smooth',block:'center'});}else{$('brSelectedTarget').value=value(candidate,'Code');$('brSelectedTarget').dispatchEvent(new Event('input'));$('brSelectedPreview').scrollIntoView({behavior:'smooth',block:'center'});}};row.append(selected);$('brRecommendations').append(row);
   }
   $('brHistoryReport').textContent=history?JSON.stringify(history,null,2):'';
+  const focus=owner?data.selectedFocus:null;
+  $('brUseGameSelection').disabled=brBusy||!owner||!focus;
+  $('brGameSelection').textContent=focus?`Selected in game: ${value(focus,'X')}, ${value(focus,'Y')}, ${value(focus,'Z')} · dimension ${value(focus,'Dimension')}`:'Use /nseblockrepair select in game, or type the absolute coordinates above.';
+  $('brRetainedFindings').replaceChildren();
+  for(const entry of owner?(data.retainedContainers||[]):[]){const row=document.createElement('div');row.className='compactNote';const text=document.createElement('p');text.textContent=`${value(entry,'Class')} · ${value(entry,'SavedCode')||'unknown saved code'} · host ID ${value(entry,'SolidId')} (${value(entry,'CurrentCode')||'unregistered'}) · ${value(entry,'Stacks')} retained stacks. ${value(entry,'Reason')}`;const button=document.createElement('button');button.textContent=`Inspect ${value(entry,'X')}, ${value(entry,'Y')}, ${value(entry,'Z')}`;button.disabled=brBusy;button.onclick=()=>brUsePosition(entry);row.append(text,button);$('brRetainedFindings').append(row);}
+  const sp=owner?(data.selectedPreview||data.selectedPending):null,sr=value(sp,'Request'),sc=brSelectedRequest();
+  const sm=sr&&Object.entries(sc).every(([k,v])=>(sr[k]??sr[k[0].toUpperCase()+k.slice(1)])===v);
+  brSelectedId=!brSelectedInvalidated&&data.selectedPreview&&value(sp,'State')==='preview'&&sm?value(sp,'Id'):'';
+  $('brSelectedPreview').disabled=brBusy||!brCanEdit()||!sc.riskAcknowledged||!sc.destination||!sc.createBackup&&!sc.manualBackupAcknowledged;
+  $('brSelectedStage').disabled=brBusy||!brCanEdit()||!brSelectedId;
+  $('brSelectedPlan').textContent=sp?JSON.stringify(sp,null,2):'';
+  $('brSelectedStatus').textContent=sp?`${value(sp,'State')} · ${value(sp,'Message')||'Checking exactly one saved location…'}`:owner&&data.selectedLast?`${value(data.selectedLast,'State')} · ${value(data.selectedLast,'Message')}`:'No selected-location repair preview or staged job.';
   const snapshots=value(history,'InventorySnapshots')||[],signature=JSON.stringify(snapshots.map(s=>[value(s,'RecordId'),value(s,'TimestampUtc')]));
   if(signature!==brRestoreOptions){brRestoreOptions=signature;const previous=$('brRestoreSnapshot').value;$('brRestoreSnapshot').replaceChildren();
     if(!snapshots.length){const o=document.createElement('option');o.value='0';o.textContent='No historical snapshots available';$('brRestoreSnapshot').append(o);}
@@ -9676,6 +9702,18 @@ async function blockRepairAction(operation){
   if(['preview','stage'].includes(operation)&&!body.createBackup&&!body.manualBackupAcknowledged){toast('Make a manual world copy and acknowledge it before disabling automatic backup.','error');return;}
   brError='';brBusy=true;if(brSnapshot)renderBlockRepair(brSnapshot);try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='preview')brInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
 }
+function brUsePosition(position){for(const key of ['X','Y','Z','Dimension']){$('brInspect'+key).value=position[key]??position[key[0].toLowerCase()+key.slice(1)];$('brInspect'+key).dispatchEvent(new Event('input'));}$('brInspectChunk').value='';$('brInspect').scrollIntoView({behavior:'smooth',block:'center'});}
+$('brUseGameSelection').onclick=()=>{if(brSnapshot?.selectedFocus)brUsePosition(brSnapshot.selectedFocus);};
+function brSelectedRequest(){return {x:Number($('brInspectX').value),y:Number($('brInspectY').value),z:Number($('brInspectZ').value),dimension:Number($('brInspectDimension').value),destination:$('brSelectedTarget').value.trim(),allowAirSource:$('brSelectedAir').checked,riskAcknowledged:$('brSelectedRisk').checked,createBackup:$('brAutoBackup').checked,manualBackupAcknowledged:$('brManualBackupAck').checked};}
+async function blockSelectedAction(operation){
+  if(brBusy||!brCanEdit())return;const request=brSelectedRequest();
+  if(['X','Y','Z','Dimension'].some(k=>!$('brInspect'+k).value.trim())||![request.x,request.y,request.z,request.dimension].every(Number.isSafeInteger)){toast('Enter absolute integer coordinates.','error');return;}
+  if(!request.destination||!request.riskAcknowledged||!request.createBackup&&!request.manualBackupAcknowledged){toast('Review destination, risks and backup options.','error');return;}
+  brBusy=true;brError='';if(brSnapshot)renderBlockRepair(brSnapshot);
+  try{await api('/api/block-repair',{method:'POST',body:JSON.stringify({operation,...request,selectedId:brSelectedId})});if(operation==='selected-preview')brSelectedInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+}
+$('brSelectedPreview').onclick=()=>blockSelectedAction('selected-preview');$('brSelectedStage').onclick=()=>blockSelectedAction('selected-stage');
+for(const id of ['brInspectX','brInspectY','brInspectZ','brInspectDimension','brSelectedTarget','brSelectedAir','brSelectedRisk','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{brSelectedInvalidated=true;brSelectedId='';$('brSelectedStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);});
 function brRestoreRequest(){return {x:Number($('brInspectX').value),y:Number($('brInspectY').value),z:Number($('brInspectZ').value),dimension:Number($('brInspectDimension').value),mode:$('brRestoreMode').value,snapshotId:$('brRestoreMode').value==='snapshot'?Number($('brRestoreSnapshot').value||0):0,createBackup:$('brAutoBackup').checked,manualBackupAcknowledged:$('brManualBackupAck').checked,riskAcknowledged:$('brRestoreRisk').checked};}
 async function blockInventoryRestoreAction(operation){
   if(brBusy||!brCanEdit())return;const request=brRestoreRequest();
@@ -9719,7 +9757,7 @@ $('brExport').onclick=()=>{
 $('brScan').onclick=()=>blockRepairAction('scan');$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
 function brInvalidate(){brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
 for(const id of ['brSource','brTarget','brAllowAir','brAllowValid','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{if(id==='brAutoBackup')$('brManualBackupAck').checked=false;brInvalidate();});
-setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'||(brSnapshot?.restorePreview?.state||brSnapshot?.restorePreview?.State)==='running'))loadBlockRepair();},4000);
+setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'||(brSnapshot?.restorePreview?.state||brSnapshot?.restorePreview?.State)==='running'||(brSnapshot?.selectedPreview?.state||brSnapshot?.selectedPreview?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
 const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
