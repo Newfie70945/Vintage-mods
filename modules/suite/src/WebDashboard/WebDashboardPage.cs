@@ -2524,6 +2524,11 @@ __NSS_RETENTION_HTML__
           <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
           <label class="small">Cache limit <input id="nosAssetCacheMaxMiB" type="number" min="1" max="32" value="16" style="width:70px"> MiB</label>
         </div>
+        <div><h4>World generation and saves</h4>
+          <label><input type="checkbox" id="nosWorldgenRequestReuse"> Allocation-free generation request lookup</label><br>
+          <label><input type="checkbox" id="nosSaveSnapshotRelease"> Release completed save snapshots</label>
+          <p class="small">Keeps stock generation order and save transactions. Releases saved chunk references after successful background saves; failed saves keep their retry snapshot.</p>
+        </div>
         <div><h4>Optional population scaling</h4>
           <label><input type="checkbox" id="nosNearbyPlayerQueries"> Nearby-player queries</label><br>
           <label class="small">Activate at <input id="nosMinimumNearbyClients" type="number" min="0" max="4096" value="128" style="width:80px"> connected clients</label>
@@ -9562,7 +9567,7 @@ async function loadSynergy(){
 }
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;

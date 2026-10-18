@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.4.0 preview
+# Newfie's Server Optimizer 0.5.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -6,6 +6,8 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 
 | Module | Change | Correctness boundary |
 | --- | --- | --- |
+| Generation request reuse | Removes per-lookup closures from indexed generation requests | Original queue order, pass escalation and priority retained |
+| Completed save snapshot release | Releases saved chunk references after successful background saves | Existing save lock, retry inputs and transactions retained |
 | AI filter dispatch | Removes invocation-list arrays while preserving every veto callback and its order | No AI decision, priority, task or tick-frequency change |
 | Repulsion hot path | Reuses the per-entity walk delegate and eliminates an always-true range predicate | Original collision, dimensions, mounting and mod callbacks retained |
 | Online player snapshots | Builds the required fresh result array without the original LINQ iterator pipeline | Official client snapshot order, pending-player filtering and runtime array type preserved |
@@ -13,7 +15,7 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 | Bulk stream reads | Uses a bulk byte copy for eligible reads of 256 bytes or more | Invalid ranges, aliased buffers, derived streams and unusual layouts run the original method |
 | Server-assets compression cache | Reuses compressed output for unchanged server-assets bytes | Independent send buffers, source/compressor checks and bounded memory; stock compression handles other packets |
 
-Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. These modules do not change simulation ranges, AI schedules, physics rules, packet ordering, world generation or save scheduling.
+Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. These modules do not change simulation ranges, AI schedules, physics rules, packet ordering, terrain algorithms or save scheduling.
 
 ## Install and controls
 
@@ -76,3 +78,7 @@ See [the Stratum change review](docs/stratum-review.md). The existing allocation
 Low-compressibility or over-budget asset buffers use stock compression after the initial probe, avoiding repeated cache-copy overhead. A new asset buffer or reapplying settings permits a fresh probe. Cache hits require at least 25% size reduction on that probe.
 
 Entity/AI hot paths run with profiling OFF. Suite 1.2.47 exposes independent `AiFilterDispatch` and `RepulseDelegateReuse` switches; both default on. See [performance validation](docs/performance-0.4.0.md).
+
+## World generation and save snapshot modules
+
+`WorldgenRequestReuse` removes per-lookup closure allocations from existing generation requests. `SaveSnapshotRelease` clears the stock chunk-reference snapshot after a successful background save, inside the stock save lock. Failed saves retain their snapshot for retry. Both default on, have independent Suite controls, and retain stock behavior on unsupported builds or patch conflicts. Generation order, terrain algorithms, save format and database transactions stay unchanged. See [validation](docs/performance-0.5.0.md).

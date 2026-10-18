@@ -1,0 +1,37 @@
+{
+  "checks": 41,
+  "iterationsPerTrial": 200000,
+  "trials": [
+    {
+      "stockNs": 32.307,
+      "optimizedNs": 23.126,
+      "stockBytes": 96,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 25.498,
+      "optimizedNs": 22.635,
+      "stockBytes": 96,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 24.451,
+      "optimizedNs": 22.338,
+      "stockBytes": 96,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 24.2875,
+      "optimizedNs": 24.6885,
+      "stockBytes": 96,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 34.949,
+      "optimizedNs": 23.7475,
+      "stockBytes": 96,
+      "optimizedBytes": 0
+    }
+  ],
+  "scope": "Existing-request lookup, actual official unpatched target versus enabled Harmony patch via delegate; not worldgen throughput or production TPS."
+}
