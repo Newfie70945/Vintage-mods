@@ -28,7 +28,7 @@ public sealed class PlayerRollbackCommands : IDisposable
     private readonly HashSet<string> changed=new();
     private readonly HashSet<string> trackedCells=new();
     private bool trackAllDuringRead;
-    private long maintenanceTick;
+    private long maintenanceTick, lastReplyFailureTicks;
     private readonly HashSet<string> receipts=new();
     private readonly List<(InventoryBase Inventory,Action<int> Handler)> watchers=new();
     private readonly string receiptPath;
@@ -40,7 +40,11 @@ public sealed class PlayerRollbackCommands : IDisposable
     private readonly CancellationTokenSource lifetime = new();
     private string activeAdmin="";
     private sealed record Prepared(RecoveryOperation Operation,string LiveHash);
-    private sealed record Plan(string Token,string Uid,bool Area,DateTime From,DateTime To,DateTime Expires,bool Inventories,bool Entities,bool IncludeClaims,RecoveryCell? Center,int Radius,List<Prepared> Changes);
+    private sealed record Plan(string Token,string Uid,bool Area,DateTime From,DateTime To,DateTime Expires,bool Inventories,bool Entities,bool IncludeClaims,RecoveryCell? Center,int Radius,List<Prepared> Changes)
+    {
+        public bool SingleBlock => Area && Center != null && Radius == 0;
+        public string Mode => SingleBlock ? "block" : Area ? "area" : "player";
+    }
     public PlayerRollbackCommands(ICoreServerAPI api,LogStorageService storage,Action<int,int,int>? dirty)
     {this.api=api;this.storage=storage;this.dirty=dirty;receiptPath=storage.DatabasePath+".recovery-receipts.jsonl";receiptIndex=new RecoveryReceiptIndex(receiptPath);}
     public void Register()
@@ -49,11 +53,22 @@ public sealed class PlayerRollbackCommands : IDisposable
         maintenanceTick = api.Event.RegisterGameTickListener(_ => PruneExpiredPlans(), 30_000);
         api.Permissions.RegisterPrivilege("newfies.rollback","Preview and execute historical recovery",true);
 #pragma warning disable CS0618
-        api.RegisterCommand("rollback","Recover available historical player or area changes","preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; execute <token>; cancel",Command,"newfies.rollback");
+        api.RegisterCommand("rollback","Recover historical block, container, player or area changes",RollbackChatText.Encode("block <time> [at X Y Z] [dimension N] OR preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; execute <token>; cancel"),Command,"newfies.rollback");
 #pragma warning restore CS0618
         api.Event.DidBreakBlock+=Break;api.Event.DidPlaceBlock+=Place;api.Event.DidUseBlock+=Use;
     }
-    private void Reply(IServerPlayer p,int g,string text,bool error=false) => p.SendMessage(g,text,error?EnumChatType.CommandError:EnumChatType.CommandSuccess);
+    private void Reply(IServerPlayer p,int g,string text,bool error=false)
+    {
+        try { p.SendMessage(g,RollbackChatText.Encode(text),error?EnumChatType.CommandError:EnumChatType.CommandSuccess); }
+        catch(Exception ex)
+        {
+            // A disconnect must not throw out of a game-thread callback and leave
+            // recovery busy, or recursively fail while trying to send an error.
+            long now=DateTime.UtcNow.Ticks;
+            if(now-lastReplyFailureTicks>TimeSpan.FromSeconds(10).Ticks)
+            {lastReplyFailureTicks=now;api.Logger.Warning("[Recovery] Private reply failed ({0}); operation state and journal remain authoritative.",ex.GetType().Name);}
+        }
+    }
     private void Touch(BlockSelection s)
     {
         if(s?.Position==null || !busy && plans.Count==0)return;
@@ -104,12 +119,17 @@ public sealed class PlayerRollbackCommands : IDisposable
             operationCancellation=new();
             _=Execute(p,g,plan);return;
         }
-        var scope=mode=="preview"?args.PopWord()?.ToLowerInvariant():null;
-        bool area=scope=="area";
-        if(mode!="preview" || scope is not ("player" or "area"))
-        {Reply(p,g,"/rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories] [--replace-entities]; /rollback execute <token>",true);return;}
+        var scope=mode=="block"?"block":mode=="preview"?args.PopWord()?.ToLowerInvariant():null;
+        bool single=scope=="block", area=scope is "area" or "block";
+        if(scope is not ("player" or "area" or "block"))
+        {Reply(p,g,"/rollback block <time> [at X Y Z] [dimension N]; /rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories]; /rollback execute <token>",true);return;}
         string? target=null;int radius=0;RecoveryCell? center=null;
-        if(area)
+        if(single)
+        {
+            var selected=p.CurrentBlockSelection?.Position;
+            if(selected!=null)center=new(selected.dimension.ToString(CultureInfo.InvariantCulture),selected.X,selected.Y,selected.Z);
+        }
+        else if(area)
         {
             if(!int.TryParse(args.PopWord(),out radius)||radius<1||radius>4096||!EntityPositionResolver.TryGetBlockPos(p.Entity,out var pos))
             {Reply(p,g,"Area radius must be 1..4096; stand at the desired center.",true);return;}
@@ -125,17 +145,33 @@ public sealed class PlayerRollbackCommands : IDisposable
         }
         else
         {if(!Duration(duration,out var span)){Reply(p,g,"Duration: 1s through 7d; units s/m/h/d.",true);return;}from=to-span;}
-        bool inventories=false,entities=false,includeClaims=false;
+        bool inventories=single,entities=false,includeClaims=false,explicitCoordinates=false;
         while(args.Length>0)
         {
             var option=args.PopWord()?.ToLowerInvariant();
-            if(option=="--include-claims")includeClaims=true;
+            if(single && option=="at" && !explicitCoordinates)
+            {
+                if(!int.TryParse(args.PopWord(),NumberStyles.Integer,CultureInfo.InvariantCulture,out var x)
+                    || !int.TryParse(args.PopWord(),NumberStyles.Integer,CultureInfo.InvariantCulture,out var y)
+                    || !int.TryParse(args.PopWord(),NumberStyles.Integer,CultureInfo.InvariantCulture,out var z)
+                    || !EntityPositionResolver.TryGetBlockPos(p.Entity,out var playerPos))
+                {Reply(p,g,"Use /rollback block 2h at X Y Z [dimension N], with absolute integer coordinates.",true);return;}
+                center=new(playerPos.dimension.ToString(CultureInfo.InvariantCulture),x,y,z);explicitCoordinates=true;
+            }
+            else if(single && option=="dimension" && explicitCoordinates)
+            {
+                if(!int.TryParse(args.PopWord(),NumberStyles.Integer,CultureInfo.InvariantCulture,out var dimension)||dimension<0)
+                {Reply(p,g,"Dimension must be a non-negative integer after at X Y Z.",true);return;}
+                center=center! with {Dimension=dimension.ToString(CultureInfo.InvariantCulture)};
+            }
+            else if(option=="--include-claims")includeClaims=true;
             else if(option=="--inventories")inventories=true;
-            else if(option=="--replace-entities")entities=true;
+            else if(option=="--replace-entities" && !single)entities=true;
             else if(!area && option=="radius" && int.TryParse(args.PopWord(),out radius) && radius>=1 && radius<=4096 && EntityPositionResolver.TryGetBlockPos(p.Entity,out var pos))
                 center=new(pos.dimension.ToString(CultureInfo.InvariantCulture),pos.X,pos.Y,pos.Z);
-            else {Reply(p,g,"Unknown option. Use --inventories, --replace-entities, --include-claims, or radius 1..4096.",true);return;}
+            else {Reply(p,g,"Unknown option. Block mode: at X Y Z, dimension N, --include-claims. Area/player mode: --inventories, --replace-entities, --include-claims, or player radius 1..4096.",true);return;}
         }
+        if(single && center==null){Reply(p,g,"Look at the block/container, or use /rollback block 2h at X Y Z for a missing block. Coordinates are absolute.",true);return;}
         if(!area && string.IsNullOrWhiteSpace(target)){Reply(p,g,"Specify an exact name or UID.",true);return;}
         plans.Clear();ClearWatchers();changed.Clear();trackedCells.Clear();trackAllDuringRead=true;busy=true;cancelRequested=false;activeAdmin=p.PlayerUID;
         operationCancellation=new();
@@ -201,19 +237,34 @@ public sealed class PlayerRollbackCommands : IDisposable
                         {
                             try
                             {
-                                await Task.Run(()=>File.WriteAllText(report,JsonConvert.SerializeObject(new {token,mode=plan.Area?"area":"player",uid=plan.Uid,center=plan.Center,radius=plan.Radius,from,to,expires=plan.Expires,includeClaims=plan.IncludeClaims,affectedChunks=list.Select(x=>new {x.Operation.Cell.Dimension,x=x.Operation.Cell.X>>5,y=x.Operation.Cell.Y>>5,z=x.Operation.Cell.Z>>5}).Distinct().Count(),inventoryFidelity="codes/counts only; old item attributes not logged",entityFidelity="replacement creatures; old attributes not logged",eligible=list.Select(x=>x.Operation).ToArray(),reasons=build.Reasons},Formatting.Indented))).ConfigureAwait(false);
+                                await Task.Run(()=>File.WriteAllText(report,JsonConvert.SerializeObject(new {token,mode=plan.Mode,uid=plan.Uid,center=plan.Center,radius=plan.Radius,from,to,expires=plan.Expires,includeClaims=plan.IncludeClaims,affectedChunks=list.Select(x=>new {x.Operation.Cell.Dimension,x=x.Operation.Cell.X>>5,y=x.Operation.Cell.Y>>5,z=x.Operation.Cell.Z>>5}).Distinct().Count(),inventoryFidelity="codes/counts only; old item attributes not logged",entityFidelity="replacement creatures; old attributes not logged",eligible=list.Select(x=>x.Operation).ToArray(),reasons=build.Reasons},Formatting.Indented))).ConfigureAwait(false);
                                 await OnGameThreadAsync(()=>
                                 {
                                     if(cancelRequested){Finish();Reply(p,g,"Preview cancelled.");return;}
-                                    plans[p.PlayerUID]=plan;busy=false;activeAdmin="";
+                                    if(list.Count>0 || !plan.SingleBlock)plans[p.PlayerUID]=plan;busy=false;activeAdmin="";
                                     operationCancellation?.Dispose();operationCancellation=null;
-                                    Reply(p,g,$"{(plan.Area?$"AREA: all actors, center={plan.Center!.Key}, radius={plan.Radius}":$"UID={plan.Uid}")}; UTC {from:O} through {to:O}. Eligible: {list.Count(x=>x.Operation.Kind=="block")} block locations, {list.Count(x=>x.Operation.Kind=="inventory")} existing inventories, {entityCount} replacement creatures.");
+                                    Reply(p,g,$"{(plan.SingleBlock?$"BLOCK: all actors, location={plan.Center!.Key}":plan.Area?$"AREA: all actors, center={plan.Center!.Key}, radius={plan.Radius}":$"UID={plan.Uid}")}; UTC {from:O} through {to:O}. Eligible: {list.Count(x=>x.Operation.Kind=="block")} block locations, {list.Count(x=>x.Operation.Kind=="inventory")} existing inventories, {entityCount} replacement creatures.");
                                     Reply(p,g,plan.IncludeClaims?"Claimed land included explicitly; current game access permissions are still checked.":"Claimed land excluded. Use --include-claims for an intentional claimed-area recovery.");
                                     foreach(var reason in build.Reasons.Take(10))Reply(p,g,$"Skipped: {reason.Value} — {reason.Key}");
                                     if(inventories)Reply(p,g,"Inventory recovery restores saved item codes/counts; original durability, freshness and other attributes were not logged. Taken items/drops are not confiscated.");
                                     if(entities)Reply(p,g,"Entity replacements have default attributes, not the original generation, ownership, names or training.");
-                                    if(plan.Area)Reply(p,g,"Area mode includes everyone’s logged changes in the selected window. Clear other players from the area; later changes are excluded. Creature replacements may include natural deaths.");
-                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. {(plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback execute {token} (10-minute expiry).");
+                                    if(plan.SingleBlock)
+                                    {
+                                        foreach(var prepared in list)
+                                        {
+                                            var op=prepared.Operation;Reply(p,g,$"Block: {op.After} → {op.Before} at {op.Cell.Key}.");
+                                            if(op.InventoryBefore!=null)
+                                            {
+                                                var previous=(op.InventoryAfter??new()).ToDictionary(s=>s.Slot);var desired=op.InventoryBefore.ToDictionary(s=>s.Slot);
+                                                foreach(var slot in previous.Keys.Union(desired.Keys).OrderBy(s=>s).Where(s=>previous.GetValueOrDefault(s)!=desired.GetValueOrDefault(s)).Take(12))
+                                                {var a=previous.GetValueOrDefault(slot);var b=desired.GetValueOrDefault(slot);Reply(p,g,$"Slot {slot}: {(a==null?"empty":$"{a.Count} × {a.Code}")} → {(b==null?"empty":$"{b.Count} × {b.Code}")}.");}
+                                            }
+                                        }
+                                        if(list.Count==0)Reply(p,g,"Nothing recoverable at this exact location/time. Inventory recovery needs a pre-change snapshot, item transfer logs and matching final snapshot. Enable LogContainerSnapshots and SnapshotOnSlotChange for future investigations; missing old history cannot be recreated.");
+                                    }
+                                    if(plan.Area && !plan.SingleBlock)Reply(p,g,"Area mode includes everyone’s logged changes in the selected window. Clear other players from the area; later changes are excluded. Creature replacements may include natural deaths.");
+                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. "+(list.Count==0?"No executable changes; nothing was modified.":$"{(plan.SingleBlock?"Close the container":plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback execute {token} (10-minute expiry)."));
+                                    if(list.Count==0){ClearWatchers();changed.Clear();trackedCells.Clear();receipts.Clear();}
                                 }).ConfigureAwait(false);
                             }
                             catch(Exception ex) { if(!disposed)await OnGameThreadAsync(()=>{Finish();Reply(p,g,"Preview failed: "+ex.Message,true);}).ConfigureAwait(false); }
@@ -385,7 +436,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                     continue;
                 }
                 await journal.AppendAsync(
-                    new {phase="intent",utc=DateTime.UtcNow,admin=administratorUid,mode=plan.Area?"area":"player",target=plan.Uid,center=plan.Center,radius=plan.Radius,from=plan.From,to=plan.To,operation=op,current},
+                    new {phase="intent",utc=DateTime.UtcNow,admin=administratorUid,mode=plan.Mode,target=plan.Uid,center=plan.Center,radius=plan.Radius,from=plan.From,to=plan.To,operation=op,current},
                     new {key=op.ReceiptKey,phase="intent",token=plan.Token,utc=DateTime.UtcNow}).ConfigureAwait(false);
                 object? applied=null;
                 await OnGameThreadAsync(()=>

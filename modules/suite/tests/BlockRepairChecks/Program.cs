@@ -10,7 +10,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.Common;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,n)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib")}){var p=Path.Combine(folder,n.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
-if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();}
+if(args.Length==5&&args[0]=="verify-restore"){Checks.VerifyRestore(args[1],args[2],int.Parse(args[3]),args[4]);}else if(args.Length==5&&args[0]=="seed-restore"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]),args[4]=="empty");}else if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();RollbackChatChecks.Run();}
 static class Checks
 {
  static int count;
@@ -27,20 +27,34 @@ static class Checks
   for(int i=0;i<32768;i++)Assert(layers[1].GetUnsafe(i)==(i==17?target:layers[0].GetUnsafe(i)),"cell preserved "+i);
   Console.WriteLine($"{count} end-to-end byte/cell preservation assertions passed.");
  }
+ public static void VerifyRestore(string beforePath,string afterPath,int target,string mode){
+  byte[] before=File.ReadAllBytes(beforePath),after=File.ReadAllBytes(afterPath);var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var codec=new BlockIdChunkCodec(pool);
+  var oldFields=BlockIdChunkCodec.Fields(before);var newFields=BlockIdChunkCodec.Fields(after);
+  foreach(var f in oldFields.Where(f=>f.Tag is not (1 or 8))){var g=newFields.Single(g=>g.Tag==f.Tag);Assert(before.AsSpan(f.Start,f.End-f.Start).SequenceEqual(after.AsSpan(g.Start,g.End-g.Start)),"unchanged field "+f.Tag);}
+  var layers=new List<ChunkDataLayer>();foreach(var bytes in new[]{before,after}){var f=BlockIdChunkCodec.Fields(bytes).Single(f=>f.Tag==1);var layer=new ChunkDataLayer(pool);typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[bytes.AsSpan(f.Data,f.Length).ToArray()]);layers.Add(layer);}
+  for(int i=0;i<32768;i++)Assert(layers[1].GetUnsafe(i)==(i==17?target:layers[0].GetUnsafe(i)),"single-cell preservation "+i);
+  var a=oldFields.Single(f=>f.Tag==8);var b=newFields.Single(f=>f.Tag==8);byte[] oldEntity=before.AsSpan(a.Data,a.Length).ToArray(),newEntity=after.AsSpan(b.Data,b.Length).ToArray();
+  var oldReport=SavedBlockEntityInspector.Inspect(oldEntity);var newReport=SavedBlockEntityInspector.Inspect(newEntity);
+  Assert(newReport.Complete&&newReport.InventorySlotCount==14,"restored inventory verified");
+  if(mode=="retained")Assert(oldEntity.SequenceEqual(newEntity),"retained full attributes byte exact");
+  else{Assert(newReport.NonEmptyStacks==1&&newReport.SerializedItemQuantity==1,"snapshot restored one book");Assert(oldEntity.AsSpan(0,oldReport.SlotsOffset).SequenceEqual(newEntity.AsSpan(0,newReport.SlotsOffset)),"entity prefix unchanged");Assert(oldEntity.AsSpan(oldReport.SlotsOffset+oldReport.SlotsLength).SequenceEqual(newEntity.AsSpan(newReport.SlotsOffset+newReport.SlotsLength)),"entity suffix unchanged");}
+  Console.WriteLine($"{count} end-to-end inventory restoration assertions passed.");
+ }
  public static void Seed(string input,string output){
   var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var blob=File.ReadAllBytes(input);var fields=BlockIdChunkCodec.Fields(blob);var solidField=fields.Single(x=>x.Tag==1);var layer=new BlockChunkDataLayer(pool);
   typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,999999);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
   using var target=new MemoryStream();foreach(var f in fields){if(f.Tag==1)target.Write(Field(1,compressed));else target.Write(blob,f.Start,f.End-f.Start);}File.WriteAllBytes(output,target.ToArray());Console.WriteLine("Seeded one out-of-range numeric block ID; untouched fields preserved.");
  }
- public static void SeedInventory(string input,string output,long key){
+ public static void SeedInventory(string input,string output,long key,bool empty=false){
   var blob=File.ReadAllBytes(input);var fields=BlockIdChunkCodec.Fields(blob);var pos=Vintagestory.Common.Database.ChunkPos.FromChunkIndex_saveGamev2(unchecked((ulong)key));
-  var bytes=InventoryPayload(pos.X*32+17,pos.Y*32+pos.Dimension*32768,pos.Z*32);
+  var bytes=InventoryPayload(pos.X*32+17,pos.Y*32+pos.Dimension*32768,pos.Z*32,empty);
   using var target=new MemoryStream();foreach(var f in fields)if(f.Tag!=8)target.Write(blob,f.Start,f.End-f.Start);target.Write(Field(8,bytes));File.WriteAllBytes(output,target.ToArray());
   Console.WriteLine("Seeded retained Bookshelf inventory: 7 serialized items, no block entity instantiated.");
  }
- static byte[] InventoryPayload(int x=17,int y=0,int z=0){
+ static byte[] InventoryPayload(int x=17,int y=0,int z=0,bool empty=false){
   var tree=new TreeAttribute();tree.SetInt("posx",x);tree.SetInt("posy",y);tree.SetInt("posz",z);tree.SetString("blockCode","bookshelf");
-  var inventory=new TreeAttribute();inventory.SetInt("qslots",3);inventory.SetItemstack("0",new ItemStack{Class=EnumItemClass.Item,Id=123,StackSize=7});inventory.SetItemstack("1",null);tree.SetAttribute("inventory",inventory);
+  tree.SetString("type","2row2col");tree.SetString("material","oak");
+  var inventory=new TreeAttribute();inventory.SetInt("qslots",14);var slots=new TreeAttribute();if(!empty){var stack=new ItemStack{Class=EnumItemClass.Item,Id=123,StackSize=7};stack.Attributes.SetString("text","Keep this exact written text");slots.SetItemstack("0",stack);}inventory.SetAttribute("slots",slots);tree.SetAttribute("inventory",inventory);
   tree.SetBytes("opaque",[1,2,3]);tree.SetBool("flag",true);tree.SetStringArray("strings",["a","b"]);tree["ints"]=new IntArrayAttribute([1,2]);tree.SetFloat("float",1f);tree.SetLong("long",99);tree.SetDouble("double",2);
   tree["floats"]=new FloatArrayAttribute([1,2]);tree["doubles"]=new DoubleArrayAttribute([1,2]);tree["longs"]=new LongArrayAttribute([1,2]);tree["bools"]=new BoolArrayAttribute([true,false]);tree["trees"]=new TreeArrayAttribute([new TreeAttribute()]);
   using var data=new MemoryStream();using(var writer=new BinaryWriter(data,Encoding.UTF8,true)){writer.Write("Bookshelf");tree.ToBytes(writer);}return data.ToArray();
@@ -78,6 +92,19 @@ static class Checks
   try{codec.ReadCells(blob,[-1]);throw new Exception("Missing index guard");}catch(ArgumentOutOfRangeException){count++;}
   var inventoryBlob=Blob(ChunkDataLayer.Compress(solid,scratch),ChunkDataLayer.Compress(fluid,scratch),entity:payload);
   try{codec.Replace(inventoryBlob,123456,42,out _);throw new Exception("Missing inventory protection");}catch(InvalidOperationException){Assert(true,"retained bookshelf inventory still blocks generic replacement");}
-  pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory inspection and preservation checks passed against official serialization.");
+  Assert(report.InventorySlotCount==14&&report.SlotsOffset>=0&&report.ShapeType=="2row2col","standard inventory subtree and bookshelf geometry located");
+  var reconnected=codec.RestoreContainer(inventoryBlob,17,0,0,0,123456,42,report.PayloadSha256,null);
+  var reconnectedEntity=codec.EntityAt(reconnected,17,0,0,0);Assert(reconnectedEntity.Bytes.SequenceEqual(payload),"reconnect preserves full inventory payload and item attributes exactly");
+  Assert(codec.ReadCells(reconnected,[17,32767])[17][0]==42&&codec.ReadCells(reconnected,[32767])[32767][0]==123456,"reconnect changes one cell, not every occurrence of the ID");
+  try{codec.RestoreContainer(inventoryBlob,17,0,0,0,123456,42,"stale",null);throw new Exception("Missing stale data guard");}catch(InvalidOperationException){count++;}
+  var desired=new TreeAttribute();desired.SetItemstack("0",new ItemStack{Class=EnumItemClass.Item,Id=99,StackSize=1});
+  try{codec.RestoreContainer(inventoryBlob,17,0,0,0,123456,42,report.PayloadSha256,desired.ToBytes());throw new Exception("Missing nonempty guard");}catch(InvalidOperationException){count++;}
+  var empty=InventoryPayload(empty:true);var emptySummary=SavedBlockEntityInspector.Inspect(empty);var emptyBlob=Blob(ChunkDataLayer.Compress(solid,scratch),ChunkDataLayer.Compress(fluid,scratch),entity:empty);
+  var restored=codec.RestoreContainer(emptyBlob,17,0,0,0,123456,42,emptySummary.PayloadSha256,desired.ToBytes());var restoredEntity=codec.EntityAt(restored,17,0,0,0);
+  Assert(restoredEntity.Summary.NonEmptyStacks==1&&restoredEntity.Summary.Stacks[0].Id==99&&restoredEntity.Summary.Stacks[0].Quantity==1,"snapshot fills the empty saved inventory");
+  Assert(empty.AsSpan(0,emptySummary.SlotsOffset).SequenceEqual(restoredEntity.Bytes.AsSpan(0,emptySummary.SlotsOffset)),"block entity prefix outside inventory slots preserved byte for byte");
+  Assert(empty.AsSpan(emptySummary.SlotsOffset+emptySummary.SlotsLength).SequenceEqual(restoredEntity.Bytes.AsSpan(restoredEntity.Summary.SlotsOffset+restoredEntity.Summary.SlotsLength)),"block entity suffix including metadata preserved byte for byte");
+  foreach(var f in BlockIdChunkCodec.Fields(emptyBlob).Where(f=>f.Tag is not (1 or 8))){var g=BlockIdChunkCodec.Fields(restored).Single(g=>g.Tag==f.Tag);Assert(emptyBlob.AsSpan(f.Start,f.End-f.Start).SequenceEqual(restored.AsSpan(g.Start,g.End-g.Start)),"unrelated protobuf field preserved during restoration");}
+  pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory restore and preservation checks passed against official serialization.");
  }
 }

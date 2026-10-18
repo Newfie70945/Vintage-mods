@@ -5,7 +5,7 @@
       "id": "suite",
       "path": "modules/suite",
       "assembly": "NewfiesServerEssentialsSuite",
-      "version": "1.2.51",
+      "version": "1.2.52",
       "origin": "restored author source"
     },
     {

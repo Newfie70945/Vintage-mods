@@ -4,7 +4,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 
 | Module | Version | Source |
 | --- | --- | --- |
-| Server Essentials Suite | 1.2.51 | [modules/suite](modules/suite) |
+| Server Essentials Suite | 1.2.52 | [modules/suite](modules/suite) |
 | Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |

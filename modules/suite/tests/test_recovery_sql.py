@@ -56,3 +56,12 @@ event(33,110,uid='',x=11,z=10)
 assert 33 in {row[12] for row in c.execute(sql['cmd'],area)}
 assert list(c.execute(sql['cmd'],dict(area,cx=1000,minX=995,maxX=1005)))==[]
 print('PASS: area SQL all actors, spherical boundaries, dimensions/world, natural deaths, pre-window baselines and retained post-window conflicts.')
+
+# Radius zero is the single-block scope, applied before history caps; never a radius-one alias.
+exact=dict(area,minX=10,maxX=10,minY=100,maxY=100,minZ=10,maxZ=10,r2=0)
+ids={row[12] for row in c.execute(sql['cmd'],exact)}
+assert {20,21,22,28,29,31,32}.issubset(ids), ids
+assert not ids.intersection({23,24,25,26,27,30,33}), ids
+assert {row[17] for row in c.execute(sql['snapshots'],exact)}=={10,11}
+assert not list(c.execute(sql['cmd'],dict(exact,dimension='2')))
+print('PASS: exact single-cell SQL excludes neighboring blocks/dimensions/worlds and retains all actors, inventory baselines and later conflicts.')

@@ -3152,7 +3152,7 @@ __NSS_RETENTION_HTML__
     <div class="grid"><label>Old block ID <input id="brSource" type="number" step="1" placeholder="Optional when scanning"></label><label>Replacement block ID or code <input id="brTarget" type="text" maxlength="256" spellcheck="false" placeholder="12698 or game:rock-granite"></label></div>
     <div class="grid" style="margin-top:12px"><label>Search registered replacement blocks <input id="brTargetSearch" maxlength="128" placeholder="rock-granite, bookshelf, or ID"></label><label>Matching blocks <select id="brTargetResults"><option value="">Search to choose a replacement…</option></select></label></div>
     <div class="quickActions"><button id="brSearch">Search Blocks</button><span id="brSearchStatus" class="small"></span></div>
-    <div class="quickActions"><button id="brScan">Scan Saved Map</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Repair</button></div>
+    <div class="quickActions"><button id="brScan">Scan Saved Map</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Jobs</button></div>
     <div id="brStatus" class="compactNote" role="status"></div>
     <div class="tableWrap dataScroll"><table><thead><tr><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
     <p class="small">Missing definitions in the registry may be unused: only scanned occurrences prove an ID exists in the saved map. Scans read small pages without activating or generating terrain.</p>
@@ -3170,7 +3170,7 @@ __NSS_RETENTION_HTML__
     <pre id="brLast" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
   </div>
   <div class="card"><h3>Inspect saved block / inventory data</h3>
-    <p>Use this to investigate broken bookshelves or containers before choosing a repair. This reads saved bytes without activating terrain or executing mod block-entity code. It does not restore items or change the world.</p>
+    <p>Use this to investigate broken bookshelves or containers before choosing a repair. This reads saved bytes without activating terrain or executing mod block-entity code. This inspection does not restore items or change the world; use the separate restoration workflow below.</p>
     <div class="grid"><label>Absolute X <input id="brInspectX" type="number" step="1" min="0"></label><label>Y <input id="brInspectY" type="number" step="1" min="0" max="16383"></label><label>Absolute Z <input id="brInspectZ" type="number" step="1" min="0"></label><label>Dimension <input id="brInspectDimension" type="number" step="1" min="0" max="1023" value="0"></label></div>
     <p class="small">Use absolute saved block coordinates, not the spawn-relative coordinates displayed on your map. Alternatively paste the signed chunk key from a scan’s sample to inspect its saved block entities.</p>
     <label>Saved chunk key (optional; overrides coordinates) <input id="brInspectChunk" type="text" inputmode="numeric" maxlength="20" placeholder="Exact key from a scan sample"></label>
@@ -3184,7 +3184,15 @@ __NSS_RETENTION_HTML__
     <div id="brRecommendationStatus" class="compactNote" role="status"></div><div id="brRecommendations"></div>
     <pre id="brHistoryReport" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
     <p class="small">History applies only to this location. A global ID remap affects every matching block. Snapshot logging must have been enabled and records retained. Existing BlockLogger snapshots store slot numbers, item codes and quantities, not complete attributes such as written book text, durability or bag contents. Snapshot contents are historical; later transfers must be checked before any restoration.</p>
-    <p class="small">Reports show saved classes, block codes, positions, payload hashes and up to 64 serialized stack entries per entity. Custom data, oversized records and unsupported formats are marked partial. Finding stacks does not guarantee recoverability. If data was discarded and saved over, a surviving backup is needed.</p>
+    <p class="small">Reports show saved classes, block codes, positions, payload hashes and up to 64 serialized stack entries per entity. Custom data, oversized records and unsupported formats are marked partial. Finding stacks does not guarantee compatibility with automatic restoration. If data was discarded and saved over, a surviving backup is needed.</p>
+  </div>
+  <div class="card"><h3>Automatic inventory restoration — experimental</h3>
+    <p>Preview one location using the absolute coordinates above, then stage it for the next restart. A retained compatible vanilla bookshelf, shelf or chest block entity is required. Missing container metadata is never invented. Snapshot mode refuses non-empty inventories and later logged block/item changes.</p>
+    <div class="grid"><label>Restoration source <select id="brRestoreMode"><option value="retained">Reconnect retained inventory — preserves saved item attributes</option><option value="snapshot">Restore snapshot into empty inventory — codes / quantities only</option></select></label><label>BlockLogger snapshot <select id="brRestoreSnapshot"><option value="0">Run Recommend from BlockLogger to find snapshots…</option></select></label></div>
+    <label><input id="brRestoreRisk" type="checkbox"> I reviewed this location and recovery evidence. I understand snapshot items have default attributes, and unlogged transfers could cause duplication.</label>
+    <p class="small">The automatic-backup / manual-copy controls above apply to this restore too. Retained mode only reconnects the original container block; snapshot mode may also reconnect it but replaces only the empty saved slots. One-location receipts prevent replaying an old restore.</p>
+    <div class="quickActions"><button id="brRestorePreview">Preview Inventory Restore</button><button id="brRestoreStage" class="danger" disabled>Stage Inventory Restore for Restart</button></div>
+    <div id="brRestoreStatus" class="compactNote" role="status"></div><pre id="brRestorePlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><pre id="brRestoreLast" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
   </div>
 </section>
 
@@ -9612,7 +9620,7 @@ async function loadSynergy(){
   }
 }
 
-let brSnapshot=null,brBusy=false,brPreviewId='',brInvalidated=true,brError='';
+let brSnapshot=null,brBusy=false,brPreviewId='',brInvalidated=true,brError='',brRestoreId='',brRestoreInvalidated=true,brRestoreOptions='';
 function brCanEdit(){return !safeDiagnosticsModeGlobal && (currentSessionOwner || currentSessionRole==='Owner');}
 function renderBlockRepair(data){
   brSnapshot=data;
@@ -9644,6 +9652,19 @@ function renderBlockRepair(data){
     const button=document.createElement('button');button.textContent='Use as Destination';button.disabled=brBusy||!brCanEdit()||!value(candidate,'Selectable');button.onclick=()=>{$('brTarget').value=value(candidate,'Code');brInvalidate();};row.append(label,button);$('brRecommendations').append(row);
   }
   $('brHistoryReport').textContent=history?JSON.stringify(history,null,2):'';
+  const snapshots=value(history,'InventorySnapshots')||[],signature=JSON.stringify(snapshots.map(s=>[value(s,'RecordId'),value(s,'TimestampUtc')]));
+  if(signature!==brRestoreOptions){brRestoreOptions=signature;const previous=$('brRestoreSnapshot').value;$('brRestoreSnapshot').replaceChildren();
+    if(!snapshots.length){const o=document.createElement('option');o.value='0';o.textContent='No historical snapshots available';$('brRestoreSnapshot').append(o);}
+    for(const item of snapshots){const option=document.createElement('option');option.value=String(value(item,'RecordId'));option.textContent=`#${value(item,'RecordId')} · ${value(item,'TimestampUtc')} · ${value(item,'RecordedItems')} recorded items`;option.disabled=!value(item,'SlotsComplete');$('brRestoreSnapshot').append(option);}if(snapshots.some(s=>String(value(s,'RecordId'))===previous))$('brRestoreSnapshot').value=previous;
+  }
+  const restore=owner?(data.restorePreview||data.restorePending):null,request=value(restore,'Request'),current=brRestoreRequest();
+  const restoreMatches=request&&Object.entries(current).every(([k,v])=>(request[k]??request[k[0].toUpperCase()+k.slice(1)])===v);
+  brRestoreId=owner&&!brRestoreInvalidated&&data.restorePreview&&value(data.restorePreview,'State')==='preview'&&restoreMatches?value(data.restorePreview,'Id'):'';
+  $('brRestorePreview').disabled=brBusy||!brCanEdit()||!current.riskAcknowledged||(!current.createBackup&&!current.manualBackupAcknowledged);
+  $('brRestoreStage').disabled=brBusy||!brCanEdit()||!brRestoreId;
+  $('brRestoreStatus').textContent=restore?`${value(restore,'State')} · ${value(restore,'Message')||'Validating saved inventory…'}`:'Preview required. No inventory restoration is staged.';
+  $('brRestorePlan').textContent=restore?JSON.stringify(restore,null,2):'';$('brRestoreLast').textContent=owner&&data.restoreLast?'Last inventory restore: '+JSON.stringify(data.restoreLast,null,2):'';
+
 }
 async function loadBlockRepair(){try{renderBlockRepair(await api('/api/block-repair'));}catch(e){$('brStatus').textContent=e.message;}}
 async function blockRepairAction(operation){
@@ -9655,6 +9676,16 @@ async function blockRepairAction(operation){
   if(['preview','stage'].includes(operation)&&!body.createBackup&&!body.manualBackupAcknowledged){toast('Make a manual world copy and acknowledge it before disabling automatic backup.','error');return;}
   brError='';brBusy=true;if(brSnapshot)renderBlockRepair(brSnapshot);try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='preview')brInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
 }
+function brRestoreRequest(){return {x:Number($('brInspectX').value),y:Number($('brInspectY').value),z:Number($('brInspectZ').value),dimension:Number($('brInspectDimension').value),mode:$('brRestoreMode').value,snapshotId:$('brRestoreMode').value==='snapshot'?Number($('brRestoreSnapshot').value||0):0,createBackup:$('brAutoBackup').checked,manualBackupAcknowledged:$('brManualBackupAck').checked,riskAcknowledged:$('brRestoreRisk').checked};}
+async function blockInventoryRestoreAction(operation){
+  if(brBusy||!brCanEdit())return;const request=brRestoreRequest();
+  if(['X','Y','Z','Dimension'].some(k=>!$('brInspect'+k).value.trim())||![request.x,request.y,request.z,request.dimension,request.snapshotId].every(Number.isSafeInteger)){toast('Enter absolute integer coordinates and a snapshot ID.','error');return;}
+  if(!request.riskAcknowledged||!request.createBackup&&!request.manualBackupAcknowledged){toast('Acknowledge restoration risks and the manual copy when backup is disabled.','error');return;}
+  const body={operation,...request,restoreId:brRestoreId};brBusy=true;brError='';if(brSnapshot)renderBlockRepair(brSnapshot);
+  try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='restore-preview')brRestoreInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+}
+$('brRestorePreview').onclick=()=>blockInventoryRestoreAction('restore-preview');$('brRestoreStage').onclick=()=>blockInventoryRestoreAction('restore-stage');
+for(const id of ['brInspectX','brInspectY','brInspectZ','brInspectDimension','brRestoreMode','brRestoreSnapshot','brRestoreRisk','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{brRestoreInvalidated=true;brRestoreId='';$('brRestoreStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);});
 async function blockRepairDiagnostic(operation){
   if(brBusy||!(currentSessionOwner||currentSessionRole==='Owner'))return;
   let body={operation};
@@ -9688,7 +9719,7 @@ $('brExport').onclick=()=>{
 $('brScan').onclick=()=>blockRepairAction('scan');$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
 function brInvalidate(){brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
 for(const id of ['brSource','brTarget','brAllowAir','brAllowValid','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{if(id==='brAutoBackup')$('brManualBackupAck').checked=false;brInvalidate();});
-setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'))loadBlockRepair();},4000);
+setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'||(brSnapshot?.restorePreview?.state||brSnapshot?.restorePreview?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
 const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};

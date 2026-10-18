@@ -30,17 +30,18 @@ namespace Vintagestory.API.Common {
  public class ItemStack {public CollectibleObject Collectible;public int StackSize;public ItemStack(CollectibleObject c,int n){Collectible=c;StackSize=n;}public ItemStack Clone()=>new(Collectible,StackSize);}
  public class ItemSlot {public ItemStack? Itemstack;public void MarkDirty(){} }
  public interface IInventory {int Count {get;} ItemSlot this[int i] {get;}}
- public class InventoryBase:IInventory {public event Action<int>? SlotModified;public int Count=>0;public ItemSlot this[int i]=>new();}
+ public class InventoryBase:IInventory {public event Action<int>? SlotModified;public ItemSlot[] Slots=Array.Empty<ItemSlot>();public int Count=>Slots.Length;public ItemSlot this[int i]=>Slots[i];}
  public interface IBlockEntityContainer {IInventory Inventory {get;}}
+ public class ContainerEntity:BlockEntity,IBlockEntityContainer {public InventoryBase Slots=new();public IInventory Inventory=>Slots;}
  public class BlockEntity {public void ToTreeAttributes(TreeAttribute t){}public void MarkDirty(bool b){} }
 }
 namespace Vintagestory.API.Server {
  using Vintagestory.API.Common;using Vintagestory.API.Common.Entities;using Vintagestory.API.MathTools;
- public interface IServerPlayer {string PlayerUID {get;}string PlayerName {get;} Entity Entity {get;} void SendMessage(int g,string t,EnumChatType type);}
+ public interface IServerPlayer {string PlayerUID {get;}string PlayerName {get;} BlockSelection? CurrentBlockSelection {get;} Entity Entity {get;} void SendMessage(int g,string t,EnumChatType type);}
  public delegate void CommandHandler(IServerPlayer p,int g,CmdArgs args);
  public interface ICoreServerAPI {FakeWorld World {get;}FakeEvents Event {get;}FakePermissions Permissions {get;}FakeLogger Logger {get;}void RegisterCommand(string n,string d,string h,CommandHandler c,string priv);}
  public class FakePermissions {public void RegisterPrivilege(string n,string h,bool a){} }
- public class FakeLogger {public void Error(string m,params object[] a){} }
+ public class FakeLogger {public void Warning(string m,params object[] a){}public void Error(string m,params object[] a){} }
  public class FakeEvents {
  public event Action<IServerPlayer,int,BlockSelection>? DidBreakBlock;
  public event Action<IServerPlayer,int,BlockSelection,ItemStack>? DidPlaceBlock;
@@ -56,7 +57,7 @@ namespace Vintagestory.API.Server {
  readonly FakeWorld world;public int Writes;public Action? BeforeWrite;public readonly Dictionary<string,int> Blocks=new();public FakeAccessor(FakeWorld w)=>world=w;
  public bool IsValidPos(BlockPos p)=>true;public object GetChunkAtBlockPos(BlockPos p)=>new();
  public Block GetBlock(BlockPos p,int layer=0)=>world.Blocks.Values.First(b=>b.BlockId==(layer==1?0:Blocks.GetValueOrDefault(p.Key)));
- public BlockEntity? GetBlockEntity(BlockPos p)=>null;public Block[]? GetDecors(BlockPos p)=>null;
+ public readonly Dictionary<string,BlockEntity> Entities=new();public BlockEntity? GetBlockEntity(BlockPos p)=>Entities.GetValueOrDefault(p.Key);public Block[]? GetDecors(BlockPos p)=>null;
  public void SetBlock(int id,BlockPos p,int layer){BeforeWrite?.Invoke();Writes++;Blocks[p.Key]=id;}public void MarkBlockDirty(BlockPos p){}
  }
  public class FakeRegistry {public Entity CreateEntity(object type)=>new EntityAgent();}
@@ -70,7 +71,8 @@ namespace Vintagestory.API.Server {
  public FakeAccessor BlockAccessor;public FakeRegistry ClassRegistry=new();public FakeClaims Claims=new();
  public Dictionary<string,Block> Blocks=new(){{"game:air",new(){BlockId=0,Code=new("air")}},{"game:stone",new(){BlockId=1,Code=new("stone")}}};
  public FakeWorld()=>BlockAccessor=new(this);
- public Block? GetBlock(AssetLocation l)=>Blocks.GetValueOrDefault(l.ToShortString());public Item? GetItem(AssetLocation l)=>null;
+ public Dictionary<string,Item> Items=new();
+ public Block? GetBlock(AssetLocation l)=>Blocks.GetValueOrDefault(l.ToShortString());public Item? GetItem(AssetLocation l)=>Items.GetValueOrDefault(l.ToShortString());
  public Entity? GetEntityById(long id)=>null;public object GetEntityType(AssetLocation l)=>new();public void SpawnEntity(Entity e){}
  }
 }
