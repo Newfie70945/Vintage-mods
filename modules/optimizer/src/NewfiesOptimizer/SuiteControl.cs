@@ -1,0 +1,82 @@
+using System.Text.Json;
+using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
+
+namespace NewfiesOptimizer;
+
+public sealed partial class OptimizerMod
+{
+    private OptimizerConfig? currentConfig;
+    private bool bridgeActive;
+    public const string ControlEvent = "newfiesse:optimizer-control-v1";
+    private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private object ControlSnapshot() => new {
+        available = true, protocol = 1, version = "0.3.0", success = true,
+        profiling = profiler?.IsRunning ?? false,
+        settings = currentConfig == null ? null : new {
+            enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
+            onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
+            nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
+            minimumNearbyClients = currentConfig.EngineOptimizations.MinimumNearbyClients,
+            bulkStreamReads = currentConfig.EngineOptimizations.BulkStreamReads,
+            assetCompressionCache = currentConfig.EngineOptimizations.AssetCompressionCache,
+            assetCacheMaxMiB = currentConfig.EngineOptimizations.AssetCacheMaxMiB },
+        modules = optimizations?.Modules() ?? [], counters = optimizations?.Counters(),
+        status = Status()
+    };
+    private void OnSuiteControl(string name, ref EnumHandling handling, IAttribute data)
+    {
+        if(!bridgeActive || data is not ITreeAttribute tree) return;
+        bool success=true; string message="Optimizer status refreshed.";
+        try
+        {
+            switch(tree.GetString("operation","get"))
+            {
+                case "get": break;
+                case "set": ApplySettings(tree.GetString("settings","{}")); message="Settings saved and engine modules reapplied. Check actual module states below."; break;
+                case "profile-start": message=profiler?.Start() ?? "Profiler unavailable."; success=profiler?.IsRunning==true; break;
+                case "profile-stop": message=profiler?.Stop() ?? "Profiler unavailable."; break;
+                case "export": message=profiler?.QueueExport() ?? "Profiler unavailable."; break;
+                default: throw new ArgumentException("Unsupported optimizer operation.");
+            }
+        }
+        catch(Exception error) { success=false; message=error is ArgumentException or InvalidOperationException ? error.Message : "Optimizer operation failed ("+error.GetType().Name+"). Existing saved settings and module diagnostics should be checked."; }
+        tree.SetString("snapshot",JsonSerializer.Serialize(ControlSnapshot(),WebJson));
+        tree.SetBool("success",success); tree.SetString("message",message);
+    }
+    // Called synchronously on the game thread by the authenticated Suite bridge.
+    private void ApplySettings(string json)
+    {
+        if(api == null || currentConfig == null) throw new InvalidOperationException("Optimizer configuration is unavailable; inspect the server log.");
+        if(profiler?.IsRunning == true) throw new InvalidOperationException("Stop the optimizer capture before changing modules.");
+        var candidate = JsonSerializer.Deserialize<OptimizerConfig>(JsonSerializer.Serialize(currentConfig))!;
+        using var doc=JsonDocument.Parse(json);
+        if(doc.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException("Settings must be an object.");
+        foreach(var item in doc.RootElement.EnumerateObject())
+        {
+            bool B() => item.Value.ValueKind is JsonValueKind.True or JsonValueKind.False ? item.Value.GetBoolean() : throw new ArgumentException(item.Name+" must be boolean.");
+            int N(int min,int max) => item.Value.TryGetInt32(out int value) && value>=min && value<=max ? value : throw new ArgumentException(item.Name+" is out of range.");
+            switch(item.Name)
+            {
+                case "enabled": candidate.Enabled=B(); break;
+                case "safeMode": candidate.Compatibility.SafeMode=B(); break;
+                case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;
+                case "nearbyPlayerQueries": candidate.EngineOptimizations.NearbyPlayerQueries=B(); break;
+                case "minimumNearbyClients": candidate.EngineOptimizations.MinimumNearbyClients=N(0,4096); break;
+                case "bulkStreamReads": candidate.EngineOptimizations.BulkStreamReads=B(); break;
+                case "assetCompressionCache": candidate.EngineOptimizations.AssetCompressionCache=B(); break;
+                case "assetCacheMaxMiB": candidate.EngineOptimizations.AssetCacheMaxMiB=N(1,32); break;
+                default: throw new ArgumentException("Unknown optimizer setting: "+item.Name);
+            }
+        }
+        candidate.Normalize();
+        // Persist before touching active patches. A storage failure leaves the runtime unchanged.
+        api.StoreModConfig(candidate,"optimizer.json");
+        optimizations?.Dispose(); optimizations=null;
+        currentConfig.Enabled=candidate.Enabled;
+        currentConfig.EngineOptimizations=candidate.EngineOptimizations;
+        currentConfig.Compatibility.SafeMode=candidate.Compatibility.SafeMode;
+        try { optimizations=new(api,currentConfig); }
+        finally { if(profiler != null) { profiler.ExternalModules=()=>optimizations?.Modules() ?? []; profiler.ExternalCounters=()=>optimizations?.Counters() ?? new Dictionary<string,long>(); } }
+    }
+}

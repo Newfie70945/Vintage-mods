@@ -1,6 +1,6 @@
 # Newfies AntiCheat Client 1.1.28 — standalone source folder
 
-Current patch: transfer consent dialogs release textures and unregister after closing. Protocol 13 and networkVersion 1.1.21 are unchanged. See [changelog](CHANGELOG-1.1.28.txt).
+Current patch: transfer consent dialogs release textures and unregister after closing. Protocol 13 and networkVersion 1.1.21 are unchanged. See [current release notes](../../CHANGELOG.md).
 
 This folder is a **separate Anti-Cheat add-on for server owners using Newfies Server Essentials Suite**. Installing it on the server makes the same package mandatory on clients through Vintage Story's mod dependency handshake. The Suite owns the server-side Anti-Cheat protocol, PacketGuard, reports and consequences.
 

@@ -46,7 +46,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=false;
+  var off=Config();off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -77,6 +77,14 @@ static class Checks
   foreign.Patch(StreamCopyOptimizations.ReadConflictTargets[1],prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().Single(x=>x.Name=="bulkStreamReads").Status=="conflict","dependent accessor conflict blocks copy");
   foreign.UnpatchAll(foreign.Id);
+  var lost=Api();
+  using(var module=new EngineOptimizations(lost.Api,Config(),()=>200))
+  {
+   new Harmony(EngineOptimizations.HarmonyId).Unpatch(AssetCompressionOptimizations.Target,HarmonyPatchType.All,EngineOptimizations.HarmonyId);
+   foreach(var tick in lost.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="assetCompressionCache").Status=="failed","removed own patch is diagnosed");
+   Assert(module.Modules().Where(x=>x.Name!="assetCompressionCache").All(x=>x.Status=="active"),"removed patch does not disable unrelated modules");
+  }
   var broken=Api(true);
   using(var module=new EngineOptimizations(broken.Api,Config(),()=>200))Assert(module.Modules().All(x=>x.Status=="failed"),"monitor startup failure rolls back all installed modules");
   Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"no orphan patches after monitor failure");

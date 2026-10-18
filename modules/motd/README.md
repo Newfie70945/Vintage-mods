@@ -1,6 +1,6 @@
 # Newfie's Community MOTD 2.1.6
 
-Current release: [changelog](CHANGELOG-2.1.6.md).
+Current release: [current release notes](../../CHANGELOG.md).
 Target: **Vintage Story 1.22.7 / .NET 10**
 
 Community MOTD is the in-game community information hub for Newfie's Server Suite. It remains independently installable; when Server Suite is present, Suite can edit/apply MOTD settings through its companion control bridge.
@@ -40,4 +40,4 @@ NewfiesCommunityMOTD/branding/motd-logo.png
 dotnet build NewfiesCommunityMOTD.csproj -c Release
 ```
 
-`README-2.0.txt` and earlier changelogs are retained as historical development/reference material. `CHANGELOG-2.1.6.md` describes the current release.
+Earlier development notes remain available in Git history.

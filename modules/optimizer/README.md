@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.2.0 preview
+# Newfie's Server Optimizer 0.3.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -9,6 +9,7 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 | Online player snapshots | Builds the required fresh result array without the original LINQ iterator pipeline | Official client snapshot order, pending-player filtering and runtime array type preserved |
 | Nearby player queries (opt-in) | At 128+ connected clients, reuses bounded per-thread temporary lists rather than repeatedly growing throwaway lists | Same range math, dimensions, callback order, short circuit and caller-owned results |
 | Bulk stream reads | Uses a bulk byte copy for eligible reads of 256 bytes or more | Invalid ranges, aliased buffers, derived streams and unusual layouts run the original method |
+| Server-assets compression cache | Reuses compressed output for unchanged server-assets bytes | Independent send buffers, source/compressor checks and bounded memory; stock compression handles other packets |
 
 Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. These modules do not change simulation ranges, AI schedules, physics rules, packet ordering, world generation or save scheduling.
 
@@ -16,7 +17,7 @@ Temporary player-query lists retain no player references between calls and have 
 
 1. Back up, then install the single optimizer ZIP on a staging server. Clients do not need it.
 2. Start the server and run `/optimizer modules` to verify which modules actually activated.
-3. Review `ModConfig/optimizer.json`. Restart after changing switches.
+3. Open Suite → Optimizations → Newfies Server Optimizer to save/apply switches immediately. Manual optimizer.json edits require a server restart.
 4. Capture a representative workload with `/optimizer profile start`, `/optimizer profile stop` and `/optimizer export`.
 
 ```json
@@ -27,14 +28,16 @@ Temporary player-query lists retain no player references between calls and have 
     "OnlinePlayerSnapshots": true,
     "NearbyPlayerQueries": false,
     "MinimumNearbyClients": 128,
-    "BulkStreamReads": true
+    "BulkStreamReads": true,
+    "AssetCompressionCache": true,
+    "AssetCacheMaxMiB": 16
   }
 }
 ```
 
 `Enabled=false` disables the optimizer. `Compatibility.SafeMode=true` prevents the API replacement modules from installing. **Existing 0.1.0 configurations keep their previous SafeMode=true value**; explicitly set false on a staging server to try these modules. New 0.2.0 defaults use false with strict engine identity checks.
 
-The three module switches operate independently. **Nearby-query reuse defaults off**: it cut allocation in component tests but its CPU timings were mixed, including regressions. Enable only for a controlled workload comparison. Nearby-query reuse stays unpatched below its activation threshold, and unpatches again below threshold minus 32 clients to avoid churn. Detailed profiler timing switches remain separate and default off. Stopping a profile does not disable API optimizations.
+The four module switches operate independently. **Nearby-query reuse defaults off**: it cut allocation in component tests but its CPU timings were mixed, including regressions. Enable only for a controlled workload comparison. Nearby-query reuse stays unpatched below its activation threshold, and unpatches again below threshold minus 32 clients to avoid churn. Detailed profiler timing switches remain separate and default off. Stopping a profile does not disable API optimizations.
 
 ## Compatibility and fallback
 
@@ -46,7 +49,7 @@ An exception after observable work is propagated, never replayed through stock c
 
 ## Evidence and limits
 
-See [performance evidence](docs/performance-0.2.0.md), [external capture analysis](docs/research/supplied-probe.md), [configuration](docs/configuration.md) and [limitations](docs/limitations.md).
+See [0.3.0 validation](docs/performance-0.3.0.md), [earlier performance evidence](docs/performance-0.2.0.md), [external capture analysis](docs/research/supplied-probe.md), [configuration](docs/configuration.md) and [limitations](docs/limitations.md).
 
 Component tests exercise actual official methods before and after Harmony injection. Their uninitialised engine fixtures are **not authenticated players or a multiplayer server**. Component timing/allocation results are not server TPS gains or proof of sustainable player capacity. The uploaded Stratum/Lithos capture has no matched NOS/stock baseline.
 
@@ -59,3 +62,13 @@ python3 tools/build.py --game-dir "$VINTAGE_STORY"
 ```
 
 This compiles the mod, runs C# and tooling tests, verifies official dependency hashes and packages only the mod's own DLL, manifest and guides. Game binaries are not included. The optimizer has its own build flow, separate from the regular Suite module packager.
+
+## Suite controls (0.3.0)
+
+With Suite 1.2.46 installed, use its Optimizations page to configure the independent API modules and see actual runtime activation. Settings persist to optimizer.json and apply immediately; stop a running NOS capture first. The Suite bridge uses an in-process, versioned event rather than an extra network listener or a shared assembly dependency.
+
+`EngineOptimizations.AssetCompressionCache` enables a single-entry cache for the official server-assets buffer only. Source contents are compared before reuse; each packet gets an independent output array. `AssetCacheMaxMiB` bounds the combined retained source snapshot and compressed result (default 16, range 1–32). Payloads outside the budget and non-asset packets use stock compression. Disabling the module releases its cached arrays.
+
+See [the Stratum change review](docs/stratum-review.md). The existing allocation and bulk-read modules remain independently guarded. No entity/AI throttling, worldgen scheduling or save-format changes were added in this pass.
+
+Low-compressibility or over-budget asset buffers use stock compression after the initial probe, avoiding repeated cache-copy overhead. A new asset buffer or reapplying settings permits a fresh probe. Cache hits require at least 25% size reduction on that probe.

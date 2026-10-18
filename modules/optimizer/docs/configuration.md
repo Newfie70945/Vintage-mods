@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.2.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after editing. Three independently controlled API implementation substitutions are available. Simulation, AI, packet formats and save scheduling remain unchanged.
+Newfie's Server Optimizer **0.3.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after editing. Three independently controlled API implementation substitutions are available. Simulation, AI, packet formats and save scheduling remain unchanged.
 
 ## Capture controls
 
@@ -93,3 +93,12 @@ To stop collection: `/optimizer profile stop`. To disable across restart: `Enabl
 These engine modules always require the exact inspected 1.22.7 hashes, even if a legacy compatibility setting is relaxed. They do not implement the older placeholder entity/world-generation/network scheduling options.
 
 Nearby-query reuse remains opt-in because component CPU timings were mixed despite substantially lower allocations. The default-on modules are online snapshot allocation reduction and bulk stream reads.
+
+## Suite integration
+
+Suite 1.2.46 provides NOS status, master/safe-mode switches, independent engine switches, population threshold, asset-cache bound, capture start/stop and export. The in-process control protocol is version 1. Settings are validated and persisted before active patches are replaced. A failed persistence operation leaves runtime settings unchanged. Stop captures before applying settings. Applying settings retains all existing profiling/export configuration not exposed by this editor.
+
+- `EngineOptimizations.AssetCompressionCache`: true by default; accelerates repeated official assets compression only.
+- `EngineOptimizations.AssetCacheMaxMiB`: 16 by default, range 1–32. Combined retained source/compressed payload budget. Foreign Harmony owners or a mismatched engine disable the module.
+
+Low-compressibility or over-budget asset buffers use stock compression after the initial probe, avoiding repeated cache-copy overhead. A new asset buffer or reapplying settings permits a fresh probe. Cache hits require at least 25% size reduction on that probe.

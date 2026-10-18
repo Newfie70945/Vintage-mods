@@ -53,6 +53,7 @@ def main() -> int:
     tests_run: list[str] = []
     if not args.skip_tests:
         for test in sorted((ROOT / "tests").glob("**/*.csproj")):
+            if test.parent.name == "SuiteIntegrationProbe": continue
             run([args.dotnet, "run", "--project", str(test), "-c", "Release"], env)
             tests_run.append(str(test.relative_to(ROOT)))
         # Discovery is deliberately scoped: the independently runnable tools own their test suites.

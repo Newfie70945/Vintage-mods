@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.2.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.3.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -19,6 +19,7 @@ public sealed class EngineOptimizations : IDisposable
     private long listener = -1;
     private bool disposed;
     private readonly int minimumNearbyClients;
+    private readonly int assetCacheBytes;
     private readonly Func<int> clientCount;
     private sealed class Entry(string name, bool requested, Func<MethodInfo> target, Func<MethodInfo[]> dependencies, MethodInfo prefix, Action<bool> enable)
     {
@@ -29,11 +30,14 @@ public sealed class EngineOptimizations : IDisposable
         public MethodInfo Prefix = prefix;
         public Action<bool> Enable = enable;
         public bool Installed;
+        public MethodInfo? Postfix;
     }
     public EngineOptimizations(ICoreServerAPI api, OptimizerConfig config, Func<int>? clientCount = null)
     {
         this.api = api;
         minimumNearbyClients = config.EngineOptimizations.MinimumNearbyClients;
+        assetCacheBytes = config.EngineOptimizations.AssetCacheMaxMiB * 1048576;
+        AssetCompressionOptimizations.Configure(false);
         this.clientCount = clientCount ?? (() => api.World is ServerMain world ? world.Clients.Values.Count : 0);
         PlayerQueryOptimizations.MinimumNearbyClients = minimumNearbyClients;
         PlayerQueryOptimizations.SnapshotEnabled = false;
@@ -46,6 +50,9 @@ public sealed class EngineOptimizations : IDisposable
             () => [PlayerQueryOptimizations.AroundTarget], PlayerQueryOptimizations.AroundPrefixMethod, value => PlayerQueryOptimizations.AroundEnabled = value));
         entries.Add(new("bulkStreamReads", options.BulkStreamReads, () => StreamCopyOptimizations.ReadTarget,
             () => StreamCopyOptimizations.ReadConflictTargets, StreamCopyOptimizations.ReadPrefixMethod, StreamCopyOptimizations.ConfigureRead));
+        entries.Add(new("assetCompressionCache", options.AssetCompressionCache, () => AssetCompressionOptimizations.Target,
+            () => AssetCompressionOptimizations.ConflictTargets, AssetCompressionOptimizations.PrefixMethod, AssetCompressionOptimizations.Configure)
+            { Postfix = AssetCompressionOptimizations.PostfixMethod });
         string? blocked = !config.Enabled ? "Optimizer master switch is disabled." : config.Compatibility.SafeMode ?
             "Compatibility.SafeMode is enabled; stock methods retained." : EngineGuard();
         foreach (var entry in entries)
@@ -54,7 +61,9 @@ public sealed class EngineOptimizations : IDisposable
             if (blocked != null) { entry.State = "blocked"; entry.Reason = blocked; continue; }
             try
             {
-                bool contract = entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out var why) : PlayerQueryOptimizations.ValidateContract(out why);
+                string why;
+                bool contract = entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
+                    entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
                 if (!contract) { entry.State = "unsupported"; entry.Reason = why; continue; }
                 if (entry.Name == "nearbyPlayerQueries" && this.clientCount() < minimumNearbyClients)
                 { entry.State = "standby"; entry.Reason = "Original method remains unpatched below " + minimumNearbyClients + " connected clients."; continue; }
@@ -75,7 +84,8 @@ public sealed class EngineOptimizations : IDisposable
     {
         string? conflict = Conflict(entry);
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
-        harmony.Patch(entry.Target(), prefix: new HarmonyMethod(entry.Prefix));
+        harmony.Patch(entry.Target(), prefix: new HarmonyMethod(entry.Prefix), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
+        if(entry.Name == "assetCompressionCache") RefreshAssets();
         entry.Installed = true; entry.Enable(true); entry.State = "active";
         entry.Reason = "Verified official 1.22.7; independently controlled prefix installed.";
     }
@@ -116,6 +126,13 @@ public sealed class EngineOptimizations : IDisposable
         }
         return null;
     }
+    private void RefreshAssets()
+    {
+        var world = api.World as ServerMain;
+        var packet = world == null ? null : AccessTools.Field(typeof(ServerMain), "serverAssetsPacket")?.GetValue(world);
+        var buffer = packet == null ? null : AccessTools.Field(packet.GetType(), "buffer")?.GetValue(packet) as byte[];
+        AssetCompressionOptimizations.Track(buffer, assetCacheBytes);
+    }
     private void Check()
     {
         lock (gate)
@@ -137,11 +154,14 @@ public sealed class EngineOptimizations : IDisposable
                         if (count < Math.Max(0, minimumNearbyClients - 32))
                         { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
                     }
+                    if (entry.Installed && Harmony.GetPatchInfo(entry.Target())?.Owners.Contains(HarmonyId) != true)
+                    { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
+                    if(entry.Name == "assetCompressionCache") RefreshAssets();
                     string? conflict = Conflict(entry);
                     if (conflict != null) { Disable(entry, "conflict", conflict); continue; }
                     var counters = PlayerQueryOptimizations.GetCounters();
                     long failures = entry.Name switch { "onlinePlayerSnapshots" => counters.SnapshotFailures,
-                        "nearbyPlayerQueries" => counters.AroundFailures, _ => StreamCopyOptimizations.Snapshot.Failures };
+                        "nearbyPlayerQueries" => counters.AroundFailures, "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures, _ => StreamCopyOptimizations.Snapshot.Failures };
                     if (failures > 0) Disable(entry, "failed", "Observed a query/copy exception; original exception was preserved. Module stood down to stock behavior.");
                 }
                 catch (Exception error) { Disable(entry, "failed", "Compatibility monitor failed: " + error.GetType().Name); }
@@ -162,7 +182,8 @@ public sealed class EngineOptimizations : IDisposable
         return new Dictionary<string,long> { ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
-            ["nearbyFailures"] = q.AroundFailures, ["bulkReadCalls"] = s.AcceleratedCalls,
+            ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = AssetCompressionOptimizations.Counters.Hits, ["assetCacheMisses"] = AssetCompressionOptimizations.Counters.Misses,
+            ["assetCacheBytes"] = AssetCompressionOptimizations.Counters.Bytes, ["assetCacheFailures"] = AssetCompressionOptimizations.Counters.Failures, ["bulkReadCalls"] = s.AcceleratedCalls,
             ["bulkReadBytes"] = s.CopiedBytes, ["bulkReadFallbacks"] = s.FallbackCalls, ["bulkReadFailures"] = s.Failures };
     }
     public string Status()

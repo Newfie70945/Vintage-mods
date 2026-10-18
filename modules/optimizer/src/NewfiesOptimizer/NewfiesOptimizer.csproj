@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NewfiesServerOptimizer</AssemblyName><RootNamespace>NewfiesOptimizer</RootNamespace>
-    <Version>0.2.0</Version><Description>Guarded server API optimizations and bounded profiling for Vintage Story 1.22.7.</Description>
+    <Version>0.3.0</Version><Description>Guarded server API optimizations and bounded profiling for Vintage Story 1.22.7.</Description>
     <Deterministic>true</Deterministic><DebugType>portable</DebugType>
   </PropertyGroup>
   <ItemGroup>

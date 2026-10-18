@@ -4,7 +4,7 @@ using Vintagestory.API.Server;
 
 namespace NewfiesOptimizer;
 
-public sealed class OptimizerMod : ModSystem
+public sealed partial class OptimizerMod : ModSystem
 {
     private RuntimeProfiler? profiler;
     private EngineOptimizations? optimizations;
@@ -20,6 +20,9 @@ public sealed class OptimizerMod : ModSystem
             api.Logger.Error("[NewfiesOptimizer] optimizer.json could not be loaded ({0}). No hooks installed; fix configuration and restart.", e.GetType().Name);
             return;
         }
+        currentConfig=config;
+        bridgeActive=true;
+        api.Event.RegisterEventBusListener(OnSuiteControl, filterByEventName: ControlEvent);
         try { profiler = new(api, config); }
         catch (Exception error)
         {
@@ -45,7 +48,7 @@ public sealed class OptimizerMod : ModSystem
         {
             if (config.Enabled && config.Profiling.AutoStart) api.Logger.Notification("[NewfiesOptimizer] " + profiler.Start());
         });
-        api.Logger.Notification("[NewfiesOptimizer] 0.2.0 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
+        api.Logger.Notification("[NewfiesOptimizer] 0.3.0 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
     }
 
     private string Status() => (profiler?.Status() ?? "Profiler unavailable") + "\n" + (optimizations?.Status() ?? "Engine modules unavailable");
@@ -71,5 +74,5 @@ public sealed class OptimizerMod : ModSystem
             _ => profiler.Status()
         };
     }
-    public override void Dispose() { optimizations?.Dispose(); optimizations = null; profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
+    public override void Dispose() { bridgeActive=false; optimizations?.Dispose(); optimizations = null; profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
 }

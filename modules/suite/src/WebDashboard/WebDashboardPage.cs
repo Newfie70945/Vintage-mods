@@ -2506,6 +2506,35 @@ __NSS_RETENTION_HTML__
     </div>
   </div>
 
+  <div class="card" id="nosPanel" style="margin-bottom:16px;border-top:3px solid #75afe0">
+    <div class="cardHeader"><div><h3>Newfies Server Optimizer</h3><div class="small">Official-server API patches, controlled here by the Suite. Each module checks engine compatibility and conflicting patches.</div></div><div class="spacer"></div><button id="nosRefresh">Refresh NOS</button></div>
+    <div id="nosState" class="compactNote">Checking for the optimizer…</div>
+    <div id="nosControls" hidden>
+      <div class="grid" style="margin-top:12px">
+        <div><h4>Safety and activation</h4>
+          <label><input type="checkbox" id="nosEnabled"> Enable optimizer</label><br>
+          <label><input type="checkbox" id="nosSafeMode"> Safe mode (stock engine methods)</label>
+          <p class="small">Apply saves optimizer.json and reapplies engine modules immediately. Stop a running NOS capture before changing settings. Unsupported builds or conflicts retain stock behavior.</p>
+        </div>
+        <div><h4>API and allocation modules</h4>
+          <label><input type="checkbox" id="nosOnlinePlayerSnapshots"> Online-player snapshots</label><br>
+          <label><input type="checkbox" id="nosBulkStreamReads"> Bulk stream reads</label><br>
+          <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
+          <label class="small">Cache limit <input id="nosAssetCacheMaxMiB" type="number" min="1" max="32" value="16" style="width:70px"> MiB</label>
+        </div>
+        <div><h4>Optional population scaling</h4>
+          <label><input type="checkbox" id="nosNearbyPlayerQueries"> Nearby-player queries</label><br>
+          <label class="small">Activate at <input id="nosMinimumNearbyClients" type="number" min="0" max="4096" value="128" style="width:80px"> connected clients</label>
+          <p class="small">Off by default: allocation savings can trade against CPU time. Uses population hysteresis. Test against your actual player workload.</p>
+        </div>
+      </div>
+      <div class="quickActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button></div>
+      <div id="nosEditState" class="small"></div>
+      <div class="tableWrap dataScroll" style="margin-top:12px"><table><thead><tr><th>Module</th><th>Actual state</th><th>Compatibility / fallback reason</th></tr></thead><tbody id="nosModules"></tbody></table></div>
+      <div id="nosCounters" class="small" style="margin-top:10px"></div>
+    </div>
+  </div>
+
   <div id="tungstenBanner" class="card" style="margin-bottom:12px">
     <div class="empty">Checking for Tungsten…</div>
   </div>
@@ -9530,8 +9559,51 @@ async function loadSynergy(){
   }
 }
 
+let nosDirty=false,nosBusy=false,nosSnapshot=null;
+const nosFields={enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+function renderNos(result){
+  const state=result.optimizer||{},available=!!result.available&&!!state.settings;
+  nosSnapshot=state;
+  $('nosControls').hidden=!available;
+  $('nosState').textContent=available?`NOS ${state.version} · ${state.profiling?'Capture running':'Capture stopped'} · configured switches and actual activation are shown separately.`:(result.message||'NOS is unavailable. Install the matching optimizer module and restart.');
+  if(!available)return;
+  const locked=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
+  Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(!nosDirty){if(el.type==='checkbox')el.checked=!!state.settings[key];else el.value=String(state.settings[key]);}el.disabled=nosBusy||locked||!!state.profiling;});
+  $('nosApply').disabled=nosBusy||locked||!!state.profiling;
+  $('nosDiscard').disabled=nosBusy||!nosDirty;
+  $('nosProfileStart').disabled=nosBusy||locked||!!state.profiling||!state.settings.enabled;
+  $('nosProfileStop').disabled=nosBusy||currentSessionRole==='ReadOnly'||!state.profiling;
+  $('nosExport').disabled=nosBusy||locked;
+  $('nosEditState').textContent=locked?'Read-only or Suite Safe Diagnostics Mode: module changes and capture starts are locked.':state.profiling?'Stop the NOS capture to edit settings.':nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
+  $('nosModules').innerHTML=(state.modules||[]).map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.status)}</td><td>${esc(m.reason)}</td></tr>`).join('');
+  const c=state.counters||{};
+  $('nosCounters').textContent=`Executed: ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Counters are cumulative for this server process; hits are not a TPS measurement.`;
+}
+async function loadNos(){try{renderNos(await api('/api/optimizations/newfies'));}catch(e){$('nosState').textContent=e.message;}}
+async function nosAction(operation){
+  if(nosBusy||currentSessionRole==='ReadOnly')return;
+  if(safeDiagnosticsModeGlobal&&operation!=='profile-stop'){toast('Suite Safe Diagnostics Mode blocks this change.','error');return;}
+  let settings={};
+  if(operation==='set')Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);settings[key]=el.type==='checkbox'?el.checked:Number(el.value);});
+  nosBusy=true;
+  if(nosSnapshot)renderNos({available:true,optimizer:nosSnapshot});
+  try{
+    const result=await api('/api/optimizations/newfies',{method:'POST',body:JSON.stringify({operation,settings})});
+    if(result.success&&operation==='set')nosDirty=false;
+    toast(result.message||'Optimizer replied.',result.success?'success':'error');renderNos(result);
+  }catch(e){toast(e.message,'error');}
+  finally{nosBusy=false;await loadNos();}
+}
+Object.values(nosFields).forEach(id=>$('nos'+id).oninput=()=>{nosDirty=true;$('nosEditState').textContent='Unsaved edits — use Save and Apply to activate.'; $('nosDiscard').disabled=false;});
+$('nosRefresh').onclick=loadNos;
+$('nosApply').onclick=()=>nosAction('set');
+$('nosDiscard').onclick=()=>{nosDirty=false;loadNos();};
+$('nosProfileStart').onclick=()=>nosAction('profile-start');
+$('nosProfileStop').onclick=()=>nosAction('profile-stop');
+$('nosExport').onclick=()=>nosAction('export');
+
 async function loadOptimizations(){
-  await Promise.allSettled([loadTungsten(),loadSynergy()]);
+  await Promise.allSettled([loadNos(),loadTungsten(),loadSynergy()]);
 }
 
 function synergyCommandOutput(result){

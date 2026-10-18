@@ -1,0 +1,76 @@
+{
+  "kind": "Synthetic component benchmark, not server throughput",
+  "callsPerMeasuredMode": 4000,
+  "trials": [
+    {
+      "scenario": "sparse-bytes-128KiB",
+      "trial": 0,
+      "bytes": 131072,
+      "stockMs": 0.3615222,
+      "cachedMs": 0.0071131250000000005
+    },
+    {
+      "scenario": "sparse-bytes-128KiB",
+      "trial": 1,
+      "bytes": 131072,
+      "stockMs": 0.3243084,
+      "cachedMs": 0.007054125
+    },
+    {
+      "scenario": "sparse-bytes-128KiB",
+      "trial": 2,
+      "bytes": 131072,
+      "stockMs": 0.291140075,
+      "cachedMs": 0.0047450999999999995
+    },
+    {
+      "scenario": "sparse-bytes-128KiB",
+      "trial": 3,
+      "bytes": 131072,
+      "stockMs": 0.314755,
+      "cachedMs": 0.004256475
+    },
+    {
+      "scenario": "sparse-bytes-128KiB",
+      "trial": 4,
+      "bytes": 131072,
+      "stockMs": 0.320183275,
+      "cachedMs": 0.0044819000000000005
+    },
+    {
+      "scenario": "repeated-json-1MiB",
+      "trial": 0,
+      "bytes": 1048576,
+      "stockMs": 0.087789625,
+      "cachedMs": 0.025993225
+    },
+    {
+      "scenario": "repeated-json-1MiB",
+      "trial": 1,
+      "bytes": 1048576,
+      "stockMs": 0.087010725,
+      "cachedMs": 0.025614775000000003
+    },
+    {
+      "scenario": "repeated-json-1MiB",
+      "trial": 2,
+      "bytes": 1048576,
+      "stockMs": 0.086250275,
+      "cachedMs": 0.02552195
+    },
+    {
+      "scenario": "repeated-json-1MiB",
+      "trial": 3,
+      "bytes": 1048576,
+      "stockMs": 0.088456625,
+      "cachedMs": 0.025477049999999998
+    },
+    {
+      "scenario": "repeated-json-1MiB",
+      "trial": 4,
+      "bytes": 1048576,
+      "stockMs": 0.086068775,
+      "cachedMs": 0.02554965
+    }
+  ]
+}
