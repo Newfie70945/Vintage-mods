@@ -40,6 +40,12 @@ public static class SavedBlockEntityInspector
         public string SolidCode { get; set; } = "";
         public string CurrentEntityClass { get; set; } = "";
         public string Assessment { get; set; } = "";
+        public string ShapeType { get; set; } = "";
+        public string Material { get; set; } = "";
+        public int? InventorySlotCount { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore] public int SlotsOffset { get; set; } = -1;
+        [System.Text.Json.Serialization.JsonIgnore] public int SlotsLength { get; set; }
+
     }
     public static bool BuiltinTypesSupported()
     {
@@ -63,7 +69,7 @@ public static class SavedBlockEntityInspector
             if (!summary.X.HasValue || !summary.InternalY.HasValue || !summary.Z.HasValue) throw new InvalidDataException("Saved block-entity position is absent.");
             summary.Complete = true;
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException or OverflowException)
+        catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException or OverflowException or FormatException)
         { summary.Issue = e.Message; }
         return summary;
     }
@@ -103,14 +109,18 @@ public static class SavedBlockEntityInspector
                 {
                     case 1:
                         int value = reader.ReadInt32();
+                        if (current == "inventory/qslots") result.InventorySlotCount = value;
                         if (depth == 0) { if (key == "posx") result.X = value; if (key == "posy") result.InternalY = value; if (key == "posz") result.Z = value; }
                         break;
                     case 2: case 3: Skip(8); break;
                     case 4: Skip(4); break;
-                    case 5: string text = Text(); if (depth == 0 && key == "blockCode") result.SavedBlockCode = text; break;
+                    case 5: string text = Text(); if (depth == 0){if(key == "blockCode") result.SavedBlockCode = text;if(key=="type") result.ShapeType=text;if(key=="material") result.Material=text;} break;
                     case 6:
                         if ((key.Contains("inventory", StringComparison.OrdinalIgnoreCase) || key == "inv") && result.InventoryPaths.Count < 32) result.InventoryPaths.Add(current);
-                        Tree(current, depth + 1); break;
+                        int start = checked((int)reader.BaseStream.Position);
+                        Tree(current, depth + 1);
+                        if(current=="inventory/slots"){result.SlotsOffset=start;result.SlotsLength=checked((int)reader.BaseStream.Position)-start;}
+                        break;
                     case 7:
                         if (!reader.ReadBoolean())
                         {

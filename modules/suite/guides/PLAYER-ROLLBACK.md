@@ -1,10 +1,37 @@
-> Current build: **1.2.38 Perf3**. See [current validation](../../VALIDATION-PERF3.md). Recovery reads support cancellation, one-reader admission and a 30-second query deadline. Durable journals remain mandatory and run off the game thread. No live damaged-world recovery is claimed.
-
-# Historical player and area recovery — Rollback4 / Area1
+# Single-block, container, player and area rollback — 1.2.52
 
 This update reads the existing SQLite `events` and `snapshots` tables. It does not require new logging to recover information those tables already contain. It does not rewrite historical rows or add a recovery database schema. Existing logs must have captured the relevant actions.
 
-The current main Suite version is 1.2.38; companion versions remain unchanged. The complete Suite builds against Vintage Story 1.22.7. Planner, command/API-double and SQLite fixtures passed; test the world adapter on a COPY of the damaged world before production recovery.
+This pass advances the Suite to 1.2.52; companion versions remain unchanged. The complete Suite builds against Vintage Story 1.22.7. Planner, command/API-double and SQLite fixtures passed; test the world adapter on a COPY of the damaged world before production recovery.
+
+## One block or container
+
+Look at the block/container and run:
+
+```
+/rollback block 2h
+/rollback execute <token-shown-in-preview>
+```
+
+The first command previews how to undo logged changes at **exactly that block position**, in that dimension, back to two hours ago. Container contents are included automatically. All actors at that location are included; neighboring blocks and inventories are excluded. The preview lists the block code change and up to 12 changed inventory slots; the full report contains every slot. The command does not modify anything until you execute its token. Execution happens live, without a restart, for loaded compatible locations.
+
+For a missing block, use absolute world coordinates (the saved coordinates shown in BlockLogger reports):
+
+```
+/rollback block 30m at 517489 224 517472
+/rollback block 30m at 517489 224 517472 dimension 0
+/rollback execute <token-shown-in-preview>
+```
+
+Coordinates default to your current dimension; a looked-at target uses its own dimension. `/rollback preview block 2h` is an equivalent spelling. Relative durations accept seconds/minutes/hours/days, from `1s` through `7d`. The existing `from ... to ...` UTC form works too. Coordinates and the time window stay fixed if you move or look elsewhere after preview.
+
+Inventory recovery requires historical pre-change contents, logged item transfers and a matching final snapshot for surviving containers. Enable `LogContainerSnapshots` and `SnapshotOnSlotChange` in BlockLogger for future history; these settings cannot recreate missing past records. Recovery preserves matching live stack attributes, but reconstructed stacks have default attributes because old snapshots recorded codes/counts only. Items already taken elsewhere are not confiscated.
+
+An unchanged existing bookshelf or modded container can have its inventory restored through `IBlockEntityContainer`, subject to slot/item/state checks. Recreating a destroyed container is limited to supported basic storage classes; missing bookshelf shape/material, machine state and other metadata are not invented. For a damaged block ID with **surviving saved bookshelf metadata**, use the separate [inventory restoration workflow](BLOCK-ID-REPAIR.md#automatic-inventory-restoration-suite-1252).
+
+Claimed land is excluded by default. Add `--include-claims` when intentional, subject to your current game permissions. Back up the world, close the container and review the preview before execution. Live changes invalidate recovery. Empty previews offer no execution token. Existing expiry, durable receipt, cancellation and duplication protections also apply here.
+
+Rollback replies are escaped as plain text and bounded before entering game chat, including help, historical values and exceptions. Private send failures do not leave recovery stuck. If an earlier build has already left broken markup in your chat history, use the client command `.clearchat` to discard that history; `.debug recomposechat` rebuilds the chat UI if needed.
 
 ## Start here
 

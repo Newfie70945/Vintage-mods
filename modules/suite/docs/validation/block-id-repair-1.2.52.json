@@ -1,0 +1,88 @@
+{
+  "suiteVersion": "1.2.52",
+  "gameVersion": "1.22.7",
+  "authenticatedPlayers": 0,
+  "kind": "Automatic saved inventory restoration plus exact single-block/container rollback and chat output repair",
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "checks": {
+    "codecAndPreservation": 68,
+    "historyAndSnapshot": 16,
+    "officialVtmlParser": 5,
+    "generalSuite": 22,
+    "postBuilder": 7,
+    "commandAdapter": "Production handler with API/storage doubles: selection, coordinates/dimensions, locked time/position, neighbor isolation, automatic container quantities, concrete slot preview, stale inventory, claims, cancellation, durable intents and failed recipients",
+    "sql": "Production SQLite queries: exact-cell all-actor selection, dimensions/world, baseline inventory and later conflicts; 30 seeded equivalence fixtures",
+    "browser": "Owner/ReadOnly and Safe Diagnostics; risk/backup acknowledgements; retained/snapshot preview/stage and changed-input invalidation; 390px layout"
+  },
+  "liveRestoration": {
+    "retained": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "riskAcknowledgementRequired": true,
+      "changedInputsRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "engineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": [
+          {
+            "slot": 0,
+            "code": "game:clothes-nadiya-neck-tule-root-amulet",
+            "quantity": 7,
+            "text": "Keep this exact written text"
+          }
+        ]
+      },
+      "errors": [],
+      "occupiedSnapshotRefused": true,
+      "preservationAssertions": 32775,
+      "restoredBlockCode": "game:bookshelf",
+      "changedChunks": 1,
+      "changedBlockPositions": 1
+    },
+    "snapshot": {
+      "passed": true,
+      "readOnlyDenied": true,
+      "riskAcknowledgementRequired": true,
+      "changedInputsRefused": true,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "engineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": [
+          {
+            "slot": 0,
+            "code": "game:book-normal-brickred",
+            "quantity": 1,
+            "text": ""
+          }
+        ]
+      },
+      "errors": [],
+      "laterTransferRefused": true,
+      "durableReplayRefused": true,
+      "preservationAssertions": 32777,
+      "restoredBlockCode": "game:bookshelf",
+      "changedChunks": 1,
+      "changedBlockPositions": 1,
+      "laterTransferFixtureDimension": "overworld (legacy alias for 0)"
+    }
+  },
+  "artifactSha256": "74ed665721768aebe908a6ae24efda0b276f8d63b2f8d71aa17e39a7cd20e3ca",
+  "assemblySha256": "63d60a15de1cfe1987eceecc9158e8368b00ca76a4cc4db0e7951dc386462a35",
+  "limits": [
+    "Live restoration used deliberately seeded fixtures in disposable world copies, not production damage or authenticated clients.",
+    "Single-block rollback command execution was tested through the production handler with API/storage doubles and actual SQLite query fixtures; no authenticated-client end-to-end rollback session was run.",
+    "Retained fixture preserved a synthetic text attribute on a serialized stack; full payload bytes were compared before/after.",
+    "Historical snapshots record codes/quantities only. New stacks receive default attributes; missing written text, durability, freshness and bag contents cannot be recreated.",
+    "Saved restoration requires compatible surviving vanilla metadata and the inspected official server codec; unsupported/custom or oversized data is refused.",
+    "An earlier normal-engine probe timed out during concurrent server startup. The test probe now pins its requested column and polls for up to 60 seconds, then unloads the owned column. Both final-build reruns passed."
+  ]
+}

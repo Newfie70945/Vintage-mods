@@ -39,7 +39,7 @@ public sealed partial class BlockIdRepairService : IDisposable
     private readonly ICoreServerAPI api;private readonly object gate=new();private readonly string directory;private readonly string pendingFile;private readonly string historyFile;
     private Scan? scan;private Plan? preview;private Plan? pending;private Plan? last;private CancellationTokenSource? cancel;private Task? worker;private bool disposed;
     private static readonly JsonSerializerOptions Json=new(){WriteIndented=true};
-    public BlockIdRepairService(ICoreServerAPI api){this.api=api;directory=api.GetOrCreateDataPath("NewfiesBlockRepair");pendingFile=Path.Combine(directory,"pending.json");historyFile=Path.Combine(directory,"last-repair.json");try{pending=Read<Plan>(pendingFile);last=Read<Plan>(historyFile);}catch(Exception e){last=new Plan{State="failed",Message="Repair state file could not be read: "+e.Message};api.Logger.Error("[BlockRepair] {0}",last.Message);}RegisterCommands();}
+    public BlockIdRepairService(ICoreServerAPI api){this.api=api;directory=api.GetOrCreateDataPath("NewfiesBlockRepair");pendingFile=Path.Combine(directory,"pending.json");historyFile=Path.Combine(directory,"last-repair.json");try{pending=Read<Plan>(pendingFile);last=Read<Plan>(historyFile);}catch(Exception e){last=new Plan{State="failed",Message="Repair state file could not be read: "+e.Message};api.Logger.Error("[BlockRepair] {0}",last.Message);}LoadInventoryRestore();RegisterCommands();}
     private static T? Read<T>(string path){if(!File.Exists(path))return default;return JsonSerializer.Deserialize<T>(File.ReadAllText(path));}
     private static void Write<T>(string path,T value){string temp=path+".tmp";using(var fs=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None)){JsonSerializer.Serialize(fs,value,Json);fs.Flush(true);}File.Move(temp,path,true);}
     private GameDatabase Database(){if(api.World is not ServerMain server)throw new NotSupportedException("Official server required.");return (GameDatabase)AccessTools.Field(typeof(ChunkServerThread),"gameDatabase").GetValue(AccessTools.Field(typeof(ServerMain),"chunkThread").GetValue(server))!;}
@@ -62,7 +62,7 @@ public sealed partial class BlockIdRepairService : IDisposable
     private string Label(int id,Dictionary<int,string> map)=>map.TryGetValue(id,out var code)?code:id>=0&&id<api.World.Blocks.Count?api.World.Blocks[id]?.Code?.ToString()??"":"";
     public object Snapshot(bool includeInspection=true)
     {
-        lock(gate){var map=Mapping();return new{world=api.World.SavegameIdentifier,scan,preview,pending,last,inspection=includeInspection?inspection:null,recommendations=includeInspection?recommendations:null,
+        lock(gate){var map=Mapping();return new{world=api.World.SavegameIdentifier,scan,preview,pending,last,inspection=includeInspection?inspection:null,recommendations=includeInspection?recommendations:null,restorePreview=includeInspection?restorePreview:null,restorePending=includeInspection?restorePending:null,restoreLast=includeInspection?restoreLast:null,
             missingMappings=map.Where(x=>x.Key!=0&&Missing(x.Key)).Take(4096).Select(x=>new{id=x.Key,code=x.Value,problem="Missing block definition; saved occurrence count requires a scan."}).ToArray(),
             scope="Solid, fluid and decor IDs in existing saved chunks. Unsaved live edits are not included. Preview/stage never changes terrain; a staged repair applies before terrain loads on restart.",
             limitations="Replacement blocks must have no block-entity class. A source hosting a block entity is refused. Lighting/heightmap caches are preserved; relight and refresh map exports if needed."};}
@@ -124,14 +124,15 @@ public sealed partial class BlockIdRepairService : IDisposable
     }
     public Plan Stage(string id,int? expectedSource=null,string? expectedTarget=null,bool? expectedBackup=null,bool? expectedManual=null,bool? expectedAir=null,bool? expectedValid=null)
     {
-        Guard();lock(gate){if(preview==null||preview.Id!=id)throw new InvalidOperationException("Preview expired or missing.");if((expectedSource.HasValue&&expectedSource!=preview.Source)||(expectedTarget!=null&&ResolveTarget(expectedTarget)!=preview.Target)||(expectedBackup.HasValue&&expectedBackup!=preview.CreateBackup)||(expectedManual.HasValue&&expectedManual!=preview.ManualBackupAcknowledged)||(expectedAir.HasValue&&expectedAir!=preview.AllowAir)||(expectedValid.HasValue&&expectedValid!=preview.AllowValidSource))throw new InvalidOperationException("Inputs changed; generate a fresh preview.");Validate(preview);preview.State="pending";Write(pendingFile,preview);pending=preview;preview=null;return pending;}
+        Guard();lock(gate){if(restorePending!=null)throw new InvalidOperationException("An inventory restore is already staged.");if(preview==null||preview.Id!=id)throw new InvalidOperationException("Preview expired or missing.");if((expectedSource.HasValue&&expectedSource!=preview.Source)||(expectedTarget!=null&&ResolveTarget(expectedTarget)!=preview.Target)||(expectedBackup.HasValue&&expectedBackup!=preview.CreateBackup)||(expectedManual.HasValue&&expectedManual!=preview.ManualBackupAcknowledged)||(expectedAir.HasValue&&expectedAir!=preview.AllowAir)||(expectedValid.HasValue&&expectedValid!=preview.AllowValidSource))throw new InvalidOperationException("Inputs changed; generate a fresh preview.");Validate(preview);preview.State="pending";Write(pendingFile,preview);pending=preview;preview=null;return pending;}
     }
     public object Cancel()
     {
-        lock(gate){cancel?.Cancel();preview=null;if(File.Exists(pendingFile))File.Delete(pendingFile);pending=null;return new{success=true,message="Scan cancellation requested; staged repair removed. No terrain changed."};}
+        lock(gate){cancel?.Cancel();restorePreview=null;if(File.Exists(RestorePendingFile))File.Delete(RestorePendingFile);restorePending=null;preview=null;if(File.Exists(pendingFile))File.Delete(pendingFile);pending=null;return new{success=true,message="Scan cancellation requested; staged repair removed. No terrain changed."};}
     }
     public void ApplyBeforeTerrainLoads()
     {
+        if(restorePending!=null){ApplyInventoryRestoreBeforeTerrainLoads();return;}
         if(pending==null)return;var p=pending;var db=Database();bool writes=false;ChunkDataPool? pool=null;
         try{Guard();Validate(p);var server=(ServerMain)api.World;var thread=AccessTools.Field(typeof(ServerMain),"chunkThread").GetValue(server)!;
             // Official workers exist at this point, but SupplyChunks only processes
@@ -175,6 +176,8 @@ public sealed partial class BlockIdRepairService : IDisposable
             .BeginSubCommand("inspectchunk").WithArgs(parsers.Word("saved chunk key")).HandleWith(a=>Run(()=>StartInspection(0,0,0,0,(string)a[0]))).EndSubCommand()
             .BeginSubCommand("recommend").WithArgs(parsers.Int("absolute X"),parsers.Int("Y"),parsers.Int("absolute Z"),parsers.OptionalInt("dimension")).HandleWith(a=>Run(()=>StartRecommendations((int)a[0],(int)a[1],(int)a[2],a.Parsers[3].IsMissing?0:(int)a[3]))).EndSubCommand()
             .BeginSubCommand("search").WithArgs(parsers.Word("block code or ID")).HandleWith(a=>Run(()=>SearchTargets((string)a[0]))).EndSubCommand()
+            .BeginSubCommand("restorepreview").WithArgs(parsers.Int("absolute X"),parsers.Int("Y"),parsers.Int("absolute Z"),parsers.Int("dimension"),parsers.Word("retained or snapshot"),parsers.Word("snapshot ID or 0"),parsers.OptionalAll("options")).HandleWith(a=>Run(()=>StartInventoryRestorePreview(RestoreCommandRequest((int)a[0],(int)a[1],(int)a[2],(int)a[3],(string)a[4],(string)a[5],a[6] as string??"")))).EndSubCommand()
+            .BeginSubCommand("restorestage").WithArgs(parsers.Word("restore preview ID")).HandleWith(a=>Run(()=>StageInventoryRestore((string)a[0]))).EndSubCommand()
             .BeginSubCommand("preview").WithArgs(parsers.Int("old ID"),parsers.Word("destination ID or code"),parsers.OptionalAll("options")).HandleWith(a=>Run(()=>PreviewCommand((int)a[0],(string)a[1],a[2] as string??""))).EndSubCommand()
             .BeginSubCommand("stage").WithArgs(parsers.Word("preview ID")).HandleWith(a=>Run(()=>Stage((string)a[0]))).EndSubCommand()
             .BeginSubCommand("cancel").HandleWith(_=>Run(Cancel)).EndSubCommand();
@@ -185,6 +188,13 @@ public sealed partial class BlockIdRepairService : IDisposable
         if(flags.Any(x=>x is not ("allow-air" or "allow-valid" or "no-backup" or "manual-copy-confirmed" or "-")))throw new ArgumentException("Options: allow-air, allow-valid, no-backup manual-copy-confirmed. Make a manual world copy before disabling automatic backup.");
         return Preview(source,destination,flags.Contains("allow-air"),flags.Contains("allow-valid"),!flags.Contains("no-backup"),flags.Contains("manual-copy-confirmed"));
     }
-    private TextCommandResult Run(Func<object> fn){try{var result=fn();api.Logger.Notification("{0}","NSE_BLOCKREPAIR_RESULT "+JsonSerializer.Serialize(result));string message=result is Plan p?$"Plan {p.Id}: ID {p.Source} -> {p.Target}; {p.Count} scanned entries; {p.State}.":$"Block repair: scan {scan?.State??"none"}, chunks {scan?.Chunks??0}, errors {scan?.Errors??0}. Inspection {inspection?.State??"none"}. Full result printed to console and available in the webpanel.";return TextCommandResult.Success(message);}catch(Exception e){return TextCommandResult.Error(e.Message.Replace('{','(').Replace('}',')'));}}
+    private static InventoryRestoreRequest RestoreCommandRequest(int x,int y,int z,int dim,string mode,string snapshot,string options)
+    {
+        if(!long.TryParse(snapshot,out long id))throw new ArgumentException("Use the historical snapshot ID, or 0 for retained data.");
+        var flags=options.Split(' ',StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+        if(flags.Any(f=>f is not ("confirm-risk" or "no-backup" or "manual-copy-confirmed")))throw new ArgumentException("Options: confirm-risk, no-backup manual-copy-confirmed.");
+        return new(x,y,z,dim,mode,id,!flags.Contains("no-backup"),flags.Contains("manual-copy-confirmed"),flags.Contains("confirm-risk"));
+    }
+    private TextCommandResult Run(Func<object> fn){try{var result=fn();api.Logger.Notification("{0}","NSE_BLOCKREPAIR_RESULT "+JsonSerializer.Serialize(result));string message=result is InventoryRestorePlan rp?$"Inventory restore {rp.Id}: {rp.State}; {rp.Items} items at one location.":result is Plan p?$"Plan {p.Id}: ID {p.Source} -> {p.Target}; {p.Count} scanned entries; {p.State}.":$"Block repair: scan {scan?.State??"none"}, chunks {scan?.Chunks??0}, errors {scan?.Errors??0}. Inspection {inspection?.State??"none"}. Full result printed to console and available in the webpanel.";return TextCommandResult.Success(BlockLogger.Commands.RollbackChatText.Encode(message));}catch(Exception e){return TextCommandResult.Error(BlockLogger.Commands.RollbackChatText.Encode(e.Message.Replace('{','(').Replace('}',')')));}}
     public void Dispose(){lock(gate){disposed=true;cancel?.Cancel();}try{worker?.Wait(3000);}catch{}if(worker?.IsCompleted!=false)cancel?.Dispose();}
 }

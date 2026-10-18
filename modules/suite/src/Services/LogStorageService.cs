@@ -620,7 +620,8 @@ public sealed class LogStorageService : IDisposable
         recoveryQueries.RunAsync(OpenReadOnlyConnection, (conn, token) =>
         {
             bool area=areaCenter!=null;
-            if(area && (areaRadius<1 || areaRadius>4096))throw new ArgumentOutOfRangeException(nameof(areaRadius));
+            // Radius zero deliberately selects exactly one block, including its full conflict history.
+            if(area && (areaRadius<0 || areaRadius>4096))throw new ArgumentOutOfRangeException(nameof(areaRadius));
             if(fromUtc>=toUtc || toUtc>DateTime.UtcNow || toUtc-fromUtc>TimeSpan.FromDays(7))throw new ArgumentException("Invalid recovery time window.");
             if (!IsReady || PendingCriticalEvents != 0 || PendingOverflowEvents != 0 || PendingSnapshots != 0)
                 throw new InvalidOperationException("Logger is indexing or writing recovery records; retry when critical/overflow/snapshot queues are empty.");

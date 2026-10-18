@@ -52,6 +52,34 @@ internal sealed class BlockIdChunkCodec
         }
         return cells;
     }
+    public sealed record Retained(Field Field,byte[] Bytes,SavedBlockEntityInspector.EntitySummary Summary);
+    public Retained EntityAt(byte[] blob,int x,int y,int z,int dimension)
+    {
+        Retained? selected=null;long bytes=0;int count=0;
+        foreach(var field in Fields(blob).Where(f=>f.Tag==8)){
+            if(field.Wire!=2||++count>256||(bytes+=field.Length)>8*1024*1024)throw new InvalidDataException("Container restore requires verifiable, bounded block-entity records.");
+            var data=blob.AsSpan(field.Data,field.Length).ToArray();var entity=SavedBlockEntityInspector.Inspect(data);
+            if(!entity.Complete)throw new InvalidDataException("Container record cannot be fully verified: "+entity.Issue);
+            if(entity.X==x&&entity.Y==y&&entity.Z==z&&entity.Dimension==dimension){if(selected!=null)throw new InvalidDataException("Duplicate retained containers at this location.");selected=new(field,data,entity);}
+        }
+        return selected??throw new InvalidOperationException("No retained container metadata exists at this location. Restore a world backup; this tool does not invent block-entity metadata.");
+    }
+    public byte[] RestoreContainer(byte[] blob,int x,int y,int z,int dimension,int expectedSource,int target,string entityHash,byte[]? slots)
+    {
+        if(target<=0)throw new ArgumentException("A registered non-air container target is required.");
+        int index=((y&31)*32+(z&31))*32+(x&31);if(ReadCells(blob,[index])[index][0]!=expectedSource)throw new InvalidOperationException("Saved block changed since preview.");
+        var entity=EntityAt(blob,x,y,z,dimension);if(entity.Summary.PayloadSha256!=entityHash)throw new InvalidOperationException("Retained container changed since preview.");
+        if(slots!=null&&(entity.Summary.NonEmptyStacks>0||entity.Summary.SlotsOffset<0))throw new InvalidOperationException("Snapshot restoration requires an empty standard inventory; current contents are never overwritten.");
+        byte[]? solidBytes=null,entityBytes=null;
+        if(expectedSource!=target){var solid=Fields(blob).Single(f=>f.Tag==1&&f.Wire==2);var layer=new BlockChunkDataLayer(pool);
+            try{Unpack.Invoke(layer,[blob.AsSpan(solid.Data,solid.Length).ToArray()]);layer.Set(index,target);solidBytes=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}}
+        if(slots!=null){using var data=new MemoryStream();int offset=entity.Summary.SlotsOffset,end=offset+entity.Summary.SlotsLength;data.Write(entity.Bytes,0,offset);data.Write(slots);data.Write(entity.Bytes,end,entity.Bytes.Length-end);entityBytes=data.ToArray();
+            var check=SavedBlockEntityInspector.Inspect(entityBytes);if(!check.Complete)throw new InvalidDataException("Generated inventory could not be verified.");}
+        if(solidBytes==null&&entityBytes==null)throw new InvalidOperationException("The saved container block already matches; no reconnect is needed.");
+        using var output=new MemoryStream();foreach(var field in Fields(blob)){byte[]? replace=field.Tag==1?solidBytes:field.Start==entity.Field.Start?entityBytes:null;
+            if(replace!=null){Var(output,(ulong)((field.Tag<<3)|2));Var(output,(ulong)replace.Length);output.Write(replace);}else output.Write(blob,field.Start,field.End-field.Start);}
+        return output.ToArray();
+    }
     public byte[] Replace(byte[] blob,int source,int target,out long changed)
     {
         if(source==0||target<0||source==target)throw new ArgumentException("Invalid numeric replacement.");

@@ -26,7 +26,19 @@ static class HistoryChecks
             var targets=new Dictionary<string,BlockHistoryAdvisor.Target>{{"game:bookshelf",new(55,"Bookshelf")},{"game:rock-granite",new(42,"")}};
             BlockHistoryAdvisor.Report Read(int seconds){var r=new BlockHistoryAdvisor.Report{World="world-a",Dimension=0,X=10,Y=20,Z=30,BeforeUtc=start.AddSeconds(seconds)};BlockHistoryAdvisor.Read(path,r,targets,CancellationToken.None);return r;}
             var before=Read(2);Assert(before.EventsRead==1&&before.SnapshotsRead==1,"exact world/dimension/coordinate filters");Assert(before.Candidates.Single().Code=="game:bookshelf"&&!before.Candidates[0].Selectable,"bookshelf recommendation retains generic protection");Assert(before.InventorySnapshots[0].SlotsComplete&&before.InventorySnapshots[0].Slots[0].StackSize==7,"historical slot codes and quantities returned");
-            Event(3,"game:bookshelf",1);var broken=Read(4);Assert(broken.Candidates.All(c=>c.Confidence=="Low"),"break evidence never becomes strong replacement evidence");
+            var restore=InventoryRestoreHistory.Read(path,"world-a",10,20,30,0,1);Assert(restore.Slots[0].StackSize==7&&restore.Hash.Length==64,"exact snapshot selected for restoration");
+            try{InventoryRestoreHistory.Read(path,"other-world",10,20,30,0,1);throw new Exception("Missing restore world binding");}catch(InvalidOperationException){checks++;}
+            Exec("UPDATE snapshots SET timestamp_ticks="+DateTime.MaxValue.Ticks);
+            try{InventoryRestoreHistory.Read(path,"world-a",10,20,30,0,1);throw new Exception("Missing future snapshot guard");}catch(InvalidDataException){checks++;}
+            Exec("UPDATE snapshots SET timestamp_ticks="+start.AddSeconds(1).Ticks);
+            Exec("UPDATE snapshots SET dimension='overworld'");
+            Assert(InventoryRestoreHistory.Read(path,"world-a",10,20,30,0,1).Slots[0].StackSize==7,"legacy overworld snapshot matches dimension zero");
+            Event(2,"game:bookshelf",5,dimension:"overworld");
+            try{InventoryRestoreHistory.Read(path,"world-a",10,20,30,0,1);throw new Exception("Missing legacy-dimension mutation guard");}catch(InvalidOperationException){checks++;}
+            Exec("DELETE FROM events WHERE action=5 AND dimension='overworld';UPDATE snapshots SET dimension='0'");
+            Event(3,"game:bookshelf",1);
+            try{InventoryRestoreHistory.Read(path,"world-a",10,20,30,0,1);throw new Exception("Missing later mutation guard");}catch(InvalidOperationException){checks++;}
+            var broken=Read(4);Assert(broken.Candidates.All(c=>c.Confidence=="Low"),"break evidence never becomes strong replacement evidence");
             for(int i=0;i<100;i++)Event(2,"game:bookshelf",3);Event(5,"game:rock-granite",2);var changed=Read(6);Assert(changed.Candidates[0].Code=="game:rock-granite"&&changed.Candidates[0].Confidence=="Medium","latest placement outranks repeated older activity");Assert(changed.Candidates[1].Confidence=="Low","conflicting older code downgraded");
             for(int i=0;i<250;i++)Event(10+i,"game:rock-granite",3);var limited=Read(1000);Assert(limited.EventsRead==200&&limited.Limited&&limited.Candidates.All(c=>c.Confidence=="Low"),"bounded evidence window lowers confidence");
             Exec("UPDATE snapshots SET slots_json='not-json'");var bad=Read(2);Assert(!bad.InventorySnapshots[0].SlotsComplete&&bad.InventorySnapshots[0].Issue.Length>0,"invalid slot data is not treated as a recoverable inventory");
