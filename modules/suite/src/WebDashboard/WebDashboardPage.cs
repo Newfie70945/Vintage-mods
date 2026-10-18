@@ -2518,6 +2518,8 @@ __NSS_RETENTION_HTML__
         </div>
         <div><h4>API and allocation modules</h4>
           <label><input type="checkbox" id="nosOnlinePlayerSnapshots"> Online-player snapshots</label><br>
+          <label><input type="checkbox" id="nosAiFilterDispatch"> Allocation-free AI filter dispatch</label><br>
+          <label><input type="checkbox" id="nosRepulseDelegateReuse"> Repulsion callback reuse</label><br>
           <label><input type="checkbox" id="nosBulkStreamReads"> Bulk stream reads</label><br>
           <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
           <label class="small">Cache limit <input id="nosAssetCacheMaxMiB" type="number" min="1" max="32" value="16" style="width:70px"> MiB</label>
@@ -9560,7 +9562,7 @@ async function loadSynergy(){
 }
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;
@@ -9568,7 +9570,7 @@ function renderNos(result){
   $('nosState').textContent=available?`NOS ${state.version} · ${state.profiling?'Capture running':'Capture stopped'} · configured switches and actual activation are shown separately.`:(result.message||'NOS is unavailable. Install the matching optimizer module and restart.');
   if(!available)return;
   const locked=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
-  Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(!nosDirty){if(el.type==='checkbox')el.checked=!!state.settings[key];else el.value=String(state.settings[key]);}el.disabled=nosBusy||locked||!!state.profiling;});
+  Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(!nosDirty){if(el.type==='checkbox')el.checked=!!state.settings[key];else el.value=String(state.settings[key]);}el.disabled=nosBusy||locked||!!state.profiling||!Object.prototype.hasOwnProperty.call(state.settings,key);el.title=Object.prototype.hasOwnProperty.call(state.settings,key)?'':'Update NOS to configure this module.';});
   $('nosApply').disabled=nosBusy||locked||!!state.profiling;
   $('nosDiscard').disabled=nosBusy||!nosDirty;
   $('nosProfileStart').disabled=nosBusy||locked||!!state.profiling||!state.settings.enabled;
@@ -9584,7 +9586,7 @@ async function nosAction(operation){
   if(nosBusy||currentSessionRole==='ReadOnly')return;
   if(safeDiagnosticsModeGlobal&&operation!=='profile-stop'){toast('Suite Safe Diagnostics Mode blocks this change.','error');return;}
   let settings={};
-  if(operation==='set')Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);settings[key]=el.type==='checkbox'?el.checked:Number(el.value);});
+  if(operation==='set')Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(Object.prototype.hasOwnProperty.call(nosSnapshot?.settings||{},key))settings[key]=el.type==='checkbox'?el.checked:Number(el.value);});
   nosBusy=true;
   if(nosSnapshot)renderNos({available:true,optimizer:nosSnapshot});
   try{

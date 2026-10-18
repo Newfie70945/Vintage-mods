@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -77,6 +77,19 @@ static class Checks
   Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"dispose removes own patches");
   foreign.Patch(StreamCopyOptimizations.ReadConflictTargets[1],prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().Single(x=>x.Name=="bulkStreamReads").Status=="conflict","dependent accessor conflict blocks copy");
+  foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(AiFilterOptimizations.Target,prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   Assert(module.Modules().Single(x=>x.Name=="aiFilterDispatch").Status=="conflict","AI foreign ownership blocks only its module");
+  foreign.UnpatchAll(foreign.Id);
+  var rangeConflict=Api();
+  using(var module=new EngineOptimizations(rangeConflict.Api,Config(),()=>200))
+  {
+   foreign.Patch(AccessTools.Method(typeof(Vintagestory.GameContent.EntityBehaviorRepulseAgents),"IsInRangePartition"),prefix:prefix);
+   foreach(var tick in rangeConflict.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="repulseDelegateReuse").Status=="conflict","late range-predicate patch disables repulsion optimization");
+   Assert(module.Modules().Where(x=>x.Name!="repulseDelegateReuse").All(x=>x.Status=="active"),"unrelated modules survive repulsion conflict");
+  }
   foreign.UnpatchAll(foreign.Id);
   var lost=Api();
   using(var module=new EngineOptimizations(lost.Api,Config(),()=>200))

@@ -58,6 +58,8 @@
     "BulkStreamReads": true,
     "MinimumNearbyClients": 128,
     "AssetCompressionCache": true,
-    "AssetCacheMaxMiB": 16
+    "AssetCacheMaxMiB": 16,
+    "AiFilterDispatch": true,
+    "RepulseDelegateReuse": true
   }
 }

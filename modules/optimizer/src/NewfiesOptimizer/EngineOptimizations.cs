@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.3.1";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.4.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -21,17 +21,18 @@ public sealed class EngineOptimizations : IDisposable
     private readonly int minimumNearbyClients;
     private readonly int assetCacheBytes;
     private readonly Func<int> clientCount;
-    private sealed class Entry(string name, bool requested, Func<MethodInfo> target, Func<MethodInfo[]> dependencies, MethodInfo prefix, Action<bool> enable)
+    private sealed class Entry(string name, bool requested, Func<MethodInfo> target, Func<MethodInfo[]> dependencies, MethodInfo? prefix, Action<bool> enable)
     {
         public string Name = name, State = "pending", Reason = "Not installed";
         public bool Requested = requested;
         public Func<MethodInfo> Target = target;
         public Func<MethodInfo[]> Dependencies = dependencies;
-        public MethodInfo Prefix = prefix;
+        public MethodInfo? Prefix = prefix;
         public Action<bool> Enable = enable;
         public bool Installed;
         public long FailureBaseline;
         public MethodInfo? Postfix;
+        public MethodInfo? Transpiler;
         private MethodInfo? resolvedTarget;
         private MethodInfo[]? resolvedDependencies;
         public MethodInfo TargetMethod => resolvedTarget ??= Target();
@@ -43,6 +44,7 @@ public sealed class EngineOptimizations : IDisposable
         minimumNearbyClients = config.EngineOptimizations.MinimumNearbyClients;
         assetCacheBytes = config.EngineOptimizations.AssetCacheMaxMiB * 1048576;
         AssetCompressionOptimizations.Configure(false);
+        AiFilterOptimizations.Configure(false); RepulseDelegateOptimizations.Configure(false);
         this.clientCount = clientCount ?? (() => api.World is ServerMain world ? world.Clients.Values.Count : 0);
         PlayerQueryOptimizations.MinimumNearbyClients = minimumNearbyClients;
         PlayerQueryOptimizations.SnapshotEnabled = false;
@@ -58,6 +60,10 @@ public sealed class EngineOptimizations : IDisposable
         entries.Add(new("assetCompressionCache", options.AssetCompressionCache, () => AssetCompressionOptimizations.Target,
             () => AssetCompressionOptimizations.ConflictTargets, AssetCompressionOptimizations.PrefixMethod, AssetCompressionOptimizations.Configure)
             { Postfix = AssetCompressionOptimizations.PostfixMethod });
+        entries.Add(new("aiFilterDispatch",options.AiFilterDispatch,()=>AiFilterOptimizations.Target,
+            ()=>[AiFilterOptimizations.Target],null,AiFilterOptimizations.Configure) { Transpiler=AiFilterOptimizations.TranspilerMethod });
+        entries.Add(new("repulseDelegateReuse",options.RepulseDelegateReuse,()=>RepulseDelegateOptimizations.Target,
+            ()=>RepulseDelegateOptimizations.Dependencies,null,RepulseDelegateOptimizations.Configure) { Transpiler=RepulseDelegateOptimizations.TranspilerMethod });
         string? blocked = !config.Enabled ? "Optimizer master switch is disabled." : config.Compatibility.SafeMode ?
             "Compatibility.SafeMode is enabled; stock methods retained." : EngineGuard();
         foreach (var entry in entries)
@@ -67,7 +73,8 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
+                bool contract = entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
+                    entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
                 if (!contract) { entry.State = "unsupported"; entry.Reason = why; continue; }
                 if (entry.Name == "nearbyPlayerQueries" && this.clientCount() < minimumNearbyClients)
@@ -89,11 +96,11 @@ public sealed class EngineOptimizations : IDisposable
     {
         string? conflict = Conflict(entry);
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
-        harmony.Patch(entry.TargetMethod, prefix: new HarmonyMethod(entry.Prefix), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
+        harmony.Patch(entry.TargetMethod, prefix: entry.Prefix == null ? null : new HarmonyMethod(entry.Prefix), transpiler: entry.Transpiler == null ? null : new HarmonyMethod(entry.Transpiler), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
         if(entry.Name == "assetCompressionCache") RefreshAssets();
         entry.FailureBaseline = Failures(entry.Name);
         entry.Installed = true; entry.Enable(true); entry.State = "active";
-        entry.Reason = "Verified official 1.22.7; independently controlled prefix installed.";
+        entry.Reason = "Verified official 1.22.7; independently controlled runtime patch installed.";
     }
     internal static bool IsKnownRuntime(string name) =>
         name.Equals("Stratum", StringComparison.OrdinalIgnoreCase) ||
@@ -113,7 +120,8 @@ public sealed class EngineOptimizations : IDisposable
         {
             foreach (var pair in new[] {
                 (typeof(FastMemoryStream).Assembly, "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296"),
-                (typeof(ServerMain).Assembly, "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0") })
+                (typeof(ServerMain).Assembly, "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0"),
+                (typeof(Vintagestory.GameContent.AiTaskManager).Assembly, "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e") })
             {
                 using var file = File.OpenRead(pair.Item1.Location);
                 if (!Convert.ToHexString(SHA256.HashData(file)).Equals(pair.Item2, StringComparison.OrdinalIgnoreCase))
@@ -175,7 +183,7 @@ public sealed class EngineOptimizations : IDisposable
     private static long Failures(string name)
     {
         var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "onlinePlayerSnapshots" => query.SnapshotFailures,
+        return name switch { "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
             "nearbyPlayerQueries" => query.AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };

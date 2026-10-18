@@ -11,11 +11,13 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.3.1", success = true,
+        available = true, protocol = 1, version = "0.4.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
+            aiFilterDispatch = currentConfig.EngineOptimizations.AiFilterDispatch,
+            repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
             nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
             minimumNearbyClients = currentConfig.EngineOptimizations.MinimumNearbyClients,
             bulkStreamReads = currentConfig.EngineOptimizations.BulkStreamReads,
@@ -60,6 +62,8 @@ public sealed partial class OptimizerMod
             {
                 case "enabled": candidate.Enabled=B(); break;
                 case "safeMode": candidate.Compatibility.SafeMode=B(); break;
+                case "aiFilterDispatch": candidate.EngineOptimizations.AiFilterDispatch=B(); break;
+                case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
                 case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;
                 case "nearbyPlayerQueries": candidate.EngineOptimizations.NearbyPlayerQueries=B(); break;
                 case "minimumNearbyClients": candidate.EngineOptimizations.MinimumNearbyClients=N(0,4096); break;

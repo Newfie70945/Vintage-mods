@@ -35,6 +35,7 @@ def main() -> int:
     official_hashes = {
         "VintagestoryAPI.dll": "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296",
         "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
+        "Mods/VSEssentials.dll": "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e",
     }
     for relative, expected in official_hashes.items():
         if hashlib.sha256((game / relative).read_bytes()).hexdigest() != expected:
