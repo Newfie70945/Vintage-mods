@@ -1,27 +1,11 @@
-# Implementation scope
+# Implementation status: 0.2.0
 
-This is a new source project built after the previous development workspace was
-lost. It is not a byte-for-byte restoration of NOS 0.6.0 or its tests. The latest
-provided public Suite baseline is 1.2.43; this project does not change that ZIP.
+Implemented real API patches: online player snapshot allocation reduction, bounded temporary-list reuse for nearby player queries and bulk FastMemoryStream reads. Each has its own switch, runtime state, conflict detection and fallback/disposal path. Profiler exports include module activation and replacement/fallback counters.
 
-The supplied development prompt requires measuring real multiplayer workloads
-before retaining engine optimizations. This preview implements the measurement
-and test-tool foundation. It does not claim a higher sustainable player count.
+The optimizer remains a normal server-only mod for the official 1.22.7 runtime. It does not replace the server executable or permanently rewrite DLLs. No player-scaling, world-generation, AI-budget or whole-server throughput result is claimed from component microbenchmarks.
 
-The official 1.22.7 dedicated-server distribution is available for compilation
-and isolated local validation. Official graphical clients, authenticated test
-accounts, a representative production modpack and a production world clone are
-not available in this workspace. No authenticated multiplayer workload can be
-claimed here. The stress tester automates genuine official client windows on an
-owner-controlled test machine; it does not synthesize server-side players.
+The previous 0.1.0 delivery contained profiling and testing tools only. Older research documents in this directory can describe that historical scope; this file and README describe the current release.
 
-Gameplay-changing AI scheduling, activation ranges, repulsion, packet dropping,
-chunk-priority changes, incremental autosave and world-generation replacement
-are not implemented or presented as complete. Implementing them before workload
-profiling would contradict the supplied development order. Configuration and
-diagnostics distinguish available instrumentation from unimplemented areas.
+Deferred: tracking spatial indexes, AI/pathfinding scheduling, repulsion changes, chunk backpressure, packet batching, world-generation replacement, incremental autosave and chunk I/O rewrites. These need representative official-server profiles and gameplay/equivalence scenarios before implementation.
 
-Further phases require recorded player workloads, a validated bottleneck,
-an independently switchable minimal change and repeatable correctness and
-performance comparisons. Short local idle checks establish startup, profiler
-operation and save/reload behavior only.
+Original lost optimizer versions are not restored. This continues the reconstructed 0.1.0 project and validates recovered candidate code rather than assuming old working files were complete.

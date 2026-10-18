@@ -306,6 +306,8 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "POST", Path = "/api/operations/alert-remove", Access = "Authenticated + CSRF", Risk = "Removes an operations alert", Safety = "Safe", CooldownSeconds = 1 },
         new() { Method = "POST", Path = "/api/optimizations/experiment/evaluate", Access = "Authenticated + CSRF", Risk = "Optimization experiment evaluation", Safety = "Moderate", CooldownSeconds = 2 },
         new() { Method = "GET", Path = "/api/optimizations/synergy", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
+        new() { Method = "GET", Path = "/api/optimizations/newfies", Access = "Authenticated read", Risk = "Optimizer status", Safety = "Safe" },
+        new() { Method = "POST", Path = "/api/optimizations/newfies", Access = "Administrator/Owner + CSRF", Risk = "Optimizer module settings / capture controls", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/optimizations/tungsten", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
         new() { Method = "GET", Path = "/api/performance/block-activity", Access = "Authenticated read", Risk = "Read-only BlockLogger activity aggregation", Safety = "Safe" },
         new() { Method = "GET", Path = "/api/performance/entity-growth", Access = "Authenticated read", Risk = "Read-only entity growth analysis", Safety = "Safe" },
@@ -1219,6 +1221,9 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/toggle" ||
             path == "/api/optimizations/synergy/all")
             return true;
+
+        if (path == "/api/optimizations/newfies" && request.Method == "POST")
+            return GetJsonString(request.Body, "operation", "set") != "profile-stop";
 
         if (path == "/api/tick-debug/action")
         {
@@ -8037,7 +8042,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var overview = await GetCachedMainThreadReadAsync(
                 "performance-overview:" + windowSeconds, 1000,
@@ -8057,7 +8062,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var snapshot = await GetCachedMainThreadReadAsync(
                 "performance-page-snapshot:" + windowSeconds, 5000,
@@ -8125,7 +8130,7 @@ public sealed partial class WebDashboardService : IDisposable
             int windowSeconds = Math.Clamp(
                 GetQueryInt(request, "window", 1800),
                 60,
-                1800);
+                3600);
 
             var timeline = await GetCachedMainThreadReadAsync(
                 "performance-timeline:" + windowSeconds, 1000,
@@ -8517,6 +8522,22 @@ public sealed partial class WebDashboardService : IDisposable
                 200,
                 providers,
                 cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/api/optimizations/newfies" && (request.Method == "GET" || request.Method == "POST"))
+        {
+            string operation = request.Method == "GET" ? "get" : GetJsonString(request.Body, "operation", "set");
+            if (operation is not ("get" or "set" or "profile-start" or "profile-stop" or "export"))
+            {
+                await WriteJsonAsync(stream, 400, new { error = "Unsupported optimizer operation." }, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            var result = await RunOnMainThreadAsync(
+                () => OptimizerControlBridge.Request(api, operation, request.Method == "POST" ? ExtractOptimizerSettings(request.Body) : "{}"),
+                "web-newfies-optimizer").ConfigureAwait(false);
+            if(request.Method == "POST") RecordWebAudit("optimizer-" + operation, "NOS module/capture control requested; inspect returned module states.", "Requested", remote.ToString(), requestActor);
+            await WriteJsonAsync(stream, 200, result, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -9786,6 +9807,8 @@ public sealed partial class WebDashboardService : IDisposable
                     output = nativeTickDebugLastOutput
                 },
                 lastIncidentSummary = nativeTickDebugLastIncidentSummary,
+                profileSlowTicks = health?.ProfileSlowTicks,
+                profileSlowCauses = health?.ProfileSlowCauses,
                 modAttribution = new
                 {
                     available = topProfileMod != null && (health?.LastProfile.CompletedUnixMilliseconds ?? 0) > 0,
@@ -11719,6 +11742,12 @@ public sealed partial class WebDashboardService : IDisposable
                         incident.StartUnixMilliseconds))
                 .FirstOrDefault()
         };
+    }
+
+    private static string ExtractOptimizerSettings(string body)
+    {
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.TryGetProperty("settings", out var settings) ? settings.GetRawText() : "{}";
     }
 
     private object BuildPerformanceTimeline(int windowSeconds)

@@ -4,6 +4,7 @@ public sealed class OptimizerConfig
 {
     public bool Enabled { get; set; } = true;
     public ProfilingOptions Profiling { get; set; } = new();
+    public EngineOptimizationOptions EngineOptimizations { get; set; } = new();
     public ExperimentalOptions EntityOptimization { get; set; } = new();
     public ExperimentalOptions ChunkOptimization { get; set; } = new();
     public ExperimentalOptions BlockEntities { get; set; } = new();
@@ -17,9 +18,11 @@ public sealed class OptimizerConfig
 
     public void Normalize()
     {
-        Profiling ??= new(); EntityOptimization ??= new(); ChunkOptimization ??= new(); BlockEntities ??= new();
+        Profiling ??= new(); EngineOptimizations ??= new(); EntityOptimization ??= new(); ChunkOptimization ??= new(); BlockEntities ??= new();
         MemoryManagement ??= new(); Networking ??= new(); Scheduling ??= new(); Logging ??= new();
         Dashboard ??= new(); Compatibility ??= new(); Benchmarking ??= new();
+        EngineOptimizations.AssetCacheMaxMiB = Math.Clamp(EngineOptimizations.AssetCacheMaxMiB, 1, 32);
+        EngineOptimizations.MinimumNearbyClients = Math.Clamp(EngineOptimizations.MinimumNearbyClients, 0, 4096);
         Profiling.SampleIntervalSeconds = Math.Clamp(Profiling.SampleIntervalSeconds, 1, 60);
         Profiling.MaxSamples = Math.Clamp(Profiling.MaxSamples, 60, 7200);
         Profiling.SystemSampleEvery = Math.Clamp(Profiling.SystemSampleEvery, 1, 1000);
@@ -61,7 +64,7 @@ public sealed class LoggingOptions { public int MaxExports { get; set; } = 12; }
 public sealed class DashboardOptions { public bool Enabled { get; set; } }
 public sealed class CompatibilityOptions
 {
-    public bool SafeMode { get; set; } = true;
+    public bool SafeMode { get; set; } = false;
     public bool DisableHookOnConflict { get; set; } = true;
     public bool RequireExactGameVersion { get; set; } = true;
 }
@@ -71,4 +74,15 @@ public sealed class BenchmarkOptions
     public int MaxEvidenceBytes { get; set; } = 16777216;
     public int PresenceIntervalSeconds { get; set; } = 10;
     public string RunId { get; set; } = "";
+}
+
+// Each semantics-preserving API patch is independently switchable. SafeMode disables all four.
+public sealed class EngineOptimizationOptions
+{
+    public bool OnlinePlayerSnapshots { get; set; } = true;
+    public bool NearbyPlayerQueries { get; set; } = false;
+    public int MinimumNearbyClients { get; set; } = 128;
+    public bool BulkStreamReads { get; set; } = true;
+    public bool AssetCompressionCache { get; set; } = true;
+    public int AssetCacheMaxMiB { get; set; } = 16;
 }

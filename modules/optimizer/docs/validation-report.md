@@ -1,108 +1,35 @@
-# Validation report — 0.1.0 engineering preview
+# NOS 0.2.0 validation report
 
-Validated on 17 October 2026 against the official **Vintage Story 1.22.7** Linux
-server, .NET runtime **10.0.13**, using SDK **10.0.402**.
+Built and validated against the inspected official Vintage Story 1.22.7 server with .NET 10.0.402 SDK / .NET 10 runtime on Linux x64.
 
-**Authenticated multiplayer clients tested: 0. No multiplayer speedup or increased
-player-capacity claim is supported. No engine gameplay optimization is enabled.**
+## Correctness and lifecycle
 
-The server runs were short, isolated operational checks on a generated disposable
-world. This was not the production world or a representative player workload.
-The development host was shared with build/tool activity. These runs are not a
-matched, repeated A/B/C/D performance campaign or a long-session memory test.
+- Build: 0 errors, 0 warnings.
+- 4 official engine metadata checks.
+- 21 engine module lifecycle/conflict checks, including independent switches, master off, safe mode, population activation/deactivation, accessor conflicts, late foreign Harmony patches, load-tool/runtime name distinction, monitor-start rollback and own-only disposal.
+- 31 player-query checks against actual official methods and injected prefixes: ordering, pending connections, output ownership/runtime type, range/dimension edge cases, predicate side effects, exception identity, dictionary mutation, reentrancy, concurrent separate threads and bounded/cleared scratch.
+- 5,347 stream differential cases in each enabled/disabled state; 53,477 assertions including results, exception type/message, backing/destination contents and stream position. Independent-stream concurrency and zero steady-state copy allocation were checked.
+- 15 profiler regression checks.
+- Python tooling: 23 stress-tool, 14 benchmark, 4 dashboard and 4 probe-analysis tests passed. Synthetic tool fixtures are not server workload evidence.
 
-## Automated checks
+## Component performance
 
-All **60 checks passed**: 4 exact-engine metadata checks, 15 profiler regression
-checks, 23 stress-tool checks, 14 benchmark checks and 4 dashboard checks.
-The build completed with zero warnings and zero errors.
+Five repeated stock/prefix-disabled/candidate measurements were made against the real official methods with uninitialised test fixtures. Raw data and medians are in `research/components-0.2.0/` and `performance-0.2.0.md`.
 
-`artifacts/validation-build.log` in the complete download records the execution.
-Use `python3 tools/build.py --game-dir /official/1.22.7 --dotnet dotnet` to rebuild
-and rerun the suites. Source builds require the official game binaries separately.
+Online snapshots reduced allocation and method cost in measured cases. Bulk stream reads replaced the official byte loop with a measured faster bulk copy on eligible buffers. Nearby-query temporary-list reuse reduced allocation but had mixed CPU results, so it is **OFF by default** and population-gated if enabled. No extrapolation to server TPS or player capacity is justified.
 
-Checks cover bounded history and method storage, percentile arithmetic, zero
-steady-state allocation in the histogram insertion fixture, export retention,
-nullable missing measurements, opt-in evidence bounds/authentication flags,
-input cleanup and evidence expiry, benchmark identity and correctness gates,
-console acknowledgements, and dashboard path/Host restrictions. The zero-byte
-histogram result is a focused fixture result, not zero allocation for the mod or
-server. The engine tests resolve exact target metadata without creating players.
+## Dedicated-server checks
 
-## Actual dedicated-server checks
+Final default-active, master-disabled and Suite 1.2.44 co-load checks used a disposable stopped world on the official dedicated server. Each reached ready state, completed the selected command/profile checks, saved and exited with code 0. SQLite world-save integrity was `ok`, with no server errors. Exported module state verified the default snapshot and stream modules as active and the experimental nearby module as disabled. Master-disabled capture was rejected as expected.
 
-| Run | Timed idle window | Result |
-| --- | --- | --- |
-| Stock official server | 60 seconds after warmup | Startup, save, normal shutdown and SQLite integrity passed |
-| Final mod, detailed hooks enabled | 60.376 seconds | 1,806 actual ticks, 58 samples, 59 timing entries; all three optional groups captured and removed |
-| Final mod + public Suite 1.2.43 | 60.073 seconds | 1,809 actual ticks, 58 samples; optimizer-saved world reloaded, both mods loaded, capture/export/save/shutdown passed |
-| Final mod with Enabled=false | 30 seconds after warmup | Explicit capture attempt rejected; no capture export; normal save and shutdown |
+The active idle capture recorded real online-snapshot replacement calls. The bulk-copy path was not invoked by that idle world; its correctness/performance evidence comes from the differential tests and component measurements, not an invented idle traffic workload.
 
-All final mod cases used assembly SHA-256
-`d71ae7940e50bd9a30f4785b47acae8f3b4ba755a3a04dbc9dff51b2415d863d`.
-The public Suite archive SHA-256 was
-`e0e784ff90d594013aa2a03add261eb15480ed2cabd30d0ec7ad3ab0e0732b9f`.
-Its web listener was disabled for this local check. Suite gameplay, web features,
-anti-cheat consequences and OreShield behavior were not exercised.
+Summaries and binary hashes are in `research/server-smoke-summary-0.2.0.json`. The final shipping Suite co-load was repeated after refining runtime-name detection to allow StratumLoadTester while blocking StratumServer; the earlier active/disabled runs exercised the same API prefix implementations. These were approximately 30-second **functional smoke checks**, with no authenticated clients. They do not establish multiplayer performance, long-session stability, retained-memory improvements, graphical behavior or complete modpack compatibility.
 
-The world was saved by the final optimizer build, then reopened in the Suite
-coexistence run. Each final save passed `PRAGMA integrity_check`; persisted
-counts were 1,800 chunks, 225 mapchunks, 16 mapregions and zero player records.
-This establishes readable idle save/reload behavior, not correct real inventory,
-entity, claim or combat persistence under gameplay load.
+## External workload
 
-Real JSON/CSV data and summaries are in `benchmarks/validation/`. External
-per-process samples include CPU seconds and working set; profile samples include
-managed/committed/fragmented/private memory, process CPU, optional thread CPU,
-GC and network counters. Default and detailed captures also passed report import
-and localhost dashboard HTTP checks. A standalone HTML report is included.
+Only `lithosprobe-20260930-125523.json.gz` was supplied. It contains StratumServer frames and a 2,000-player endpoint; it is not a vanilla baseline or NOS trial. Analysis and sample/window caveats are in `research/supplied-probe.md`. The raw uploaded capture is not redistributed.
 
-The detailed capture had 57 timing entries with sampled calls. Empty method counters remain
-explicit. Individual AI worker, pathfinding worker, chunk I/O, full asynchronous
-save, per-player bandwidth and correctness measurements remain unavailable.
+## Next validation boundary
 
-Tick work uses integer-millisecond engine samples: zero P95/P99 in an idle run
-means the observed durations fell below that resolution. It does not mean the
-server performs no work. Captures may include hook installation and first-use
-JIT effects. Self-overhead counters exclude Harmony dispatch and other observer
-effects; total profiler overhead has not been established by matched workloads.
-No between-run improvement percentages are inferred here.
-
-## Development failures found and corrected
-
-- A preliminary capture did not start because the official console reader merged
-  consecutive piped lines. The runner now waits for an acknowledgement of each
-  command, and invalid captures fail validation.
-- An optional detailed capture reached client-only dependencies while enumerating
-  an entire engine assembly. Discovery now uses instantiated server systems,
-  target signatures are checked independently, and optional groups isolate
-  failures. Four new engine checks and the successful final detailed run cover
-  this correction.
-
-`benchmarks/validation/development-findings.json` preserves those findings. The
-older default-profile adapter example is labelled separately; its assembly
-predates the final detailed-hook correction and is not substituted for the final
-build results above.
-
-## Stress-tool and benchmark boundaries
-
-Eleven scenario patterns were exercised through the CLI in dry-run mode. They
-produced **zero connected players and zero confirmed game actions**. These are
-scheduler/tooling checks, not game performance measurements.
-
-The official-client driver requires separately installed, authenticated official
-clients on Linux X11, licensed accounts, calibrated controls, prepared scenes
-and trusted server evidence. It does not automate account login. Real GUI
-execution has not been validated here. No stock baseline A session parser or
-inventory/combat outcome observer is included. Presence alone does not establish
-correct actions. The report generator blocks comparisons without matching real
-work, authenticated sessions, timing and correctness evidence.
-
-No 1–200-player workload, 100–1,000-mob scenario, heavily modded production
-workload, 2–6-hour endurance test, Windows runtime check or total overhead
-comparison was completed. See `limitations.md` and `client-feasibility.md`.
-
-Following the supplied implementation order, AI scheduling, activation ranges,
-repulsion, chunk/network coalescing, world-generation changes, incremental
-saves and other engine changes remain deferred until representative profiling
-and repeatable correctness/performance evidence justify a minimal change.
+Run staging comparisons on a representative world/hardware with actual authorised client activity or a validated load tester. Preserve workload phases and correctness evidence; compare MSPT P95/P99, CPU, allocation, GC pause, post-GC heap floor, queues and save integrity across repeated stock, module-disabled and one-module trials before enabling a combined production set.

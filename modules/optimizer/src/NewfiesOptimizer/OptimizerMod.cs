@@ -4,9 +4,10 @@ using Vintagestory.API.Server;
 
 namespace NewfiesOptimizer;
 
-public sealed class OptimizerMod : ModSystem
+public sealed partial class OptimizerMod : ModSystem
 {
     private RuntimeProfiler? profiler;
+    private EngineOptimizations? optimizations;
     private ICoreServerAPI? api;
     public override bool ShouldLoad(EnumAppSide side) => side == EnumAppSide.Server;
     public override void StartServerSide(ICoreServerAPI api)
@@ -19,15 +20,21 @@ public sealed class OptimizerMod : ModSystem
             api.Logger.Error("[NewfiesOptimizer] optimizer.json could not be loaded ({0}). No hooks installed; fix configuration and restart.", e.GetType().Name);
             return;
         }
+        currentConfig=config;
+        bridgeActive=true;
+        api.Event.RegisterEventBusListener(OnSuiteControl, filterByEventName: ControlEvent);
         try { profiler = new(api, config); }
         catch (Exception error)
         {
             api.Logger.Error("[NewfiesOptimizer] Profiler initialization unavailable ({0}); no optimizer hooks installed. Server gameplay continues.", error.GetType().Name);
             return;
         }
-        var root = api.ChatCommands.Create("optimizer").WithDescription("Bounded server profiler and benchmark diagnostics. No gameplay optimizations in this engineering preview.")
-            .RequiresPrivilege(Privilege.controlserver).HandleWith(_ => TextCommandResult.Success(profiler.Status()));
-        root.BeginSubCommand("status").HandleWith(_ => TextCommandResult.Success(profiler.Status())).EndSubCommand();
+        try { optimizations = new(api, config); profiler.ExternalModules = optimizations.Modules; profiler.ExternalCounters = optimizations.Counters; }
+        catch (Exception error) { api.Logger.Error("[NewfiesOptimizer] Engine modules unavailable ({0}); profiling remains available.", error.GetType().Name); }
+        var root = api.ChatCommands.Create("optimizer").WithDescription("Server API optimization modules, diagnostics and bounded profiling.")
+            .RequiresPrivilege(Privilege.controlserver).HandleWith(_ => TextCommandResult.Success(Status()));
+        root.BeginSubCommand("status").HandleWith(_ => TextCommandResult.Success(Status())).EndSubCommand();
+        root.BeginSubCommand("modules").HandleWith(_ => TextCommandResult.Success(optimizations?.Status() ?? "Engine modules unavailable.")).EndSubCommand();
         var profile = root.BeginSubCommand("profile").WithDescription("Start/stop a bounded profiler capture.");
         profile.BeginSubCommand("start").HandleWith(_ => TextCommandResult.Success(profiler.Start())).EndSubCommand();
         profile.BeginSubCommand("stop").HandleWith(_ => TextCommandResult.Success(profiler.Stop())).EndSubCommand();
@@ -41,14 +48,16 @@ public sealed class OptimizerMod : ModSystem
         {
             if (config.Enabled && config.Profiling.AutoStart) api.Logger.Notification("[NewfiesOptimizer] " + profiler.Start());
         });
-        api.Logger.Notification("[NewfiesOptimizer] 0.1.0 engineering preview ready. /optimizer status. No gameplay optimization patches enabled.");
+        api.Logger.Notification("[NewfiesOptimizer] 0.3.0 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
     }
+
+    private string Status() => (profiler?.Status() ?? "Profiler unavailable") + "\n" + (optimizations?.Status() ?? "Engine modules unavailable");
 
     private string Describe(string command)
     {
         if (profiler is null) return "Profiler unavailable; check configuration.";
         if (command == "export") return profiler.QueueExport();
-        if (command == "benchmark") return "Benchmark methodology: clone the same world, use authorized real clients, separate warmup/measurement, run >=3 matched A (stock), B (profiler only), C (one evidenced optimization), D (validated set) trials. This preview has no candidate engine optimizations. /optimizer profile start, /optimizer profile stop, /optimizer export. Standalone tools generate comparisons; no fake clients or speedup claims.";
+        if (command == "benchmark") return "Benchmark methodology: clone the same world, use authorized real clients, separate warmup/measurement, run >=3 matched A (stock), B (profiler only), C (one evidenced optimization), D (validated set) trials. Test one configured API module at a time and compare stock, prefix-disabled and optimized trials. /optimizer profile start, /optimizer profile stop, /optimizer export. Standalone tools generate comparisons; no fake clients or speedup claims.";
         if (profiler.Session is null) return "No capture yet. /optimizer profile start then /optimizer profile stop.";
         var report = profiler.Snapshot();
         var latest = report.Samples.LastOrDefault();
@@ -65,5 +74,5 @@ public sealed class OptimizerMod : ModSystem
             _ => profiler.Status()
         };
     }
-    public override void Dispose() { profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
+    public override void Dispose() { bridgeActive=false; optimizations?.Dispose(); optimizations = null; profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
 }

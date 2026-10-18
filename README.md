@@ -4,13 +4,13 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 
 | Module | Version | Source |
 | --- | --- | --- |
-| Server Essentials Suite | 1.2.44 | [modules/suite](modules/suite) |
+| Server Essentials Suite | 1.2.46 | [modules/suite](modules/suite) |
 | Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.1.0-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.3.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
@@ -62,6 +62,12 @@ Each module has its own manifest, configuration and installation requirements. C
 
 The original author sources were restored from `NSS-1.2.43-MS11-CENTER1-source-with-Website-2.7.5.zip`. They replace the temporary decompiled projects initially imported into this repository. Original comments, helper scripts and available tests are preserved; the newer Suite UID-targeting/console fixes and MOTD/editor formatting changes were ported onto them.
 
-Earlier reconstructed files remain in Git history and the local backup bundle. The optimizer is the previously delivered 0.1.0-preview snapshot, not the lost later optimizer project. See [module provenance](docs/MODULES.md).
+Earlier reconstructed files remain in Git history and the local backup bundle. The optimizer continues the reconstructed 0.1.0 project with independently guarded API patches in 0.2.0; it is not a restoration of the lost later optimizer project. See [module provenance](docs/MODULES.md).
 
 No live configuration, credentials, world saves or proprietary game binaries belong in this repository. No open-source licence has been selected; no additional licence grant is implied. Third-party components retain their respective terms.
+
+## Suite and optimizer together
+
+Install **both inner mod ZIPs** from the paired download into the game server's Mods folder; do not install the outer download ZIP as a mod. Requires the inspected official Vintage Story 1.22.7 build. Open **Suite → Optimizations → Newfies Server Optimizer** to configure NOS, inspect module activation/conflicts, and start or stop its bounded profiler. Stop the NOS capture before editing settings. Read-only panel accounts cannot edit; Suite Safe Diagnostics Mode blocks module changes and capture starts, while still allowing a running capture to stop.
+
+Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.

@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.1.0 engineering preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after editing. The mod does not modify game configuration, tick intervals, entities, AI, packets, chunks, saves, inventories or claims.
+Newfie's Server Optimizer **0.3.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after editing. Three independently controlled API implementation substitutions are available. Simulation, AI, packet formats and save scheduling remain unchanged.
 
 ## Capture controls
 
@@ -26,7 +26,7 @@ Captures remain in memory after stop for inspection. Starting another capture re
 
 | Field | Default | Meaning and enforced bounds |
 | --- | --- | --- |
-| `Enabled` | `true` | Permits captures. No engine hooks exist until a capture starts. |
+| `Enabled` | `true` | Master switch for profiler captures and engine replacements. Engine replacements install at mod startup; profiler hooks install when capture starts. |
 | `Profiling.AutoStart` | `false` | Start at `RunGame` |
 | `Profiling.TickMetrics` | `true` | Read official pre-sleep processing durations after completed `ServerMain.Process` calls |
 | `Profiling.ProcessMetrics` | `true` | Process CPU, memory, allocation/GC collection and aggregate GC pause deltas |
@@ -43,7 +43,7 @@ Captures remain in memory after stop for inspection. Starting another capture re
 | `Profiling.AutoStopSeconds` | `0` | 0 disables; otherwise clamped to 86400 seconds |
 | `Profiling.ExportOnStop` | `true` | Serialize/write off the game thread after a bounded owning-thread snapshot |
 | `Logging.MaxExports` | `12` | Retain 1–100 numbered JSON/CSV capture pairs, plus latest aliases |
-| `Compatibility.SafeMode` | `true` | Skip optional detailed timing and main-thread OS CPU probes; leave stock simulation untouched |
+| `Compatibility.SafeMode` | `false` | Skip optional detailed timing and main-thread OS CPU probes; leave stock simulation untouched |
 | `Compatibility.DisableHookOnConflict` | `true` | Existing/late foreign Harmony owners disable the entire affected timing group, with visible diagnostics |
 | `Compatibility.RequireExactGameVersion` | `true` | Exact 1.22.7 guard is mandatory in this preview; setting false does not enable unsupported engines. Running version is read from loaded API metadata, not an inlined build constant. |
 | `Benchmarking.WriteSessionEvidence` | `false` | Opt-in test-only Playing-session UID evidence for real-client harness |
@@ -80,3 +80,25 @@ The event queue is bounded at 512. Dropped events, file cap/write failure and pr
 Optional timing groups are independent. Any target conflict or installation failure disables that whole group, so later successful targets cannot hide missing coverage. Foreign owners added later are checked approximately every 10 capture seconds; no claim is made that Harmony owner checks detect every possible external runtime mutation. The stock engine method always remains authoritative. Final-sample failures do not prevent cleanup, unsubscription or patch removal.
 
 To stop collection: `/optimizer profile stop`. To disable across restart: `Enabled=false`. To remove completely, stop the server and remove the mod ZIP. No engine DLL, database schema or saved world data has been patched. Detailed compatibility and real-player benchmark validation are still required before a production optimization release.
+
+## Engine modules in 0.2.0
+
+- `EngineOptimizations.OnlinePlayerSnapshots`: true by default; reduces iterator overhead while returning a fresh official-type array.
+- `EngineOptimizations.NearbyPlayerQueries`: false by default; enables population-adaptive temporary-list reuse.
+- `EngineOptimizations.MinimumNearbyClients`: 128 by default, clamped 0–4096. Below the activation threshold the original nearby-query method stays unpatched. It unpatches again below threshold minus 32 clients; individual calls below threshold use stock behavior. Zero forces activation for controlled component testing.
+- `EngineOptimizations.BulkStreamReads`: true by default; accelerates eligible non-aliased reads of at least 256 bytes.
+
+`Compatibility.SafeMode=true` blocks these engine modules. Existing 0.1.0 config files normally retain this value; change it deliberately on staging. New 0.2.0 defaults set it false. Each module reports active, standby, disabled, blocked, conflict or failed status via `/optimizer modules`. Counters are also exported in profile JSON.
+
+These engine modules always require the exact inspected 1.22.7 hashes, even if a legacy compatibility setting is relaxed. They do not implement the older placeholder entity/world-generation/network scheduling options.
+
+Nearby-query reuse remains opt-in because component CPU timings were mixed despite substantially lower allocations. The default-on modules are online snapshot allocation reduction and bulk stream reads.
+
+## Suite integration
+
+Suite 1.2.46 provides NOS status, master/safe-mode switches, independent engine switches, population threshold, asset-cache bound, capture start/stop and export. The in-process control protocol is version 1. Settings are validated and persisted before active patches are replaced. A failed persistence operation leaves runtime settings unchanged. Stop captures before applying settings. Applying settings retains all existing profiling/export configuration not exposed by this editor.
+
+- `EngineOptimizations.AssetCompressionCache`: true by default; accelerates repeated official assets compression only.
+- `EngineOptimizations.AssetCacheMaxMiB`: 16 by default, range 1–32. Combined retained source/compressed payload budget. Foreign Harmony owners or a mismatched engine disable the module.
+
+Low-compressibility or over-budget asset buffers use stock compression after the initial probe, avoiding repeated cache-copy overhead. A new asset buffer or reapplying settings permits a fresh probe. Cache hits require at least 25% size reduction on that probe.

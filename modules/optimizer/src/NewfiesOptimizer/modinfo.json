@@ -2,11 +2,15 @@
   "type": "code",
   "modid": "newfiesserveroptimizer",
   "name": "Newfie's Server Optimizer",
-  "authors": ["Newfie's Community"],
-  "description": "Engineering preview: bounded server profiling, diagnostics and benchmark exports. No gameplay throttling or claimed optimization gains.",
-  "version": "0.1.0",
+  "authors": [
+    "Newfie's Community"
+  ],
+  "description": "Guarded official-server API patches for player-query allocation reduction and bulk stream reads, with independent switches, conflict diagnostics and bounded profiling.",
+  "version": "0.3.0",
   "side": "Server",
   "requiredOnClient": false,
   "requiredOnServer": true,
-  "dependencies": { "game": "1.22.7" }
+  "dependencies": {
+    "game": "1.22.7"
+  }
 }

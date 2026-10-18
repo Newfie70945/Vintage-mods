@@ -5,7 +5,7 @@
       "id": "suite",
       "path": "modules/suite",
       "assembly": "NewfiesServerEssentialsSuite",
-      "version": "1.2.44",
+      "version": "1.2.46",
       "origin": "restored author source"
     },
     {
@@ -46,7 +46,7 @@
   ],
   "optimizer": {
     "path": "modules/optimizer",
-    "version": "0.1.0-preview",
-    "status": "delivered experimental snapshot"
+    "version": "0.3.0-preview",
+    "status": "guarded API patches with profiling; experimental"
   }
 }

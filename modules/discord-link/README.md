@@ -1,6 +1,6 @@
 # Newfie's Server Essentials - Discord 1.0.13
 
-Current fixes: [changelog](CHANGELOG-1.0.13.md).
+Current fixes: [current release notes](../../CHANGELOG.md).
 Target: **Vintage Story 1.22.7 / .NET 10**
 
 This is the single Discord module for Newfie's Server Suite. Starting with 1.0.0, the former standalone **Newfie's Discord Link** module has been merged into Discord Integration.

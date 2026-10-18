@@ -1,6 +1,6 @@
 # Newfie's ChatGuard 2.1.4
 
-Current fixes: [changelog](CHANGELOG-2.1.4.md).
+Current fixes: [current release notes](../../CHANGELOG.md).
 Standalone chat moderation for Vintage Story 1.22.7. The moderation engine remains server-authoritative; the optional client side adds a staff-only in-game GUI and is not required for normal players.
 
 ChatGuard does **not** require Newfie's Server Suite. When Server Suite is installed, ChatGuard exposes its status, configuration, recent actions, active mutes and warning state to the Suite through the Vintage Story event bus; there is no hard assembly dependency between the projects.

@@ -1,0 +1,27 @@
+{
+  "gameVersion": "1.22.7",
+  "authenticatedClients": 0,
+  "kind": "Disposable official server Suite/NOS bridge and save validation, not performance benchmark",
+  "passed": true,
+  "exitCode": 0,
+  "saveIntegrity": "ok",
+  "errors": [],
+  "controlChecks": [
+    "Suite finds NOS via event bridge",
+    "master-off saves and applies",
+    "master-off retains stock methods",
+    "invalid bound rejected",
+    "unknown key rejected",
+    "safe mode applies",
+    "safe mode retains stock methods",
+    "original settings restored",
+    "capture starts through Suite bridge",
+    "active capture locks edits",
+    "capture stops through Suite bridge",
+    "restored configuration persisted"
+  ],
+  "artifacts": {
+    "NewfiesServerEssentialsSuiteV1.2.46.zip": "81c93a943ac0ad1d1f16c83897fd6b0c60300417d31d32c9e7067a739c0d6eb1",
+    "NewfiesServerOptimizer-0.3.0-preview.zip": "1ab4042258f146c429b7afcd82ae31a33f7cb2f1155e39832000520434329536"
+  }
+}

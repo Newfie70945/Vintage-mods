@@ -3,7 +3,7 @@
 
 Current companion: Client Integrity **1.1.28 / protocol 13**, OreShield sync **v3**. Older milestone notes below describe historical intermediate protocols.
 
-Current release: [1.2.43 notes](../RELEASE-1.2.43.md), [changelog](../CHANGELOG-1.2.43.md), and [validation](../VALIDATION-1.2.43.md).
+Current release and validation: see [release notes](../../CHANGELOG.md).
 
 1.2.42 uses terrain-only decoding for startup map exports, releases export-owned pools, and preserves the existing map if a database read fails. Keep `UseDirectSaveDatabaseTerrain` enabled (the default); the explicitly selected legacy loader can still create mod/entity state.
 
@@ -428,4 +428,4 @@ Configuration/state: `NewfiesServerEssentialsSuite/NewfiesSupporterNicknames.jso
 - Player-local reveal updates no longer depend on Vintage Story's internal `DidSendChunk` bookkeeping, avoiding false negatives that could leave nearby ore rendered as host rock.
 - The movement and repair passes continue to reveal only inside the configured local radius; shared/distant chunk payloads remain concealed.
 
-The [changelog](../CHANGELOG.md) includes 1.2.38 audit fixes and the 1.2.37 release history.
+The [current release notes](../../CHANGELOG.md) includes 1.2.38 audit fixes and the 1.2.37 release history.

@@ -1,8 +1,0 @@
-Newfies Client Integrity 1.1.28
-
-- Transfer consent dialogs now release GUI textures on close and unregister after the current GUI event finishes.
-- Repeated cleanup is safe; accepted/declined decisions still resolve exactly once.
-- Version metadata and assembly identity advance to 1.1.28.
-- Internal protocol 13, networkVersion 1.1.21 and OreShield sync v3 stay unchanged.
-
-This fixes client GUI retention, not the game server's heap. Deploy the matching companion on the server and clients when exact-version enforcement is enabled.
