@@ -122,5 +122,7 @@
     "A test harness initially omitted its stop helper; staged selected jobs were completed by a corrected restart runner. An initial test-player proxy was incompatible with an internal API interface method; the final selection probe uses a detached official ServerPlayer. These failures did not require production code changes."
   ],
   "assemblySha256": "917091f7d8c4c9812d7f8209b66e9073511841d55768e85c44cead1acb2b0cf2",
-  "artifactSha256": "0ba9469eda4393fe22216d957835f4d0b4fd5849fd16d42b10b6f148a3a7f03a"
+  "artifactSha256": "d19f630ebf3c540e29dd1cfa0020773739b8df1e50c1cfb5e9ae0aff4e28815b",
+  "executedArtifactSha256": "0ba9469eda4393fe22216d957835f4d0b4fd5849fd16d42b10b6f148a3a7f03a",
+  "packagingNote": "After live validation, only packaged guides were refreshed to match source documentation. The runtime DLL and all other mod entries are identical to the validated build."
 }
