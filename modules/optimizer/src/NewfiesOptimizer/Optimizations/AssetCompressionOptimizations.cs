@@ -14,7 +14,7 @@ public static class AssetCompressionOptimizations
     private static object? compressor;
     private static int limit = 16 * 1024 * 1024;
     private static bool enabled, unsuitable;
-    private static long hits, misses, failures;
+    private static long hits, misses, failures, generation;
     public static MethodInfo Target => AccessTools.Method(typeof(Compression), nameof(Compression.CompressOffset4), [typeof(byte[]), typeof(int)]);
     public static MethodInfo PrefixMethod => AccessTools.Method(typeof(AssetCompressionOptimizations), nameof(Prefix));
     public static MethodInfo PostfixMethod => AccessTools.Method(typeof(AssetCompressionOptimizations), nameof(Postfix));
@@ -26,19 +26,20 @@ public static class AssetCompressionOptimizations
         reason = valid ? "Verified assets buffer and compression signature." : "Official assets/compression layout unavailable.";
         return valid;
     }
-    public static void Configure(bool value) { lock(Gate) { enabled=value; if(!value) ClearUnsafe(); } }
+    public static void Configure(bool value) { lock(Gate) { generation++; var buffer=tracked; ClearUnsafe(); if(value) tracked=buffer; enabled=value; } }
     public static void Track(byte[]? value, int maximumBytes)
     {
         lock(Gate)
         {
-            limit=Math.Clamp(maximumBytes, 1048576, 33554432);
-            if(value is not null && value.Length > limit) value=null;
-            if(!ReferenceEquals(tracked,value)) { ClearUnsafe(); tracked=value; }
+            int nextLimit=Math.Clamp(maximumBytes, 1048576, 33554432);
+            if(value is not null && value.Length > nextLimit) value=null;
+            if(limit!=nextLimit || !ReferenceEquals(tracked,value))
+            { generation++; ClearUnsafe(); limit=nextLimit; tracked=value; }
         }
     }
     private static void ClearUnsafe() { tracked=null; sourceSnapshot=null; compressed=null; compressor=null; unsuitable=false; }
     public static (long Hits,long Misses,long Failures,long Bytes) Counters { get { lock(Gate)return(hits,misses,failures,(compressed?.LongLength??0)+(sourceSnapshot?.LongLength??0)); } }
-    public sealed record Pending(byte[] Source, object Compressor);
+    public sealed record Pending(byte[] Source, object Compressor, long Generation);
     public static bool Prefix(byte[] data, int len, ref byte[] __result, out Pending? __state)
     {
         __state=null;
@@ -55,7 +56,7 @@ public static class AssetCompressionOptimizations
                     // Socket framing mutates its input. Each send must receive an independent copy.
                     __result=(byte[])compressed.Clone(); hits++; return false;
                 }
-                misses++; __state=new(source.ToArray(),current); return true;
+                misses++; __state=new(source.ToArray(),current,generation); return true;
             }
             catch { failures++; enabled=false; ClearUnsafe(); return true; }
         }
@@ -65,7 +66,7 @@ public static class AssetCompressionOptimizations
         if(__state is null) return;
         lock(Gate)
         {
-            if(!enabled || !ReferenceEquals(data,tracked) || __result is null) return;
+            if(!enabled || __state.Generation!=generation || !ReferenceEquals(data,tracked) || __result is null) return;
             if(__result.LongLength+__state.Source.LongLength>limit || __result.LongLength>len*3L/4)
             {
                 // Low-savings assets do not justify a retained copy and repeated byte comparisons.

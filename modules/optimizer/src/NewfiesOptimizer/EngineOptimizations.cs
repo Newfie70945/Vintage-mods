@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.3.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.3.1";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -30,7 +30,12 @@ public sealed class EngineOptimizations : IDisposable
         public MethodInfo Prefix = prefix;
         public Action<bool> Enable = enable;
         public bool Installed;
+        public long FailureBaseline;
         public MethodInfo? Postfix;
+        private MethodInfo? resolvedTarget;
+        private MethodInfo[]? resolvedDependencies;
+        public MethodInfo TargetMethod => resolvedTarget ??= Target();
+        public MethodInfo[] DependencyMethods => resolvedDependencies ??= Dependencies();
     }
     public EngineOptimizations(ICoreServerAPI api, OptimizerConfig config, Func<int>? clientCount = null)
     {
@@ -75,7 +80,7 @@ public sealed class EngineOptimizations : IDisposable
         try { if (entries.Any(x => x.Installed || x.State == "standby")) listener = api.Event.RegisterGameTickListener(_ => Check(), 1000); }
         catch (Exception error)
         {
-            foreach (var entry in entries.Where(x => x.Installed).ToArray())
+            foreach (var entry in entries.Where(x => x.Installed || x.State == "standby").ToArray())
                 Disable(entry, "failed", "Compatibility monitor could not start: " + error.GetType().Name);
         }
         foreach (var entry in entries) api.Logger.Notification("[NewfiesOptimizer] {0}: {1} — {2}", entry.Name, entry.State, entry.Reason);
@@ -84,8 +89,9 @@ public sealed class EngineOptimizations : IDisposable
     {
         string? conflict = Conflict(entry);
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
-        harmony.Patch(entry.Target(), prefix: new HarmonyMethod(entry.Prefix), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
+        harmony.Patch(entry.TargetMethod, prefix: new HarmonyMethod(entry.Prefix), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
         if(entry.Name == "assetCompressionCache") RefreshAssets();
+        entry.FailureBaseline = Failures(entry.Name);
         entry.Installed = true; entry.Enable(true); entry.State = "active";
         entry.Reason = "Verified official 1.22.7; independently controlled prefix installed.";
     }
@@ -119,7 +125,7 @@ public sealed class EngineOptimizations : IDisposable
     }
     private static string? Conflict(Entry entry)
     {
-        foreach (var method in entry.Dependencies())
+        foreach (var method in entry.DependencyMethods)
         {
             var foreign = Harmony.GetPatchInfo(method)?.Owners.Where(x => x != HarmonyId).ToArray();
             if (foreign is { Length: > 0 }) return "Foreign Harmony owner on " + method.Name + ": " + string.Join(", ", foreign);
@@ -154,24 +160,30 @@ public sealed class EngineOptimizations : IDisposable
                         if (count < Math.Max(0, minimumNearbyClients - 32))
                         { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
                     }
-                    if (entry.Installed && Harmony.GetPatchInfo(entry.Target())?.Owners.Contains(HarmonyId) != true)
+                    if (entry.Installed && Harmony.GetPatchInfo(entry.TargetMethod)?.Owners.Contains(HarmonyId) != true)
                     { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
                     if(entry.Name == "assetCompressionCache") RefreshAssets();
                     string? conflict = Conflict(entry);
                     if (conflict != null) { Disable(entry, "conflict", conflict); continue; }
-                    var counters = PlayerQueryOptimizations.GetCounters();
-                    long failures = entry.Name switch { "onlinePlayerSnapshots" => counters.SnapshotFailures,
-                        "nearbyPlayerQueries" => counters.AroundFailures, "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures, _ => StreamCopyOptimizations.Snapshot.Failures };
-                    if (failures > 0) Disable(entry, "failed", "Observed a query/copy exception; original exception was preserved. Module stood down to stock behavior.");
+                    if (Failures(entry.Name) > entry.FailureBaseline)
+                        Disable(entry, "failed", "A new failure was observed during this activation. Stock behavior retained; reapply settings to retry.");
                 }
                 catch (Exception error) { Disable(entry, "failed", "Compatibility monitor failed: " + error.GetType().Name); }
             }
         }
     }
+    private static long Failures(string name)
+    {
+        var query = PlayerQueryOptimizations.GetCounters();
+        return name switch { "onlinePlayerSnapshots" => query.SnapshotFailures,
+            "nearbyPlayerQueries" => query.AroundFailures,
+            "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
+            _ => StreamCopyOptimizations.Snapshot.Failures };
+    }
     private void Disable(Entry entry, string state, string reason)
     {
         entry.Enable(false);
-        try { harmony.Unpatch(entry.Target(), HarmonyPatchType.All, HarmonyId); }
+        try { harmony.Unpatch(entry.TargetMethod, HarmonyPatchType.All, HarmonyId); }
         catch (Exception error) { reason += "; own patch removal failed: " + error.GetType().Name + ". Prefix is disabled."; }
         entry.Installed = false; entry.State = state; entry.Reason = reason;
     }
@@ -179,11 +191,12 @@ public sealed class EngineOptimizations : IDisposable
     public IReadOnlyDictionary<string,long> Counters()
     {
         var q = PlayerQueryOptimizations.GetCounters(); var s = StreamCopyOptimizations.Snapshot;
+        var assets = AssetCompressionOptimizations.Counters;
         return new Dictionary<string,long> { ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
-            ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = AssetCompressionOptimizations.Counters.Hits, ["assetCacheMisses"] = AssetCompressionOptimizations.Counters.Misses,
-            ["assetCacheBytes"] = AssetCompressionOptimizations.Counters.Bytes, ["assetCacheFailures"] = AssetCompressionOptimizations.Counters.Failures, ["bulkReadCalls"] = s.AcceleratedCalls,
+            ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,
+            ["assetCacheBytes"] = assets.Bytes, ["assetCacheFailures"] = assets.Failures, ["bulkReadCalls"] = s.AcceleratedCalls,
             ["bulkReadBytes"] = s.CopiedBytes, ["bulkReadFallbacks"] = s.FallbackCalls, ["bulkReadFailures"] = s.Failures };
     }
     public string Status()
@@ -197,7 +210,12 @@ public sealed class EngineOptimizations : IDisposable
         lock (gate)
         {
             if (disposed) return; disposed = true;
-            if (listener >= 0) api.Event.UnregisterGameTickListener(listener);
+            if (listener >= 0)
+            {
+                try { api.Event.UnregisterGameTickListener(listener); }
+                catch (Exception error) { api.Logger.Warning("[NewfiesOptimizer] Monitor unregister failed ({0}); disposed callback is inert. Removing patches anyway.", error.GetType().Name); }
+                listener = -1;
+            }
             foreach (var entry in entries) Disable(entry, "stopped", "Own patch removed during disposal.");
             PlayerQueryOptimizations.ClearCurrentThreadScratch();
         }

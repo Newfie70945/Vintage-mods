@@ -1,0 +1,45 @@
+{
+  "kind": "Official-server idle lifecycle validation, not player-capacity or speedup benchmark",
+  "gameVersion": "1.22.7",
+  "optimizerVersion": "0.3.1",
+  "suiteVersion": "1.2.46",
+  "authenticatedPlayers": 0,
+  "controlCycles": 10,
+  "checksPerCycle": 12,
+  "profileDurationSeconds": 60.6113664,
+  "tick": {
+    "count": 1812,
+    "averageMs": 0.26876379690949226,
+    "medianMs": 0,
+    "p95Ms": 0,
+    "p99Ms": 0,
+    "worstMs": 452,
+    "overflowCount": 0,
+    "effectiveTps": 29.895382790776353,
+    "mainThreadWorkPercent": 0.8034796588911746,
+    "source": "Official ServerMain.StatsCollector pre-sleep work; integer milliseconds. Effective TPS is completed ticks per wall second, not 1000 / processing time. Percentiles above histogram range are null."
+  },
+  "sampleCount": 59,
+  "managedHeapBytes": {
+    "min": 686974336,
+    "max": 704576920,
+    "first": 703960544,
+    "last": 694636768
+  },
+  "privateMemoryBytes": {
+    "min": 1435676672,
+    "max": 1437843456,
+    "first": 1435996160,
+    "last": 1437843456
+  },
+  "processCpuPercent": {
+    "min": 1.2754699944926597,
+    "max": 46.94686974692893,
+    "first": 3.457581814261796,
+    "last": 1.8111385908886761
+  },
+  "exitCode": 0,
+  "saveIntegrity": "ok",
+  "errors": [],
+  "optimizerZipSha256": "cd4ea37883b9caeb7967ba741da591e6ef110d7397b045053aa51fe407b5669e"
+}

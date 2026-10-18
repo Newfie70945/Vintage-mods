@@ -11,7 +11,7 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.3.0", success = true,
+        available = true, protocol = 1, version = "0.3.1", success = true,
         profiling = profiler?.IsRunning ?? false,
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
