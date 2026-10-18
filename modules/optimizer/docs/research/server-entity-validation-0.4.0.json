@@ -1,0 +1,47 @@
+{
+  "kind": "Official server integration and startup/save/shutdown validation; not a throughput benchmark",
+  "gameVersion": "1.22.7",
+  "suiteVersion": "1.2.47",
+  "optimizerVersion": "0.4.0",
+  "authenticatedClients": 0,
+  "controlCycles": 3,
+  "controlChecks": [
+    "Suite finds NOS via event bridge",
+    "AI switch independently disables its patch",
+    "repulsion remains active with profiling off",
+    "repulsion switch independently disables its patch",
+    "AI remains active with profiling off",
+    "master-off saves and applies",
+    "master-off retains stock methods",
+    "invalid bound rejected",
+    "unknown key rejected",
+    "safe mode applies",
+    "safe mode retains stock methods",
+    "original settings restored",
+    "capture starts through Suite bridge",
+    "active capture locks edits",
+    "capture stops through Suite bridge",
+    "restored configuration persisted"
+  ],
+  "profileDurationSeconds": 60.591629,
+  "profiledTicks": 1789,
+  "entityModules": [
+    {
+      "name": "aiFilterDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "repulseDelegateReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "saveIntegrity": "ok",
+  "exitCode": 0,
+  "errors": [],
+  "artifactSha256": {
+    "NewfiesServerEssentialsSuiteV1.2.47.zip": "4689b5122d5e4830b160aa3e45ee4b8517d16dc3963846cdf717a741784851f5",
+    "NewfiesServerOptimizer-0.4.0-preview.zip": "9b81364e9d6ef814ca5ed9924f01895ab8cefb6564ffe6a98ebd3923df92f77d"
+  }
+}
