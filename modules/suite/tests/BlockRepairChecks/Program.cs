@@ -7,9 +7,10 @@ using BlockLogger.WorldRepair;
 using Vintagestory.Common;
 using Vintagestory.Server;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.Common;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,n)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib")}){var p=Path.Combine(folder,n.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
-if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else Checks.Run();
+if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();}
 static class Checks
 {
  static int count;
@@ -31,6 +32,19 @@ static class Checks
   typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,999999);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
   using var target=new MemoryStream();foreach(var f in fields){if(f.Tag==1)target.Write(Field(1,compressed));else target.Write(blob,f.Start,f.End-f.Start);}File.WriteAllBytes(output,target.ToArray());Console.WriteLine("Seeded one out-of-range numeric block ID; untouched fields preserved.");
  }
+ public static void SeedInventory(string input,string output,long key){
+  var blob=File.ReadAllBytes(input);var fields=BlockIdChunkCodec.Fields(blob);var pos=Vintagestory.Common.Database.ChunkPos.FromChunkIndex_saveGamev2(unchecked((ulong)key));
+  var bytes=InventoryPayload(pos.X*32+17,pos.Y*32+pos.Dimension*32768,pos.Z*32);
+  using var target=new MemoryStream();foreach(var f in fields)if(f.Tag!=8)target.Write(blob,f.Start,f.End-f.Start);target.Write(Field(8,bytes));File.WriteAllBytes(output,target.ToArray());
+  Console.WriteLine("Seeded retained Bookshelf inventory: 7 serialized items, no block entity instantiated.");
+ }
+ static byte[] InventoryPayload(int x=17,int y=0,int z=0){
+  var tree=new TreeAttribute();tree.SetInt("posx",x);tree.SetInt("posy",y);tree.SetInt("posz",z);tree.SetString("blockCode","bookshelf");
+  var inventory=new TreeAttribute();inventory.SetInt("qslots",3);inventory.SetItemstack("0",new ItemStack{Class=EnumItemClass.Item,Id=123,StackSize=7});inventory.SetItemstack("1",null);tree.SetAttribute("inventory",inventory);
+  tree.SetBytes("opaque",[1,2,3]);tree.SetBool("flag",true);tree.SetStringArray("strings",["a","b"]);tree["ints"]=new IntArrayAttribute([1,2]);tree.SetFloat("float",1f);tree.SetLong("long",99);tree.SetDouble("double",2);
+  tree["floats"]=new FloatArrayAttribute([1,2]);tree["doubles"]=new DoubleArrayAttribute([1,2]);tree["longs"]=new LongArrayAttribute([1,2]);tree["bools"]=new BoolArrayAttribute([true,false]);tree["trees"]=new TreeArrayAttribute([new TreeAttribute()]);
+  using var data=new MemoryStream();using(var writer=new BinaryWriter(data,Encoding.UTF8,true)){writer.Write("Bookshelf");tree.ToBytes(writer);}return data.ToArray();
+ }
  public static void Run(){
   var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain))){CacheSize=16};var codec=new BlockIdChunkCodec(pool);var scratch=new int[15360];
   var solid=new BlockChunkDataLayer(pool);solid.PopulateWithAir();solid.Set(17,123456);solid.Set(32767,123456);solid.Set(15,42);
@@ -49,6 +63,21 @@ static class Checks
   foreach(var bad in new[]{new byte[]{0},new byte[]{10,255},new byte[]{11},new byte[]{128,128,128,128,128,128,128,128,128,128,128}}){try{BlockIdChunkCodec.Fields(bad);throw new Exception("Missing malformed data guard");}catch(InvalidDataException){count++;}}
   using var duplicate=new MemoryStream();duplicate.Write(blob);duplicate.Write(Field(1,[]));try{codec.Inspect(duplicate.ToArray(),_=>true);throw new Exception("Missing duplicate guard");}catch(InvalidDataException){count++;}
   for(int round=0;round<30;round++){int old=100000+round;var layer=new BlockChunkDataLayer(pool);layer.PopulateWithAir();for(int i=0;i<100;i++)layer.Set((i*97)%32768,old);var b=Blob(ChunkDataLayer.Compress(layer,scratch),new byte[4]);var c=codec.Replace(b,old,42,out long n);Assert(n==100&&codec.Inspect(c,id=>id==42)[42][0]==100,"palette round trip "+round);pool.FreeArrays(layer);}
-  pool.FreeAll();Console.WriteLine($"{count} block-ID codec and preservation checks passed against official compression.");
+  var payload=InventoryPayload();var intact=payload.ToArray();var report=SavedBlockEntityInspector.Inspect(payload);
+  Assert(report.Complete&&report.Class=="Bookshelf"&&report.SavedBlockCode=="bookshelf","retained class/code read without a block entity instance");
+  Assert(report.X==17&&report.Y==0&&report.Z==0&&report.Dimension==0,"saved coordinates decoded");
+  Assert(report.NonEmptyStacks==1&&report.SerializedItemQuantity==7&&report.Stacks.Single().Id==123&&report.Stacks[0].InInventoryTree,"standard inventory stacks read without item resolution");
+  Assert(payload.SequenceEqual(intact)&&report.PayloadSha256.Length==64,"inspection is byte-preserving and hashed");
+  var builtin=TreeAttribute.AttributeIdMapping[1];try{TreeAttribute.AttributeIdMapping[1]=typeof(string);Assert(!SavedBlockEntityInspector.Inspect(payload).Complete,"overridden built-in types refused before decoding");}finally{TreeAttribute.AttributeIdMapping[1]=builtin;}
+  var dimensionReport=SavedBlockEntityInspector.Inspect(InventoryPayload(y:3*32768+45));Assert(dimensionReport.Dimension==3&&dimensionReport.Y==45,"dimension-aware entity position");
+  Assert(!SavedBlockEntityInspector.Inspect(payload[..^1]).Complete,"truncated tree marked partial");
+  using(var unknown=new MemoryStream()){using(var w=new BinaryWriter(unknown,Encoding.UTF8,true)){w.Write("Unknown");w.Write((byte)250);w.Write("custom");w.Write(0);}Assert(!SavedBlockEntityInspector.Inspect(unknown.ToArray()).Complete,"unknown attribute refused without executing a mod attribute");}
+  using(var bomb=new MemoryStream()){using(var w=new BinaryWriter(bomb,Encoding.UTF8,true)){w.Write("Unknown");w.Write((byte)8);w.Write("bytes");w.Write(int.MaxValue);}Assert(!SavedBlockEntityInspector.Inspect(bomb.ToArray()).Complete,"oversized array refused before allocation");}
+  using(var deep=new MemoryStream()){using(var w=new BinaryWriter(deep,Encoding.UTF8,true)){w.Write("Unknown");for(int i=0;i<30;i++){w.Write((byte)6);w.Write("tree");}}Assert(!SavedBlockEntityInspector.Inspect(deep.ToArray()).Complete,"excessive nesting refused");}
+  var cells=codec.ReadCells(blob,[15,17,23]);Assert(cells[15][0]==42&&cells[17][0]==123456&&cells[23][1]==123456,"targeted layer inspection preserves solid/fluid distinction");
+  try{codec.ReadCells(blob,[-1]);throw new Exception("Missing index guard");}catch(ArgumentOutOfRangeException){count++;}
+  var inventoryBlob=Blob(ChunkDataLayer.Compress(solid,scratch),ChunkDataLayer.Compress(fluid,scratch),entity:payload);
+  try{codec.Replace(inventoryBlob,123456,42,out _);throw new Exception("Missing inventory protection");}catch(InvalidOperationException){Assert(true,"retained bookshelf inventory still blocks generic replacement");}
+  pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory inspection and preservation checks passed against official serialization.");
  }
 }

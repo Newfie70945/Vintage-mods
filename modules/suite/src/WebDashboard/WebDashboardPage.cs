@@ -3150,6 +3150,8 @@ __NSS_RETENTION_HTML__
     <div class="compactNote" role="note" style="border:1px solid #cc9750;padding:14px;margin:12px 0"><strong>Experimental feature — use at your own risk.</strong> Make backups before using this remapper. The author is not responsible for block data lost through misuse. Test on a copy of your world first.</div>
     <p class="small">Scan and preview do not edit terrain. Automatic backups are enabled by default. A staged repair runs before terrain loads on the next restart. Unsaved live changes are not counted. Save the world before scanning if you need the latest edits included.</p>
     <div class="grid"><label>Old block ID <input id="brSource" type="number" step="1" placeholder="Optional when scanning"></label><label>Replacement block ID or code <input id="brTarget" type="text" maxlength="256" spellcheck="false" placeholder="12698 or game:rock-granite"></label></div>
+    <div class="grid" style="margin-top:12px"><label>Search registered replacement blocks <input id="brTargetSearch" maxlength="128" placeholder="rock-granite, bookshelf, or ID"></label><label>Matching blocks <select id="brTargetResults"><option value="">Search to choose a replacement…</option></select></label></div>
+    <div class="quickActions"><button id="brSearch">Search Blocks</button><span id="brSearchStatus" class="small"></span></div>
     <div class="quickActions"><button id="brScan">Scan Saved Map</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Repair</button></div>
     <div id="brStatus" class="compactNote" role="status"></div>
     <div class="tableWrap dataScroll"><table><thead><tr><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
@@ -3161,11 +3163,28 @@ __NSS_RETENTION_HTML__
     <div style="margin-top:14px"><label><input id="brAutoBackup" type="checkbox" checked> Create and verify an automatic world backup before applying (recommended)</label></div>
     <div id="brManualBackupWarning" class="compactNote" hidden style="border:1px solid #cc9750;padding:14px;margin-top:12px"><strong>Automatic backup is disabled.</strong> Stop your server and make a manual copy of your world before using this remapper. If block data is lost, the Suite will have no automatic backup to restore.<br><label><input id="brManualBackupAck" type="checkbox"> I have made a manual copy of this world and understand the risk.</label></div>
     <p class="small">Source ID 0 cannot be replaced. Destinations requiring block entities are refused, and repairs refuse source blocks hosting block entities to preserve inventories. Layer mismatches, corrupt data and unsupported chunk formats prevent applying.</p>
-    <div class="quickActions"><button id="brPreview">Preview Replacement</button><button id="brStage" class="danger" disabled>Stage for Next Restart</button></div>
+    <div class="quickActions"><button id="brExport">Download Diagnostic Report</button><button id="brPreview">Preview Replacement</button><button id="brStage" class="danger" disabled>Stage for Next Restart</button></div>
     <div id="brPlanSummary" class="compactNote" role="status"></div>
     <pre id="brPlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
     <p class="small">When enabled, automatic backups are stored in the server data folder under NewfiesBlockRepair. Keep enough free disk space for a full world backup. With automatic backup disabled, your manual copy is the recovery path; the Suite cannot verify that copy. Cached lighting, heightmaps and map exports may require refreshing after the ID repair.</p>
     <pre id="brLast" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+  </div>
+  <div class="card"><h3>Inspect saved block / inventory data</h3>
+    <p>Use this to investigate broken bookshelves or containers before choosing a repair. This reads saved bytes without activating terrain or executing mod block-entity code. It does not restore items or change the world.</p>
+    <div class="grid"><label>Absolute X <input id="brInspectX" type="number" step="1" min="0"></label><label>Y <input id="brInspectY" type="number" step="1" min="0" max="16383"></label><label>Absolute Z <input id="brInspectZ" type="number" step="1" min="0"></label><label>Dimension <input id="brInspectDimension" type="number" step="1" min="0" max="1023" value="0"></label></div>
+    <p class="small">Use absolute saved block coordinates, not the spawn-relative coordinates displayed on your map. Alternatively paste the signed chunk key from a scan’s sample to inspect its saved block entities.</p>
+    <label>Saved chunk key (optional; overrides coordinates) <input id="brInspectChunk" type="text" inputmode="numeric" maxlength="20" placeholder="Exact key from a scan sample"></label>
+    <div class="quickActions"><button id="brInspect">Inspect Saved Data</button></div>
+    <div id="brInspectionStatus" class="compactNote" role="status">No inspection yet. Owner access is required to view retained inventory summaries.</div>
+    <pre id="brInspection" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <h3>BlockLogger replacement suggestions</h3>
+    <p>Use the absolute coordinates above to look up exact-position block events and saved container snapshots. Suggestions show their evidence and confidence; choosing one only fills the destination field.</p>
+    <label>History cutoff (optional; your local time) <input id="brHistoryBefore" type="datetime-local"></label>
+    <div class="quickActions"><button id="brRecommend">Recommend from BlockLogger</button></div>
+    <div id="brRecommendationStatus" class="compactNote" role="status"></div><div id="brRecommendations"></div>
+    <pre id="brHistoryReport" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <p class="small">History applies only to this location. A global ID remap affects every matching block. Snapshot logging must have been enabled and records retained. Existing BlockLogger snapshots store slot numbers, item codes and quantities, not complete attributes such as written book text, durability or bag contents. Snapshot contents are historical; later transfers must be checked before any restoration.</p>
+    <p class="small">Reports show saved classes, block codes, positions, payload hashes and up to 64 serialized stack entries per entity. Custom data, oversized records and unsupported formats are marked partial. Finding stacks does not guarantee recoverability. If data was discarded and saved over, a surviving backup is needed.</p>
   </div>
 </section>
 
@@ -9612,6 +9631,19 @@ function renderBlockRepair(data){
   $('brLast').textContent=data.last?'Last job: '+JSON.stringify(data.last,null,2):'';
   for(const id of ['brScan','brPreview','brStage'])$(id).disabled=brBusy||!brCanEdit()||(id==='brStage'&&!brPreviewId)||(id==='brPreview'&&!$('brAutoBackup').checked&&!$('brManualBackupAck').checked);
   $('brCancel').disabled=brBusy||!(currentSessionOwner||currentSessionRole==='Owner');
+  const owner=currentSessionOwner||currentSessionRole==='Owner';
+  for(const id of ['brSearch','brInspect','brExport','brRecommend'])$(id).disabled=brBusy||!owner;
+  const inspection=owner?data.inspection:null;
+  $('brInspectionStatus').textContent=inspection?`${value(inspection,'State')} · chunk ${value(inspection,'ChunkKey')} · ${value(inspection,'Message')||'Reading saved bytes…'} ${value(inspection,'Limited')?'Inspection limit reached; results are partial.':''}`:'No inspection yet. Owner access is required to view retained inventory summaries.';
+  $('brInspection').textContent=inspection?JSON.stringify(inspection,null,2):'';
+  const history=owner?data.recommendations:null;
+  $('brRecommendationStatus').textContent=history?`${value(history,'State')} · ${value(history,'X')}, ${value(history,'Y')}, ${value(history,'Z')} · dimension ${value(history,'Dimension')} · ${value(history,'Message')||'Reading indexed history…'}`:'Choose a damaged location to look for historical replacement evidence.';
+  $('brRecommendations').replaceChildren();
+  for(const candidate of value(history,'Candidates')||[]){
+    const row=document.createElement('div');row.className='compactNote';const label=document.createElement('p');label.textContent=`${value(candidate,'Code')} · current ID ${value(candidate,'CurrentId')??'unregistered'} · ${value(candidate,'Confidence')} confidence · ${value(candidate,'SupportingRecords')} supporting records. ${value(candidate,'Reason')}`;
+    const button=document.createElement('button');button.textContent='Use as Destination';button.disabled=brBusy||!brCanEdit()||!value(candidate,'Selectable');button.onclick=()=>{$('brTarget').value=value(candidate,'Code');brInvalidate();};row.append(label,button);$('brRecommendations').append(row);
+  }
+  $('brHistoryReport').textContent=history?JSON.stringify(history,null,2):'';
 }
 async function loadBlockRepair(){try{renderBlockRepair(await api('/api/block-repair'));}catch(e){$('brStatus').textContent=e.message;}}
 async function blockRepairAction(operation){
@@ -9623,10 +9655,40 @@ async function blockRepairAction(operation){
   if(['preview','stage'].includes(operation)&&!body.createBackup&&!body.manualBackupAcknowledged){toast('Make a manual world copy and acknowledge it before disabling automatic backup.','error');return;}
   brError='';brBusy=true;if(brSnapshot)renderBlockRepair(brSnapshot);try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='preview')brInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
 }
+async function blockRepairDiagnostic(operation){
+  if(brBusy||!(currentSessionOwner||currentSessionRole==='Owner'))return;
+  let body={operation};
+  if(operation==='search')body.query=$('brTargetSearch').value.trim();
+  else {
+    body.chunkKey=$('brInspectChunk').value.trim();
+    for(const [name,id] of [['x','X'],['y','Y'],['z','Z'],['dimension','Dimension']]){
+      const text=$('brInspect'+id).value.trim();body[name]=Number(text);
+      if((operation==='recommend'||!body.chunkKey)&&(!text||!Number.isSafeInteger(body[name]))){toast('Enter absolute integer X, Y, Z and dimension, or a saved chunk key.','error');return;}
+    }
+    if(operation==='recommend'){delete body.chunkKey;const before=$('brHistoryBefore').value;if(before){const date=new Date(before);if(!Number.isFinite(date.getTime())){toast('Use a valid history cutoff.','error');return;}body.beforeUtc=date.toISOString();}}
+    if(body.chunkKey&&!/^-?\d+$/.test(body.chunkKey)){toast('Use the exact signed numeric chunk key from a scan.','error');return;}
+  }
+  brBusy=true;brError='';if(brSnapshot)renderBlockRepair(brSnapshot);
+  try{
+    const response=await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});
+    if(operation==='search'){
+      $('brTargetResults').replaceChildren();const prompt=document.createElement('option');prompt.value='';prompt.textContent='Choose a registered block…';$('brTargetResults').append(prompt);
+      for(const item of response.results||[]){const option=document.createElement('option');option.value=item.code;option.textContent=`${item.code} · ID ${item.id}${item.entityClass?' · BLOCK ENTITY — generic remap blocked':item.fluid?' · fluid':''}`;option.disabled=!item.selectable;option.title=item.reason||'';$('brTargetResults').append(option);}
+      $('brSearchStatus').textContent=`${(response.results||[]).length} matches${response.limited?' — narrow your search for more':''}. Inventory-bearing targets require dedicated recovery.`;
+    }else await loadBlockRepair();
+  }catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+}
+$('brRecommend').onclick=()=>blockRepairDiagnostic('recommend');$('brSearch').onclick=()=>blockRepairDiagnostic('search');$('brInspect').onclick=()=>blockRepairDiagnostic('inspect');
+$('brTargetResults').onchange=()=>{if($('brTargetResults').value){$('brTarget').value=$('brTargetResults').value;brInvalidate();}};
+$('brExport').onclick=()=>{
+  if(!(currentSessionOwner||currentSessionRole==='Owner')||!brSnapshot)return;
+  const report={exportedUtc:new Date().toISOString(),...brSnapshot};const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='block-repair-diagnostics-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 $('brScan').onclick=()=>blockRepairAction('scan');$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
 function brInvalidate(){brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
 for(const id of ['brSource','brTarget','brAllowAir','brAllowValid','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{if(id==='brAutoBackup')$('brManualBackupAck').checked=false;brInvalidate();});
-setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'))loadBlockRepair();},4000);
+setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
 const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};

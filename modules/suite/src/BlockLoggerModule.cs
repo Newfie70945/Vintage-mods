@@ -113,6 +113,7 @@ public sealed class BlockLoggerModule : IDisposable
         // Supporter nicknames are presentation-only and never replace the authoritative
         // Vintage Story player/account name used by permissions, moderation or logs.
         blockRepair ??= new WorldRepair.BlockIdRepairService(api);
+        blockRepair.ConfigureHistoryDatabase(Path.Combine(SuiteDataPaths.GetWorldRoot(api), "blocklogger.db"));
         supporterNicknameService = new SupporterNicknameService(api);
         supporterNicknameService.Start();
 

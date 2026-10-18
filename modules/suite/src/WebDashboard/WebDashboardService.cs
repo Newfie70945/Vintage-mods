@@ -1224,7 +1224,7 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/all")
             return true;
 
-        if (path == "/api/block-repair" && request.Method == "POST") return GetJsonString(request.Body,"operation","") != "cancel";
+        if (path == "/api/block-repair" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "inspect" or "search" or "recommend");
 
         if (path == "/api/optimizations/newfies" && request.Method == "POST")
             return GetJsonString(request.Body, "operation", "set") != "profile-stop";
@@ -8542,7 +8542,10 @@ public sealed partial class WebDashboardService : IDisposable
                 var result=await RunOnMainThreadAsync<object>(()=>{
                     var repair=module.BlockRepair??throw new InvalidOperationException("Block repair is unavailable.");
                     return operation switch {
-                        "status"=>repair.Snapshot(),
+                        "status"=>repair.Snapshot((webSession?.IsOwner??false)||LocalAnonymousMode),
+                        "recommend"=>repair.StartRecommendations(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"beforeUtc","")),
+                        "search"=>repair.SearchTargets(GetJsonString(request.Body,"query","")),
+                        "inspect"=>repair.StartInspection(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"chunkKey","")),
                         "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null),
                         "preview"=>repair.Preview(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
                         "stage"=>repair.Stage(GetJsonString(request.Body,"previewId",""),GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),

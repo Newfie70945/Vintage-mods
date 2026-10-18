@@ -1,10 +1,13 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.50
+## Server Essentials Suite 1.2.51
 
-- Marked Block ID Repair as experimental, with a persistent use-at-your-own-risk and backup notice.
-- Automatic world backup is optional and stays enabled by default. Disabling it displays a manual-copy warning and requires acknowledgement in the panel or command; this is enforced again before applying.
-- Replacement destinations accept a numeric ID or exact `domain:code`. Preview shows the resolved code and world ID; startup refuses changed mappings or mismatched codes.
-- Bound backup, acknowledgement, air and valid-source choices to the reviewed plan. Editing inputs or refreshing after an edit cannot re-enable a stale staging token.
-- Job history and failure messages distinguish verified automatic backups from unverified manual copies. Temporary repair codec buffers are released after failed preflights too.
-- Existing Owner permissions, startup-only application, block-entity protection and layer/format checks remain. NOS and companion mods are unchanged.
+- Added Owner-only, read-only saved block and inventory inspection by absolute block coordinates/dimension or exact saved chunk key. Runs in the background without generating/loading terrain or executing mod block-entity/attribute code.
+- Reports retained classes, original block codes, current block mismatches, inventory paths, serialized stack IDs/quantities and payload hashes. Unknown formats and inspection limits are clearly marked; this does not restore inventories or invent lost items.
+- Added searchable registered replacement blocks. Inventory-bearing targets are labelled and disabled for generic remapping.
+- Added BlockLogger replacement suggestions using bounded, indexed history at an exact world/dimension/location, an optional incident cutoff, confidence and source record IDs. Recent placements outrank older activity; removals, conflicts and capped history are downgraded. Suggestions only fill the target and require a fresh preview.
+- Shows up to three historical container snapshots with slot codes/quantities and validity checks. Existing snapshots do not contain full item attributes; later transfers must be reviewed before recovery. No automatic inventory restoration is attempted.
+- Added downloadable JSON diagnostic reports with scan, plan and retained-data evidence. Inventory summaries are omitted from non-Owner web responses.
+- Bounded saved attribute parsing by size, depth, node/array/string count and output limits. Generic repair uses the same non-executing parser for source block-entity checks and refuses unverifiable data.
+- Read-only inspection/search remain available in Safe Diagnostics Mode; world-changing repair controls remain locked. Default/optional backup behavior is unchanged.
+- Suite version advanced to 1.2.51. NOS and companion mods are unchanged.
