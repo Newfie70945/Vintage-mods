@@ -24,3 +24,4 @@ Check(recovered==42,"Query gate was not released after cancellation/deadline");
 using var stopped=new CancellationTokenSource();stopped.Cancel();
 try{await runner.RunAsync(Open,LongQuery,stopped.Token,CancellationToken.None);throw new Exception("Shutdown admitted a query");}catch(OperationCanceledException){ }
 Console.WriteLine($"PASS: native SQLite interruption ({interruptionMs} ms), one-reader admission, deadline, deterministic pre-statement cancellation race, post-cancellation retry and shutdown rejection.");
+await SqlSeekChecks.Run(runner);

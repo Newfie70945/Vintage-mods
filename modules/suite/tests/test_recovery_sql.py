@@ -6,6 +6,10 @@ sql={name:re.search(name+r'\.CommandText\s*=\s*@"(.*?)";',section,re.S).group(1)
 c=sqlite3.connect(':memory:')
 for name in ['events','snapshots']:
  c.executescript(re.search(r'CREATE TABLE IF NOT EXISTS '+name+r' \(.*?\);',s,re.S).group(0))
+for index in ['idx_events_world_dim_pos_time','idx_events_world_time','idx_events_player_uid_time','idx_events_player_name_time','idx_snapshots_world_dim_pos_time']:
+ match=re.search(r'CREATE INDEX IF NOT EXISTS '+index+r'\s.*?;',s,re.S)
+ assert match,index
+ c.executescript(match.group(0))
 def event(i,t,uid='a',name='ExactName',world='w',dim='0',x=1,action=1,meta=None,y=100,z=1):
  c.execute('INSERT INTO events(id,timestamp_ticks,timestamp_utc,action,player_uid,player_name,world_id,dimension,x,y,z,block_code,meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(i,t,'',action,uid,name,world,dim,x,y,z,'game:stone',json.dumps(meta or {})))
 def snapshot(i,t,dim='0',x=1):

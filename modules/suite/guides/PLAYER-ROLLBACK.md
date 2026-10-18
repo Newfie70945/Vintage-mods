@@ -175,3 +175,10 @@ https://apidocs.vintagestory.at/api/Vintagestory.API.Common.Entities.Entity.html
 ## Claimed land in Polish1
 
 Claimed land is excluded by default from recovery. For an intentional claimed-area recovery, add `--include-claims`, for example `/rollback preview area 30 2h --include-claims`. The preview reports whether claims are included and how many chunks are affected. Current game access is checked again while executing; permissions changed after preview cause the affected operation to be skipped. Existing durable receipts and conflict checks remain in force.
+
+
+## QueryFix1: single-block query timeouts
+
+The previous query could traverse unrelated world history while checking a single selected cell. QueryFix1 starts from affected cells and seeks their event/snapshot records through the existing position indexes. It still includes pre-window inventory baselines, pre-window transfers needed for reconstruction and post-window edits/snapshots needed to refuse unsafe recovery. The row limits, one-query admission, cancellation, writer barrier and 30-second native work deadline remain enforced. This does not raise the timeout or relax recovery validation, and does not require a new index build on a large database.
+
+A timeout does not indicate that rollback edited the world. Preview is read-only; execution re-reads history before applying changes. If a timeout still occurs with QueryFix1, retain the exact command and server logs so a genuinely busy selected cell, a slow disk or database contention can be investigated separately. This fix was measured against synthetic histories and native SQLite fixtures, not the production server database.

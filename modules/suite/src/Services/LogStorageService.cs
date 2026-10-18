@@ -643,11 +643,14 @@ public sealed class LogStorageService : IDisposable
                 {
                 using var resolve = conn.CreateCommand();
                 resolve.Transaction = transaction;
-                resolve.CommandText = @"SELECT DISTINCT player_uid FROM events
+                resolve.CommandText = @"SELECT DISTINCT player_uid FROM events INDEXED BY idx_events_world_time
                     WHERE world_id=$world AND timestamp_ticks BETWEEN $from AND $to
-                    AND player_uid <> '' AND (player_uid=$target COLLATE NOCASE OR player_name=$target COLLATE NOCASE)
+                    AND player_uid<>'' AND player_uid=$target COLLATE NOCASE
+                    UNION SELECT DISTINCT player_uid FROM events INDEXED BY idx_events_player_name_time
+                    WHERE world_id=$world AND timestamp_ticks BETWEEN $from AND $to
+                    AND player_uid<>'' AND player_name=$target COLLATE NOCASE
                     UNION SELECT DISTINCT json_extract(CASE WHEN json_valid(meta_json) THEN meta_json ELSE '{}' END,'$.sourcePlayerUid')
-                    FROM events WHERE world_id=$world AND action=9 AND timestamp_ticks BETWEEN $from AND $to
+                    FROM events INDEXED BY idx_events_world_time WHERE world_id=$world AND action=9 AND timestamp_ticks BETWEEN $from AND $to
                     AND (json_extract(CASE WHEN json_valid(meta_json) THEN meta_json ELSE '{}' END,'$.sourcePlayerUid')=$target COLLATE NOCASE
                          OR json_extract(CASE WHEN json_valid(meta_json) THEN meta_json ELSE '{}' END,'$.sourcePlayerName')=$target COLLATE NOCASE);";
                 resolve.Parameters.AddWithValue("$world",currentWorldId);
@@ -664,24 +667,39 @@ public sealed class LogStorageService : IDisposable
                 using var cmd = conn.CreateCommand();
                 cmd.Transaction = transaction;
                 cmd.CommandText = @"WITH cells AS MATERIALIZED (
-                    SELECT DISTINCT dimension,x,y,z FROM events WHERE world_id=$world AND (($area=0 AND player_uid=$uid) OR ($area=1 AND (dimension=$dimension OR (dimension IN ('0','overworld') AND $dimension='0'))
-                    AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
-                    AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2))
-                    AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                    SELECT DISTINCT CASE WHEN dimension='overworld' THEN '0' ELSE dimension END AS dimension,x,y,z FROM (
+                        SELECT dimension,x,y,z FROM events INDEXED BY idx_events_player_uid_time
+                        WHERE $area=0 AND world_id=$world AND player_uid=$uid AND player_uid<>''
+                        AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                        UNION ALL
+                        SELECT dimension,x,y,z FROM events INDEXED BY idx_events_world_dim_pos_time
+                        WHERE $area=1 AND world_id=$world
+                        AND dimension IN ($dimension,CASE WHEN $dimension='0' THEN 'overworld' ELSE $dimension END)
+                        AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
+                        AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2
+                        AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                    )
                 ), baselines AS MATERIALIZED (
-                    SELECT c.*, (SELECT MAX(prior.timestamp_ticks) FROM snapshots prior
-                    WHERE prior.world_id=$world AND (prior.dimension=c.dimension OR (prior.dimension IN ('0','overworld') AND c.dimension IN ('0','overworld')))
-                    AND prior.x=c.x AND prior.y=c.y AND prior.z=c.z AND prior.timestamp_ticks < $from) AS before_ticks FROM cells c
-                ) SELECT e.timestamp_ticks,e.ingame_date,e.action,e.player_uid,e.player_name,e.world_id,
-                    e.dimension,e.x,e.y,e.z,e.block_code,e.meta_json,e.id FROM events e
-                    WHERE e.world_id=$world AND (
-                    (e.action IN (1,2,3,4,5,6) AND EXISTS(SELECT 1 FROM baselines c WHERE (c.dimension=e.dimension OR (c.dimension IN ('0','overworld') AND e.dimension IN ('0','overworld'))) AND c.x=e.x AND c.y=e.y AND c.z=e.z
-                    AND (e.timestamp_ticks >= $from OR e.timestamp_ticks > c.before_ticks)))
-                    OR (e.action=9 AND e.timestamp_ticks BETWEEN $from AND $to AND (($area=0 AND (e.player_uid=$uid OR
-                    json_extract(CASE WHEN json_valid(e.meta_json) THEN e.meta_json ELSE '{}' END,'$.sourcePlayerUid')=$uid)) OR ($area=1 AND (e.dimension=$dimension OR (e.dimension IN ('0','overworld') AND $dimension='0'))
-                    AND e.x BETWEEN $minX AND $maxX AND e.y BETWEEN $minY AND $maxY AND e.z BETWEEN $minZ AND $maxZ
-                    AND (1.0*(e.x-$cx)*(e.x-$cx)+1.0*(e.y-$cy)*(e.y-$cy)+1.0*(e.z-$cz)*(e.z-$cz))<=$r2))))
-                    ORDER BY e.timestamp_ticks DESC,e.id DESC LIMIT 200001;";
+                    SELECT c.*, (SELECT MAX(prior.timestamp_ticks) FROM snapshots prior INDEXED BY idx_snapshots_world_dim_pos_time
+                        WHERE prior.world_id=$world AND prior.dimension IN (c.dimension,CASE WHEN c.dimension='0' THEN 'overworld' ELSE c.dimension END)
+                        AND prior.x=c.x AND prior.y=c.y AND prior.z=c.z AND prior.timestamp_ticks<$from) AS before_ticks FROM cells c
+                )
+                SELECT e.timestamp_ticks,e.ingame_date,e.action,e.player_uid,e.player_name,e.world_id,e.dimension,e.x,e.y,e.z,e.block_code,e.meta_json,e.id
+                FROM baselines c CROSS JOIN events e INDEXED BY idx_events_world_dim_pos_time
+                WHERE e.world_id=$world AND e.dimension IN (c.dimension,CASE WHEN c.dimension='0' THEN 'overworld' ELSE c.dimension END)
+                AND e.x=c.x AND e.y=c.y AND e.z=c.z
+                AND e.timestamp_ticks>=COALESCE(c.before_ticks+1,$from) AND e.action IN (1,2,3,4,5,6)
+                UNION ALL
+                SELECT e.timestamp_ticks,e.ingame_date,e.action,e.player_uid,e.player_name,e.world_id,e.dimension,e.x,e.y,e.z,e.block_code,e.meta_json,e.id FROM events e INDEXED BY idx_events_world_time
+                WHERE $area=0 AND e.world_id=$world AND e.action=9 AND e.timestamp_ticks BETWEEN $from AND $to
+                AND (e.player_uid=$uid OR json_extract(CASE WHEN json_valid(e.meta_json) THEN e.meta_json ELSE '{}' END,'$.sourcePlayerUid')=$uid)
+                UNION ALL
+                SELECT e.timestamp_ticks,e.ingame_date,e.action,e.player_uid,e.player_name,e.world_id,e.dimension,e.x,e.y,e.z,e.block_code,e.meta_json,e.id FROM events e INDEXED BY idx_events_world_dim_pos_time
+                WHERE $area=1 AND e.world_id=$world AND e.action=9 AND e.timestamp_ticks BETWEEN $from AND $to
+                AND e.dimension IN ($dimension,CASE WHEN $dimension='0' THEN 'overworld' ELSE $dimension END)
+                AND e.x BETWEEN $minX AND $maxX AND e.y BETWEEN $minY AND $maxY AND e.z BETWEEN $minZ AND $maxZ
+                AND (1.0*(e.x-$cx)*(e.x-$cx)+1.0*(e.y-$cy)*(e.y-$cy)+1.0*(e.z-$cz)*(e.z-$cz))<=$r2
+                ORDER BY timestamp_ticks DESC,id DESC LIMIT 200001;";
                 cmd.Parameters.AddWithValue("$world",currentWorldId);
                 cmd.Parameters.AddWithValue("$uid",uid);
                 AddAreaParameters(cmd,areaCenter,areaRadius);
@@ -692,23 +710,33 @@ public sealed class LogStorageService : IDisposable
                 token.ThrowIfCancellationRequested();
                 using var snapshots = conn.CreateCommand();
                 snapshots.Transaction=transaction;
-                snapshots.CommandText=@"WITH cells AS MATERIALIZED (
-                    SELECT DISTINCT dimension,x,y,z FROM events WHERE world_id=$world AND (($area=0 AND player_uid=$uid) OR ($area=1 AND (dimension=$dimension OR (dimension IN ('0','overworld') AND $dimension='0'))
-                    AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
-                    AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2))
-                    AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                snapshots.CommandText = @"WITH cells AS MATERIALIZED (
+                    SELECT DISTINCT CASE WHEN dimension='overworld' THEN '0' ELSE dimension END AS dimension,x,y,z FROM (
+                        SELECT dimension,x,y,z FROM events INDEXED BY idx_events_player_uid_time
+                        WHERE $area=0 AND world_id=$world AND player_uid=$uid AND player_uid<>''
+                        AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                        UNION ALL
+                        SELECT dimension,x,y,z FROM events INDEXED BY idx_events_world_dim_pos_time
+                        WHERE $area=1 AND world_id=$world
+                        AND dimension IN ($dimension,CASE WHEN $dimension='0' THEN 'overworld' ELSE $dimension END)
+                        AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
+                        AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2
+                        AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                    )
                 ), baselines AS MATERIALIZED (
-                    SELECT c.*, (SELECT old.id FROM snapshots old
-                    WHERE old.world_id=$world AND (old.dimension=c.dimension OR (old.dimension IN ('0','overworld') AND c.dimension IN ('0','overworld')))
-                    AND old.x=c.x AND old.y=c.y AND old.z=c.z AND old.timestamp_ticks < $from
-                    ORDER BY old.timestamp_ticks DESC,old.id DESC LIMIT 1) AS before_id FROM cells c
-                ) SELECT s.timestamp_ticks,s.ingame_date,s.world_id,s.dimension,s.x,s.y,s.z,s.block_code,
-                    s.player_uid,s.player_name,s.inventory_id,s.reason,s.changed_slot_id,
-                    s.slot_count,s.non_empty_slot_count,s.total_item_count,s.slots_json,s.id
-                    FROM snapshots s WHERE s.world_id=$world
-                    AND EXISTS(SELECT 1 FROM baselines c WHERE (c.dimension=s.dimension OR (c.dimension IN ('0','overworld') AND s.dimension IN ('0','overworld'))) AND c.x=s.x AND c.y=s.y AND c.z=s.z
-                    AND (s.timestamp_ticks >= $from OR s.id=c.before_id))
-                    ORDER BY s.timestamp_ticks DESC,s.id DESC LIMIT 50001;";
+                    SELECT c.*, (SELECT old.id FROM snapshots old INDEXED BY idx_snapshots_world_dim_pos_time
+                        WHERE old.world_id=$world AND old.dimension IN (c.dimension,CASE WHEN c.dimension='0' THEN 'overworld' ELSE c.dimension END)
+                        AND old.x=c.x AND old.y=c.y AND old.z=c.z AND old.timestamp_ticks<$from
+                        ORDER BY old.timestamp_ticks DESC,old.id DESC LIMIT 1) AS before_id FROM cells c
+                )
+                SELECT s.timestamp_ticks,s.ingame_date,s.world_id,s.dimension,s.x,s.y,s.z,s.block_code,s.player_uid,s.player_name,s.inventory_id,s.reason,s.changed_slot_id,s.slot_count,s.non_empty_slot_count,s.total_item_count,s.slots_json,s.id
+                FROM baselines c CROSS JOIN snapshots s INDEXED BY idx_snapshots_world_dim_pos_time
+                WHERE s.world_id=$world AND s.dimension IN (c.dimension,CASE WHEN c.dimension='0' THEN 'overworld' ELSE c.dimension END)
+                AND s.x=c.x AND s.y=c.y AND s.z=c.z AND s.timestamp_ticks >= $from
+                UNION ALL
+                SELECT s.timestamp_ticks,s.ingame_date,s.world_id,s.dimension,s.x,s.y,s.z,s.block_code,s.player_uid,s.player_name,s.inventory_id,s.reason,s.changed_slot_id,s.slot_count,s.non_empty_slot_count,s.total_item_count,s.slots_json,s.id FROM baselines c CROSS JOIN snapshots s
+                WHERE s.id=c.before_id AND s.world_id=$world
+                ORDER BY timestamp_ticks DESC,id DESC LIMIT 50001;";
                 snapshots.Parameters.AddWithValue("$world",currentWorldId);
                 snapshots.Parameters.AddWithValue("$uid",uid);
                 AddAreaParameters(snapshots,areaCenter,areaRadius);

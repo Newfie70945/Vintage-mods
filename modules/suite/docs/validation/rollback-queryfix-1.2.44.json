@@ -1,0 +1,192 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-queryfix1",
+  "gameVersion": "1.22.7",
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "changes": [
+    "Affected-cell-driven position-index seeks replace world-wide EXISTS scans.",
+    "Player/area scope branches separated; timestamp lower bounds preserve pre-window inventory deltas and post-window conflicts.",
+    "Pre-window snapshot chosen by ID; later snapshots seek exact positions.",
+    "No new index, migration, timeout increase or relaxed recovery validation.",
+    "Repair scan counts explicitly represent reviewable saved occurrences; categories and same-code registered-ID evidence are included."
+  ],
+  "regression": {
+    "fixture": {
+      "unrelatedEvents": 250000,
+      "unrelatedSnapshots": 100000
+    },
+    "runs": [
+      {
+        "source": "baseline",
+        "milliseconds": 342.111,
+        "vmInstructionsApprox": 10600700,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 2
+      },
+      {
+        "source": "baseline",
+        "milliseconds": 188.004,
+        "vmInstructionsApprox": 6200600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 2
+      },
+      {
+        "source": "baseline",
+        "milliseconds": 456.733,
+        "vmInstructionsApprox": 10600700,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 7
+      },
+      {
+        "source": "baseline",
+        "milliseconds": 358.517,
+        "vmInstructionsApprox": 6200600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 7
+      },
+      {
+        "source": "baseline",
+        "milliseconds": 675.347,
+        "vmInstructionsApprox": 10600700,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 24
+      },
+      {
+        "source": "baseline",
+        "milliseconds": 243.623,
+        "vmInstructionsApprox": 6200600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 24
+      },
+      {
+        "source": "current",
+        "milliseconds": 1.819,
+        "vmInstructionsApprox": 800,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 2
+      },
+      {
+        "source": "current",
+        "milliseconds": 0.388,
+        "vmInstructionsApprox": 600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 2
+      },
+      {
+        "source": "current",
+        "milliseconds": 4.255,
+        "vmInstructionsApprox": 800,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 7
+      },
+      {
+        "source": "current",
+        "milliseconds": 0.29,
+        "vmInstructionsApprox": 600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 7
+      },
+      {
+        "source": "current",
+        "milliseconds": 0.499,
+        "vmInstructionsApprox": 800,
+        "rows": 4,
+        "query": "cmd",
+        "durationHours": 24
+      },
+      {
+        "source": "current",
+        "milliseconds": 0.266,
+        "vmInstructionsApprox": 600,
+        "rows": 3,
+        "query": "snapshots",
+        "durationHours": 24
+      }
+    ],
+    "plans": {
+      "cmd": [
+        "MERGE (UNION ALL)",
+        "LEFT",
+        "MERGE (UNION ALL)",
+        "LEFT",
+        "MATERIALIZE baselines",
+        "MATERIALIZE cells",
+        "CO-ROUTINE (subquery-2)",
+        "COMPOUND QUERY",
+        "LEFT-MOST SUBQUERY",
+        "SEARCH events USING INDEX idx_events_player_uid_time (world_id=? AND player_uid=? AND timestamp_ticks>? AND timestamp_ticks<?)",
+        "UNION ALL",
+        "SEARCH events USING INDEX idx_events_world_dim_pos_time (world_id=? AND dimension=? AND x>? AND x<?)",
+        "SCAN (subquery-2)",
+        "USE TEMP B-TREE FOR DISTINCT",
+        "SCAN c",
+        "CORRELATED SCALAR SUBQUERY 4",
+        "SEARCH prior USING COVERING INDEX idx_snapshots_world_dim_pos_time (world_id=? AND dimension=? AND x=? AND y=? AND z=? AND timestamp_ticks<?)",
+        "SCAN c",
+        "SEARCH e USING INDEX idx_events_world_dim_pos_time (world_id=? AND dimension=? AND x=? AND y=? AND z=? AND timestamp_ticks>?)",
+        "USE TEMP B-TREE FOR ORDER BY",
+        "RIGHT",
+        "SEARCH e USING INDEX idx_events_world_time (world_id=? AND timestamp_ticks>? AND timestamp_ticks<?)",
+        "USE TEMP B-TREE FOR LAST TERM OF ORDER BY",
+        "RIGHT",
+        "SEARCH e USING INDEX idx_events_world_dim_pos_time (world_id=? AND dimension=? AND x>? AND x<?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ],
+      "snapshots": [
+        "MERGE (UNION ALL)",
+        "LEFT",
+        "MATERIALIZE baselines",
+        "MATERIALIZE cells",
+        "CO-ROUTINE (subquery-2)",
+        "COMPOUND QUERY",
+        "LEFT-MOST SUBQUERY",
+        "SEARCH events USING INDEX idx_events_player_uid_time (world_id=? AND player_uid=? AND timestamp_ticks>? AND timestamp_ticks<?)",
+        "UNION ALL",
+        "SEARCH events USING INDEX idx_events_world_dim_pos_time (world_id=? AND dimension=? AND x>? AND x<?)",
+        "SCAN (subquery-2)",
+        "USE TEMP B-TREE FOR DISTINCT",
+        "SCAN c",
+        "CORRELATED SCALAR SUBQUERY 4",
+        "SEARCH old USING COVERING INDEX idx_snapshots_world_dim_pos_time (world_id=? AND dimension=? AND x=? AND y=? AND z=? AND timestamp_ticks<?)",
+        "USE TEMP B-TREE FOR ORDER BY",
+        "SCAN c",
+        "SEARCH s USING INDEX idx_snapshots_world_dim_pos_time (world_id=? AND dimension=? AND x=? AND y=? AND z=? AND timestamp_ticks>?)",
+        "USE TEMP B-TREE FOR ORDER BY",
+        "RIGHT",
+        "SCAN c",
+        "SEARCH s USING INTEGER PRIMARY KEY (rowid=?)",
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    }
+  },
+  "checks": {
+    "randomSqlEquivalence": "30 seeded fixtures, player/area/exact-block scopes, identical rows and order to baseline",
+    "sqliteCases": "Exact identity/world/dimension, injection resistance, legacy dimensions, inventory baselines and late conflicts",
+    "nativeSqlite": "Production SQL with Microsoft.Data.Sqlite/native SQLite: 30,000 unrelated events; required exact-position and legacy/baseline/later rows preserved.",
+    "cancellation": "Native interruption, one-reader admission, deadline, pre-statement race and retry passed.",
+    "commands": "Existing rollback and help, inventory, claims, cancellation, receipts and safe private replies passed.",
+    "browser": "Repair workflow and scan-count warnings, same-code registered ID clue, roles and stale input checks passed.",
+    "suite": 22
+  },
+  "limits": [
+    "Synthetic databases were used; no production database or authenticated game-client rollback was run.",
+    "Local in-memory timings are not production disk/server performance guarantees.",
+    "A suspect saved ID or familiar code name does not establish confirmed visible damage. Counts still require runtime/location verification.",
+    "Very large genuine affected-cell histories, slow disks, database contention and row caps can still stop recovery safely."
+  ],
+  "assemblySha256": "f27df93adaf1567d27923d97e41a99afd1e1630b6210b5631ec1128fc562a393",
+  "artifactSha256": "f3e6b9474b81675acb1bc4f269359884a7b55785a142aed2ce8f41b341b12bde"
+}
