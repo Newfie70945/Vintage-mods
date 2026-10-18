@@ -14,7 +14,7 @@ using HarmonyLib;
 
 namespace BlockLogger.WorldRepair;
 
-public sealed class BlockIdRepairService : IDisposable
+public sealed partial class BlockIdRepairService : IDisposable
 {
     public sealed class Finding
     {
@@ -60,9 +60,9 @@ public sealed class BlockIdRepairService : IDisposable
     private string Fingerprint(Dictionary<int,string> map)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(map.OrderBy(x=>x.Key)))));
     private bool Missing(int id)=>id<0||id>=api.World.Blocks.Count||api.World.Blocks[id]==null||api.World.Blocks[id].Code==null||api.World.Blocks[id].IsMissing;
     private string Label(int id,Dictionary<int,string> map)=>map.TryGetValue(id,out var code)?code:id>=0&&id<api.World.Blocks.Count?api.World.Blocks[id]?.Code?.ToString()??"":"";
-    public object Snapshot()
+    public object Snapshot(bool includeInspection=true)
     {
-        lock(gate){var map=Mapping();return new{world=api.World.SavegameIdentifier,scan,preview,pending,last,
+        lock(gate){var map=Mapping();return new{world=api.World.SavegameIdentifier,scan,preview,pending,last,inspection=includeInspection?inspection:null,recommendations=includeInspection?recommendations:null,
             missingMappings=map.Where(x=>x.Key!=0&&Missing(x.Key)).Take(4096).Select(x=>new{id=x.Key,code=x.Value,problem="Missing block definition; saved occurrence count requires a scan."}).ToArray(),
             scope="Solid, fluid and decor IDs in existing saved chunks. Unsaved live edits are not included. Preview/stage never changes terrain; a staged repair applies before terrain loads on restart.",
             limitations="Replacement blocks must have no block-entity class. A source hosting a block entity is refused. Lighting/heightmap caches are preserved; relight and refresh map exports if needed."};}
@@ -97,6 +97,7 @@ public sealed class BlockIdRepairService : IDisposable
     private static Finding Clone(Finding f)=>new(){Id=f.Id,Code=f.Code,Problem=f.Problem,Solid=f.Solid,Fluid=f.Fluid,Decor=f.Decor,Chunks=f.Chunks,Examples=f.Examples.ToList()};
     private void Validate(Plan p)
     {
+        if(!SavedBlockEntityInspector.BuiltinTypesSupported())throw new NotSupportedException("A mod changed built-in saved attribute types; repair is disabled to protect retained block entities.");
         if(!p.CreateBackup&&!p.ManualBackupAcknowledged)throw new InvalidOperationException("Automatic backup is disabled. Make a manual copy of your world and acknowledge it before previewing or staging a repair.");
         if(p.Source==0||p.Source==p.Target||p.Target<0)throw new ArgumentException("Use a non-air source and a different valid destination ID.");
         if(p.World!=api.World.SavegameIdentifier||p.Registry!=Fingerprint(Mapping()))throw new InvalidOperationException("World or block-ID mapping changed; make a fresh scan and preview.");
@@ -168,8 +169,12 @@ public sealed class BlockIdRepairService : IDisposable
     {
         var parsers=api.ChatCommands.Parsers;
         api.ChatCommands.Create("nseblockrepair").RequiresPrivilege(Privilege.controlserver).WithDescription("Saved-map numeric block ID inspection and staged repair")
-            .BeginSubCommand("status").HandleWith(_=>Run(Snapshot)).EndSubCommand()
+            .BeginSubCommand("status").HandleWith(_=>Run(()=>Snapshot())).EndSubCommand()
             .BeginSubCommand("scan").WithArgs(parsers.OptionalInt("source ID")).HandleWith(a=>Run(()=>StartScan(a.Parsers[0].IsMissing?null:(int)a[0]))).EndSubCommand()
+            .BeginSubCommand("inspect").WithArgs(parsers.Int("absolute X"),parsers.Int("Y"),parsers.Int("absolute Z"),parsers.OptionalInt("dimension")).HandleWith(a=>Run(()=>StartInspection((int)a[0],(int)a[1],(int)a[2],a.Parsers[3].IsMissing?0:(int)a[3]))).EndSubCommand()
+            .BeginSubCommand("inspectchunk").WithArgs(parsers.Word("saved chunk key")).HandleWith(a=>Run(()=>StartInspection(0,0,0,0,(string)a[0]))).EndSubCommand()
+            .BeginSubCommand("recommend").WithArgs(parsers.Int("absolute X"),parsers.Int("Y"),parsers.Int("absolute Z"),parsers.OptionalInt("dimension")).HandleWith(a=>Run(()=>StartRecommendations((int)a[0],(int)a[1],(int)a[2],a.Parsers[3].IsMissing?0:(int)a[3]))).EndSubCommand()
+            .BeginSubCommand("search").WithArgs(parsers.Word("block code or ID")).HandleWith(a=>Run(()=>SearchTargets((string)a[0]))).EndSubCommand()
             .BeginSubCommand("preview").WithArgs(parsers.Int("old ID"),parsers.Word("destination ID or code"),parsers.OptionalAll("options")).HandleWith(a=>Run(()=>PreviewCommand((int)a[0],(string)a[1],a[2] as string??""))).EndSubCommand()
             .BeginSubCommand("stage").WithArgs(parsers.Word("preview ID")).HandleWith(a=>Run(()=>Stage((string)a[0]))).EndSubCommand()
             .BeginSubCommand("cancel").HandleWith(_=>Run(Cancel)).EndSubCommand();
@@ -180,6 +185,6 @@ public sealed class BlockIdRepairService : IDisposable
         if(flags.Any(x=>x is not ("allow-air" or "allow-valid" or "no-backup" or "manual-copy-confirmed" or "-")))throw new ArgumentException("Options: allow-air, allow-valid, no-backup manual-copy-confirmed. Make a manual world copy before disabling automatic backup.");
         return Preview(source,destination,flags.Contains("allow-air"),flags.Contains("allow-valid"),!flags.Contains("no-backup"),flags.Contains("manual-copy-confirmed"));
     }
-    private TextCommandResult Run(Func<object> fn){try{var result=fn();api.Logger.Notification("{0}","NSE_BLOCKREPAIR_RESULT "+JsonSerializer.Serialize(result));string message=result is Plan p?$"Plan {p.Id}: ID {p.Source} -> {p.Target}; {p.Count} scanned entries; {p.State}.":$"Block repair: scan {scan?.State??"none"}, chunks {scan?.Chunks??0}, errors {scan?.Errors??0}. Full result printed to console and available in the webpanel.";return TextCommandResult.Success(message);}catch(Exception e){return TextCommandResult.Error(e.Message.Replace('{','(').Replace('}',')'));}}
+    private TextCommandResult Run(Func<object> fn){try{var result=fn();api.Logger.Notification("{0}","NSE_BLOCKREPAIR_RESULT "+JsonSerializer.Serialize(result));string message=result is Plan p?$"Plan {p.Id}: ID {p.Source} -> {p.Target}; {p.Count} scanned entries; {p.State}.":$"Block repair: scan {scan?.State??"none"}, chunks {scan?.Chunks??0}, errors {scan?.Errors??0}. Inspection {inspection?.State??"none"}. Full result printed to console and available in the webpanel.";return TextCommandResult.Success(message);}catch(Exception e){return TextCommandResult.Error(e.Message.Replace('{','(').Replace('}',')'));}}
     public void Dispose(){lock(gate){disposed=true;cancel?.Cancel();}try{worker?.Wait(3000);}catch{}if(worker?.IsCompleted!=false)cancel?.Dispose();}
 }

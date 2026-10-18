@@ -19,7 +19,7 @@ internal sealed class BlockIdChunkCodec
         if(blob.Length>64*1024*1024)throw new InvalidDataException("Chunk blob exceeds the 64 MiB inspection limit.");
         int p=0;var fields=new List<Field>();
         ulong Var(){ulong n=0;for(int i=0;i<10;i++){if(p>=blob.Length)throw new InvalidDataException("Truncated protobuf value.");byte b=blob[p++];if(i==9&&b>1)throw new InvalidDataException("Overflowing protobuf value.");n|=(ulong)(b&127)<<(i*7);if(b<128)return n;}throw new InvalidDataException("Bad protobuf value.");}
-        while(p<blob.Length){int start=p;ulong key=Var();int tag=checked((int)(key>>3)),wire=(int)(key&7);if(tag==0)throw new InvalidDataException("Zero protobuf field.");int data=p,len=0;ulong number=0;
+        while(p<blob.Length){if(fields.Count>=65536)throw new InvalidDataException("Too many chunk fields to inspect safely.");int start=p;ulong key=Var();int tag=checked((int)(key>>3)),wire=(int)(key&7);if(tag==0)throw new InvalidDataException("Zero protobuf field.");int data=p,len=0;ulong number=0;
             switch(wire){case 0:number=Var();break;case 1:len=8;break;case 2:ulong size=Var();if(size>(ulong)(blob.Length-p))throw new InvalidDataException("Truncated protobuf payload.");data=p;len=(int)size;break;case 5:len=4;break;default:throw new InvalidDataException("Unsupported protobuf wire type.");}
             if(wire!=0)p=checked(p+len);if(p>blob.Length)throw new InvalidDataException("Truncated protobuf field.");fields.Add(new(tag,wire,start,p,data,len,number));
         }
@@ -40,6 +40,18 @@ internal sealed class BlockIdChunkCodec
         var decor=fields.FirstOrDefault(x=>x.Tag==14);if(decor!=null){if(decor.Wire!=2||decor.Length%8!=0)throw new InvalidDataException("Invalid decor pairs.");for(int i=0;i<decor.Length;i+=8)Add(BinaryPrimitives.ReadInt32LittleEndian(blob.AsSpan(decor.Data+i+4,4)),2);}
         return result;
     }
+    public Dictionary<int,int[]> ReadCells(byte[] blob,IEnumerable<int> indices)
+    {
+        var cells=indices.Distinct().ToDictionary(i=>i,_=>new int[2]);
+        if(cells.Keys.Any(i=>i<0||i>=32768)||cells.Count>257)throw new ArgumentOutOfRangeException(nameof(indices));
+        var fields=Fields(blob);int version=(int)(fields.LastOrDefault(x=>x.Tag==15)?.Number??0);
+        if(version is not (1 or 2))throw new NotSupportedException("Legacy chunk compression cannot be inspected safely.");
+        foreach(var field in fields.Where(x=>x.Tag is 1 or 16)){
+            if(field.Wire!=2)throw new InvalidDataException("Invalid layer field type.");var layer=Decode(blob.AsSpan(field.Data,field.Length).ToArray());
+            try{foreach(var cell in cells)cell.Value[field.Tag==1?0:1]=layer.GetUnsafe(cell.Key);}finally{pool.FreeArrays(layer);}
+        }
+        return cells;
+    }
     public byte[] Replace(byte[] blob,int source,int target,out long changed)
     {
         if(source==0||target<0||source==target)throw new ArgumentException("Invalid numeric replacement.");
@@ -48,9 +60,9 @@ internal sealed class BlockIdChunkCodec
         // Parse only the standard tree payload, without constructing mod classes.
         foreach(var field in fields.Where(x=>x.Tag==8)){
             if(field.Wire!=2)throw new InvalidDataException("Invalid block-entity payload.");
-            using var input=new MemoryStream(blob,field.Data,field.Length,false);using var reader=new BinaryReader(input);reader.ReadString();var tree=new TreeAttribute();tree.FromBytes(reader);
-            if(!tree.HasAttribute("posx")||!tree.HasAttribute("posy")||!tree.HasAttribute("posz"))throw new InvalidDataException("Block entity position cannot be verified.");
-            int index=((tree.GetInt("posy")&31)*32+(tree.GetInt("posz")&31))*32+(tree.GetInt("posx")&31);
+            var retained=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
+            if(!retained.Complete)throw new InvalidDataException("Saved block-entity data cannot be fully verified; generic replacement refused. Inspect the chunk for a dedicated migration. "+retained.Issue);
+            int index=(((retained.InternalY!.Value&31)*32+(retained.Z!.Value&31))*32)+(retained.X!.Value&31);
             foreach(var solid in fields.Where(x=>x.Tag is 1 or 16)){var layer=Decode(blob.AsSpan(solid.Data,solid.Length).ToArray());try{if(layer.GetUnsafe(index)==source)throw new InvalidOperationException("Source block hosts a block entity; inventory-safe replacement requires restoring its mod or a dedicated migration.");}finally{pool.FreeArrays(layer);}}
         }
         var replacements=new Dictionary<int,byte[]>();

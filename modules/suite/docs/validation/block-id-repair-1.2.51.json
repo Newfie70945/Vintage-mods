@@ -1,0 +1,78 @@
+{
+  "suiteVersion": "1.2.51",
+  "gameVersion": "1.22.7",
+  "authenticatedPlayers": 0,
+  "kind": "Disposable world-copy validation of retained bookshelf inspection, BlockLogger suggestions/snapshots and standard repair",
+  "codecAndInspectionAssertions": 57,
+  "sqliteHistoryAssertions": 10,
+  "repairCellAndFieldAssertions": 32775,
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "inspection": {
+    "suiteVersion": "1.2.51",
+    "gameVersion": "1.22.7",
+    "kind": "Retained Bookshelf inventory fixture in a disposable saved-world copy",
+    "authenticatedPlayers": 0,
+    "anonymousDenied": true,
+    "protectedBookShelfTarget": true,
+    "safeModeInspectionAllowed": true,
+    "historyWorldIsolation": true,
+    "nonOwnerInventoryOmitted": true,
+    "readOnlyInspectionDenied": true,
+    "safeModeStageDenied": true,
+    "absoluteCoordinateInspectionPassed": true,
+    "terrainAndEntityBlobUnchanged": true,
+    "noRepairStaged": true,
+    "integrity": "ok",
+    "errors": [],
+    "passed": true
+  },
+  "retainedEntity": {
+    "class": "Bookshelf",
+    "serializedItems": 7,
+    "nonEmptyStacks": 1,
+    "solidId": 999999,
+    "complete": true,
+    "assessment": "Retained block entity differs from its current block. Dedicated recovery assessment required; generic remapping is blocked. Serialized item stacks found; no items have been restored."
+  },
+  "history": {
+    "candidate": "game:bookshelf",
+    "confidence": "Medium",
+    "genericContainerTargetBlocked": true,
+    "eventsRead": 1,
+    "snapshotsRead": 1,
+    "historicalSlotsValid": true,
+    "historicalRecordedItems": 7
+  },
+  "standardRepair": {
+    "passed": true,
+    "scanChunks": 4648,
+    "changedBlocks": 1,
+    "changedChunks": 1,
+    "worldIntegrity": "ok",
+    "backupIntegrity": "ok",
+    "errors": []
+  },
+  "browserChecks": [
+    "Numeric/code preview and backup acknowledgement controls",
+    "Target search and disabled block-entity targets",
+    "Precise string chunk keys and absolute position inspection",
+    "History cutoff, confidence/evidence and protected container suggestions",
+    "Snapshot contents and JSON report download",
+    "Untrusted labels rendered as text",
+    "Owner-only inventory/history and Safe Diagnostics controls",
+    "Preview invalidation and 390px mobile layout"
+  ],
+  "artifactSha256": "b4202b94b849307fb5bfd4566a588881479d28f0ee199432bb59b60fe1bca93e",
+  "assemblySha256": "1969882ce7fbb7d1c213ef6a7fb377a7d13db96d371c02cb93f78f863fa0bb66",
+  "limits": [
+    "Retained bookshelf and historical snapshot data were deliberately seeded into a disposable test world, not recovered from the production server.",
+    "No authenticated game clients or production containers were modified.",
+    "No automatic inventory restoration is implemented. Finding records does not establish a safe recovery.",
+    "Existing snapshots contain slot codes and quantities only; full item attributes and later transfers are not reconstructed.",
+    "Custom/oversized or unsupported saved attributes can be marked partial/refused.",
+    "Generic block-entity replacement stays blocked; lighting/map caches may require refreshing after ordinary ID repair."
+  ]
+}

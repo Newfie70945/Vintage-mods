@@ -37,3 +37,35 @@ Open **Suite webpanel → Server Tools → Block ID Repair**. Use a panel Owner 
 To disable automatic backup from the console, make a manual world copy first, then use `preview <oldId> <destination> no-backup manual-copy-confirmed`. Omitting the acknowledgement is refused by the server. Options can appear in any order.
 
 For explicit air removal: `preview <oldId> 0 allow-air`. For a registered source: `preview <oldId> <newId> - allow-valid`. Full structured results are safely printed to console; chat gets a short summary and preview token. Stage the exact preview token you reviewed.
+
+## Read-only bookshelf / inventory investigation
+
+Use **Inspect saved block / inventory data** before attempting to repair a broken container. Enter absolute saved block X/Y/Z and dimension (not spawn-relative map coordinates), or paste the exact signed chunk key from a scan sample. A chunk-key inspection lists retained block entities throughout that chunk. The command equivalents are:
+
+```
+/nseblockrepair inspect <absoluteX> <Y> <absoluteZ> [dimension]
+/nseblockrepair inspectchunk <savedChunkKey>
+/nseblockrepair search bookshelf
+```
+
+Inspection runs in the background and shares the scan/cancel worker; wait for one operation to finish before starting another. It reads one saved chunk, closes its database reader, and never activates terrain, executes mod block-entity/attribute classes, resolves item stacks, or writes world data. No saved chunk means nothing is generated. Owner access or `controlserver` is required. Owner inspections remain available in Safe Diagnostics Mode, while staging/edit controls remain locked. Non-Owner status responses omit retained inventory summaries.
+
+The report includes original serialized class/code/position, current solid/fluid IDs and code labels, any class/code mismatch, inventory tree paths, positive-quantity serialized stacks, and SHA-256 hashes of the saved chunk and entity payloads. Current code labels do not convert historical item-ID mappings. Up to 64 stacks per entity are listed; totals include serialized nested stacks, not a verified count of recoverable items. Stack attributes and opaque mod data are not exported. Custom byte storage may contain items the inspector cannot interpret.
+
+Bounds: 64 MiB per chunk, at most 256 block-entity records / 8 MiB of entity payloads per inspection, 2 MiB per decoded entity, depth 20, 16,384 attribute nodes, 4,096 bytes per string and bounded arrays. Partial/unsupported/oversized records and limits are explicitly reported. If a mod overrides built-in attribute types, inspection is disabled. An absent inventory or stack in a partial report is not evidence that it was deleted.
+
+**Finding retained stacks is not a recovery guarantee. This pass does not restore bookshelf inventories or bypass generic block-entity protection.** A dedicated migration would need to verify the original class, block code, inventory schema and item mappings before reconnecting data. If a damaged chunk has already lost its serialized contents and was saved over, another surviving copy such as a pre-incident backup is needed. Do not break or replace the damaged containers while investigating.
+
+**Search Blocks** finds registered block codes/IDs; container targets are identified and cannot be selected for generic replacement. Choose an ordinary target to fill the replacement field, which invalidates the old preview. **Download Diagnostic Report** saves the current scan/plan/inspection as JSON on your computer. Keep this file private: it can contain inventory summaries and locations.
+
+## BlockLogger recommendations and historical inventories
+
+Enter the damaged block’s **absolute** coordinates and dimension, optionally choose a history cutoff just before the incident, and click **Recommend from BlockLogger**. The chunk-key input is for saved-data inspection only; recommendations always require an exact location. Console: `/nseblockrepair recommend <absoluteX> <Y> <absoluteZ> [dimension]` (current-time cutoff).
+
+The lookup is restricted to the current world ID, numeric dimension and exact X/Y/Z. It uses the existing positional indexes, at most 200 latest events and 50 snapshots, and refuses an indexless fallback. It never scans the whole log database, guesses from unrelated locations, or uses old numeric IDs as globally stable identities. Legacy rows missing this world/numeric dimension are not inferred. A missing, disabled or pruned history may produce no evidence. A row cap downgrades confidence.
+
+Suggestions show source event/snapshot IDs, timestamps, placement/use/container/removal evidence and current registration status. Confidence is Medium or Low, not a probability or guarantee. A recent recorded placement takes precedence over frequent older activity; a break describes a removed block. Conflicting or incomplete history needs manual review. A per-location suggestion does not justify replacing all occurrences of a numeric ID across the map.
+
+Up to three historical container snapshots include slot IDs, item codes and counts (at most 128 displayed occupied slots each). The stored JSON is bounded at 64 KiB, depth 8, and validated against recorded counts and slot IDs. Invalid/partial snapshots are labelled. Existing BlockLogger snapshots store **codes/counts only**, not complete attributes such as written book text, durability, perish timers or nested bag contents. Full inventory recovery is not guaranteed. Snapshot logging was disabled by default in the inspected configuration; useful snapshots exist only if enabled and retained at the time. The new inspector does not invent missing snapshots retroactively.
+
+Choosing an ordinary suggestion fills the destination and invalidates the previous preview. Container suggestions remain visible but disabled for generic remapping. Review later transfers before any separate recovery plan: copying an old snapshot can duplicate removed items or overwrite legitimate changes. This pass does not restore inventories or apply suggestions automatically. Owner-only diagnostic reports include this evidence; non-Owner status responses omit it.
