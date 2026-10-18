@@ -1,0 +1,92 @@
+{
+  "kind": "Official server fresh-generation and save/reopen correctness validation; not a throughput benchmark",
+  "gameVersion": "1.22.7",
+  "suiteVersion": "1.2.48",
+  "optimizerVersion": "0.5.0",
+  "authenticatedClients": 0,
+  "authenticationVerification": true,
+  "controlCycles": 3,
+  "controlChecks": [
+    "Suite finds NOS via event bridge",
+    "AI switch independently disables its patch",
+    "repulsion remains active with profiling off",
+    "repulsion switch independently disables its patch",
+    "AI remains active with profiling off",
+    "storage switches independently disable patches",
+    "storage switches leave AI optimization active",
+    "master-off saves and applies",
+    "master-off retains stock methods",
+    "invalid bound rejected",
+    "unknown key rejected",
+    "safe mode applies",
+    "safe mode retains stock methods",
+    "original settings restored",
+    "capture starts through Suite bridge",
+    "active capture locks edits",
+    "capture stops through Suite bridge",
+    "restored configuration persisted"
+  ],
+  "freshlyGeneratedColumns": 4,
+  "profileDurationSeconds": 30.5827687,
+  "profiledTicks": 920,
+  "storageModules": [
+    {
+      "name": "saveSnapshotRelease",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "worldgenRequestReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "saveChecks": [
+    "18.10.2026 05:15:23 [Server Notification] NOS_STORAGE_PASS snapshot=0, released=40, completed=1",
+    "18.10.2026 05:15:30 [Server Notification] NOS_STORAGE_STOCK_PASS snapshot=40",
+    "18.10.2026 05:15:36 [Server Notification] NOS_STORAGE_PASS snapshot=0, released=80, completed=2"
+  ],
+  "reopenSaveChecks": [
+    "18.10.2026 05:16:13 [Server Notification] NOS_STORAGE_PASS snapshot=0, released=424, completed=1"
+  ],
+  "saveIntegrity": "ok",
+  "reopenedWorld": {
+    "kind": "Reopen saved world using shipping ZIPs",
+    "authenticatedClients": 0,
+    "exitCode": 0,
+    "columnsReloaded": true,
+    "storagePassed": true,
+    "errors": [],
+    "saveIntegrity": "ok",
+    "passed": true
+  },
+  "errors": [],
+  "exitCode": 0,
+  "artifactSha256": {
+    "NewfiesServerEssentialsSuiteV1.2.48.zip": "be2e953fd108010358db27e525ded045cb14fa5da23661f0fa7abb5a9314295f",
+    "NewfiesServerOptimizer-0.5.0-preview.zip": "fcbd310bc130861555269fb34ede6fcaa137e48a5c2e556764fca88924eed1f6"
+  },
+  "limits": [
+    "Disposable save, no authenticated clients or production modpack workload.",
+    "Loaded test chunks were kept loaded; cleared snapshot entries are released references, not a measured RAM reduction.",
+    "No CPU, tick-time or disk-throughput improvement claim is based on this idle capture."
+  ],
+  "idleCaptureObservations": {
+    "tick": {
+      "count": 920,
+      "averageMs": 0.004347826086956522,
+      "medianMs": 0,
+      "p95Ms": 0,
+      "p99Ms": 0,
+      "worstMs": 1,
+      "overflowCount": 0,
+      "effectiveTps": 30.08229925238914,
+      "mainThreadWorkPercent": 0.013079260544517019,
+      "source": "Official ServerMain.StatsCollector pre-sleep work; integer milliseconds. Effective TPS is completed ticks per wall second, not 1000 / processing time. Percentiles above histogram range are null."
+    },
+    "managedHeapBytesMin": 739165992,
+    "managedHeapBytesMax": 751811344,
+    "workingSetBytesMin": 1284591616,
+    "workingSetBytesMax": 1287016448
+  }
+}

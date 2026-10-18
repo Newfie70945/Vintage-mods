@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -89,6 +89,19 @@ static class Checks
    foreach(var tick in rangeConflict.Ticks)tick(1);
    Assert(module.Modules().Single(x=>x.Name=="repulseDelegateReuse").Status=="conflict","late range-predicate patch disables repulsion optimization");
    Assert(module.Modules().Where(x=>x.Name!="repulseDelegateReuse").All(x=>x.Status=="active"),"unrelated modules survive repulsion conflict");
+  }
+  foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(WorldgenRequestOptimizations.Dependencies[1],prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   Assert(module.Modules().Single(x=>x.Name=="worldgenRequestReuse").Status=="conflict","generation queue foreign patch retains stock lookup");
+  foreign.UnpatchAll(foreign.Id);
+  var storageConflict=Api();
+  using(var module=new EngineOptimizations(storageConflict.Api,Config(),()=>200))
+  {
+   foreign.Patch(SaveSnapshotOptimizations.Dependencies[1],prefix:prefix);
+   foreach(var tick in storageConflict.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="saveSnapshotRelease").Status=="conflict","late save snapshot patch disables release");
+   Assert(module.Modules().Where(x=>x.Name!="saveSnapshotRelease").All(x=>x.Status=="active"),"save conflict leaves unrelated modules active");
   }
   foreign.UnpatchAll(foreign.Id);
   var lost=Api();

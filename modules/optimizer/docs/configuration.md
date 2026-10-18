@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.3.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after editing. Three independently controlled API implementation substitutions are available. Simulation, AI, packet formats and save scheduling remain unchanged.
+Newfie's Server Optimizer **0.5.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -81,7 +81,7 @@ Optional timing groups are independent. Any target conflict or installation fail
 
 To stop collection: `/optimizer profile stop`. To disable across restart: `Enabled=false`. To remove completely, stop the server and remove the mod ZIP. No engine DLL, database schema or saved world data has been patched. Detailed compatibility and real-player benchmark validation are still required before a production optimization release.
 
-## Engine modules in 0.2.0
+## Engine modules
 
 - `EngineOptimizations.OnlinePlayerSnapshots`: true by default; reduces iterator overhead while returning a fresh official-type array.
 - `EngineOptimizations.NearbyPlayerQueries`: false by default; enables population-adaptive temporary-list reuse.
@@ -92,13 +92,22 @@ To stop collection: `/optimizer profile stop`. To disable across restart: `Enabl
 
 These engine modules always require the exact inspected 1.22.7 hashes, even if a legacy compatibility setting is relaxed. They do not implement the older placeholder entity/world-generation/network scheduling options.
 
-Nearby-query reuse remains opt-in because component CPU timings were mixed despite substantially lower allocations. The default-on modules are online snapshot allocation reduction and bulk stream reads.
+Nearby-query reuse remains opt-in because component CPU timings were mixed despite substantially lower allocations. Online snapshots, bulk stream reads, the bounded asset cache, AI filter dispatch, repulsion callback reuse, generation request reuse and completed save snapshot release default on. Nearby-player query reuse remains opt-in.
 
 ## Suite integration
 
-Suite 1.2.46 provides NOS status, master/safe-mode switches, independent engine switches, population threshold, asset-cache bound, capture start/stop and export. The in-process control protocol is version 1. Settings are validated and persisted before active patches are replaced. A failed persistence operation leaves runtime settings unchanged. Stop captures before applying settings. Applying settings retains all existing profiling/export configuration not exposed by this editor.
+Suite 1.2.48 provides NOS status, master/safe-mode switches, independent engine switches, population threshold, asset-cache bound, capture start/stop and export. The in-process control protocol is version 1. Settings are validated and persisted before active patches are replaced. A failed persistence operation leaves runtime settings unchanged. Stop captures before applying settings. Applying settings retains all existing profiling/export configuration not exposed by this editor.
 
 - `EngineOptimizations.AssetCompressionCache`: true by default; accelerates repeated official assets compression only.
 - `EngineOptimizations.AssetCacheMaxMiB`: 16 by default, range 1–32. Combined retained source/compressed payload budget. Foreign Harmony owners or a mismatched engine disable the module.
 
 Low-compressibility or over-budget asset buffers use stock compression after the initial probe, avoiding repeated cache-copy overhead. A new asset buffer or reapplying settings permits a fresh probe. Cache hits require at least 25% size reduction on that probe.
+
+## Entity, generation and storage modules
+
+- `EngineOptimizations.AiFilterDispatch`: true by default. Avoids invocation-list allocations while preserving filter order, vetoes and exceptions.
+- `EngineOptimizations.RepulseDelegateReuse`: true by default. Reuses weakly held walk callbacks and removes the exactly verified always-true range predicate. Collision results and tick rates remain unchanged.
+- `EngineOptimizations.WorldgenRequestReuse`: true by default. Removes capturing factory allocations from generation request lookup; preserves pass escalation, queue order and generation priority.
+- `EngineOptimizations.SaveSnapshotRelease`: true by default. Clears the chunk snapshot only after successful background save completion, inside the existing save lock. Failure/retry inputs, dirty flags, formats and transactions are unchanged. Previously saved chunks can become collectible when they unload and have no other references.
+
+These modules work with profiling stopped. Disabling a module restores its stock method. Snapshot counters (`saveSnapshotReferencesReleased`, `saveSnapshotCompletions`) are cumulative for this server process, including across settings reloads; they count references, not memory bytes or disk writes. No forced garbage collection is performed. Chunk-generation algorithms, network batching, chunk I/O, incremental save scheduling and world-generation thread counts are not changed.

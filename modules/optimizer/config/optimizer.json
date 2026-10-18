@@ -60,6 +60,8 @@
     "AssetCompressionCache": true,
     "AssetCacheMaxMiB": 16,
     "AiFilterDispatch": true,
-    "RepulseDelegateReuse": true
+    "RepulseDelegateReuse": true,
+    "WorldgenRequestReuse": true,
+    "SaveSnapshotRelease": true
   }
 }

@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.4.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.5.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -45,6 +45,7 @@ public sealed class EngineOptimizations : IDisposable
         assetCacheBytes = config.EngineOptimizations.AssetCacheMaxMiB * 1048576;
         AssetCompressionOptimizations.Configure(false);
         AiFilterOptimizations.Configure(false); RepulseDelegateOptimizations.Configure(false);
+        WorldgenRequestOptimizations.Configure(false); SaveSnapshotOptimizations.Configure(false);
         this.clientCount = clientCount ?? (() => api.World is ServerMain world ? world.Clients.Values.Count : 0);
         PlayerQueryOptimizations.MinimumNearbyClients = minimumNearbyClients;
         PlayerQueryOptimizations.SnapshotEnabled = false;
@@ -64,6 +65,10 @@ public sealed class EngineOptimizations : IDisposable
             ()=>[AiFilterOptimizations.Target],null,AiFilterOptimizations.Configure) { Transpiler=AiFilterOptimizations.TranspilerMethod });
         entries.Add(new("repulseDelegateReuse",options.RepulseDelegateReuse,()=>RepulseDelegateOptimizations.Target,
             ()=>RepulseDelegateOptimizations.Dependencies,null,RepulseDelegateOptimizations.Configure) { Transpiler=RepulseDelegateOptimizations.TranspilerMethod });
+        entries.Add(new("worldgenRequestReuse",options.WorldgenRequestReuse,()=>WorldgenRequestOptimizations.Target,
+            ()=>WorldgenRequestOptimizations.Dependencies,null,WorldgenRequestOptimizations.Configure) { Transpiler=WorldgenRequestOptimizations.TranspilerMethod });
+        entries.Add(new("saveSnapshotRelease",options.SaveSnapshotRelease,()=>SaveSnapshotOptimizations.Target,
+            ()=>SaveSnapshotOptimizations.Dependencies,null,SaveSnapshotOptimizations.Configure) { Transpiler=SaveSnapshotOptimizations.TranspilerMethod });
         string? blocked = !config.Enabled ? "Optimizer master switch is disabled." : config.Compatibility.SafeMode ?
             "Compatibility.SafeMode is enabled; stock methods retained." : EngineGuard();
         foreach (var entry in entries)
@@ -73,7 +78,8 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
+                bool contract = entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                    entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
                 if (!contract) { entry.State = "unsupported"; entry.Reason = why; continue; }
@@ -183,7 +189,7 @@ public sealed class EngineOptimizations : IDisposable
     private static long Failures(string name)
     {
         var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
+        return name switch { "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
             "nearbyPlayerQueries" => query.AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
@@ -200,7 +206,8 @@ public sealed class EngineOptimizations : IDisposable
     {
         var q = PlayerQueryOptimizations.GetCounters(); var s = StreamCopyOptimizations.Snapshot;
         var assets = AssetCompressionOptimizations.Counters;
-        return new Dictionary<string,long> { ["onlineSnapshotCalls"] = q.SnapshotCalls,
+        var saves = SaveSnapshotOptimizations.Counters;
+        return new Dictionary<string,long> { ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
             ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,

@@ -4,13 +4,13 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 
 | Module | Version | Source |
 | --- | --- | --- |
-| Server Essentials Suite | 1.2.47 | [modules/suite](modules/suite) |
+| Server Essentials Suite | 1.2.48 | [modules/suite](modules/suite) |
 | Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.4.0-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.5.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 

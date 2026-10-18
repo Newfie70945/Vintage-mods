@@ -12,7 +12,7 @@ namespace NewfiesOptimizer;
 
 public sealed class RuntimeProfiler : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.4.0";
+    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.5.0";
     private static RuntimeProfiler? active;
     public Func<ModuleStatus[]>? ExternalModules { get; set; }
     public Func<IReadOnlyDictionary<string,long>>? ExternalCounters { get; set; }
@@ -135,7 +135,7 @@ public sealed class RuntimeProfiler : IDisposable
 
     public string Status()
     {
-        string summary = "Newfie's Server Optimizer 0.4.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
+        string summary = "Newfie's Server Optimizer 0.5.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
         if (Session is not null) summary += $" Capture {Session.ElapsedSeconds:F1}s, {Session.TickCount} completed ticks.";
         if (LastExport is not null) summary += " Last export: " + LastExport + ".";
         if (ExportFailure is not null) summary += " Export failed: " + ExportFailure + ".";

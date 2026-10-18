@@ -4,7 +4,7 @@
   "networkVersion": "1.22.6",
   "apiVersion": "1.22.0",
   "targetFramework": "net10.0",
-  "auditDateUtc": "2026-10-17",
+  "auditDateUtc": "2026-10-18",
   "source": "Static inspection of installed official version assemblies using ILSpy11.1.0.9782",
   "assemblySha256": {
     "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
@@ -508,6 +508,40 @@
       "classification": "allocation-candidate",
       "staticVerified": true,
       "performanceBenefitProven": false
+    },
+    {
+      "id": "generation-request-factory",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ChunkServerThread",
+      "method": "EnsureMinimumWorldgenPassAt",
+      "parameters": [
+        "Int64",
+        "Int32",
+        "Int32",
+        "Int32",
+        "Int64"
+      ],
+      "category": "worldgen",
+      "thread": "chunk generation",
+      "observed": "Capturing GetOrAdd factory allocates on existing requests. State-argument factory avoids closure allocation without changing request priority/order.",
+      "classification": "guarded-engine-module",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "componentEvidence": "96 B/call removed in existing-request component fixture; production throughput unmeasured"
+    },
+    {
+      "id": "completed-save-snapshot",
+      "assembly": "VintagestoryLib.dll",
+      "type": "Vintagestory.Server.ServerSystemLoadAndSaveGame",
+      "method": "OnSeparateThreadTick",
+      "parameters": [],
+      "category": "storage",
+      "thread": "chunk worker",
+      "observed": "chunksCopy retains saved ServerChunk references after successful background save. Release after successful completion store, within original savingLock; exceptions retain retry inputs.",
+      "classification": "guarded-engine-module",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "componentEvidence": "Reference retention fix; no disk throughput or production memory delta claimed"
     }
   ]
 }

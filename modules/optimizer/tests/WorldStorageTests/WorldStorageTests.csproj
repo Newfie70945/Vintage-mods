@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup>
+<Compile Include="../../src/NewfiesOptimizer/Optimizations/WorldStorageOptimizations.cs" Link="WorldStorageOptimizations.cs"/>
+<Reference Include="VintagestoryAPI"><HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath><Private>false</Private></Reference><Reference Include="VintagestoryLib"><HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath><Private>false</Private></Reference><Reference Include="0Harmony"><HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath><Private>false</Private></Reference>
+<Reference Include="VSEssentials"><HintPath>$(VINTAGE_STORY)/Mods/VSEssentials.dll</HintPath><Private>false</Private></Reference></ItemGroup></Project>

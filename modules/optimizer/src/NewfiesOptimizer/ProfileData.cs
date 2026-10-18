@@ -43,7 +43,7 @@ public sealed record ProfileReport
 {
     public int SchemaVersion { get; init; } = 1;
     public string Kind { get; init; } = "newfies-optimizer-profile";
-    public string OptimizerVersion { get; init; } = "0.4.0";
+    public string OptimizerVersion { get; init; } = "0.5.0";
     public IReadOnlyDictionary<string,long> EngineCounters { get; init; } = new Dictionary<string,long>();
     public string GameVersion { get; init; } = "1.22.7";
     public DateTimeOffset StartedUtc { get; init; }

@@ -79,6 +79,8 @@ public sealed class BenchmarkOptions
 // Each semantics-preserving API patch is independently switchable. SafeMode disables all four.
 public sealed class EngineOptimizationOptions
 {
+    public bool WorldgenRequestReuse { get; set; } = true;
+    public bool SaveSnapshotRelease { get; set; } = true;
     public bool AiFilterDispatch { get; set; } = true;
     public bool RepulseDelegateReuse { get; set; } = true;
     public bool OnlinePlayerSnapshots { get; set; } = true;

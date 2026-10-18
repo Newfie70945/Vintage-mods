@@ -1,13 +1,12 @@
 # Current release changes
 
-## Suite 1.2.47 + NOS 0.4.0 preview
+## Suite 1.2.48 + NOS 0.5.0 preview
 
-- Added an allocation-free AI filter dispatch module. All veto callbacks retain their original order, exception behavior and decision results; AI schedules and tick rates stay unchanged.
-- Added a repulsion hot-path module: reuses the walk callback and eliminates an exactly verified always-true range predicate, saving two delegate allocations per eligible entity tick and redundant per-neighbor calls.
-- Both modules work with profiling stopped, default on, and have independent switches in Suite → Optimizations.
-- Added exact Essentials assembly verification and conflict checks for affected AI/repulsion methods.
-- Suite controls handle older NOS modules without sending unsupported new settings.
-- Retains prior bounded asset compression, player-query and stream optimizations, reload/memory-bound fixes, failure retries and shutdown cleanup.
+- Removed per-lookup closure allocations from generation request handling: 96 bytes to zero for repeated requests in the official-method fixture, while preserving request order, pass escalation and generation priority.
+- Fixed background-save snapshot retention. Completed saves release their chunk references inside the stock save lock, allowing otherwise-unreferenced unloaded chunks to be collected. Failed saves retain their retry snapshot.
+- Added independent switches for both modules in Suite → Optimizations, enabled by default and usable with profiling stopped.
+- Added guarded activation, dependency conflict checks, live stand-down and original-method fallback for both modules.
+- Retains the prior AI, repulsion, asset compression, stream and player-query optimizations.
 - Companion module versions are unchanged. One current changelog remains; historical notes are in Git history.
 
-Component measurements and correctness boundaries are documented in modules/optimizer/docs/performance-0.4.0.md. No production TPS improvement or player-capacity claim is made.
+Correctness tests, component measurements and running-server save validation are documented in modules/optimizer/docs/performance-0.5.0.md. These changes do not establish a production TPS increase or player-capacity figure.
