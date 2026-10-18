@@ -8544,8 +8544,8 @@ public sealed partial class WebDashboardService : IDisposable
                     return operation switch {
                         "status"=>repair.Snapshot(),
                         "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null),
-                        "preview"=>repair.Preview(GetJsonInt(request.Body,"sourceId",0),GetJsonInt(request.Body,"targetId",-1),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
-                        "stage"=>repair.Stage(GetJsonString(request.Body,"previewId",""),GetJsonInt(request.Body,"sourceId",0),GetJsonInt(request.Body,"targetId",-1)),
+                        "preview"=>repair.Preview(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
+                        "stage"=>repair.Stage(GetJsonString(request.Body,"previewId",""),GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
                         "cancel"=>repair.Cancel(),
                         _=>throw new ArgumentException("Unsupported block repair operation.")};
                 },"web-block-repair").ConfigureAwait(false);

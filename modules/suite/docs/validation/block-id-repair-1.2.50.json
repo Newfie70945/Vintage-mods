@@ -1,0 +1,75 @@
+{
+  "kind": "Experimental block repair optional backup and code destination validation",
+  "suiteVersion": "1.2.50",
+  "gameVersion": "1.22.7",
+  "authenticatedPlayers": 0,
+  "cases": [
+    {
+      "name": "default automatic backup; numeric destination",
+      "scanChunks": 4648,
+      "sourceId": 999999,
+      "targetId": 12698,
+      "targetCode": "game:rock-granite",
+      "automaticBackup": true,
+      "manualAcknowledgement": false,
+      "changedBlocks": 1,
+      "changedChunks": 1,
+      "integrity": "ok",
+      "backupIntegrity": "ok",
+      "backupRetainsSeededChunk": true,
+      "noAutomaticBackupFile": null,
+      "invalidCodeRefused": true,
+      "missingAcknowledgementRefused": true,
+      "errors": [],
+      "passed": true
+    },
+    {
+      "name": "manual-copy acknowledgement; code destination",
+      "scanChunks": 4648,
+      "sourceId": 999999,
+      "targetId": 12698,
+      "targetCode": "game:rock-granite",
+      "automaticBackup": false,
+      "manualAcknowledgement": true,
+      "changedBlocks": 1,
+      "changedChunks": 1,
+      "integrity": "ok",
+      "backupIntegrity": null,
+      "backupRetainsSeededChunk": null,
+      "noAutomaticBackupFile": true,
+      "invalidCodeRefused": true,
+      "missingAcknowledgementRefused": true,
+      "errors": [],
+      "passed": true
+    }
+  ],
+  "startupMissingAcknowledgement": {
+    "refused": true,
+    "terrainUnchanged": true,
+    "integrity": "ok"
+  },
+  "codecAssertions": 44,
+  "preservationAssertionsPerRepairedChunk": 32775,
+  "browserChecks": [
+    "Experimental notice and responsibility disclaimer visible",
+    "Backup on by default",
+    "Backup off reveals manual copy warning and requires acknowledgement",
+    "Numeric and code destination payloads and resolved code/ID display",
+    "Input changes invalidate staging; refresh cannot restore edited token",
+    "Untrusted codes rendered as text",
+    "Owner/read-only and Safe Diagnostics restrictions",
+    "390px mobile layout"
+  ],
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "artifactSha256": "739f41191934ec0ac8bab29c8f060ba7de255c774aeebad129ea817e3d859426",
+  "assemblySha256": "917aa5cbb037db455f825ecffc8c584bce0e432b957151f4f29c86ece5882821",
+  "limits": [
+    "Disposable stopped-world copies only; no production server or player inventories modified.",
+    "Repair applies only at startup before terrain processing. Existing block-entity and layer guards remain.",
+    "Manual-copy acknowledgement is recorded, not independently verified. No per-chunk undo is implemented.",
+    "Lighting, heightmaps and external webmap exports may need refreshing."
+  ]
+}

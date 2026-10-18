@@ -1,11 +1,10 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.49
+## Server Essentials Suite 1.2.50
 
-- Added Block ID Repair to the webpanel and `/nseblockrepair` commands.
-- Scans existing saved chunks for missing or unregistered numeric IDs in solid, fluid and decor data, with exact occurrence counts, sample chunks, progress and cancellation.
-- Previews old ID → replacement ID, including IDs without a usable block code. World ID and registry binding prevent applying a plan to a different mapping.
-- Stages repair for the next startup, before terrain loads. Creates and verifies a full world backup before edits; preserves unrelated chunk fields and uses the official database writer.
-- Refuses invalid targets, inappropriate layer changes, legacy/corrupt data and source blocks hosting block entities. Air removal and valid-source replacement need explicit options.
-- Owner controls, CSRF, Safe Diagnostics restrictions, command privileges and audit records apply. Backups and last-job results remain available.
-- NOS and companion mod versions are unchanged. The prior generation/save performance report and limitations remain in source.
+- Marked Block ID Repair as experimental, with a persistent use-at-your-own-risk and backup notice.
+- Automatic world backup is optional and stays enabled by default. Disabling it displays a manual-copy warning and requires acknowledgement in the panel or command; this is enforced again before applying.
+- Replacement destinations accept a numeric ID or exact `domain:code`. Preview shows the resolved code and world ID; startup refuses changed mappings or mismatched codes.
+- Bound backup, acknowledgement, air and valid-source choices to the reviewed plan. Editing inputs or refreshing after an edit cannot re-enable a stale staging token.
+- Job history and failure messages distinguish verified automatic backups from unverified manual copies. Temporary repair codec buffers are released after failed preflights too.
+- Existing Owner permissions, startup-only application, block-entity protection and layer/format checks remain. NOS and companion mods are unchanged.

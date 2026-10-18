@@ -33,6 +33,7 @@ public sealed class BlockIdRepairService : IDisposable
         public string Id {get;set;}=Guid.NewGuid().ToString("N"); public string World {get;set;}="";public string Registry {get;set;}="";public string ScanId {get;set;}="";
         public int Source {get;set;} public int Target {get;set;} public string SourceCode {get;set;}="";public string TargetCode {get;set;}="";
         public long Count {get;set;}public long Chunks {get;set;}public bool AllowAir {get;set;}public bool AllowValidSource {get;set;}public string State {get;set;}="preview";
+        public bool CreateBackup {get;set;}=true;public bool ManualBackupAcknowledged {get;set;}
         public string Backup {get;set;}="";public string Message {get;set;}="";public long ChangedBlocks {get;set;}public long ChangedChunks {get;set;}
     }
     private readonly ICoreServerAPI api;private readonly object gate=new();private readonly string directory;private readonly string pendingFile;private readonly string historyFile;
@@ -96,23 +97,33 @@ public sealed class BlockIdRepairService : IDisposable
     private static Finding Clone(Finding f)=>new(){Id=f.Id,Code=f.Code,Problem=f.Problem,Solid=f.Solid,Fluid=f.Fluid,Decor=f.Decor,Chunks=f.Chunks,Examples=f.Examples.ToList()};
     private void Validate(Plan p)
     {
+        if(!p.CreateBackup&&!p.ManualBackupAcknowledged)throw new InvalidOperationException("Automatic backup is disabled. Make a manual copy of your world and acknowledge it before previewing or staging a repair.");
         if(p.Source==0||p.Source==p.Target||p.Target<0)throw new ArgumentException("Use a non-air source and a different valid destination ID.");
         if(p.World!=api.World.SavegameIdentifier||p.Registry!=Fingerprint(Mapping()))throw new InvalidOperationException("World or block-ID mapping changed; make a fresh scan and preview.");
         if(!p.AllowValidSource&&!Missing(p.Source))throw new InvalidOperationException("Source is a registered block. Explicitly allow replacing a valid ID to continue.");
         if(p.Target==0&&!p.AllowAir)throw new InvalidOperationException("Replacing with air requires the explicit allow-air option.");
-        if(Missing(p.Target))throw new ArgumentException("Destination is missing or unregistered.");var target=api.World.Blocks[p.Target];if(!string.IsNullOrEmpty(target.EntityClass))throw new ArgumentException("Destination requires a block entity; use a dedicated data migration instead.");
+        if(Missing(p.Target))throw new ArgumentException("Destination is missing or unregistered.");var target=api.World.Blocks[p.Target];if(p.TargetCode!=target.Code.ToString())throw new InvalidOperationException("Destination code no longer matches its reviewed numeric ID; create a fresh preview.");if(!string.IsNullOrEmpty(target.EntityClass))throw new ArgumentException("Destination requires a block entity; use a dedicated data migration instead.");
     }
-    public Plan Preview(int source,int target,bool allowAir,bool allowValid)
+    private int ResolveTarget(string destination)
     {
-        Guard();lock(gate){if(pending!=null)throw new InvalidOperationException("Cancel the staged repair first.");if(scan?.State!="complete"||scan.Errors!=0||scan.Unsupported!=0)throw new InvalidOperationException("A complete, error-free saved-map scan is required. Legacy chunks must be converted first.");
+        destination=destination.Trim();
+        if(int.TryParse(destination,System.Globalization.NumberStyles.Integer,System.Globalization.CultureInfo.InvariantCulture,out int id))return id;
+        if(destination.Length==0||destination.Length>256||!destination.Contains(':')||destination.Any(c=>char.IsWhiteSpace(c)||c is '*' or '?'))throw new ArgumentException("Enter a numeric destination ID or an exact block code such as game:rock-granite.");
+        var block=api.World.GetBlock(new AssetLocation(destination));
+        if(block==null||block.IsMissing||block.Code?.ToString()!=destination)throw new ArgumentException("Destination block code is not registered. Use the exact domain:code, including its variant.");
+        return block.BlockId;
+    }
+    public Plan Preview(int source,string destination,bool allowAir,bool allowValid,bool createBackup=true,bool manualBackupAcknowledged=false)
+    {
+        Guard();lock(gate){int target=ResolveTarget(destination);if(pending!=null)throw new InvalidOperationException("Cancel the staged repair first.");if(scan?.State!="complete"||scan.Errors!=0||scan.Unsupported!=0)throw new InvalidOperationException("A complete, error-free saved-map scan is required. Legacy chunks must be converted first.");
             var match=scan.Findings.SingleOrDefault(x=>x.Id==source);if(match==null||match.Count==0)throw new InvalidOperationException("This ID has no scanned occurrences. For a registered source, scan with its numeric ID selected.");var map=Mapping();
-            var plan=new Plan{Source=source,Target=target,AllowAir=allowAir,AllowValidSource=allowValid,World=api.World.SavegameIdentifier,Registry=scan.Registry,ScanId=scan.Id,Count=match.Count,Chunks=match.Chunks,SourceCode=Label(source,map),TargetCode=Label(target,map)};Validate(plan);
+            var plan=new Plan{Source=source,Target=target,AllowAir=allowAir,AllowValidSource=allowValid,CreateBackup=createBackup,ManualBackupAcknowledged=manualBackupAcknowledged,World=api.World.SavegameIdentifier,Registry=scan.Registry,ScanId=scan.Id,Count=match.Count,Chunks=match.Chunks,SourceCode=Label(source,map),TargetCode=Missing(target)?"":api.World.Blocks[target].Code.ToString()};Validate(plan);
             var block=api.World.Blocks[target];if(target!=0&&((match.Fluid>0&&!block.ForFluidsLayer)||((match.Solid>0||match.Decor>0)&&block.ForFluidsLayer)))throw new ArgumentException("Destination does not match the affected solid/fluid layer. Air may be used explicitly for removal.");
-            plan.Message="Preview only. Stage this plan to back up and repair saved terrain on the next restart; codes are labels, IDs select the replacements.";preview=plan;return plan;}
+            plan.Message="Preview only. Destination resolved to "+plan.TargetCode+" (ID "+target+"). "+(createBackup?"A verified automatic world backup will be created before edits.":"AUTOMATIC BACKUP DISABLED. Your manual copy is the recovery path; the Suite has not verified it.")+" Stage to repair saved terrain on the next restart.";preview=plan;return plan;}
     }
-    public Plan Stage(string id,int? expectedSource=null,int? expectedTarget=null)
+    public Plan Stage(string id,int? expectedSource=null,string? expectedTarget=null,bool? expectedBackup=null,bool? expectedManual=null,bool? expectedAir=null,bool? expectedValid=null)
     {
-        Guard();lock(gate){if(preview==null||preview.Id!=id)throw new InvalidOperationException("Preview expired or missing.");if((expectedSource.HasValue&&expectedSource!=preview.Source)||(expectedTarget.HasValue&&expectedTarget!=preview.Target))throw new InvalidOperationException("Inputs changed; generate a fresh preview.");Validate(preview);preview.State="pending";Write(pendingFile,preview);pending=preview;preview=null;return pending;}
+        Guard();lock(gate){if(preview==null||preview.Id!=id)throw new InvalidOperationException("Preview expired or missing.");if((expectedSource.HasValue&&expectedSource!=preview.Source)||(expectedTarget!=null&&ResolveTarget(expectedTarget)!=preview.Target)||(expectedBackup.HasValue&&expectedBackup!=preview.CreateBackup)||(expectedManual.HasValue&&expectedManual!=preview.ManualBackupAcknowledged)||(expectedAir.HasValue&&expectedAir!=preview.AllowAir)||(expectedValid.HasValue&&expectedValid!=preview.AllowValidSource))throw new InvalidOperationException("Inputs changed; generate a fresh preview.");Validate(preview);preview.State="pending";Write(pendingFile,preview);pending=preview;preview=null;return pending;}
     }
     public object Cancel()
     {
@@ -120,7 +131,7 @@ public sealed class BlockIdRepairService : IDisposable
     }
     public void ApplyBeforeTerrainLoads()
     {
-        if(pending==null)return;var p=pending;var db=Database();bool writes=false;
+        if(pending==null)return;var p=pending;var db=Database();bool writes=false;ChunkDataPool? pool=null;
         try{Guard();Validate(p);var server=(ServerMain)api.World;var thread=AccessTools.Field(typeof(ServerMain),"chunkThread").GetValue(server)!;
             // Official workers exist at this point, but SupplyChunks only processes
             // terrain in RunGame and the save worker requires its pending flag.
@@ -129,22 +140,29 @@ public sealed class BlockIdRepairService : IDisposable
             int Queued()=>Convert.ToInt32(AccessTools.Property(AccessTools.Field(typeof(ChunkServerThread),"requestedChunkColumns").GetValue(thread)!.GetType(),"Count").GetValue(AccessTools.Field(typeof(ChunkServerThread),"requestedChunkColumns").GetValue(thread)));
             if(api.WorldManager.AllLoadedChunks.Count>0||Queued()>0)throw new InvalidOperationException("Terrain is already loaded or queued; repair cannot run safely at this startup stage.");
             p.State="preflight";p.Message="Validating every saved occurrence before backup or edits.";Write(historyFile,p);
-            var pool=new ChunkDataPool(32,server){CacheSize=32};var codec=new BlockIdChunkCodec(pool);long? cursor=null;long reviewed=0;
+            pool=new ChunkDataPool(32,server){CacheSize=32};var codec=new BlockIdChunkCodec(pool);long? cursor=null;long reviewed=0;
             // Full preflight avoids partial mutation when a source hosts block entities,
             // a legacy/corrupt chunk exists, or a layer mismatch was introduced later.
             while(true){var rows=Page(db.DatabaseFilename,cursor);if(rows.Count==0)break;foreach(var row in rows){cursor=row.Key;if(++reviewed%1024==0)api.Logger.Notification("[BlockRepair] Preflight: {0} saved chunks checked.",reviewed);var counts=codec.Inspect(row.Data,id=>id==p.Source);if(counts.TryGetValue(p.Source,out var c)){var target=api.World.Blocks[p.Target];if(p.Target!=0&&((c[1]>0&&!target.ForFluidsLayer)||((c[0]+c[2]>0)&&target.ForFluidsLayer)))throw new InvalidOperationException("Affected block layer changed since preview.");codec.Replace(row.Data,p.Source,p.Target,out _);}}}
-            p.Backup=Path.Combine(directory,"world-before-"+p.Id+".vcdbs");api.Logger.Notification("[BlockRepair] Creating backup before numeric repair {0} -> {1}: {2}",p.Source,p.Target,p.Backup);db.CreateBackup(p.Backup);
-            using(var backup=Open(p.Backup)){using var check=backup.CreateCommand();check.CommandTimeout=600;check.CommandText="PRAGMA quick_check";if(!string.Equals(Convert.ToString(check.ExecuteScalar()),"ok",StringComparison.Ordinal))throw new InvalidDataException("Backup integrity check failed.");}
-            p.State="applying";p.Message="Backup verified. Repairing existing saved chunks before terrain loads.";Write(historyFile,p);
+            if(p.CreateBackup)
+            {
+                p.Backup=Path.Combine(directory,"world-before-"+p.Id+".vcdbs");api.Logger.Notification("[BlockRepair] Creating backup before repair {0} -> {1}: {2}",p.Source,p.Target,p.Backup);db.CreateBackup(p.Backup);
+                using var backup=Open(p.Backup);using var check=backup.CreateCommand();check.CommandTimeout=600;check.CommandText="PRAGMA quick_check";if(!string.Equals(Convert.ToString(check.ExecuteScalar()),"ok",StringComparison.Ordinal))throw new InvalidDataException("Backup integrity check failed.");
+            }
+            else
+            {
+                p.Backup="";api.Logger.Warning("[BlockRepair] AUTOMATIC BACKUP DISABLED for plan {0}. Owner acknowledged a manual world copy; the Suite has not verified it.",p.Id);
+            }
+            p.State="applying";p.Message=(p.CreateBackup?"Backup verified.":"Automatic backup disabled; manual world copy acknowledged, not verified.")+" Repairing existing saved chunks before terrain loads.";Write(historyFile,p);
             // Consume before the first edit. A crash never silently replays a job.
             File.Move(pendingFile,Path.Combine(directory,"consumed-"+p.Id+".json"),true);pending=null;cursor=null;
             while(true){var rows=Page(db.DatabaseFilename,cursor);if(rows.Count==0)break;var changes=new List<DbChunk>();long batchBlocks=0;foreach(var row in rows){cursor=row.Key;byte[] bytes=codec.Replace(row.Data,p.Source,p.Target,out long changed);if(changed==0)continue;changes.Add(new DbChunk(ChunkPos.FromChunkIndex_saveGamev2(unchecked((ulong)row.Key)),bytes));batchBlocks+=changed;}
                 if(changes.Count>0){if(api.Server.CurrentRunPhase!=EnumServerRunPhase.AssetsFinalize||((ChunkServerThread)thread).runOffThreadSaveNow||api.WorldManager.AllLoadedChunks.Count>0||Queued()>0)throw new InvalidOperationException("Another mod started terrain or saving during repair.");writes=true;db.SetChunks(changes);p.ChangedChunks+=changes.Count;p.ChangedBlocks+=batchBlocks;Write(historyFile,p);}
             }
-            pool.FreeAll();p.State="complete";p.Message="Numeric saved-map repair complete. Backup retained. Cached lighting/heightmaps and external map exports may need refreshing.";
+            p.State="complete";p.Message="Saved-map repair complete. "+(p.CreateBackup?"Automatic backup retained.":"No automatic backup was made; retain your manual copy.")+" Cached lighting/heightmaps and external map exports may need refreshing.";
             api.Logger.Notification("[BlockRepair] Completed {0} -> {1}: {2} entries in {3} chunks. Backup: {4}",p.Source,p.Target,p.ChangedBlocks,p.ChangedChunks,p.Backup);
-        }catch(Exception e){p.State=writes?"failed-partial":"failed";p.Message=e.Message+(writes?" Some chunks changed. Restore the retained world backup before retrying.":" No terrain edits were made.");api.Logger.Error("[BlockRepair] {0}",p.Message);if(writes)((ServerMain)api.World).Stop("Block repair partially failed; restore backup before continuing",EnumExitMode.SoftExit);if(File.Exists(pendingFile))File.Move(pendingFile,Path.Combine(directory,"rejected-"+p.Id+".json"),true);pending=null;}
-        finally{last=p;Write(historyFile,p);}
+        }catch(Exception e){p.State=writes?"failed-partial":"failed";p.Message=e.Message+(writes?(p.CreateBackup?" Some chunks changed. Restore the retained world backup before retrying.":" Some chunks changed. No automatic backup exists. Restore your manual world copy before retrying."):" No terrain edits were made.");api.Logger.Error("[BlockRepair] {0}",p.Message);if(writes)((ServerMain)api.World).Stop("Block repair partially failed; restore backup before continuing",EnumExitMode.SoftExit);if(File.Exists(pendingFile))File.Move(pendingFile,Path.Combine(directory,"rejected-"+p.Id+".json"),true);pending=null;}
+        finally{pool?.FreeAll();last=p;Write(historyFile,p);}
     }
     private void RegisterCommands()
     {
@@ -152,9 +170,15 @@ public sealed class BlockIdRepairService : IDisposable
         api.ChatCommands.Create("nseblockrepair").RequiresPrivilege(Privilege.controlserver).WithDescription("Saved-map numeric block ID inspection and staged repair")
             .BeginSubCommand("status").HandleWith(_=>Run(Snapshot)).EndSubCommand()
             .BeginSubCommand("scan").WithArgs(parsers.OptionalInt("source ID")).HandleWith(a=>Run(()=>StartScan(a.Parsers[0].IsMissing?null:(int)a[0]))).EndSubCommand()
-            .BeginSubCommand("preview").WithArgs(parsers.Int("old ID"),parsers.Int("new ID"),parsers.OptionalWord("allow-air"),parsers.OptionalWord("allow-valid")).HandleWith(a=>Run(()=>Preview((int)a[0],(int)a[1],a[2] as string=="allow-air",a[3] as string=="allow-valid"))).EndSubCommand()
+            .BeginSubCommand("preview").WithArgs(parsers.Int("old ID"),parsers.Word("destination ID or code"),parsers.OptionalAll("options")).HandleWith(a=>Run(()=>PreviewCommand((int)a[0],(string)a[1],a[2] as string??""))).EndSubCommand()
             .BeginSubCommand("stage").WithArgs(parsers.Word("preview ID")).HandleWith(a=>Run(()=>Stage((string)a[0]))).EndSubCommand()
             .BeginSubCommand("cancel").HandleWith(_=>Run(Cancel)).EndSubCommand();
+    }
+    private Plan PreviewCommand(int source,string destination,string options)
+    {
+        var flags=options.Split(' ',StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+        if(flags.Any(x=>x is not ("allow-air" or "allow-valid" or "no-backup" or "manual-copy-confirmed" or "-")))throw new ArgumentException("Options: allow-air, allow-valid, no-backup manual-copy-confirmed. Make a manual world copy before disabling automatic backup.");
+        return Preview(source,destination,flags.Contains("allow-air"),flags.Contains("allow-valid"),!flags.Contains("no-backup"),flags.Contains("manual-copy-confirmed"));
     }
     private TextCommandResult Run(Func<object> fn){try{var result=fn();api.Logger.Notification("{0}","NSE_BLOCKREPAIR_RESULT "+JsonSerializer.Serialize(result));string message=result is Plan p?$"Plan {p.Id}: ID {p.Source} -> {p.Target}; {p.Count} scanned entries; {p.State}.":$"Block repair: scan {scan?.State??"none"}, chunks {scan?.Chunks??0}, errors {scan?.Errors??0}. Full result printed to console and available in the webpanel.";return TextCommandResult.Success(message);}catch(Exception e){return TextCommandResult.Error(e.Message.Replace('{','(').Replace('}',')'));}}
     public void Dispose(){lock(gate){disposed=true;cancel?.Cancel();}try{worker?.Wait(3000);}catch{}if(worker?.IsCompleted!=false)cancel?.Dispose();}

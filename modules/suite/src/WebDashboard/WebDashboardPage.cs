@@ -3146,21 +3146,25 @@ __NSS_RETENTION_HTML__
 </section>
 
 <section id="blockRepair">
-  <div class="card"><h2>Block ID Repair</h2><p>Find unresolved numeric block IDs in existing saved terrain, then replace one ID with another. Codes are labels; numeric IDs select the replacement.</p>
-    <p class="small">Scan and preview do not edit terrain. A staged repair makes a world backup and runs before terrain loads on the next restart. Unsaved live changes are not counted. Save the world before scanning if you need the latest edits included.</p>
-    <div class="grid"><label>Old block ID <input id="brSource" type="number" step="1" placeholder="Optional when scanning"></label><label>Replacement block ID <input id="brTarget" type="number" min="0" step="1" placeholder="Numeric destination"></label></div>
+  <div class="card"><h2>Block ID Repair</h2><p>Find unresolved numeric block IDs in existing saved terrain. Replace an old numeric ID with a registered block chosen by ID or exact block code.</p>
+    <div class="compactNote" role="note" style="border:1px solid #cc9750;padding:14px;margin:12px 0"><strong>Experimental feature — use at your own risk.</strong> Make backups before using this remapper. The author is not responsible for block data lost through misuse. Test on a copy of your world first.</div>
+    <p class="small">Scan and preview do not edit terrain. Automatic backups are enabled by default. A staged repair runs before terrain loads on the next restart. Unsaved live changes are not counted. Save the world before scanning if you need the latest edits included.</p>
+    <div class="grid"><label>Old block ID <input id="brSource" type="number" step="1" placeholder="Optional when scanning"></label><label>Replacement block ID or code <input id="brTarget" type="text" maxlength="256" spellcheck="false" placeholder="12698 or game:rock-granite"></label></div>
     <div class="quickActions"><button id="brScan">Scan Saved Map</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Repair</button></div>
     <div id="brStatus" class="compactNote" role="status"></div>
     <div class="tableWrap dataScroll"><table><thead><tr><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
     <p class="small">Missing definitions in the registry may be unused: only scanned occurrences prove an ID exists in the saved map. Scans read small pages without activating or generating terrain.</p>
   </div>
-  <div class="card"><h3>Preview numeric replacement</h3>
+  <div class="card"><h3>Preview replacement</h3>
     <label><input id="brAllowAir" type="checkbox"> Allow replacement with air (ID 0 removes matching blocks)</label><br>
     <label><input id="brAllowValid" type="checkbox"> Allow replacing an ID that currently has a valid definition (replaces every saved occurrence)</label>
+    <div style="margin-top:14px"><label><input id="brAutoBackup" type="checkbox" checked> Create and verify an automatic world backup before applying (recommended)</label></div>
+    <div id="brManualBackupWarning" class="compactNote" hidden style="border:1px solid #cc9750;padding:14px;margin-top:12px"><strong>Automatic backup is disabled.</strong> Stop your server and make a manual copy of your world before using this remapper. If block data is lost, the Suite will have no automatic backup to restore.<br><label><input id="brManualBackupAck" type="checkbox"> I have made a manual copy of this world and understand the risk.</label></div>
     <p class="small">Source ID 0 cannot be replaced. Destinations requiring block entities are refused, and repairs refuse source blocks hosting block entities to preserve inventories. Layer mismatches, corrupt data and unsupported chunk formats prevent applying.</p>
     <div class="quickActions"><button id="brPreview">Preview Replacement</button><button id="brStage" class="danger" disabled>Stage for Next Restart</button></div>
+    <div id="brPlanSummary" class="compactNote" role="status"></div>
     <pre id="brPlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-    <p class="small">Backups are stored in the server data folder under NewfiesBlockRepair. Keep enough free disk space for a full world backup. Cached lighting, heightmaps and map exports may require refreshing after the ID repair.</p>
+    <p class="small">When enabled, automatic backups are stored in the server data folder under NewfiesBlockRepair. Keep enough free disk space for a full world backup. With automatic backup disabled, your manual copy is the recovery path; the Suite cannot verify that copy. Cached lighting, heightmaps and map exports may require refreshing after the ID repair.</p>
     <pre id="brLast" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
   </div>
 </section>
@@ -9589,32 +9593,39 @@ async function loadSynergy(){
   }
 }
 
-let brSnapshot=null,brBusy=false,brPreviewId='';
+let brSnapshot=null,brBusy=false,brPreviewId='',brInvalidated=true,brError='';
 function brCanEdit(){return !safeDiagnosticsModeGlobal && (currentSessionOwner || currentSessionRole==='Owner');}
 function renderBlockRepair(data){
   brSnapshot=data;
   const scan=data.scan,findings=scan?.Findings||scan?.findings||[];
   const value=(o,key)=>o?.[key]??o?.[key[0].toLowerCase()+key.slice(1)];
   const status=scan?`${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported. ${value(scan,'Message')||''}`:'No saved-map scan yet.';
-  $('brStatus').textContent=status;
+  $('brStatus').textContent=brError?brError+' '+status:status;
+  $('brManualBackupWarning').hidden=$('brAutoBackup').checked;
   const rows=scan?findings:(data.missingMappings||[]).map(x=>({Id:x.id,Code:x.code,Problem:x.problem}));
-  $('brRows').replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent=scan?'No matching saved occurrences reported. Check scan completeness and errors above.':'No unresolved registry mappings reported. Scan to check raw saved IDs.';tr.append(td);$('brRows').append(tr);}for(const row of rows){const tr=document.createElement('tr');for(const item of [value(row,'Id'),`${value(row,'Code')||'(no saved code)'} · ${value(row,'Problem')||''}`,value(row,'Solid')??'—',value(row,'Fluid')??'—',value(row,'Decor')??'—',value(row,'Chunks')??'—',(value(row,'Examples')||[])[0]||'—']){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}tr.onclick=()=>{$('brSource').value=value(row,'Id');brPreviewId='';$('brStage').disabled=true;};$('brRows').append(tr);}
-  const plan=data.preview||data.pending;brPreviewId=data.preview?value(data.preview,'Id'):'';$('brPlan').textContent=plan?JSON.stringify(plan,null,2):'Preview a replacement to see its exact numeric IDs and scanned count.';
+  $('brRows').replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent=scan?'No matching saved occurrences reported. Check scan completeness and errors above.':'No unresolved registry mappings reported. Scan to check raw saved IDs.';tr.append(td);$('brRows').append(tr);}for(const row of rows){const tr=document.createElement('tr');for(const item of [value(row,'Id'),`${value(row,'Code')||'(no saved code)'} · ${value(row,'Problem')||''}`,value(row,'Solid')??'—',value(row,'Fluid')??'—',value(row,'Decor')??'—',value(row,'Chunks')??'—',(value(row,'Examples')||[])[0]||'—']){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}tr.onclick=()=>{$('brSource').value=value(row,'Id');brInvalidate();};$('brRows').append(tr);}
+  const plan=data.preview||data.pending,target=$('brTarget').value.trim();
+  const matches=plan && Number($('brSource').value)===value(plan,'Source') && (target===String(value(plan,'Target'))||target===value(plan,'TargetCode')) && $('brAutoBackup').checked===(value(plan,'CreateBackup')??true) && $('brManualBackupAck').checked===!!value(plan,'ManualBackupAcknowledged') && $('brAllowAir').checked===!!value(plan,'AllowAir') && $('brAllowValid').checked===!!value(plan,'AllowValidSource');
+  brPreviewId=data.preview&&!brInvalidated&&matches?value(data.preview,'Id'):'';
+  $('brPlan').textContent=plan?JSON.stringify(plan,null,2):'Preview a replacement to see its resolved block code, numeric ID and scanned count.';
+  $('brPlanSummary').textContent=plan?`Reviewed: ID ${value(plan,'Source')} → ${value(plan,'TargetCode')} (ID ${value(plan,'Target')}). Automatic backup: ${(value(plan,'CreateBackup')??true)?'ON — verified before edits':'OFF — manual world copy acknowledged, not verified'}. ${matches&&!brInvalidated?'':'Generate a fresh preview to stage the current inputs.'}`:'';
   $('brLast').textContent=data.last?'Last job: '+JSON.stringify(data.last,null,2):'';
-  for(const id of ['brScan','brPreview','brStage'])$(id).disabled=brBusy||!brCanEdit()||(id==='brStage'&&!brPreviewId);
+  for(const id of ['brScan','brPreview','brStage'])$(id).disabled=brBusy||!brCanEdit()||(id==='brStage'&&!brPreviewId)||(id==='brPreview'&&!$('brAutoBackup').checked&&!$('brManualBackupAck').checked);
   $('brCancel').disabled=brBusy||!(currentSessionOwner||currentSessionRole==='Owner');
 }
 async function loadBlockRepair(){try{renderBlockRepair(await api('/api/block-repair'));}catch(e){$('brStatus').textContent=e.message;}}
 async function blockRepairAction(operation){
   if(brBusy)return;if(operation!=='cancel'&&!brCanEdit())return;
   const source=$('brSource').value.trim(),target=$('brTarget').value.trim();
-  if(['preview','stage'].includes(operation)&&(!source||!target)){toast('Enter both numeric block IDs.','error');return;}
-  const body={operation,sourceId:source?Number(source):0,targetId:target?Number(target):-1,allowAir:$('brAllowAir').checked,allowValidSource:$('brAllowValid').checked,previewId:brPreviewId};
-  if(!Number.isSafeInteger(body.sourceId)||!Number.isSafeInteger(body.targetId)){toast('Use integer block IDs.','error');return;}
-  brBusy=true;try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});await loadBlockRepair();}catch(e){$('brStatus').textContent=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+  if(['preview','stage'].includes(operation)&&(!source||!target)){toast('Enter an old numeric ID and a destination ID or block code.','error');return;}
+  const body={operation,sourceId:source?Number(source):0,destination:target,createBackup:$('brAutoBackup').checked,manualBackupAcknowledged:$('brManualBackupAck').checked,allowAir:$('brAllowAir').checked,allowValidSource:$('brAllowValid').checked,previewId:brPreviewId};
+  if(!Number.isSafeInteger(body.sourceId)){toast('Use an integer old block ID.','error');return;}
+  if(['preview','stage'].includes(operation)&&!body.createBackup&&!body.manualBackupAcknowledged){toast('Make a manual world copy and acknowledge it before disabling automatic backup.','error');return;}
+  brError='';brBusy=true;if(brSnapshot)renderBlockRepair(brSnapshot);try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='preview')brInvalidated=false;await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
 }
 $('brScan').onclick=()=>blockRepairAction('scan');$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
-for(const id of ['brSource','brTarget','brAllowAir','brAllowValid'])$(id).addEventListener('input',()=>{brPreviewId='';$('brStage').disabled=true;});
+function brInvalidate(){brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
+for(const id of ['brSource','brTarget','brAllowAir','brAllowValid','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{if(id==='brAutoBackup')$('brManualBackupAck').checked=false;brInvalidate();});
 setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
