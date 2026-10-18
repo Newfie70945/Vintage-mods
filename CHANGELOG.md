@@ -2,6 +2,10 @@
 
 ## Server Essentials Suite 1.2.44
 
+- SmartRemap1: check individual scanned source IDs, choose a suggested or custom destination for each, and preview/stage up to 32 mappings together. Unchecked IDs are excluded; changed choices invalidate staging.
+- Added recommendations from exact saved codes, bounded BlockLogger history at sampled locations, and explicitly weak name/variant alternatives. Shows confidence, conflict warnings, evidence and container/layer restrictions; nothing is chosen or applied automatically.
+- Batch repairs use one shared backup, verify all selected mappings and source counts before writes, and replace each original ID once without cascading chains/cycles. Inventory and startup safeguards remain in force. Suite remains 1.2.44.
+
 - Placeholders1: default **Scan ? Blocks** now counts only saved IDs represented by the game’s coded missing-block placeholders. Registered blocks, undefined registry slots and retained block-entity records are excluded; default scans skip metadata inspection. Added a separate **Advanced Diagnostic Scan** and `/nseblockrepair diagnostics [ID]` for broader investigation. Optional focus IDs limit either scan; registered focus IDs require advanced mode. Scan reports and panel status identify their scope. Underground/unloaded placeholders still count; client texture issues and plants saved as air are outside this scan.
 
 - QueryFix1: fixed recovery reads that walked unrelated world events/snapshots even for a single-block rollback. Queries now drive existing position-index seeks from the affected-cell set, retaining prior inventory baselines, all actors and later conflict evidence. The existing 30-second cancellation/deadline and row limits remain in place; no new database index or migration is required.

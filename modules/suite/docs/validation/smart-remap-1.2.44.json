@@ -1,0 +1,67 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-smartremap1",
+  "gameVersion": "1.22.7",
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "checks": {
+    "officialCodecAdvisorPreservation": 107,
+    "blockHistory": 16,
+    "officialChatParser": 5,
+    "suite": 22,
+    "postBuilder": 7,
+    "browser": "Explicit per-ID selection, recommended/custom targets, unchecked exclusions, protected containers, batch preview/stage/invalidation, existing inventory/selection workflows, owner/read-only/safe diagnostics, untrusted evidence text and mobile layout passed.",
+    "sourceConsistency": "passed",
+    "packageIdentity": "passed"
+  },
+  "integration": {
+    "suiteVersion": "1.2.44",
+    "buildSuffix": "ms11-smartremap1",
+    "gameVersion": "1.22.7",
+    "authenticatedGameClients": 0,
+    "defaultExcludesUndefinedRawIds": true,
+    "scannedChunks": 4648,
+    "exactPositionRecommendations": true,
+    "duplicateSourceRejected": true,
+    "fluidMismatchRejected": true,
+    "containerTargetRejected": true,
+    "changedDestinationsRejected": true,
+    "singleStageCannotConfirmBatch": true,
+    "worldIntegrity": "ok",
+    "backupIntegrity": "ok",
+    "changedBlocks": 2,
+    "changedChunks": 1,
+    "mappings": [
+      {
+        "Source": 999999,
+        "Target": 12698,
+        "SourceCode": "",
+        "TargetCode": "game:rock-granite",
+        "Count": 1,
+        "Chunks": 1
+      },
+      {
+        "Source": 999998,
+        "Target": 12701,
+        "SourceCode": "",
+        "TargetCode": "game:rock-basalt",
+        "Count": 1,
+        "Chunks": 1
+      }
+    ],
+    "stagedPlanConsumed": true,
+    "all32768CellsAndOpaqueFieldsVerified": true,
+    "automaticBackupPreservedOriginalChunk": true,
+    "changedCountsRejectWholePlanBeforeWrites": true
+  },
+  "limits": [
+    "The production world/database was not accessed; the official server ran a disposable stock-world copy with synthetic damage/history and no authenticated game clients.",
+    "Recommendations from at most two sampled solid locations do not establish identity for all occurrences. Weak name alternatives remain low confidence; nothing is automatically selected or applied.",
+    "Generic remaps refuse block-entity destinations and source-hosted retained metadata. Use dedicated location/inventory recovery for containers.",
+    "The staged ID mapping applies globally to all saved occurrences of checked sources, and can require restoring the backup after a partial write failure."
+  ],
+  "artifactSha256": "3ae34ccd67bfa30c45a11e1c174dd33943997fb2702e310ee6d712189b72a7bf",
+  "assemblySha256": "a8287347a389719ca4d3c018ffd4e8230adc60a283831448343627d21ff4da1b"
+}

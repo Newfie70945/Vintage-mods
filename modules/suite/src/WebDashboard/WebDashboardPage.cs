@@ -3155,8 +3155,18 @@ __NSS_RETENTION_HTML__
     <div class="quickActions"><button id="brScan">Scan ? Blocks</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Jobs</button></div>
     <details><summary>Advanced investigation</summary><p class="small">Includes undefined raw IDs, registered code mismatches and retained block-entity records. These findings are not all ? blocks. An optional source ID limits either scan to that ID.</p><button id="brDiagnosticScan">Advanced Diagnostic Scan</button></details>
     <div id="brStatus" class="compactNote" role="status"></div>
-    <div class="tableWrap dataScroll"><table><thead><tr><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
+    <div class="tableWrap dataScroll"><table><thead><tr><th>Remap?</th><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
     <p class="small">Missing definitions in the registry may be unused: only scanned occurrences prove an ID exists in the saved map. Scans read small pages without activating or generating terrain.</p>
+  </div>
+  <div class="card"><h3>Choose IDs and replacements</h3>
+    <p>Check the findings you want to remap (up to 32). Each checked ID has its own destination. Ask for recommendations, choose a suggestion, or enter a custom numeric block ID or exact domain:code.</p>
+    <p class="small">A global ID remap replaces every saved occurrence of each checked source ID. Sample history does not prove every occurrence has the same original identity. Unchecked IDs are excluded. Containers require the separate inventory recovery workflow.</p>
+    <div class="quickActions"><button id="brMappingAdvice">Recommend for Checked IDs</button><button id="brClearChoices">Clear Selection</button></div>
+    <div id="brChoiceSummary" class="compactNote" role="status"></div><div id="brAdviceStatus" class="small" role="status"></div>
+    <div id="brChoices"></div>
+    <div class="quickActions"><button id="brBatchPreview">Preview Checked Remaps</button><button id="brBatchStage" class="danger" disabled>Stage Checked Remaps for Restart</button></div>
+    <div id="brBatchSummary" class="compactNote" role="status"></div><pre id="brBatchPlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <p class="small">Backup and risk options below apply to this whole plan. Preview and stage never edit terrain immediately. Restart preflight verifies every selected mapping before one shared backup and any writes.</p>
   </div>
   <div class="card"><h3>Preview replacement</h3>
     <label><input id="brAllowAir" type="checkbox"> Allow replacement with air (ID 0 removes matching blocks)</label><br>
@@ -9636,6 +9646,7 @@ async function loadSynergy(){
 }
 
 let brSelectedId='',brSelectedInvalidated=true;
+let brChoiceScan='',brChoices=new Map(),brBatchId='',brBatchInvalidated=true;
 let brSnapshot=null,brBusy=false,brPreviewId='',brInvalidated=true,brError='',brRestoreId='',brRestoreInvalidated=true,brRestoreOptions='';
 function brCanEdit(){return !safeDiagnosticsModeGlobal && (currentSessionOwner || currentSessionRole==='Owner');}
 function renderBlockRepair(data){
@@ -9643,16 +9654,18 @@ function renderBlockRepair(data){
   const scan=data.scan,findings=scan?.Findings||scan?.findings||[];
   const value=(o,key)=>o?.[key]??o?.[key[0].toLowerCase()+key.slice(1)];
   const diagnostics=value(scan,'Mode')==='diagnostics';
+  const scanId=value(scan,'Id')||'legacy-scan';if(brChoiceScan!==scanId){brChoiceScan=scanId;brChoices.clear();brBatchId='';brBatchInvalidated=true;}
   const status=scan?`${diagnostics?'Advanced diagnostics — not all ? blocks':'? blocks only'} · ${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported${diagnostics?' · '+(value(scan,'RetainedContainerCount')||0)+' retained block-entity mismatches ('+(value(scan,'UnverifiedContainers')||0)+' unverified records)':' · retained block entities not scanned'}. ${value(scan,'Message')||''}`:'No saved-map scan yet.';
   $('brStatus').textContent=brError?brError+' '+status:status;
   $('brManualBackupWarning').hidden=$('brAutoBackup').checked;
   const rows=scan?findings:(data.missingMappings||[]).map(x=>({Id:x.id,Code:x.code,Problem:x.problem}));
-  $('brRows').replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent=scan?'No matching saved occurrences reported. Check scan completeness and errors above.':'No missing-block placeholders in the saved registry. Scan to check saved occurrences; use advanced diagnostics for other evidence.';tr.append(td);$('brRows').append(tr);}for(const row of rows){const tr=document.createElement('tr');for(const item of [value(row,'Id'),`${value(row,'Code')||'(no saved code)'} · ${value(row,'Problem')||''}${value(row,'SameCodeRegisteredId')!=null?' · same code is registered at ID '+value(row,'SameCodeRegisteredId')+' (verify first)':''}`,value(row,'Solid')??'—',value(row,'Fluid')??'—',value(row,'Decor')??'—',value(row,'Chunks')??'—',(value(row,'Examples')||[])[0]||'—']){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}tr.onclick=()=>{$('brSource').value=value(row,'Id');brInvalidate();};$('brRows').append(tr);}
+  $('brRows').replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.textContent=scan?'No matching saved occurrences reported. Check scan completeness and errors above.':'No missing-block placeholders in the saved registry. Scan to check saved occurrences; use advanced diagnostics for other evidence.';tr.append(td);$('brRows').append(tr);}for(const row of rows){const tr=document.createElement('tr'),pick=document.createElement('td'),check=document.createElement('input');check.type='checkbox';check.setAttribute('aria-label','Select source ID '+value(row,'Id'));check.checked=brChoices.has(value(row,'Id'));check.disabled=brBusy||!brCanEdit()||value(scan,'State')!=='complete'||!!value(scan,'Errors')||!!value(scan,'Unsupported');check.onclick=e=>e.stopPropagation();check.onchange=()=>{const id=value(row,'Id');if(check.checked){if(brChoices.size>=32){check.checked=false;toast('Select at most 32 IDs per plan.','error');return;}brChoices.set(id,'');}else brChoices.delete(id);brInvalidateBatch();};pick.append(check);tr.append(pick);for(const item of [value(row,'Id'),`${value(row,'Code')||'(no saved code)'} · ${value(row,'Problem')||''}${value(row,'SameCodeRegisteredId')!=null?' · same code is registered at ID '+value(row,'SameCodeRegisteredId')+' (verify first)':''}`,value(row,'Solid')??'—',value(row,'Fluid')??'—',value(row,'Decor')??'—',value(row,'Chunks')??'—',(value(row,'Examples')||[])[0]||'—']){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}tr.onclick=()=>{$('brSource').value=value(row,'Id');brInvalidate();};$('brRows').append(tr);}
   const plan=data.preview||data.pending,target=$('brTarget').value.trim();
-  const matches=plan && Number($('brSource').value)===value(plan,'Source') && (target===String(value(plan,'Target'))||target===value(plan,'TargetCode')) && $('brAutoBackup').checked===(value(plan,'CreateBackup')??true) && $('brManualBackupAck').checked===!!value(plan,'ManualBackupAcknowledged') && $('brAllowAir').checked===!!value(plan,'AllowAir') && $('brAllowValid').checked===!!value(plan,'AllowValidSource');
+  const matches=plan && !(value(plan,'Mappings')||[]).length && Number($('brSource').value)===value(plan,'Source') && (target===String(value(plan,'Target'))||target===value(plan,'TargetCode')) && $('brAutoBackup').checked===(value(plan,'CreateBackup')??true) && $('brManualBackupAck').checked===!!value(plan,'ManualBackupAcknowledged') && $('brAllowAir').checked===!!value(plan,'AllowAir') && $('brAllowValid').checked===!!value(plan,'AllowValidSource');
   brPreviewId=data.preview&&!brInvalidated&&matches?value(data.preview,'Id'):'';
   $('brPlan').textContent=plan?JSON.stringify(plan,null,2):'Preview a replacement to see its resolved block code, numeric ID and scanned count.';
   $('brPlanSummary').textContent=plan?`Reviewed: ID ${value(plan,'Source')} → ${value(plan,'TargetCode')} (ID ${value(plan,'Target')}). Automatic backup: ${(value(plan,'CreateBackup')??true)?'ON — verified before edits':'OFF — manual world copy acknowledged, not verified'}. ${matches&&!brInvalidated?'':'Generate a fresh preview to stage the current inputs.'}`:'';
+  brRenderChoices(data,value);
   $('brLast').textContent=data.last?'Last job: '+JSON.stringify(data.last,null,2):'';
   for(const id of ['brScan','brDiagnosticScan','brPreview','brStage'])$(id).disabled=brBusy||!brCanEdit()||(id==='brStage'&&!brPreviewId)||(id==='brPreview'&&!$('brAutoBackup').checked&&!$('brManualBackupAck').checked);
   $('brCancel').disabled=brBusy||!(currentSessionOwner||currentSessionRole==='Owner');
@@ -9695,6 +9708,51 @@ function renderBlockRepair(data){
   $('brRestorePlan').textContent=restore?JSON.stringify(restore,null,2):'';$('brRestoreLast').textContent=owner&&data.restoreLast?'Last inventory restore: '+JSON.stringify(data.restoreLast,null,2):'';
 
 }
+function brInvalidateBatch(){brBatchInvalidated=true;brBatchId='';$('brBatchStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
+function brBatchChoices(){return [...brChoices].map(([sourceId,destination])=>({sourceId,destination:destination.trim()}));}
+function brRenderChoices(data,value){
+  const owner=currentSessionOwner||currentSessionRole==='Owner',scan=data.scan,findings=value(scan,'Findings')||[],advice=owner&&value(data.mappingAdvice,'ScanId')===(value(scan,'Id')||'legacy-scan')?data.mappingAdvice:null;
+  const focused=document.activeElement?.dataset?.remapSource,selection=focused?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null;
+  const box=$('brChoices');box.replaceChildren();
+  $('brChoiceSummary').textContent=`${brChoices.size} ID(s) checked · ${findings.filter(f=>brChoices.has(value(f,'Id'))).reduce((n,f)=>n+Number(value(f,'Count')??(Number(value(f,'Solid')||0)+Number(value(f,'Fluid')||0)+Number(value(f,'Decor')||0))),0).toLocaleString()} saved occurrences. Each selected source uses its own destination.`;
+  $('brAdviceStatus').textContent=advice?`${value(advice,'State')} · ${value(advice,'Message')||''}`:'Recommendations run only when requested. No destination is chosen automatically.';
+  for(const [id,destination] of brChoices){
+    const card=document.createElement('div');card.className='compactNote';const title=document.createElement('strong'),finding=findings.find(f=>value(f,'Id')===id);title.textContent=`Source ID ${id} · ${value(finding,'Code')||'(no saved code)'}`;card.append(title);
+    const label=document.createElement('label');label.textContent='Destination ID or exact block code ';const input=document.createElement('input');input.type='text';input.maxLength=256;input.placeholder='42 or game:rock-granite';input.dataset.remapSource=String(id);input.setAttribute('aria-label','Destination for source ID '+id);input.value=destination;input.disabled=brBusy||!brCanEdit();input.oninput=()=>{brChoices.set(id,input.value);brInvalidateBatch();};label.append(input);card.append(label);
+    const report=(value(advice,'Findings')||[]).find(f=>value(f,'SourceId')===id);
+    if(report){for(const note of value(report,'Notes')||[]){const p=document.createElement('p');p.className='small';p.textContent=note;card.append(p);}const candidates=value(report,'Candidates')||[];
+      if(!candidates.length){const p=document.createElement('p');p.textContent='No supported suggestion. Search registered blocks below or enter a verified custom ID/code.';card.append(p);}
+      for(const candidate of candidates){const row=document.createElement('div');row.className='compactNote';const p=document.createElement('p');p.textContent=`${value(candidate,'Code')} · ID ${value(candidate,'Id')} · ${value(candidate,'Confidence')} confidence. ${value(candidate,'Reason')} ${value(candidate,'Restriction')||''}`;row.append(p);
+        const button=document.createElement('button');button.textContent='Use suggestion for ID '+id;button.disabled=brBusy||!brCanEdit()||!value(candidate,'Selectable');button.onclick=()=>{brChoices.set(id,String(value(candidate,'Id')));brInvalidateBatch();};row.append(button);
+        const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Show evidence';details.append(summary);for(const evidence of value(candidate,'Evidence')||[]){const p=document.createElement('p');p.className='small';p.textContent=evidence;details.append(p);}row.append(details);card.append(row);
+      }
+    }
+    const remove=document.createElement('button');remove.textContent='Uncheck ID '+id;remove.disabled=brBusy||!brCanEdit();remove.onclick=()=>{brChoices.delete(id);brInvalidateBatch();};card.append(remove);box.append(card);
+  }
+  if(focused){const input=[...box.querySelectorAll('input')].find(e=>e.dataset.remapSource===focused);if(input){input.focus({preventScroll:true});if(selection)input.setSelectionRange(...selection);}}
+  const plan=data.preview||data.pending,mappings=value(plan,'Mappings')||[],optionsMatch=plan&&$('brAutoBackup').checked===(value(plan,'CreateBackup')??true)&&$('brManualBackupAck').checked===!!value(plan,'ManualBackupAcknowledged')&&$('brAllowAir').checked===!!value(plan,'AllowAir')&&$('brAllowValid').checked===!!value(plan,'AllowValidSource');
+  const matches=mappings.length>0&&mappings.length===brChoices.size&&mappings.every(m=>{const text=(brChoices.get(value(m,'Source'))||'').trim();return text===String(value(m,'Target'))||text===value(m,'TargetCode');})&&optionsMatch;
+  brBatchId=data.preview&&matches&&!brBatchInvalidated?value(data.preview,'Id'):'';
+  $('brBatchSummary').textContent=mappings.length?`${value(plan,'State')} · ${mappings.length} checked mappings · ${value(plan,'Count')} saved occurrences. ${value(plan,'Message')||''}${matches&&!brBatchInvalidated?'':' Generate a fresh preview for the current choices.'}`:'';
+  $('brBatchPlan').textContent=mappings.length?mappings.map(m=>`ID ${value(m,'Source')} (${value(m,'SourceCode')}) → ${value(m,'TargetCode')} (ID ${value(m,'Target')}): ${value(m,'Count')} occurrences, ${value(m,'Chunks')} chunks`).join('\n'):'';
+  const clean=value(scan,'State')==='complete'&&!value(scan,'Errors')&&!value(scan,'Unsupported');
+  $('brMappingAdvice').disabled=brBusy||!owner||!clean||brChoices.size===0||value(advice,'State')==='running';
+  $('brClearChoices').disabled=brBusy||!brCanEdit()||brChoices.size===0;
+  $('brBatchPreview').disabled=brBusy||!brCanEdit()||!clean||brChoices.size===0||[...brChoices.values()].some(v=>!v.trim())||(!$('brAutoBackup').checked&&!$('brManualBackupAck').checked);
+  $('brBatchStage').disabled=brBusy||!brCanEdit()||!brBatchId;
+}
+async function blockBatchAction(operation){
+  if(brBusy||!brCanEdit())return;const mappings=brBatchChoices();if(!mappings.length||mappings.some(m=>!m.destination))return;
+  const body={operation,mappings,previewId:brBatchId,allowAir:$('brAllowAir').checked,allowValidSource:$('brAllowValid').checked,createBackup:$('brAutoBackup').checked,manualBackupAcknowledged:$('brManualBackupAck').checked};
+  if(!body.createBackup&&!body.manualBackupAcknowledged){toast('Make and acknowledge a manual world copy first.','error');return;}
+  brBusy=true;brError='';if(brSnapshot)renderBlockRepair(brSnapshot);
+  try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});if(operation==='batch-preview'){brBatchInvalidated=false;brInvalidated=true;}await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+}
+$('brBatchPreview').onclick=()=>blockBatchAction('batch-preview');$('brBatchStage').onclick=()=>blockBatchAction('batch-stage');$('brClearChoices').onclick=()=>{brChoices.clear();brInvalidateBatch();};
+$('brMappingAdvice').onclick=async()=>{
+  if(brBusy||!(currentSessionOwner||currentSessionRole==='Owner')||!brChoices.size)return;brBusy=true;brError='';if(brSnapshot)renderBlockRepair(brSnapshot);
+  try{await api('/api/block-repair',{method:'POST',body:JSON.stringify({operation:'mapping-advice',sources:[...brChoices.keys()]})});await loadBlockRepair();}catch(e){brError=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+};
 async function loadBlockRepair(){try{renderBlockRepair(await api('/api/block-repair'));}catch(e){$('brStatus').textContent=e.message;}}
 async function blockRepairAction(operation,diagnostics=false){
   if(brBusy)return;if(operation!=='cancel'&&!brCanEdit())return;
@@ -9758,9 +9816,9 @@ $('brExport').onclick=()=>{
   const a=document.createElement('a');a.href=url;a.download='block-repair-diagnostics-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 $('brScan').onclick=()=>blockRepairAction('scan');$('brDiagnosticScan').onclick=()=>blockRepairAction('scan',true);$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
-function brInvalidate(){brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
+function brInvalidate(){brBatchInvalidated=true;brBatchId='';brInvalidated=true;brPreviewId='';$('brStage').disabled=true;if(brSnapshot)renderBlockRepair(brSnapshot);}
 for(const id of ['brSource','brTarget','brAllowAir','brAllowValid','brAutoBackup','brManualBackupAck'])$(id).addEventListener('input',()=>{if(id==='brAutoBackup')$('brManualBackupAck').checked=false;brInvalidate();});
-setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'||(brSnapshot?.restorePreview?.state||brSnapshot?.restorePreview?.State)==='running'||(brSnapshot?.selectedPreview?.state||brSnapshot?.selectedPreview?.State)==='running'))loadBlockRepair();},4000);
+setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'||(brSnapshot?.mappingAdvice?.state||brSnapshot?.mappingAdvice?.State)==='running'||(brSnapshot?.inspection?.state||brSnapshot?.inspection?.State)==='running'||(brSnapshot?.recommendations?.state||brSnapshot?.recommendations?.State)==='running'||(brSnapshot?.restorePreview?.state||brSnapshot?.restorePreview?.State)==='running'||(brSnapshot?.selectedPreview?.state||brSnapshot?.selectedPreview?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
 const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
