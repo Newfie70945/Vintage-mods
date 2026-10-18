@@ -122,3 +122,10 @@ The Owner webpanel offers the same one-location preview/stage path, using the in
 Scans now show **retained-container mismatches** even when the host ID is registered or air, and flag saved/current registry code mismatches for review. Up to 256 coordinate examples are retained. This detects surviving evidence rather than assuming all removed content retains an invalid ID. Unsupported or oversized metadata remains unverified and cannot safely be treated as an empty/lost inventory.
 
 Selected-location jobs use `selected-pending.json`, `selected-last.json` and consumed/rejected records in `NewfiesBlockRepair`. They share automatic/manual backup policy and the one-staged-job limit with global and inventory repairs. Saved chunk bytes, world identity and block registry must still match at startup. Preview expires after 15 minutes. Cancel removes staged jobs without editing terrain.
+
+
+## Reading large scan totals
+
+A finding's count is the number of saved occurrences of that ID across solid, fluid and decor layers. It is **not a verified count of visible question-mark blocks**. Water/lava underground and widespread decor can produce large counts; unfinished scans are partial. A chunk containing several different suspect IDs contributes to several per-ID chunk counts, so those chunk counts must not be summed as unique chunks.
+
+QueryFix1 labels unresolved IDs separately from registered saved/current-code mismatches and deliberately focused registered IDs. It also reports when the saved code resolves to a registered runtime ID elsewhere. That may indicate a legacy/duplicate mapping; it is advisory evidence to verify before any repair. A familiar-looking code name does not itself prove a block is valid or invalid. Retained block-entity mismatches include non-inventory state, such as generic clutter, and are not automatically recoverable containers.

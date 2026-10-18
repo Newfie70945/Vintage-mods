@@ -2,6 +2,10 @@
 
 ## Server Essentials Suite 1.2.44
 
+- QueryFix1: fixed recovery reads that walked unrelated world events/snapshots even for a single-block rollback. Queries now drive existing position-index seeks from the affected-cell set, retaining prior inventory baselines, all actors and later conflict evidence. The existing 30-second cancellation/deadline and row limits remain in place; no new database index or migration is required.
+- Split player/area query branches so unused scope branches do not force broad reads, and use the existing indexed player-name lookup. Single-block work is covered by large-history and native SQLite regression tests.
+- Clarified repair diagnostics: occurrence counts are not confirmed visible question-mark blocks. Findings distinguish unresolved IDs, registered code mismatches and deliberately selected registered IDs, and show when the same saved code has a registered runtime ID elsewhere. Retained block entities are not all inventory containers. Running scans and overlapping per-ID chunk counts are identified.
+
 - Corrected the Suite version to 1.2.44 across mod metadata, assembly/project version, manifest, build identity and current guides. The previous 1.2.49–1.2.52 labels were development build numbering; this build keeps their fixes and uses the requested public version.
 - Added `/rollback help` and bare `/rollback` help, available even while recovery is running or its receipt index is initializing. Covers block/container, player, area, duration/UTC syntax, claims, execution, cancellation and inventory limitations.
 - Added `/rollback block 2h` to preview the looked-at block and its logged container inventory; explicit absolute coordinates and dimension can target missing blocks. Includes slot changes, fixed target/time, execution tokens and durable recovery receipts. Neighboring cells are excluded.

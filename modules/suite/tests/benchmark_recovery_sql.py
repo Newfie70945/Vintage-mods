@@ -9,7 +9,7 @@ def queries(source):
 c=sqlite3.connect(':memory:')
 for table in ['events','snapshots']:
  c.executescript(re.search(r'CREATE TABLE IF NOT EXISTS '+table+r' \(.*?\);',current,re.S).group(0))
-for index in ['idx_events_world_dim_pos_time','idx_events_world_time','idx_events_player_uid_time','idx_snapshots_world_dim_pos_time']:
+for index in ['idx_events_world_dim_pos_time','idx_events_world_time','idx_events_player_uid_time','idx_events_player_name_time','idx_snapshots_world_dim_pos_time']:
  match=re.search(r'CREATE INDEX IF NOT EXISTS '+index+r'\s.*?;',current,re.S)
  if match:c.executescript(match.group(0))
 # 50,000 events over 500 cells, with retained later edits and pre-window snapshots.
@@ -19,8 +19,9 @@ a={'world':'w','from':1000,'to':2000,'target':'target','uid':'target','area':0,'
 result={'fixture':{'events':50000,'snapshots':2000,'cells':500},'runs':[]}
 references={}
 for label,source in ([('baseline',args.baseline.read_text())] if args.baseline else [])+[('current',current)]:
- for mode in ['player','area']:
-  parameters=dict(a,area=mode=='area')
+ for mode in ['player','area','block']:
+  parameters=dict(a,area=mode!='player')
+  if mode=='block':parameters.update(minX=0,maxX=0,minY=100,maxY=100,minZ=0,maxZ=0,r2=0)
   for name,sql in queries(source).items():
    plan=[row[3] for row in c.execute('EXPLAIN QUERY PLAN '+sql,parameters)]
    started=time.perf_counter();rows=c.execute(sql,parameters).fetchall();elapsed=time.perf_counter()-started
