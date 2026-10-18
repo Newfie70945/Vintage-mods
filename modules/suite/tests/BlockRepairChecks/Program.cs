@@ -114,6 +114,25 @@ static class Checks
   var mismatch=RetainedBlockFindings.Inspect(inventoryBlob,codec,_=>"game:rock-granite",_=>"",out var unverified);Assert(mismatch.Count==1&&mismatch[0].SavedCode=="game:bookshelf"&&mismatch[0].Stacks==1&&unverified==0,"registered host IDs still expose orphaned bookshelf metadata");
   var emptyReconnect=codec.RestoreContainer(emptyBlob,17,0,0,0,123456,42,emptySummary.PayloadSha256,null);Assert(codec.EntityAt(emptyReconnect,17,0,0,0).Bytes.SequenceEqual(empty),"empty retained bookshelf metadata can be reconnected byte for byte");
   Assert(RetainedBlockFindings.MappingMismatch(42,"bookshelf","game:rock-granite")&&!RetainedBlockFindings.MappingMismatch(42,"rock-granite","game:rock-granite")&&!RetainedBlockFindings.MappingMismatch(0,"game:plant","game:air"),"mapping mismatch detection normalizes codes and never globally remaps air");
+  // Mixed official-format saved layers: a genuine placeholder, healthy fluid,
+  // a code-less registry hole, a valid mismatched definition, and an unknown raw ID.
+  var registry=new Block?[]{new Block{BlockId=0,Code=new AssetLocation("air")},new Block{BlockId=1,Code=new AssetLocation("removed-bookshelf"),IsMissing=true},new Block{BlockId=2,Code=new AssetLocation("water-still-7")},new Block{BlockId=3,IsMissing=true},new Block{BlockId=4,Code=new AssetLocation("rock-granite")},null};
+  var placeholders=registry.Select(MissingBlockScan.IsPlaceholder).ToArray();var suspects=new[]{false,true,false,true,true,true};
+  var mixed=new BlockChunkDataLayer(pool);mixed.PopulateWithAir();foreach(var pair in new[]{(17,1),(18,3),(19,4),(20,999999),(21,5)})mixed.Set(pair.Item1,pair.Item2);
+  var mixedFluid=new BlockChunkDataLayer(pool);mixedFluid.PopulateWithAir();mixedFluid.Set(22,2);
+  byte[] mixedDecor=new byte[16];BinaryPrimitives.WriteInt32LittleEndian(mixedDecor.AsSpan(0,4),1);BinaryPrimitives.WriteInt32LittleEndian(mixedDecor.AsSpan(4,4),1);BinaryPrimitives.WriteInt32LittleEndian(mixedDecor.AsSpan(8,4),2);BinaryPrimitives.WriteInt32LittleEndian(mixedDecor.AsSpan(12,4),4);
+  var mixedBytes=Blob(ChunkDataLayer.Compress(mixed,scratch),ChunkDataLayer.Compress(mixedFluid,scratch),mixedDecor);
+  var onlyQuestions=codec.Inspect(mixedBytes,id=>MissingBlockScan.Includes(id,null,false,placeholders,suspects));
+  Assert(onlyQuestions.Keys.SequenceEqual(new[]{1})&&onlyQuestions[1].SequenceEqual(new long[]{1,0,1}),"default saved scan counts only actual missing placeholders, excluding healthy water, registry holes, mismatches and unknown raw IDs");
+  Assert(codec.Inspect(mixedBytes,id=>MissingBlockScan.Includes(id,4,false,placeholders,suspects)).Count==0,"registered source focus cannot broaden default scan");
+  Assert(codec.Inspect(mixedBytes,id=>MissingBlockScan.Includes(id,1,false,placeholders,suspects))[1][0]==1,"missing source focus retains actual placeholder");
+  var diagnostic=codec.Inspect(mixedBytes,id=>MissingBlockScan.Includes(id,null,true,placeholders,suspects));
+  Assert(diagnostic.Keys.Order().SequenceEqual(new[]{1,3,4,5,999999}),"advanced diagnostics retain undefined and registered-mismatch evidence");
+  Assert(codec.Inspect(mixedBytes,id=>MissingBlockScan.Includes(id,4,true,placeholders,suspects)).Keys.SequenceEqual(new[]{4}),"advanced source focus is restricted to the selected registered ID");
+  Assert(!MissingBlockScan.Includes(0,0,true,placeholders,suspects),"air is never a scan source");
+  Assert(!MissingBlockScan.Includes(-1,null,false,placeholders,suspects)&&MissingBlockScan.Includes(-1,null,true,placeholders,suspects),"invalid negative ID is diagnostic evidence only");
+  Assert(!MissingBlockScan.IsPlaceholder(new Block{Code=new AssetLocation("unknown")}),"unknown texture or name alone does not mark a registered block missing");
+  pool.FreeArrays(mixed);pool.FreeArrays(mixedFluid);
   pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory restore and preservation checks passed against official serialization.");
  }
 }

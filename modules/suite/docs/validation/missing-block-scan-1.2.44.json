@@ -1,0 +1,41 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-placeholders1",
+  "gameVersion": "1.22.7",
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "defaultScan": {
+    "predicate": "Runtime Block.IsMissing with non-null Code",
+    "excluded": [
+      "registered code mismatches",
+      "code-less/null registry slots",
+      "unknown raw IDs without a placeholder",
+      "retained block-entity records"
+    ],
+    "retainedMetadataInspected": false
+  },
+  "advancedScan": {
+    "explicit": true,
+    "command": "/nseblockrepair diagnostics [ID]"
+  },
+  "checks": {
+    "officialCodecInventoryPreservation": 88,
+    "historyRecommendations": 16,
+    "officialChatParser": 5,
+    "browser": "Placeholder-only request by default; separate explicit diagnostic request; scope labels; existing preview/stage/backup/selection/inventory workflows; safe diagnostics and read-only permissions; mobile layout; no browser exceptions",
+    "package": "Mod version, bundled guide/DLL byte identity, no website/connector or root native SQLite DLL verified",
+    "suite": 22,
+    "postBuilder": 7,
+    "sourceConsistency": "passed",
+    "diffWhitespace": "passed"
+  },
+  "limits": [
+    "Synthetic saved chunks and browser fixtures, not the production world, were tested.",
+    "Server missing-block definitions are detected; player camera visibility and client texture failures are not.",
+    "Underground/unloaded saved placeholders still count; plants already saved as air require location/history evidence."
+  ],
+  "assemblySha256": "5803f8975bce96af2c749e18222d0bbcb05daeed8cb937d71e63eeeea3ff6bbd",
+  "artifactSha256": "6d552643693aaaa0da8d1927e8961115bb23af6a86d18fb921e613b626faf466"
+}

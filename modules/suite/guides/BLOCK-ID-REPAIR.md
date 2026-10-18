@@ -4,9 +4,9 @@
 
 Open **Suite webpanel → Server Tools → Block ID Repair**. Use a panel Owner account; in-game/console commands require `controlserver`. No standalone connector or optimizer is required. This implementation supports the inspected official Vintage Story 1.22.7 world format. A different server format, Stratum runtime, or a patched layer codec is refused.
 
-1. Save the world normally if you want its latest live edits included. **Scan Saved Map** reads only existing saved chunks, in short read-only pages. It does not load/generate terrain, execute mod entity classes, or scan inventories. Progress, errors and cancel controls are shown.
+1. Save the world normally if you want its latest live edits included. **Scan ? Blocks** counts only saved IDs whose current definition is a coded `IsMissing` placeholder (the game’s missing-block representation). Registered blocks, code-less/null registry slots, raw IDs without a placeholder and retained block-entity mismatches are excluded. It reads only existing saved chunks, in short read-only pages. It does not load/generate terrain, execute mod entity classes, or scan inventories. Progress, errors and cancel controls are shown.
 2. Select a result or enter the **old numeric block ID**, then enter the **replacement numeric ID or exact block code**. Example: old `57213`, replacement `game:rock-granite`. A numeric destination such as `105` also works. Numbers are examples, not universal IDs: IDs belong to this particular world. Block codes must include the domain and exact variant; no wildcard or item-code lookup is performed. A code resolves to its current numeric ID, and the preview binds both that ID and its canonical code. Use `/bir getcode <id>` to inspect a number or `/bir getid game:rock-granite` to find a known destination's ID.
-3. Leave **Create and verify an automatic world backup** enabled (the default), or disable it to show the manual-copy warning. To continue without automatic backup, first stop the server and make a manual world copy, then acknowledge it in the panel. The Suite records this acknowledgement but cannot verify your copy. Changing any repair option invalidates staging until you make a fresh preview. **Preview Replacement** shows the source/destination, scanned occurrence count and affected chunk count. Scan with a source ID selected to count a registered ID. Replacing a registered block requires the explicit valid-source option. Source ID 0 is always refused. Removing matches with destination ID 0 requires Allow Air.
+3. Leave **Create and verify an automatic world backup** enabled (the default), or disable it to show the manual-copy warning. To continue without automatic backup, first stop the server and make a manual world copy, then acknowledge it in the panel. The Suite records this acknowledgement but cannot verify your copy. Changing any repair option invalidates staging until you make a fresh preview. **Preview Replacement** shows the source/destination, scanned occurrence count and affected chunk count. Open **Advanced investigation → Advanced Diagnostic Scan** with a source ID selected to count a registered ID. The ordinary scan rejects a focus ID that is not a missing placeholder. An optional focus limits results to that ID. Replacing a registered block requires the explicit valid-source option. Source ID 0 is always refused. Removing matches with destination ID 0 requires Allow Air.
 4. **Stage for Next Restart** stores the reviewed, world-bound plan. It does not edit terrain now. Cancel removes the staged job. Changes to the world ID or numeric-ID mapping invalidate the plan.
 5. On the next restart, during the AssetsFinalize phase before terrain processing begins, Suite rechecks the job and preflights saved data. If automatic backup is enabled, it creates and checks a full world backup; failure prevents edits. If disabled, it records a warning and relies on your acknowledged manual copy. It then rewrites only matching solid/fluid palette values and decor pairs in existing saved chunks. Other protobuf fields (including entity and mod data) retain their original bytes. It uses the official game database writer and normal save format. Progress and completion are logged.
 6. Inspect the last-job result after startup, then rescan. A source's missing registry definition may still appear even after its last saved occurrence is gone; a complete scan distinguishes unused definitions from blocks actually on the map.
@@ -26,7 +26,9 @@ Open **Suite webpanel → Server Tools → Block ID Repair**. Use a panel Owner 
 
 ```
 /nseblockrepair scan
-/nseblockrepair scan <oldId>
+/nseblockrepair scan <missingPlaceholderId>
+/nseblockrepair diagnostics
+/nseblockrepair diagnostics <oldId>
 /nseblockrepair status
 /nseblockrepair preview <oldId> <newId-or-domain:code>
 /nseblockrepair preview 57213 game:rock-granite
@@ -119,13 +121,19 @@ For a retained bookshelf/container, `replace game:bookshelf confirm-risk` routes
 
 The Owner webpanel offers the same one-location preview/stage path, using the inspection coordinates, and a **Use Latest In-game Selection** button. BlockLogger suggestions have separate buttons for one-location repair and retained-container recovery. The global remap remains a distinct operation that changes every scanned occurrence of an ID; its preview count and container protections still apply.
 
-Scans now show **retained-container mismatches** even when the host ID is registered or air, and flag saved/current registry code mismatches for review. Up to 256 coordinate examples are retained. This detects surviving evidence rather than assuming all removed content retains an invalid ID. Unsupported or oversized metadata remains unverified and cannot safely be treated as an empty/lost inventory.
+Advanced diagnostic scans show **retained-container mismatches** even when the host ID is registered or air, and flag saved/current registry code mismatches for review. Up to 256 coordinate examples are retained. This detects surviving evidence rather than assuming all removed content retains an invalid ID. Unsupported or oversized metadata remains unverified and cannot safely be treated as an empty/lost inventory.
 
 Selected-location jobs use `selected-pending.json`, `selected-last.json` and consumed/rejected records in `NewfiesBlockRepair`. They share automatic/manual backup policy and the one-staged-job limit with global and inventory repairs. Saved chunk bytes, world identity and block registry must still match at startup. Preview expires after 15 minutes. Cancel removes staged jobs without editing terrain.
 
 
+## Placeholder-only and advanced scans
+
+Placeholders1 keeps Suite **1.2.44**. The default web button and `/nseblockrepair scan` now detect only coded `IsMissing` block definitions; a familiar saved code or registered copy elsewhere does not suppress a real placeholder. This is a server-side definition check, not a camera/visibility test. Underground and unloaded saved placeholders still count. Missing textures on otherwise valid blocks and plants already saved as air cannot be detected this way.
+
+Use the separate **Advanced Diagnostic Scan** or `/nseblockrepair diagnostics [oldId]` only to investigate broader ID/code and retained block-entity evidence. The report records `scan.Mode` as `missing-blocks` or `diagnostics`; the panel labels the active scope. Default scans skip retained block-entity inspection entirely. Neither mode edits terrain.
+
 ## Reading large scan totals
 
-A finding's count is the number of saved occurrences of that ID across solid, fluid and decor layers. It is **not a verified count of visible question-mark blocks**. Water/lava underground and widespread decor can produce large counts; unfinished scans are partial. A chunk containing several different suspect IDs contributes to several per-ID chunk counts, so those chunk counts must not be summed as unique chunks.
+A finding's count is the number of saved occurrences of that ID across solid, fluid and decor layers. It is **not a verified count of visible question-mark blocks**. In advanced diagnostics, fluids and widespread decor can produce large counts; unfinished scans are partial. A chunk containing several different suspect IDs contributes to several per-ID chunk counts, so those chunk counts must not be summed as unique chunks.
 
 QueryFix1 labels unresolved IDs separately from registered saved/current-code mismatches and deliberately focused registered IDs. It also reports when the saved code resolves to a registered runtime ID elsewhere. That may indicate a legacy/duplicate mapping; it is advisory evidence to verify before any repair. A familiar-looking code name does not itself prove a block is valid or invalid. Retained block-entity mismatches include non-inventory state, such as generic clutter, and are not automatically recoverable containers.
