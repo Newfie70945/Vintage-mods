@@ -1,0 +1,166 @@
+{
+  "kind": "Synthetic component comparison against actual official methods, not server TPS",
+  "gameVersion": "1.22.7",
+  "tieredCompilation": false,
+  "warmupCalls": 30000,
+  "measuredCallsPerMode": 300000,
+  "repulsionNeighbors": 16,
+  "fixtureOverhead": "World/block-access proxies are identical in both modes and contribute 192 B/call; the measured repulsion allocation difference is 128 B/call.",
+  "trials": [
+    {
+      "trial": 0,
+      "stock": {
+        "filteredAi": {
+          "Nanoseconds": 39.571666666666665,
+          "Bytes": 40
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 6.818333333333333,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 409.89633333333336,
+          "Bytes": 320
+        }
+      },
+      "optimized": {
+        "filteredAi": {
+          "Nanoseconds": 16.939666666666668,
+          "Bytes": 0
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 6.243,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 377.95166666666665,
+          "Bytes": 192
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "filteredAi": {
+          "Nanoseconds": 37.392,
+          "Bytes": 40
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 4.476,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 409.284,
+          "Bytes": 320
+        }
+      },
+      "optimized": {
+        "filteredAi": {
+          "Nanoseconds": 17.368,
+          "Bytes": 0
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 4.3726666666666665,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 384.28333333333336,
+          "Bytes": 192
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "filteredAi": {
+          "Nanoseconds": 35.775,
+          "Bytes": 40
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 4.468,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 408.309,
+          "Bytes": 320
+        }
+      },
+      "optimized": {
+        "filteredAi": {
+          "Nanoseconds": 17.753,
+          "Bytes": 0
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 5.732,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 385.0353333333333,
+          "Bytes": 192
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "filteredAi": {
+          "Nanoseconds": 36.90566666666667,
+          "Bytes": 40
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 5.678333333333334,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 411.49666666666667,
+          "Bytes": 320
+        }
+      },
+      "optimized": {
+        "filteredAi": {
+          "Nanoseconds": 17.522333333333332,
+          "Bytes": 0
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 4.818,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 385.0486666666667,
+          "Bytes": 192
+        }
+      }
+    },
+    {
+      "trial": 4,
+      "stock": {
+        "filteredAi": {
+          "Nanoseconds": 37.119,
+          "Bytes": 40
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 4.405666666666667,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 408.2733333333333,
+          "Bytes": 320
+        }
+      },
+      "optimized": {
+        "filteredAi": {
+          "Nanoseconds": 17.873666666666665,
+          "Bytes": 0
+        },
+        "unfilteredAi": {
+          "Nanoseconds": 5.507,
+          "Bytes": 0
+        },
+        "repulsion": {
+          "Nanoseconds": 436.25866666666667,
+          "Bytes": 192
+        }
+      }
+    }
+  ]
+}

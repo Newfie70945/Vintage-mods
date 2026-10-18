@@ -17,6 +17,12 @@ public sealed class Probe:ModSystem
     void Check(bool condition,string label){if(!condition)throw new Exception(label);checks.Add(label);}
     var status=Call("get");Check(status.GetProperty("available").GetBoolean(),"Suite finds NOS via event bridge");
     var original=status.GetProperty("optimizer").GetProperty("settings").GetRawText();
+    var aiOff=Call("set","{\"aiFilterDispatch\":false}");
+    Check(aiOff.GetProperty("optimizer").GetProperty("modules").EnumerateArray().Any(x=>x.GetProperty("name").GetString()=="aiFilterDispatch"&&x.GetProperty("status").GetString()=="disabled"),"AI switch independently disables its patch");
+    Check(aiOff.GetProperty("optimizer").GetProperty("modules").EnumerateArray().Any(x=>x.GetProperty("name").GetString()=="repulseDelegateReuse"&&x.GetProperty("status").GetString()=="active"),"repulsion remains active with profiling off");
+    var repulseOff=Call("set","{\"aiFilterDispatch\":true,\"repulseDelegateReuse\":false}");
+    Check(repulseOff.GetProperty("optimizer").GetProperty("modules").EnumerateArray().Any(x=>x.GetProperty("name").GetString()=="repulseDelegateReuse"&&x.GetProperty("status").GetString()=="disabled"),"repulsion switch independently disables its patch");
+    Check(repulseOff.GetProperty("optimizer").GetProperty("modules").EnumerateArray().Any(x=>x.GetProperty("name").GetString()=="aiFilterDispatch"&&x.GetProperty("status").GetString()=="active"),"AI remains active with profiling off");
     var off=Call("set","{\"enabled\":false}");Check(off.GetProperty("success").GetBoolean(),"master-off saves and applies");
     Check(off.GetProperty("optimizer").GetProperty("modules").EnumerateArray().All(x=>x.GetProperty("status").GetString() is "blocked" or "disabled"),"master-off retains stock methods");
     var invalid=Call("set","{\"assetCacheMaxMiB\":5000}");Check(!invalid.GetProperty("success").GetBoolean(),"invalid bound rejected");

@@ -12,7 +12,7 @@ namespace NewfiesOptimizer;
 
 public sealed class RuntimeProfiler : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.3.1";
+    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.4.0";
     private static RuntimeProfiler? active;
     public Func<ModuleStatus[]>? ExternalModules { get; set; }
     public Func<IReadOnlyDictionary<string,long>>? ExternalCounters { get; set; }
@@ -57,7 +57,9 @@ public sealed class RuntimeProfiler : IDisposable
                 chunkCount = () => dictionary.Count;
         }
         foreach (string area in new[] { "entityOptimization", "chunkOptimization", "blockEntities", "memoryManagement", "networking", "scheduling" })
-            modules[area] = new(area, "notImplemented", "Requires representative baseline and correctness evidence; this gameplay area is not modified by the allocation/copy modules.");
+            modules[area] = area == "entityOptimization"
+                ? new(area, "scopeLimited", "AI filter dispatch and repulsion hot paths are separate engine modules. Entity activation and AI scheduling remain unchanged.")
+                : new(area, "notImplemented", "This gameplay area is not modified by the implemented engine modules.");
         SetModule("tickMetrics", config.Profiling.TickMetrics ? "idle" : "disabled", "No hook while profiling is stopped.");
         SetModule("systemTimings", config.Profiling.SystemTimings ? "idle" : "disabled", "Optional sampled inclusive engine-system timing.");
         SetModule("phaseTimings", config.Profiling.PhaseTimings ? "idle" : "disabled", "Optional inspected main-thread phases only.");
@@ -133,7 +135,7 @@ public sealed class RuntimeProfiler : IDisposable
 
     public string Status()
     {
-        string summary = "Newfie's Server Optimizer 0.3.1 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
+        string summary = "Newfie's Server Optimizer 0.4.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
         if (Session is not null) summary += $" Capture {Session.ElapsedSeconds:F1}s, {Session.TickCount} completed ticks.";
         if (LastExport is not null) summary += " Last export: " + LastExport + ".";
         if (ExportFailure is not null) summary += " Export failed: " + ExportFailure + ".";
