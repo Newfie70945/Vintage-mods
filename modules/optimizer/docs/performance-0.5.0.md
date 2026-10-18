@@ -31,3 +31,7 @@ Incremental autosave, parallel world generation, compression changes, chunk I/O 
 ## Reproducing the storage checks
 
 Build `tests/SuiteIntegrationProbe` against the official game and install its test-only DLL alongside the packaged Suite and NOS on an isolated save copy. It is not included in production mod ZIPs. Run `/nosbridgetest`, then `/nosgenerate` and wait for `NOS_WORLDGEN_PASS`. Run `/autosavenow`, wait for off-thread save completion, then `/nosstoragecheck`. Toggle release off with `/nosstoragetoggle`, save again and run `/nosstoragestock`; toggle on, save and repeat `/nosstoragecheck`. Stop, reopen that save, load the test columns again, save and repeat the enabled check. These commands require `controlserver` and belong only on the disposable test server.
+
+## Repeated workload measurements
+
+The later [nine-run generation/save test](performance-tests-0.5.0.md) confirms the reference-retention fix but does not establish a generation or save throughput improvement. Default-NOS first-save and tick-tail timings were slower in the main sample; incidental entity populations varied, preventing causal attribution. Peak managed heap was similar.

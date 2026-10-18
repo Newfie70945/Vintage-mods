@@ -1,0 +1,446 @@
+{
+  "manifest": {
+    "kind": "Disposable official-server generation/save/unload A/B laboratory workload",
+    "gameVersion": "1.22.7",
+    "order": [
+      "stock",
+      "nos",
+      "nos",
+      "stock",
+      "stock",
+      "nos"
+    ],
+    "worldSeed": "nos-1227-validation",
+    "worldSha256": "e79c7054599eca9ea77b49c579c166abb3fa9c045daff2b0f53d7d165d8af372",
+    "artifacts": {
+      "NewfiesServerEssentialsSuiteV1.2.48.zip": "be2e953fd108010358db27e525ded045cb14fa5da23661f0fa7abb5a9314295f",
+      "NewfiesServerOptimizer-0.5.0-preview.zip": "fcbd310bc130861555269fb34ede6fcaa137e48a5c2e556764fca88924eed1f6",
+      "NosStorageBenchmarkProbe.dll": "c3b3cfc9e3bc48e07f2e762969a5e8fdbb111c79bea6cfe833158f7cd786180f"
+    },
+    "dotnet": "/workspace/tooling/recovery/dotnet/dotnet",
+    "cpuQuota": "200000 100000",
+    "memoryLimit": "8589934592",
+    "warmupSeconds": 15,
+    "limits": [
+      "No authenticated clients, bots or production modpack workload.",
+      "Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.",
+      "NOS arm uses all shipped default engine switches; this workload exercises worldgen and saves, not crowded entities.",
+      "Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.",
+      "Save timings are observed console-log wall intervals on local container storage, not physical disk latency."
+    ]
+  },
+  "runs": [
+    {
+      "trial": 1,
+      "mode": "stock",
+      "metrics": {
+        "generationSeconds": 9.877905,
+        "generationCpuSeconds": 11.335879,
+        "generationAllocatedMiB": 902.3664016723633,
+        "firstSaveMs": 257.22946200403385,
+        "repeatSaveMedianMs": 189.1702425054973,
+        "savePreparationMedianMs": 157.56059301202185,
+        "tickAverageMs": 1.26,
+        "tickP95Ms": 1,
+        "tickP99Ms": 9,
+        "tickWorstMs": 217,
+        "effectiveTps": 29.106448222746884,
+        "peakLoadedEntities": 24,
+        "capturePeakRssMiB": 1241.51171875,
+        "capturePeakManagedMiB": 877.9515151977539,
+        "workAllocatedMiB": 1002.8351745605469,
+        "workCpuSeconds": 13.106442999999999,
+        "workGcPauseMs": 209.29100000000017,
+        "completedSnapshotReferences": 552,
+        "trackedAfterUnloadGc": 512,
+        "trackedAfterRefreshGc": 3,
+        "postUnloadGcHeapMiB": 769.13134765625,
+        "postRefreshGcHeapMiB": 767.2372283935547,
+        "heapReleasedBySnapshotRefreshMiB": 1.8941192626953125
+      }
+    },
+    {
+      "trial": 2,
+      "mode": "nos",
+      "metrics": {
+        "generationSeconds": 10.0543324,
+        "generationCpuSeconds": 11.273762999999999,
+        "generationAllocatedMiB": 903.1271362304688,
+        "firstSaveMs": 312.22891800280195,
+        "repeatSaveMedianMs": 184.85417750343913,
+        "savePreparationMedianMs": 147.74824799678754,
+        "tickAverageMs": 1.3280423280423281,
+        "tickP95Ms": 1,
+        "tickP99Ms": 9,
+        "tickWorstMs": 259,
+        "effectiveTps": 29.08503198384017,
+        "peakLoadedEntities": 39,
+        "capturePeakRssMiB": 1240.38671875,
+        "capturePeakManagedMiB": 880.0830841064453,
+        "workAllocatedMiB": 1006.5293960571289,
+        "workCpuSeconds": 13.064540000000001,
+        "workGcPauseMs": 234.34600000000046,
+        "completedSnapshotReferences": 0,
+        "trackedAfterUnloadGc": 4,
+        "trackedAfterRefreshGc": 4,
+        "postUnloadGcHeapMiB": 766.3755645751953,
+        "postRefreshGcHeapMiB": 767.1545486450195,
+        "heapReleasedBySnapshotRefreshMiB": -0.7789840698242188
+      }
+    },
+    {
+      "trial": 3,
+      "mode": "nos",
+      "metrics": {
+        "generationSeconds": 9.7894528,
+        "generationCpuSeconds": 11.060997000000002,
+        "generationAllocatedMiB": 902.6876373291016,
+        "firstSaveMs": 308.6143090040423,
+        "repeatSaveMedianMs": 179.58404650562443,
+        "savePreparationMedianMs": 155.2958039974328,
+        "tickAverageMs": 1.351206434316354,
+        "tickP95Ms": 1,
+        "tickP99Ms": 12,
+        "tickWorstMs": 256,
+        "effectiveTps": 29.063320087952462,
+        "peakLoadedEntities": 36,
+        "capturePeakRssMiB": 1208.828125,
+        "capturePeakManagedMiB": 880.7775497436523,
+        "workAllocatedMiB": 1006.1429672241211,
+        "workCpuSeconds": 12.943137000000002,
+        "workGcPauseMs": 259.91399999999976,
+        "completedSnapshotReferences": 0,
+        "trackedAfterUnloadGc": 4,
+        "trackedAfterRefreshGc": 4,
+        "postUnloadGcHeapMiB": 766.6946029663086,
+        "postRefreshGcHeapMiB": 767.5344848632812,
+        "heapReleasedBySnapshotRefreshMiB": -0.8398818969726562
+      }
+    },
+    {
+      "trial": 4,
+      "mode": "stock",
+      "metrics": {
+        "generationSeconds": 10.286721,
+        "generationCpuSeconds": 11.825621,
+        "generationAllocatedMiB": 903.5191345214844,
+        "firstSaveMs": 275.03536599397194,
+        "repeatSaveMedianMs": 181.06842550332658,
+        "savePreparationMedianMs": 154.84455700789113,
+        "tickAverageMs": 1.2772667542706964,
+        "tickP95Ms": 1,
+        "tickP99Ms": 8,
+        "tickWorstMs": 237,
+        "effectiveTps": 29.100440491570453,
+        "peakLoadedEntities": 27,
+        "capturePeakRssMiB": 1249.078125,
+        "capturePeakManagedMiB": 880.7148361206055,
+        "workAllocatedMiB": 1006.1217498779297,
+        "workCpuSeconds": 13.705254,
+        "workGcPauseMs": 233.11299999999937,
+        "completedSnapshotReferences": 552,
+        "trackedAfterUnloadGc": 512,
+        "trackedAfterRefreshGc": 4,
+        "postUnloadGcHeapMiB": 770.4897308349609,
+        "postRefreshGcHeapMiB": 758.8090972900391,
+        "heapReleasedBySnapshotRefreshMiB": 11.680633544921875
+      }
+    },
+    {
+      "trial": 5,
+      "mode": "stock",
+      "metrics": {
+        "generationSeconds": 9.817729,
+        "generationCpuSeconds": 11.046419999999998,
+        "generationAllocatedMiB": 903.6690979003906,
+        "firstSaveMs": 269.27296799840406,
+        "repeatSaveMedianMs": 181.3178290030919,
+        "savePreparationMedianMs": 154.23556900350377,
+        "tickAverageMs": 1.2533333333333334,
+        "tickP95Ms": 1,
+        "tickP99Ms": 7,
+        "tickWorstMs": 225,
+        "effectiveTps": 29.132515605890465,
+        "peakLoadedEntities": 30,
+        "capturePeakRssMiB": 1252.45703125,
+        "capturePeakManagedMiB": 879.8630447387695,
+        "workAllocatedMiB": 1005.9887008666992,
+        "workCpuSeconds": 12.795411,
+        "workGcPauseMs": 230.41799999999967,
+        "completedSnapshotReferences": 552,
+        "trackedAfterUnloadGc": 512,
+        "trackedAfterRefreshGc": 4,
+        "postUnloadGcHeapMiB": 770.4449157714844,
+        "postRefreshGcHeapMiB": 758.4430465698242,
+        "heapReleasedBySnapshotRefreshMiB": 12.001869201660156
+      }
+    },
+    {
+      "trial": 6,
+      "mode": "nos",
+      "metrics": {
+        "generationSeconds": 9.5226173,
+        "generationCpuSeconds": 10.877546999999998,
+        "generationAllocatedMiB": 903.2172317504883,
+        "firstSaveMs": 275.5774300021585,
+        "repeatSaveMedianMs": 185.87567350186873,
+        "savePreparationMedianMs": 165.36284099856857,
+        "tickAverageMs": 1.3721244925575102,
+        "tickP95Ms": 1,
+        "tickP99Ms": 12,
+        "tickWorstMs": 233,
+        "effectiveTps": 29.03842744694873,
+        "peakLoadedEntities": 41,
+        "capturePeakRssMiB": 1233.1796875,
+        "capturePeakManagedMiB": 880.1835174560547,
+        "workAllocatedMiB": 1006.6443481445312,
+        "workCpuSeconds": 12.614788999999996,
+        "workGcPauseMs": 214.84699999999975,
+        "completedSnapshotReferences": 0,
+        "trackedAfterUnloadGc": 4,
+        "trackedAfterRefreshGc": 4,
+        "postUnloadGcHeapMiB": 767.0089340209961,
+        "postRefreshGcHeapMiB": 767.7655487060547,
+        "heapReleasedBySnapshotRefreshMiB": -0.7566146850585938
+      }
+    }
+  ],
+  "aggregate": {
+    "stock": {
+      "generationSeconds": {
+        "median": 9.877905,
+        "min": 9.817729,
+        "max": 10.286721
+      },
+      "generationCpuSeconds": {
+        "median": 11.335879,
+        "min": 11.046419999999998,
+        "max": 11.825621
+      },
+      "generationAllocatedMiB": {
+        "median": 903.5191345214844,
+        "min": 902.3664016723633,
+        "max": 903.6690979003906
+      },
+      "firstSaveMs": {
+        "median": 269.27296799840406,
+        "min": 257.22946200403385,
+        "max": 275.03536599397194
+      },
+      "repeatSaveMedianMs": {
+        "median": 181.3178290030919,
+        "min": 181.06842550332658,
+        "max": 189.1702425054973
+      },
+      "savePreparationMedianMs": {
+        "median": 154.84455700789113,
+        "min": 154.23556900350377,
+        "max": 157.56059301202185
+      },
+      "tickAverageMs": {
+        "median": 1.26,
+        "min": 1.2533333333333334,
+        "max": 1.2772667542706964
+      },
+      "tickP95Ms": {
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "tickP99Ms": {
+        "median": 8,
+        "min": 7,
+        "max": 9
+      },
+      "tickWorstMs": {
+        "median": 225,
+        "min": 217,
+        "max": 237
+      },
+      "effectiveTps": {
+        "median": 29.106448222746884,
+        "min": 29.100440491570453,
+        "max": 29.132515605890465
+      },
+      "peakLoadedEntities": {
+        "median": 27,
+        "min": 24,
+        "max": 30
+      },
+      "capturePeakRssMiB": {
+        "median": 1249.078125,
+        "min": 1241.51171875,
+        "max": 1252.45703125
+      },
+      "capturePeakManagedMiB": {
+        "median": 879.8630447387695,
+        "min": 877.9515151977539,
+        "max": 880.7148361206055
+      },
+      "workAllocatedMiB": {
+        "median": 1005.9887008666992,
+        "min": 1002.8351745605469,
+        "max": 1006.1217498779297
+      },
+      "workCpuSeconds": {
+        "median": 13.106442999999999,
+        "min": 12.795411,
+        "max": 13.705254
+      },
+      "workGcPauseMs": {
+        "median": 230.41799999999967,
+        "min": 209.29100000000017,
+        "max": 233.11299999999937
+      },
+      "completedSnapshotReferences": {
+        "median": 552,
+        "min": 552,
+        "max": 552
+      },
+      "trackedAfterUnloadGc": {
+        "median": 512,
+        "min": 512,
+        "max": 512
+      },
+      "trackedAfterRefreshGc": {
+        "median": 4,
+        "min": 3,
+        "max": 4
+      },
+      "postUnloadGcHeapMiB": {
+        "median": 770.4449157714844,
+        "min": 769.13134765625,
+        "max": 770.4897308349609
+      },
+      "postRefreshGcHeapMiB": {
+        "median": 758.8090972900391,
+        "min": 758.4430465698242,
+        "max": 767.2372283935547
+      },
+      "heapReleasedBySnapshotRefreshMiB": {
+        "median": 11.680633544921875,
+        "min": 1.8941192626953125,
+        "max": 12.001869201660156
+      }
+    },
+    "nos": {
+      "generationSeconds": {
+        "median": 9.7894528,
+        "min": 9.5226173,
+        "max": 10.0543324
+      },
+      "generationCpuSeconds": {
+        "median": 11.060997000000002,
+        "min": 10.877546999999998,
+        "max": 11.273762999999999
+      },
+      "generationAllocatedMiB": {
+        "median": 903.1271362304688,
+        "min": 902.6876373291016,
+        "max": 903.2172317504883
+      },
+      "firstSaveMs": {
+        "median": 308.6143090040423,
+        "min": 275.5774300021585,
+        "max": 312.22891800280195
+      },
+      "repeatSaveMedianMs": {
+        "median": 184.85417750343913,
+        "min": 179.58404650562443,
+        "max": 185.87567350186873
+      },
+      "savePreparationMedianMs": {
+        "median": 155.2958039974328,
+        "min": 147.74824799678754,
+        "max": 165.36284099856857
+      },
+      "tickAverageMs": {
+        "median": 1.351206434316354,
+        "min": 1.3280423280423281,
+        "max": 1.3721244925575102
+      },
+      "tickP95Ms": {
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "tickP99Ms": {
+        "median": 12,
+        "min": 9,
+        "max": 12
+      },
+      "tickWorstMs": {
+        "median": 256,
+        "min": 233,
+        "max": 259
+      },
+      "effectiveTps": {
+        "median": 29.063320087952462,
+        "min": 29.03842744694873,
+        "max": 29.08503198384017
+      },
+      "peakLoadedEntities": {
+        "median": 39,
+        "min": 36,
+        "max": 41
+      },
+      "capturePeakRssMiB": {
+        "median": 1233.1796875,
+        "min": 1208.828125,
+        "max": 1240.38671875
+      },
+      "capturePeakManagedMiB": {
+        "median": 880.1835174560547,
+        "min": 880.0830841064453,
+        "max": 880.7775497436523
+      },
+      "workAllocatedMiB": {
+        "median": 1006.5293960571289,
+        "min": 1006.1429672241211,
+        "max": 1006.6443481445312
+      },
+      "workCpuSeconds": {
+        "median": 12.943137000000002,
+        "min": 12.614788999999996,
+        "max": 13.064540000000001
+      },
+      "workGcPauseMs": {
+        "median": 234.34600000000046,
+        "min": 214.84699999999975,
+        "max": 259.91399999999976
+      },
+      "completedSnapshotReferences": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "trackedAfterUnloadGc": {
+        "median": 4,
+        "min": 4,
+        "max": 4
+      },
+      "trackedAfterRefreshGc": {
+        "median": 4,
+        "min": 4,
+        "max": 4
+      },
+      "postUnloadGcHeapMiB": {
+        "median": 766.6946029663086,
+        "min": 766.3755645751953,
+        "max": 767.0089340209961
+      },
+      "postRefreshGcHeapMiB": {
+        "median": 767.5344848632812,
+        "min": 767.1545486450195,
+        "max": 767.7655487060547
+      },
+      "heapReleasedBySnapshotRefreshMiB": {
+        "median": -0.7789840698242188,
+        "min": -0.8398818969726562,
+        "max": -0.7566146850585938
+      }
+    }
+  },
+  "aggregation": "Per-run metrics then median across runs. Repeat-save medians exclude the first save. Tick percentiles are original integer-ms engine work samples; forced laboratory GCs occur after capture stops.",
+  "allSavesIntegrityOk": true
+}
