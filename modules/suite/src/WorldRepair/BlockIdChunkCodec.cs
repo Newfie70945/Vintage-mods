@@ -28,16 +28,16 @@ internal sealed class BlockIdChunkCodec
     }
     private static void Var(Stream stream,ulong value){while(value>=128){stream.WriteByte((byte)(value|128));value>>=7;}stream.WriteByte((byte)value);}
     private ChunkDataLayer Decode(byte[] bytes){var layer=new ChunkDataLayer(pool);try{Unpack.Invoke(layer,[bytes]);if(layer.paletteCount<0||layer.paletteCount>32768)throw new InvalidDataException("Invalid palette size.");return layer;}catch{pool.FreeArrays(layer);throw;}}
-    public Dictionary<int,long[]> Inspect(byte[] blob,Func<int,bool> wanted)
+    public Dictionary<int,long[]> Inspect(byte[] blob,Func<int,bool> wanted,Action<int,int,int>? sample=null)
     {
         var result=new Dictionary<int,long[]>();var fields=Fields(blob);int version=(int)(fields.LastOrDefault(x=>x.Tag==15)?.Number??0);
         if(version is not (1 or 2))throw new NotSupportedException("Legacy chunk compression requires an official game conversion before repair.");
-        void Add(int id,int layer){if(id==0||!wanted(id))return;if(!result.TryGetValue(id,out var count))result[id]=count=new long[3];count[layer]++;}
+        void Add(int id,int layer,int index){if(id==0||!wanted(id))return;if(!result.TryGetValue(id,out var count))result[id]=count=new long[3];count[layer]++;sample?.Invoke(id,layer,index);}
         foreach(var field in fields.Where(x=>x.Tag is 1 or 16)){
             if(field.Wire!=2)throw new InvalidDataException("Invalid layer field type.");var layer=Decode(blob.AsSpan(field.Data,field.Length).ToArray());
-            try{if(layer.palette==null||!layer.palette.Take(layer.paletteCount).Any(wanted))continue;for(int i=0;i<32768;i++)Add(layer.GetUnsafe(i),field.Tag==1?0:1);}finally{pool.FreeArrays(layer);}
+            try{if(layer.palette==null||!layer.palette.Take(layer.paletteCount).Any(wanted))continue;for(int i=0;i<32768;i++)Add(layer.GetUnsafe(i),field.Tag==1?0:1,i);}finally{pool.FreeArrays(layer);}
         }
-        var decor=fields.FirstOrDefault(x=>x.Tag==14);if(decor!=null){if(decor.Wire!=2||decor.Length%8!=0)throw new InvalidDataException("Invalid decor pairs.");for(int i=0;i<decor.Length;i+=8)Add(BinaryPrimitives.ReadInt32LittleEndian(blob.AsSpan(decor.Data+i+4,4)),2);}
+        var decor=fields.FirstOrDefault(x=>x.Tag==14);if(decor!=null){if(decor.Wire!=2||decor.Length%8!=0)throw new InvalidDataException("Invalid decor pairs.");for(int i=0;i<decor.Length;i+=8)Add(BinaryPrimitives.ReadInt32LittleEndian(blob.AsSpan(decor.Data+i+4,4)),2,-1);}
         return result;
     }
     public Dictionary<int,int[]> ReadCells(byte[] blob,IEnumerable<int> indices)
@@ -100,9 +100,12 @@ internal sealed class BlockIdChunkCodec
         return output.ToArray();
     }
     public byte[] Replace(byte[] blob,int source,int target,out long changed)
+        =>ReplaceMany(blob,new Dictionary<int,int>{{source,target}},out changed);
+    public byte[] ReplaceMany(byte[] blob,IReadOnlyDictionary<int,int> mapping,out long changed)
     {
-        if(source==0||target<0||source==target)throw new ArgumentException("Invalid numeric replacement.");
-        changed=0;var fields=Fields(blob);var counts=Inspect(blob,id=>id==source);if(!counts.TryGetValue(source,out var found))return blob;
+        if(mapping.Count is <1 or >32||mapping.Any(x=>x.Key==0||x.Value<0||x.Key==x.Value))throw new ArgumentException("Use 1–32 distinct non-air sources and different non-negative destinations.");
+        changed=0;var fields=Fields(blob);var counts=Inspect(blob,mapping.ContainsKey);if(counts.Count==0)return blob;
+        var found=new long[3];foreach(var count in counts.Values)for(int i=0;i<3;i++)found[i]+=count[i];
         // Never orphan an inventory or mod block entity when replacing its host.
         // Parse only the standard tree payload, without constructing mod classes.
         foreach(var field in fields.Where(x=>x.Tag==8)){
@@ -110,14 +113,14 @@ internal sealed class BlockIdChunkCodec
             var retained=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
             if(!retained.Complete)throw new InvalidDataException("Saved block-entity data cannot be fully verified; generic replacement refused. Inspect the chunk for a dedicated migration. "+retained.Issue);
             int index=(((retained.InternalY!.Value&31)*32+(retained.Z!.Value&31))*32)+(retained.X!.Value&31);
-            foreach(var solid in fields.Where(x=>x.Tag is 1 or 16)){var layer=Decode(blob.AsSpan(solid.Data,solid.Length).ToArray());try{if(layer.GetUnsafe(index)==source)throw new InvalidOperationException("Source block hosts a block entity; inventory-safe replacement requires restoring its mod or a dedicated migration.");}finally{pool.FreeArrays(layer);}}
+            foreach(var solid in fields.Where(x=>x.Tag is 1 or 16)){var layer=Decode(blob.AsSpan(solid.Data,solid.Length).ToArray());try{if(mapping.ContainsKey(layer.GetUnsafe(index)))throw new InvalidOperationException("Source block hosts a block entity; inventory-safe replacement requires restoring its mod or a dedicated migration.");}finally{pool.FreeArrays(layer);}}
         }
         var replacements=new Dictionary<int,byte[]>();
         foreach(var field in fields.Where(x=>x.Tag is 1 or 16)){
             if(found[field.Tag==1?0:1]==0)continue;var layer=Decode(blob.AsSpan(field.Data,field.Length).ToArray());
-            try{for(int i=0;i<layer.paletteCount;i++)if(layer.palette[i]==source)layer.palette[i]=target;replacements[field.Tag]=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}
+            try{for(int i=0;i<layer.paletteCount;i++)if(mapping.TryGetValue(layer.palette[i],out int target))layer.palette[i]=target;replacements[field.Tag]=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}
         }
-        var decor=fields.FirstOrDefault(x=>x.Tag==14);if(decor!=null&&found[2]>0){using var output=new MemoryStream();for(int i=0;i<decor.Length;i+=8){var pair=blob.AsSpan(decor.Data+i,8);int id=BinaryPrimitives.ReadInt32LittleEndian(pair[4..]);if(id==source){if(target==0)continue;var copy=pair.ToArray();BinaryPrimitives.WriteInt32LittleEndian(copy.AsSpan(4),target);output.Write(copy);}else output.Write(pair);}replacements[14]=output.ToArray();}
+        var decor=fields.FirstOrDefault(x=>x.Tag==14);if(decor!=null&&found[2]>0){using var output=new MemoryStream();for(int i=0;i<decor.Length;i+=8){var pair=blob.AsSpan(decor.Data+i,8);int id=BinaryPrimitives.ReadInt32LittleEndian(pair[4..]);if(mapping.TryGetValue(id,out int target)){if(target==0)continue;var copy=pair.ToArray();BinaryPrimitives.WriteInt32LittleEndian(copy.AsSpan(4),target);output.Write(copy);}else output.Write(pair);}replacements[14]=output.ToArray();}
         using var rewritten=new MemoryStream();foreach(var field in fields){if(replacements.TryGetValue(field.Tag,out var bytes)){Var(rewritten,(ulong)((field.Tag<<3)|2));Var(rewritten,(ulong)bytes.Length);rewritten.Write(bytes);}else rewritten.Write(blob,field.Start,field.End-field.Start);}
         changed=found.Sum();return rewritten.ToArray();
     }

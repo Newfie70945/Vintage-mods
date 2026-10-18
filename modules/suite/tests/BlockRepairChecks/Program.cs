@@ -10,7 +10,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.Common;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,n)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib")}){var p=Path.Combine(folder,n.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
-if(args.Length==5&&args[0]=="verify-selected"){Checks.Verify(args[1],args[2],int.Parse(args[3]),int.Parse(args[4]));}else if(args.Length==3&&args[0]=="seed-air"){Checks.Seed(args[1],args[2],0);}else if(args.Length==5&&args[0]=="verify-restore"){Checks.VerifyRestore(args[1],args[2],int.Parse(args[3]),args[4]);}else if(args.Length==5&&args[0]=="seed-restore"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]),args[4]=="empty");}else if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();RollbackChatChecks.Run();}
+if(args.Length==5&&args[0]=="verify-batch"){Checks.VerifyBatch(args[1],args[2],int.Parse(args[3]),int.Parse(args[4]));}else if(args.Length==3&&args[0]=="seed-two"){Checks.Seed(args[1],args[2],999999,999998);}else if(args.Length==5&&args[0]=="verify-selected"){Checks.Verify(args[1],args[2],int.Parse(args[3]),int.Parse(args[4]));}else if(args.Length==3&&args[0]=="seed-air"){Checks.Seed(args[1],args[2],0);}else if(args.Length==5&&args[0]=="verify-restore"){Checks.VerifyRestore(args[1],args[2],int.Parse(args[3]),args[4]);}else if(args.Length==5&&args[0]=="seed-restore"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]),args[4]=="empty");}else if(args.Length==4&&args[0]=="seed-inventory"){Checks.SeedInventory(args[1],args[2],long.Parse(args[3]));}else if(args.Length==3&&args[0]=="seed"){Checks.Seed(args[1],args[2]);}else if(args.Length==4&&args[0]=="verify"){Checks.Verify(args[1],args[2],int.Parse(args[3]));}else {Checks.Run();HistoryChecks.Run();RollbackChatChecks.Run();}
 static class Checks
 {
  static int count;
@@ -27,6 +27,14 @@ static class Checks
   for(int i=0;i<32768;i++)Assert(layers[1].GetUnsafe(i)==(i==17?target:layers[0].GetUnsafe(i)),"cell preserved "+i);
   Console.WriteLine($"{count} end-to-end byte/cell preservation assertions passed.");
  }
+ public static void VerifyBatch(string beforePath,string afterPath,int first,int second){
+  byte[] before=File.ReadAllBytes(beforePath),after=File.ReadAllBytes(afterPath);var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var layers=new List<ChunkDataLayer>();
+  foreach(var bytes in new[]{before,after}){var f=BlockIdChunkCodec.Fields(bytes).Single(f=>f.Tag==1);var layer=new ChunkDataLayer(pool);typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[bytes.AsSpan(f.Data,f.Length).ToArray()]);layers.Add(layer);}
+  Assert(layers[0].GetUnsafe(17)==999999&&layers[0].GetUnsafe(18)==999998,"two distinct sources seeded");
+  for(int i=0;i<32768;i++)Assert(layers[1].GetUnsafe(i)==(i==17?first:i==18?second:layers[0].GetUnsafe(i)),"batch cell preservation "+i);
+  var fields=BlockIdChunkCodec.Fields(after);foreach(var f in BlockIdChunkCodec.Fields(before).Where(f=>f.Tag!=1)){var g=fields.Single(g=>g.Tag==f.Tag);Assert(before.AsSpan(f.Start,f.End-f.Start).SequenceEqual(after.AsSpan(g.Start,g.End-g.Start)),"batch opaque field preservation "+f.Tag);}
+  foreach(var layer in layers)pool.FreeArrays(layer);pool.FreeAll();Console.WriteLine($"{count} batch restart cell/byte preservation assertions passed.");
+ }
  public static void VerifyRestore(string beforePath,string afterPath,int target,string mode){
   byte[] before=File.ReadAllBytes(beforePath),after=File.ReadAllBytes(afterPath);var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var codec=new BlockIdChunkCodec(pool);
   var oldFields=BlockIdChunkCodec.Fields(before);var newFields=BlockIdChunkCodec.Fields(after);
@@ -40,9 +48,9 @@ static class Checks
   else{Assert(newReport.NonEmptyStacks==1&&newReport.SerializedItemQuantity==1,"snapshot restored one book");Assert(oldEntity.AsSpan(0,oldReport.SlotsOffset).SequenceEqual(newEntity.AsSpan(0,newReport.SlotsOffset)),"entity prefix unchanged");Assert(oldEntity.AsSpan(oldReport.SlotsOffset+oldReport.SlotsLength).SequenceEqual(newEntity.AsSpan(newReport.SlotsOffset+newReport.SlotsLength)),"entity suffix unchanged");}
   Console.WriteLine($"{count} end-to-end inventory restoration assertions passed.");
  }
- public static void Seed(string input,string output,int source=999999){
+ public static void Seed(string input,string output,int source=999999,int? second=null){
   var pool=new ChunkDataPool(32,(ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain)));var blob=File.ReadAllBytes(input);var fields=BlockIdChunkCodec.Fields(blob);var solidField=fields.Single(x=>x.Tag==1);var layer=new BlockChunkDataLayer(pool);
-  typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,source);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
+  typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(layer,[blob.AsSpan(solidField.Data,solidField.Length).ToArray()]);layer.Set(17,source);if(second.HasValue)layer.Set(18,second.Value);var compressed=ChunkDataLayer.Compress(layer,new int[15360]);
   using var target=new MemoryStream();foreach(var f in fields){if(f.Tag==1)target.Write(Field(1,compressed));else target.Write(blob,f.Start,f.End-f.Start);}File.WriteAllBytes(output,target.ToArray());Console.WriteLine("Seeded one out-of-range numeric block ID; untouched fields preserved.");
  }
  public static void SeedInventory(string input,string output,long key,bool empty=false){
@@ -133,6 +141,25 @@ static class Checks
   Assert(!MissingBlockScan.Includes(-1,null,false,placeholders,suspects)&&MissingBlockScan.Includes(-1,null,true,placeholders,suspects),"invalid negative ID is diagnostic evidence only");
   Assert(!MissingBlockScan.IsPlaceholder(new Block{Code=new AssetLocation("unknown")}),"unknown texture or name alone does not mark a registered block missing");
   pool.FreeArrays(mixed);pool.FreeArrays(mixedFluid);
+  var batch=codec.ReplaceMany(blob,new Dictionary<int,int>{{123456,42},{42,43}},out long batchChanged);
+  Assert(batchChanged==6&&codec.Inspect(batch,id=>id==42)[42].SequenceEqual(new long[]{2,1,1})&&codec.Inspect(batch,id=>id==43)[43].SequenceEqual(new long[]{1,0,1}),"simultaneous chain mapping uses original IDs once across solid, fluid and decor");
+  var batchField=BlockIdChunkCodec.Fields(batch).Single(f=>f.Tag==90);Assert(blob.AsSpan(oldField.Start,oldField.End-oldField.Start).SequenceEqual(batch.AsSpan(batchField.Start,batchField.End-batchField.Start)),"batch preserves unknown protobuf fields exactly");
+  var swapped=codec.ReplaceMany(blob,new Dictionary<int,int>{{123456,42},{42,123456}},out _);Assert(codec.Inspect(swapped,id=>id==123456)[123456].SequenceEqual(new long[]{1,0,1}),"cycle mapping does not cascade or erase identities");
+  var removedBatch=codec.ReplaceMany(blob,new Dictionary<int,int>{{123456,0},{42,43}},out _);Assert(codec.Inspect(removedBatch,id=>id==123456).Count==0&&codec.Inspect(removedBatch,id=>id==43)[43][2]==1,"batch air removal preserves other decor mappings");
+  var selectedOnly=RemapSelection.Resolve([new(123456,"game:rock-granite")],_=>42);Assert(selectedOnly.Count==1&&!selectedOnly.ContainsKey(99),"selection resolves only explicitly supplied IDs");
+  foreach(var invalid in new IReadOnlyList<RemapChoice>[]{[],[new(0,"42")],[new(1,"")],[new(1,"42"),new(1,"43")],Enumerable.Range(1,33).Select(i=>new RemapChoice(i,"999")).ToList()}){try{RemapSelection.Resolve(invalid,int.Parse);throw new Exception("Invalid batch accepted");}catch(ArgumentException){count++;}}
+  try{codec.ReplaceMany(inventoryBlob,new Dictionary<int,int>{{42,43},{123456,42}},out _);throw new Exception("Batch discarded inventory metadata");}catch(InvalidOperationException){count++;}
+  var sampled=new List<(int Id,int Layer,int Index)>();codec.Inspect(blob,id=>id==123456,(id,layer,index)=>sampled.Add((id,layer,index)));Assert(sampled.Contains((123456,0,17))&&sampled.Contains((123456,0,32767))&&sampled.Contains((123456,1,23))&&sampled.Contains((123456,2,-1)),"samples retain exact solid/fluid cell indices and distinguish decor");
+  var options=new List<BlockRemapAdvisor.Target>{new(42,"game:rock-granite",false,""),new(43,"game:rock-basalt",false,""),new(44,"other:rock-granite",false,""),new(45,"game:water-still-7",true,""),new(55,"game:bookshelf-oak",false,"Bookshelf")};
+  var exact=BlockRemapAdvisor.Rank(999999,"rock-granite",1,0,0,options,[]);Assert(exact[0].Id==42&&exact[0].Confidence=="Medium"&&exact[0].Selectable,"canonical saved identity outranks weak family/cross-domain guesses");
+  Assert(exact.Single(c=>c.Id==44).Confidence=="Low"&&exact.Single(c=>c.Id==43).Confidence=="Low","cross-domain and same-family suggestions remain weak");
+  var placed=new BlockHistoryAdvisor.Candidate{Code="game:rock-basalt",Confidence="Medium",Reason="latest placement",Evidence=[new(1,"events","Place","game:rock-basalt",DateTime.UtcNow)]};
+  var history=BlockRemapAdvisor.Rank(999999,"game:rock-andesite",1,0,0,options,[new("1,2,3 dimension 0",placed)]);Assert(history[0].Id==43&&history[0].Evidence.Any(e=>e.Contains("events #1")),"exact-location placement evidence outranks name-only variants and exposes record identity");
+  var otherPlacement=new BlockHistoryAdvisor.Candidate{Code="game:rock-granite",Confidence="Medium",Reason="different sample"};
+  var conflict=BlockRemapAdvisor.Rank(999999,"rock-granite",1,0,0,options,[new("sample A",placed),new("sample B",otherPlacement)]);Assert(conflict.Where(c=>c.Id is 42 or 43).All(c=>c.Confidence=="Low"&&c.Reason.Contains("no consensus")),"conflicting samples lower confidence even for exact registry identities");
+  Assert(!BlockRemapAdvisor.Rank(999999,"game:water-still-7",1,0,0,options,[])[0].Selectable,"fluid target cannot replace solid source");
+  Assert(!BlockRemapAdvisor.Rank(999999,"game:bookshelf-oak",1,0,0,options,[])[0].Selectable,"inventory-bearing recommendation routes to dedicated recovery");
+  Assert(BlockRemapAdvisor.Rank(999999,"",1,0,0,options,[]).Count==0,"no saved identity/history produces no fabricated recommendations");
   pool.FreeAll();Console.WriteLine($"{count} block-ID codec, inventory restore and preservation checks passed against official serialization.");
  }
 }
