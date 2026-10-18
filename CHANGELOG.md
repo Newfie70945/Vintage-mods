@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.44
 
+- Placeholders1: default **Scan ? Blocks** now counts only saved IDs represented by the game’s coded missing-block placeholders. Registered blocks, undefined registry slots and retained block-entity records are excluded; default scans skip metadata inspection. Added a separate **Advanced Diagnostic Scan** and `/nseblockrepair diagnostics [ID]` for broader investigation. Optional focus IDs limit either scan; registered focus IDs require advanced mode. Scan reports and panel status identify their scope. Underground/unloaded placeholders still count; client texture issues and plants saved as air are outside this scan.
+
 - QueryFix1: fixed recovery reads that walked unrelated world events/snapshots even for a single-block rollback. Queries now drive existing position-index seeks from the affected-cell set, retaining prior inventory baselines, all actors and later conflict evidence. The existing 30-second cancellation/deadline and row limits remain in place; no new database index or migration is required.
 - Split player/area query branches so unused scope branches do not force broad reads, and use the existing indexed player-name lookup. Single-block work is covered by large-history and native SQLite regression tests.
 - Clarified repair diagnostics: occurrence counts are not confirmed visible question-mark blocks. Findings distinguish unresolved IDs, registered code mismatches and deliberately selected registered IDs, and show when the same saved code has a registered runtime ID elsewhere. Retained block entities are not all inventory containers. Running scans and overlapping per-ID chunk counts are identified.
