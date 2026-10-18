@@ -25,11 +25,12 @@ static class Checks
  static int checks;
  static bool OtherPrefix()=>true;
  static void Assert(bool result,string message){if(!result)throw new Exception(message);checks++;}
- static (ICoreServerAPI Api,List<Action<float>> Ticks) Api(bool failListener=false)
+ static (ICoreServerAPI Api,List<Action<float>> Ticks) Api(bool failListener=false, bool failUnregister=false)
  {
   var ticks=new List<Action<float>>();
   var logger=Proxy.Create<ILogger>((m,a)=>null);
   var events=Proxy.Create<IServerEventAPI>((m,a)=>{
+   if(m.Name=="UnregisterGameTickListener" && failUnregister)throw new InvalidOperationException("test unregister failure");
    if(m.Name=="RegisterGameTickListener") {if(failListener)throw new InvalidOperationException("test listener failure");ticks.Add((Action<float>)a![0]!);return 1L;}
    return m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null;
   });
@@ -88,6 +89,23 @@ static class Checks
   var broken=Api(true);
   using(var module=new EngineOptimizations(broken.Api,Config(),()=>200))Assert(module.Modules().All(x=>x.Status=="failed"),"monitor startup failure rolls back all installed modules");
   Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"no orphan patches after monitor failure");
+  var idleBroken=Api(true);
+  using(var module=new EngineOptimizations(idleBroken.Api,Config(),()=>0))
+   Assert(module.Modules().All(x=>x.Status=="failed"),"monitor failure cannot leave a stranded standby module");
+  var teardown=Api(failUnregister:true);
+  var teardownModule=new EngineOptimizations(teardown.Api,Config(),()=>200);teardownModule.Dispose();
+  foreach(var tick in teardown.Ticks)tick(1);
+  Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"unregister failure cannot orphan patches; disposed callbacks are inert");
+  var failureField=typeof(AssetCompressionOptimizations).GetField("failures",BindingFlags.NonPublic|BindingFlags.Static)!;
+  failureField.SetValue(null,10L);
+  var retry=Api();
+  using(var module=new EngineOptimizations(retry.Api,Config(),()=>200))
+  {
+   foreach(var tick in retry.Ticks)tick(1);
+   Assert(module.Modules().All(x=>x.Status=="active"),"historical failure counts do not poison new activations");
+   failureField.SetValue(null,11L);foreach(var tick in retry.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="assetCompressionCache").Status=="failed","new failures still stand module down");
+  }
   AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StratumServer.TestMarker"),AssemblyBuilderAccess.Run);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().All(x=>x.Status=="blocked"),"alternative runtime blocked");
   Console.WriteLine($"{checks} engine module lifecycle/conflict checks passed against actual Harmony targets.");

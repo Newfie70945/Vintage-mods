@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.3.0 preview
+# Newfie's Server Optimizer 0.3.1 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -49,7 +49,7 @@ An exception after observable work is propagated, never replayed through stock c
 
 ## Evidence and limits
 
-See [0.3.0 validation](docs/performance-0.3.0.md), [earlier performance evidence](docs/performance-0.2.0.md), [external capture analysis](docs/research/supplied-probe.md), [configuration](docs/configuration.md) and [limitations](docs/limitations.md).
+See [0.3.1 lifecycle validation](docs/validation-0.3.1.md), [0.3.0 validation](docs/performance-0.3.0.md), [earlier performance evidence](docs/performance-0.2.0.md), [external capture analysis](docs/research/supplied-probe.md), [configuration](docs/configuration.md) and [limitations](docs/limitations.md).
 
 Component tests exercise actual official methods before and after Harmony injection. Their uninitialised engine fixtures are **not authenticated players or a multiplayer server**. Component timing/allocation results are not server TPS gains or proof of sustainable player capacity. The uploaded Stratum/Lithos capture has no matched NOS/stock baseline.
 

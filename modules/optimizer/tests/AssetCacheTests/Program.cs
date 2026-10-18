@@ -47,6 +47,28 @@ static class Tests
    Check(AssetCompressionOptimizations.Counters.Bytes==0&&AssetCompressionOptimizations.Counters.Misses==rejected.Misses,"low-compressibility assets bypass repeated cache probes");
    AssetCompressionOptimizations.Configure(false);Check(AssetCompressionOptimizations.Counters.Bytes==0,"disable releases buffers");
    c=AssetCompressionOptimizations.Counters;Compress(source,source.Length);Check(AssetCompressionOptimizations.Counters.Misses==c.Misses,"disabled prefix uses stock");
+   AssetCompressionOptimizations.Configure(true);AssetCompressionOptimizations.Track(source,4194304);
+   byte[] pendingResult=null!;
+   Check(AssetCompressionOptimizations.Prefix(source,source.Length,ref pendingResult,out var pending),"cold work can start before a reload");
+   AssetCompressionOptimizations.Configure(false);AssetCompressionOptimizations.Configure(true);AssetCompressionOptimizations.Track(source,4194304);
+   AssetCompressionOptimizations.Postfix(source,source.Length,changed,pending);
+   Check(AssetCompressionOptimizations.Counters.Bytes==0,"in-flight work from old activation cannot repopulate new cache");
+   var large=new byte[1048576];AssetCompressionOptimizations.Track(large,4194304);Compress(large,large.Length);
+   Check(AssetCompressionOptimizations.Counters.Bytes>1048576,"fixture fills cache above lower budget");
+   AssetCompressionOptimizations.Track(large,1048576);
+   Check(AssetCompressionOptimizations.Counters.Bytes==0,"budget shrink releases same-buffer cached entries immediately");
+   long ceiling=0;
+   for(int i=0;i<500;i++) {
+    AssetCompressionOptimizations.Configure(true);AssetCompressionOptimizations.Track(source,1048576);
+    var bytes=Compress(source,source.Length);Check(Compression.Decompress(bytes,4,bytes.Length-4).SequenceEqual(source),"reload payload round-trip");
+    ceiling=Math.Max(ceiling,AssetCompressionOptimizations.Counters.Bytes);
+    AssetCompressionOptimizations.Configure(false);
+    Check(AssetCompressionOptimizations.Counters.Bytes==0,"reload cycle clears retained buffers");
+   }
+   Check(ceiling<=1048576,"500 reload cycles retain bounded cache state");
+   var released=ReleasedCacheReferences();
+   GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();
+   Check(released.All(reference=>!reference.IsAlive),"disabled cache releases actual source and cached arrays, not just counters");
    if(args.Contains("--benchmark")) {
     Benchmark(source,"sparse-bytes-128KiB");
     var text=System.Text.Encoding.UTF8.GetBytes("{\"code\":\"example:recipe\",\"ingredients\":[\"game:stone\",\"game:stick\"]}\n");
@@ -55,6 +77,14 @@ static class Tests
    }
    Console.WriteLine($"{checks} asset compression checks passed against official compression and actual Harmony targets.");
   } finally {AssetCompressionOptimizations.Configure(false);harmony.UnpatchAll(harmony.Id);}
+ }
+ [MethodImpl(MethodImplOptions.NoInlining)]
+ static WeakReference[] ReleasedCacheReferences()
+ {
+  var data=new byte[65536];AssetCompressionOptimizations.Configure(true);AssetCompressionOptimizations.Track(data,1048576);Compress(data,data.Length);
+  var fields=new[]{"sourceSnapshot","compressed"}.Select(name=>typeof(AssetCompressionOptimizations).GetField(name,BindingFlags.NonPublic|BindingFlags.Static)!).ToArray();
+  var references=new[]{new WeakReference(data)}.Concat(fields.Select(field=>new WeakReference(field.GetValue(null)!))).ToArray();
+  AssetCompressionOptimizations.Configure(false);return references;
  }
  static void Benchmark(byte[] source,string scenario)
  {
