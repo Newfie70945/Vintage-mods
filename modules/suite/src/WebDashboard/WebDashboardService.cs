@@ -306,6 +306,8 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "POST", Path = "/api/operations/alert-remove", Access = "Authenticated + CSRF", Risk = "Removes an operations alert", Safety = "Safe", CooldownSeconds = 1 },
         new() { Method = "POST", Path = "/api/optimizations/experiment/evaluate", Access = "Authenticated + CSRF", Risk = "Optimization experiment evaluation", Safety = "Moderate", CooldownSeconds = 2 },
         new() { Method = "GET", Path = "/api/optimizations/synergy", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
+        new() { Method = "GET", Path = "/api/block-repair", Access = "Authenticated read", Risk = "Saved block ID scan and staged repair status", Safety = "Safe" },
+        new() { Method = "POST", Path = "/api/block-repair", Access = "Owner + CSRF", Risk = "Scan or stage numeric saved-map repair for next startup", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/optimizations/newfies", Access = "Authenticated read", Risk = "Optimizer status", Safety = "Safe" },
         new() { Method = "POST", Path = "/api/optimizations/newfies", Access = "Administrator/Owner + CSRF", Risk = "Optimizer module settings / capture controls", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/optimizations/tungsten", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
@@ -1221,6 +1223,8 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/toggle" ||
             path == "/api/optimizations/synergy/all")
             return true;
+
+        if (path == "/api/block-repair" && request.Method == "POST") return GetJsonString(request.Body,"operation","") != "cancel";
 
         if (path == "/api/optimizations/newfies" && request.Method == "POST")
             return GetJsonString(request.Body, "operation", "set") != "profile-stop";
@@ -4095,6 +4099,12 @@ public sealed partial class WebDashboardService : IDisposable
                 403,
                 new { error = "Only the panel Owner can manage administrator accounts." },
                 cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (request.Method == "POST" && path == "/api/block-repair" && !(webSession?.IsOwner ?? false) && !LocalAnonymousMode)
+        {
+            await WriteJsonAsync(stream,403,new {error="Only the panel Owner can control saved-map block repair."},cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -8522,6 +8532,26 @@ public sealed partial class WebDashboardService : IDisposable
                 200,
                 providers,
                 cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if(path=="/api/block-repair"&&(request.Method=="GET"||request.Method=="POST"))
+        {
+            try{
+                string operation=request.Method=="GET"?"status":GetJsonString(request.Body,"operation","");
+                var result=await RunOnMainThreadAsync<object>(()=>{
+                    var repair=module.BlockRepair??throw new InvalidOperationException("Block repair is unavailable.");
+                    return operation switch {
+                        "status"=>repair.Snapshot(),
+                        "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null),
+                        "preview"=>repair.Preview(GetJsonInt(request.Body,"sourceId",0),GetJsonInt(request.Body,"targetId",-1),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
+                        "stage"=>repair.Stage(GetJsonString(request.Body,"previewId",""),GetJsonInt(request.Body,"sourceId",0),GetJsonInt(request.Body,"targetId",-1)),
+                        "cancel"=>repair.Cancel(),
+                        _=>throw new ArgumentException("Unsupported block repair operation.")};
+                },"web-block-repair").ConfigureAwait(false);
+                if(request.Method=="POST")RecordWebAudit("block-repair-"+operation,"Numeric saved-map repair workflow", "Requested",remote.ToString(),requestActor);
+                await WriteJsonAsync(stream,200,result,cancellationToken).ConfigureAwait(false);
+            }catch(Exception e){await WriteJsonAsync(stream,400,new{error=e.Message},cancellationToken).ConfigureAwait(false);}
             return;
         }
 

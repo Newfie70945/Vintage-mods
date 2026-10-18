@@ -19,6 +19,7 @@ public sealed class BlockLoggerModSystem : ModSystem
     private readonly BlockLoggerConfig config = new();
     private SuiteFeatureConfig features = new();
     private BlockLoggerModule? module;
+    private WorldRepair.BlockIdRepairService? blockRepair;
     private InvestigatorClient? investigatorClient;
     private EventBusListenerDelegate? motdStatusListener;
     private const string MotdStatusEvent = "newfiesserveressentials:motd-status";
@@ -27,6 +28,7 @@ public sealed class BlockLoggerModSystem : ModSystem
 
     public override void Start(ICoreAPI api)
     {
+        if(api is ICoreServerAPI server) blockRepair = new WorldRepair.BlockIdRepairService(server);
         // Register the public player-list protocol on both sides during the common Start stage.
         // The server advertises this channel during custom-channel negotiation, so any client
         // loading Server Essentials must register the same message types even when it does not
@@ -91,7 +93,7 @@ public sealed class BlockLoggerModSystem : ModSystem
             break;
         }
 
-        module = new BlockLoggerModule(api, config, activeFeatures, features, ReloadConfig);
+        module = new BlockLoggerModule(api, config, activeFeatures, features, ReloadConfig, blockRepair);
         module.Start();
 
         motdStatusListener = OnMotdStatusRequest;
@@ -120,14 +122,21 @@ public sealed class BlockLoggerModSystem : ModSystem
         investigatorClient.Register();
     }
 
+    public override void AssetsFinalize(ICoreAPI api)
+    {
+        if(api.Side == EnumAppSide.Server) blockRepair?.ApplyBeforeTerrainLoads();
+    }
+
     public override void Dispose()
     {
         TryUnregisterMotdStatusListener();
         investigatorClient?.Dispose();
         investigatorClient = null;
 
+        if(module==null)blockRepair?.Dispose();
         module?.Dispose();
         module = null;
+        blockRepair = null;
         base.Dispose();
     }
 

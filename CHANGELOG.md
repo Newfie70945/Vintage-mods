@@ -1,12 +1,11 @@
 # Current release changes
 
-## Suite 1.2.48 + NOS 0.5.0 preview
+## Server Essentials Suite 1.2.49
 
-- Removed per-lookup closure allocations from generation request handling: 96 bytes to zero for repeated requests in the official-method fixture, while preserving request order, pass escalation and generation priority.
-- Fixed background-save snapshot retention. Completed saves release their chunk references inside the stock save lock, allowing otherwise-unreferenced unloaded chunks to be collected. Failed saves retain their retry snapshot.
-- Added independent switches for both modules in Suite → Optimizations, enabled by default and usable with profiling stopped.
-- Added guarded activation, dependency conflict checks, live stand-down and original-method fallback for both modules.
-- Retains the prior AI, repulsion, asset compression, stream and player-query optimizations.
-- Companion module versions are unchanged. One current changelog remains; historical notes are in Git history.
-
-Correctness tests, component measurements and running-server save validation are documented in modules/optimizer/docs/performance-0.5.0.md. These changes do not establish a production TPS increase or player-capacity figure.
+- Added Block ID Repair to the webpanel and `/nseblockrepair` commands.
+- Scans existing saved chunks for missing or unregistered numeric IDs in solid, fluid and decor data, with exact occurrence counts, sample chunks, progress and cancellation.
+- Previews old ID → replacement ID, including IDs without a usable block code. World ID and registry binding prevent applying a plan to a different mapping.
+- Stages repair for the next startup, before terrain loads. Creates and verifies a full world backup before edits; preserves unrelated chunk fields and uses the official database writer.
+- Refuses invalid targets, inappropriate layer changes, legacy/corrupt data and source blocks hosting block entities. Air removal and valid-source replacement need explicit options.
+- Owner controls, CSRF, Safe Diagnostics restrictions, command privileges and audit records apply. Backups and last-job results remain available.
+- NOS and companion mod versions are unchanged. The prior generation/save performance report and limitations remain in source.

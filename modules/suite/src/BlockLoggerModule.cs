@@ -55,6 +55,7 @@ public sealed class BlockLoggerModule : IDisposable
     private SupporterNicknameService? supporterNicknameService;
     private CustomPatchService? customPatchService;
     private WebDashboardService? webDashboard;
+    private WorldRepair.BlockIdRepairService? blockRepair;
     private long pruneListenerId = -1;
     private bool started;
 
@@ -63,15 +64,18 @@ public sealed class BlockLoggerModule : IDisposable
         BlockLoggerConfig config,
         SuiteFeatureConfig features,
         SuiteFeatureConfig featureSettings,
-        Action reloadConfig)
+        Action reloadConfig,
+        WorldRepair.BlockIdRepairService? blockRepairService = null)
     {
         this.api = api;
         this.config = config;
         this.features = features;
         this.featureSettings = featureSettings;
         this.reloadConfig = reloadConfig;
+        blockRepair = blockRepairService;
     }
 
+    public WorldRepair.BlockIdRepairService? BlockRepair => blockRepair;
     public LogStorageService? Storage => storage;
     public LogQueryService? Queries => queries;
     public ServerHealthService? ServerHealth => serverHealth;
@@ -108,6 +112,7 @@ public sealed class BlockLoggerModule : IDisposable
 
         // Supporter nicknames are presentation-only and never replace the authoritative
         // Vintage Story player/account name used by permissions, moderation or logs.
+        blockRepair ??= new WorldRepair.BlockIdRepairService(api);
         supporterNicknameService = new SupporterNicknameService(api);
         supporterNicknameService.Start();
 
@@ -327,6 +332,7 @@ public sealed class BlockLoggerModule : IDisposable
         started = false;
         if (supporterNicknameService != null && publicPlayerListServer != null)
             supporterNicknameService.NicknameChanged -= publicPlayerListServer.InvalidateDisplaySnapshot;
+        blockRepair?.Dispose();
         publicPlayerListServer?.Dispose();
         publicPlayerListServer = null;
 
