@@ -1,0 +1,35 @@
+{
+  "kind": "Isolated numeric saved-block repair integration validation, official 1.22.7",
+  "suiteVersion": "1.2.49",
+  "authenticatedPlayers": 0,
+  "scanChunks": 4648,
+  "sourceId": 999999,
+  "destinationId": 12698,
+  "scanOccurrences": 1,
+  "changedBlocks": 1,
+  "changedChunks": 1,
+  "worldIntegrity": "ok",
+  "backupIntegrity": "ok",
+  "backupRetainsOriginalSeededChunk": true,
+  "solidCellAndOpaqueFieldAssertions": 32775,
+  "codecAssertions": 44,
+  "wrongWorldRefusedWithoutTerrainEdits": true,
+  "browserChecks": [
+    "numeric source/destination submitted",
+    "preview invalidated on input change",
+    "block codes rendered as text",
+    "owner/read-only restrictions",
+    "safe mode permits cancellation only",
+    "mobile layout"
+  ],
+  "errors": [],
+  "artifactSha256": "d2049447e6aafa81d6cad493065d57b77d9f543125785d8491e6cd2059466e81",
+  "assemblySha256": "d52770efcb25e7e908845d9ef96f2b96c00649c1964f45bec7ea7c7be6b1f736",
+  "limits": [
+    "Disposable copy of a stopped test world, no production server or authenticated clients.",
+    "Repair scan counts existing saved chunks; unsaved edits and inventories are excluded.",
+    "Block entities at matching source positions are refused; generic inventory migrations are not attempted.",
+    "World-ID and block registry binding apply, and writes require the pre-terrain AssetsFinalize phase.",
+    "Lighting, heightmaps and map exports are preserved and may require refreshing."
+  ]
+}

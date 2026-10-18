@@ -2,7 +2,7 @@
 
 The regular mods use original author source restored from the uploaded CENTER1 archive. Versioned archive directory names were replaced with stable module names; manifest versions are authoritative.
 
-- `modules/suite`: original Suite 1.2.43 source with the current 1.2.48 performance timeline and attribution improvements plus UID-targeting, post-builder and console fixes ported onto it.
+- `modules/suite`: original Suite 1.2.43 source with the current 1.2.49 performance timeline and attribution improvements plus UID-targeting, post-builder and console fixes ported onto it.
 - `modules/motd`: original MOTD 2.1.6 source with the current feed formatter and all-tab normalisation improvements preserved.
 - `modules/anticheat-client`: 1.1.28.
 - `modules/chatguard`: 2.1.4.

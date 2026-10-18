@@ -1938,6 +1938,7 @@ __NSS_INTERFACE_STYLE__
     <button class="navGroupToggle" type="button"><span>Server Tools</span><span class="navChevron">▼</span></button>
     <div class="navGroupBody">
       <button data-section="blocklogger">Block Logging</button>
+      <button data-section="blockRepair">Block ID Repair</button>
       <button data-section="animals">Animal Limiter</button>
       <button data-section="announcements">Announcements</button>
       <button data-section="restarts">Automated Restarts</button>
@@ -3141,6 +3142,26 @@ __NSS_RETENTION_HTML__
         <div class="field" style="margin-top:8px"><label>Maximum Discord items per feed</label><input id="communityMotdDiscordMax" type="number" min="1" max="50"></div>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="blockRepair">
+  <div class="card"><h2>Block ID Repair</h2><p>Find unresolved numeric block IDs in existing saved terrain, then replace one ID with another. Codes are labels; numeric IDs select the replacement.</p>
+    <p class="small">Scan and preview do not edit terrain. A staged repair makes a world backup and runs before terrain loads on the next restart. Unsaved live changes are not counted. Save the world before scanning if you need the latest edits included.</p>
+    <div class="grid"><label>Old block ID <input id="brSource" type="number" step="1" placeholder="Optional when scanning"></label><label>Replacement block ID <input id="brTarget" type="number" min="0" step="1" placeholder="Numeric destination"></label></div>
+    <div class="quickActions"><button id="brScan">Scan Saved Map</button><button id="brRefresh">Refresh</button><button id="brCancel">Cancel Scan / Staged Repair</button></div>
+    <div id="brStatus" class="compactNote" role="status"></div>
+    <div class="tableWrap dataScroll"><table><thead><tr><th>ID</th><th>Saved code / status</th><th>Solid</th><th>Fluid</th><th>Decor</th><th>Chunks</th><th>Sample chunk</th></tr></thead><tbody id="brRows"></tbody></table></div>
+    <p class="small">Missing definitions in the registry may be unused: only scanned occurrences prove an ID exists in the saved map. Scans read small pages without activating or generating terrain.</p>
+  </div>
+  <div class="card"><h3>Preview numeric replacement</h3>
+    <label><input id="brAllowAir" type="checkbox"> Allow replacement with air (ID 0 removes matching blocks)</label><br>
+    <label><input id="brAllowValid" type="checkbox"> Allow replacing an ID that currently has a valid definition (replaces every saved occurrence)</label>
+    <p class="small">Source ID 0 cannot be replaced. Destinations requiring block entities are refused, and repairs refuse source blocks hosting block entities to preserve inventories. Layer mismatches, corrupt data and unsupported chunk formats prevent applying.</p>
+    <div class="quickActions"><button id="brPreview">Preview Replacement</button><button id="brStage" class="danger" disabled>Stage for Next Restart</button></div>
+    <pre id="brPlan" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <p class="small">Backups are stored in the server data folder under NewfiesBlockRepair. Keep enough free disk space for a full world backup. Cached lighting, heightmaps and map exports may require refreshing after the ID repair.</p>
+    <pre id="brLast" class="small" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
   </div>
 </section>
 
@@ -5519,6 +5540,7 @@ const sectionLabels = {
   profiler:'Profiler & Lag',
   optimizations:'Optimizations',
   blocklogger:'Block Logging',
+  blockRepair:'Block ID Repair',
   animals:'Animal Limiter',
   loginProtection:'Login Protection',
   announcements:'Automated Announcements',
@@ -6482,6 +6504,7 @@ function setSection(section,load=true) {
   if(section!=='console'&&consoleLiveTimer){clearInterval(consoleLiveTimer);consoleLiveTimer=null;consoleLiveEnabled=false;if($('consoleLive'))$('consoleLive').textContent='Auto Refresh: OFF';}
   if(section==='compatibility')loadCompatibility(false);
   if(section==='mods')loadMods();
+  if(section==='blockRepair')loadBlockRepair();
   if(section==='admin')loadAdmin(true);
   if(section==='databaseStorage')loadAdminDatabaseStorage(false);
   if(section==='health')loadSystemHealth(true);
@@ -9565,6 +9588,34 @@ async function loadSynergy(){
     $('synergyRows').innerHTML='<tr><td colspan="8" class="bad">Unable to load Synergy integration status.</td></tr>';
   }
 }
+
+let brSnapshot=null,brBusy=false,brPreviewId='';
+function brCanEdit(){return !safeDiagnosticsModeGlobal && (currentSessionOwner || currentSessionRole==='Owner');}
+function renderBlockRepair(data){
+  brSnapshot=data;
+  const scan=data.scan,findings=scan?.Findings||scan?.findings||[];
+  const value=(o,key)=>o?.[key]??o?.[key[0].toLowerCase()+key.slice(1)];
+  const status=scan?`${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported. ${value(scan,'Message')||''}`:'No saved-map scan yet.';
+  $('brStatus').textContent=status;
+  const rows=scan?findings:(data.missingMappings||[]).map(x=>({Id:x.id,Code:x.code,Problem:x.problem}));
+  $('brRows').replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent=scan?'No matching saved occurrences reported. Check scan completeness and errors above.':'No unresolved registry mappings reported. Scan to check raw saved IDs.';tr.append(td);$('brRows').append(tr);}for(const row of rows){const tr=document.createElement('tr');for(const item of [value(row,'Id'),`${value(row,'Code')||'(no saved code)'} · ${value(row,'Problem')||''}`,value(row,'Solid')??'—',value(row,'Fluid')??'—',value(row,'Decor')??'—',value(row,'Chunks')??'—',(value(row,'Examples')||[])[0]||'—']){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}tr.onclick=()=>{$('brSource').value=value(row,'Id');brPreviewId='';$('brStage').disabled=true;};$('brRows').append(tr);}
+  const plan=data.preview||data.pending;brPreviewId=data.preview?value(data.preview,'Id'):'';$('brPlan').textContent=plan?JSON.stringify(plan,null,2):'Preview a replacement to see its exact numeric IDs and scanned count.';
+  $('brLast').textContent=data.last?'Last job: '+JSON.stringify(data.last,null,2):'';
+  for(const id of ['brScan','brPreview','brStage'])$(id).disabled=brBusy||!brCanEdit()||(id==='brStage'&&!brPreviewId);
+  $('brCancel').disabled=brBusy||!(currentSessionOwner||currentSessionRole==='Owner');
+}
+async function loadBlockRepair(){try{renderBlockRepair(await api('/api/block-repair'));}catch(e){$('brStatus').textContent=e.message;}}
+async function blockRepairAction(operation){
+  if(brBusy)return;if(operation!=='cancel'&&!brCanEdit())return;
+  const source=$('brSource').value.trim(),target=$('brTarget').value.trim();
+  if(['preview','stage'].includes(operation)&&(!source||!target)){toast('Enter both numeric block IDs.','error');return;}
+  const body={operation,sourceId:source?Number(source):0,targetId:target?Number(target):-1,allowAir:$('brAllowAir').checked,allowValidSource:$('brAllowValid').checked,previewId:brPreviewId};
+  if(!Number.isSafeInteger(body.sourceId)||!Number.isSafeInteger(body.targetId)){toast('Use integer block IDs.','error');return;}
+  brBusy=true;try{await api('/api/block-repair',{method:'POST',body:JSON.stringify(body)});await loadBlockRepair();}catch(e){$('brStatus').textContent=e.message;}finally{brBusy=false;if(brSnapshot)renderBlockRepair(brSnapshot);}
+}
+$('brScan').onclick=()=>blockRepairAction('scan');$('brPreview').onclick=()=>blockRepairAction('preview');$('brStage').onclick=()=>blockRepairAction('stage');$('brCancel').onclick=()=>blockRepairAction('cancel');$('brRefresh').onclick=loadBlockRepair;
+for(const id of ['brSource','brTarget','brAllowAir','brAllowValid'])$(id).addEventListener('input',()=>{brPreviewId='';$('brStage').disabled=true;});
+setInterval(()=>{if(currentSection==='blockRepair'&&!brBusy&&((brSnapshot?.scan?.state||brSnapshot?.scan?.State)==='running'))loadBlockRepair();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
 const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
