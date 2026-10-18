@@ -86,7 +86,7 @@ static class Program {
  Run("block 30m at 50 100 10");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==4,"Changed container was overwritten after targeted preview");
  Console.WriteLine("PASS: single-block selection/coordinates/dimensions, exact-cell neighbor isolation, fixed time/target, empty-preview refusal, automatic mixed-actor container restoration, slot preview and changed-inventory refusal.");
  // Chat diagnostics must be literal markup-safe text, including command help and logged values.
- Run("help");Check(admin.Messages.Last().Contains("&lt;time&gt;")&&!admin.Messages.Last().Contains('<'),"Rollback help sent raw VTML placeholders");
+ Run("help");Check(admin.Messages.Any(m=>m.Contains("/rollback execute TOKEN"))&&!admin.Messages.Last().Contains('<'),"Rollback help missing or contains raw VTML placeholders");
  var reply=typeof(PlayerRollbackCommands).GetMethod("Reply",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
  reply.Invoke(cmd,new object[]{admin,0,"<font color=oops><itemstack>{broken} & \"\r\n\u0001",true});
  Check(!admin.Messages.Last().Contains('<')&&admin.Messages.Last().Contains("&amp;")&&!admin.Messages.Last().Contains('\u0001'),"Rollback diagnostics can inject tags or control characters into chat");
@@ -95,6 +95,7 @@ static class Program {
  Check(RollbackChatText.Encode("&lt;font&gt;")=="&amp;lt;font&amp;gt;","Already-encoded text can activate markup after a second decode");
  Check(!RollbackChatText.Encode("a\ud800b\udc00").Any(char.IsSurrogate),"Malformed diagnostic Unicode escaped sanitizer");
  admin.FailReplies=true;Run("block 30m at 50 100 10");Run("cancel");admin.FailReplies=false;Run("help");Check(!Busy()&&admin.Messages.Last().Contains("/rollback"),"Failed private reply left recovery busy or prevented later chat");
+ typeof(PlayerRollbackCommands).GetField("receiptReady",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(cmd,false);Run("help");Check(admin.Messages.Last().Contains("snapshots/transfers"),"Help is blocked by initializing receipt index");typeof(PlayerRollbackCommands).GetField("receiptReady",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(cmd,true);
  Console.WriteLine("PASS: rollback chat escapes help/dynamic markup, bounds oversized output, removes controls, preserves literal entities, repairs Unicode and survives disconnected recipients.");
  Console.WriteLine("PASS: claimed land excluded by default; explicit claim recovery checks current access and rejects permission changes after preview.");
  Console.WriteLine("PASS: production recovery command grammar, locked center/time, player isolation, preview non-mutation, cancellation, area occupancy, mixed-actor execution, durable-before-mutation ordering, live-change revalidation, journal failures and cancellation (API/storage doubles).");

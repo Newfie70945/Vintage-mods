@@ -80,6 +80,25 @@ internal sealed class BlockIdChunkCodec
             if(replace!=null){Var(output,(ulong)((field.Tag<<3)|2));Var(output,(ulong)replace.Length);output.Write(replace);}else output.Write(blob,field.Start,field.End-field.Start);}
         return output.ToArray();
     }
+    public byte[] ReplaceAt(byte[] blob,int x,int y,int z,int dimension,int expectedSource,int target)
+    {
+        if(target<0||expectedSource<0||target==expectedSource)throw new ArgumentException("Choose a different registered destination.");
+        int index=((y&31)*32+(z&31))*32+(x&31);var fields=Fields(blob);
+        var cell=ReadCells(blob,[index])[index];if(cell[0]!=expectedSource)throw new InvalidOperationException("Selected saved block changed after preview.");
+        if(cell[1]!=0)throw new InvalidOperationException("Selected position contains fluid; one-position repair supports the solid layer only.");
+        long bytes=0;int count=0;
+        foreach(var field in fields.Where(f=>f.Tag==8))
+        {
+            if(field.Wire!=2||++count>256||(bytes+=field.Length)>8*1024*1024)throw new InvalidDataException("Retained block-entity records exceed verification bounds.");
+            var entity=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
+            if(!entity.Complete)throw new InvalidDataException("Unverifiable retained metadata; selected repair refused. "+entity.Issue);
+            if(entity.X==x&&entity.Y==y&&entity.Z==z&&entity.Dimension==dimension)throw new InvalidOperationException("Selected position retains block-entity/inventory metadata. Use retained inventory restoration; generic replacement would lose that data.");
+        }
+        var solid=fields.Single(f=>f.Tag==1&&f.Wire==2);var layer=new BlockChunkDataLayer(pool);byte[] compressed;
+        try{Unpack.Invoke(layer,[blob.AsSpan(solid.Data,solid.Length).ToArray()]);layer.Set(index,target);compressed=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}
+        using var output=new MemoryStream();foreach(var field in fields){if(field.Start==solid.Start){Var(output,(ulong)((field.Tag<<3)|2));Var(output,(ulong)compressed.Length);output.Write(compressed);}else output.Write(blob,field.Start,field.End-field.Start);}
+        return output.ToArray();
+    }
     public byte[] Replace(byte[] blob,int source,int target,out long changed)
     {
         if(source==0||target<0||source==target)throw new ArgumentException("Invalid numeric replacement.");

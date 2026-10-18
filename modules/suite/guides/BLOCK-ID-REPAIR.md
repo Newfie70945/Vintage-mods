@@ -70,12 +70,12 @@ Up to three historical container snapshots include slot IDs, item codes and coun
 
 Choosing an ordinary suggestion fills the destination and invalidates the previous preview. Container suggestions remain visible but disabled for generic remapping. Review later transfers before any separate recovery plan: copying an old snapshot can duplicate removed items or overwrite legitimate changes. Suggestions do not restore inventories or apply themselves. The separate restoration workflow below requires its own preview and staging. Owner-only diagnostic reports include this evidence; non-Owner status responses omit it.
 
-## Automatic inventory restoration (Suite 1.2.52)
+## Automatic inventory restoration (Suite 1.2.44)
 
 This experimental workflow restores **one absolute location**, on the next restart before terrain loads. It supports retained vanilla bookshelf, shelf and standard chest/container metadata, with up to 64 slots. It never creates missing block-entity metadata or performs a global inventory conversion. Machines, custom/mod-replaced container classes, incompatible serialization and patched initialization methods are refused. The bounded inspector also refuses oversized records (over 2 MiB), individual UTF-8 strings over 4 KiB, excessive nesting and unsupported attribute types; preservation claims apply only to fully verified records.
 
 1. Save normally, clear players from the target area, then inspect the saved location. Ensure there is a retained, fully decodable container record with its original block code, class and standard inventory layout. For a bookshelf, its shape/material and usable slot layout must be verifiable.
-2. Choose **Reconnect retained inventory** to repair the host block at that coordinate while preserving its complete block-entity payload byte for byte, including item attributes and written text. All retained item IDs must still exist. This mode requires surviving stacks and a host block that needs reconnecting; it does not create items or replace inventory data.
+2. Choose **Reconnect retained inventory** to repair the host block at that coordinate while preserving its complete block-entity payload byte for byte, including item attributes and written text. All retained item IDs must still exist. This mode requires compatible retained metadata and a host block that needs reconnecting; both empty and occupied inventories are supported. It does not create items or replace inventory data.
 3. Alternatively, use **Recommend from BlockLogger**, choose a historical snapshot, then select **Restore snapshot into empty inventory**. The snapshot must match the exact world, dimension, coordinates, original block code and slot count. It must contain valid registered item codes/counts that fit the retained layout and current stack limits. Current inventory contents are never overwritten. Future-dated snapshots, later logged block changes or container take/put events, including ambiguous same-timestamp changes, prevent restoration; an over-limit later history is refused too.
 4. Review the risk acknowledgement. Historical snapshots contain codes/quantities only, so restored items receive default attributes. They cannot recreate written book text, durability, freshness or contents of bags. Unlogged item transfers cannot be detected; an owner must still check for duplication risk.
 5. Leave the shared automatic-backup checkbox enabled, or make a manual world copy and acknowledge it before disabling backup. **Preview Inventory Restore** shows the exact location, target block, source, item count and fidelity. Changing coordinates, mode, snapshot, backup or acknowledgements invalidates the staging token. A preview expires after 15 minutes.
@@ -95,3 +95,30 @@ Commands (all require `controlserver`; automatic backup stays on unless explicit
 ```
 
 To disable automatic backup, append `no-backup manual-copy-confirmed` only after making a manual world copy. Owner web accounts alone may preview/stage; Safe Diagnostics Mode blocks restore operations. Read-only inspection and history recommendations remain available to Owners.
+
+## Practical selection workflow (Suite 1.2.44)
+
+You can now work from an in-game target instead of finding its numeric ID yourself. All commands below require `controlserver` and affect saved data on the next restart, after preview and staging. Save the world normally before previewing; if a subsequent save changes the selected chunk, startup refuses the stale plan rather than overwriting it.
+
+```
+/nseblockrepair help
+/nseblockrepair select
+/nseblockrepair results
+/nseblockrepair suggest
+/nseblockrepair results
+/nseblockrepair replace game:rock-granite confirm-risk
+/nseblockrepair results
+/nseblockrepair selectedstage PREVIEW_ID
+```
+
+`select` locks the looked-at position for your administrator account for 15 minutes. Moving your crosshair afterward does not move the selected location. `suggest` reads exact-position BlockLogger history; `results` shows its evidence/confidence and the saved ID, retained metadata and available preview ID. No suggestion applies itself. `replace` accepts a registered numeric destination ID or an exact `domain:code` and previews **one solid cell**, including when its source is a valid registered ID. Other occurrences of that ID are untouched. Fluid positions and generic replacement of retained block entities are refused.
+
+For removed plants, look at the ground beneath the missing plant and use `/nseblockrepair select above`. Alternatively use `/nseblockrepair select at X Y Z [dimension]` with absolute saved coordinates. If the selected position is already air, review its history and use `replace CODE confirm-risk allow-air-source`. Only that position may be restored from air; global replacement of air stays blocked. Without logs, retained metadata or a world backup, air cannot reveal the plant that used to be there. The tool does not invent a map-wide list of deleted plants.
+
+For a retained bookshelf/container, `replace game:bookshelf confirm-risk` routes to the existing retained-inventory workflow when the selected saved metadata identifies that exact original code. Use `results`, then `/nseblockrepair restorestage PREVIEW_ID`. Empty compatible retained shelves can now be reconnected too. A missing or incompatible block entity requires a backup or the supported historical rollback path; choosing a container code alone cannot recreate its shape, material, machine state or lost inventory.
+
+The Owner webpanel offers the same one-location preview/stage path, using the inspection coordinates, and a **Use Latest In-game Selection** button. BlockLogger suggestions have separate buttons for one-location repair and retained-container recovery. The global remap remains a distinct operation that changes every scanned occurrence of an ID; its preview count and container protections still apply.
+
+Scans now show **retained-container mismatches** even when the host ID is registered or air, and flag saved/current registry code mismatches for review. Up to 256 coordinate examples are retained. This detects surviving evidence rather than assuming all removed content retains an invalid ID. Unsupported or oversized metadata remains unverified and cannot safely be treated as an empty/lost inventory.
+
+Selected-location jobs use `selected-pending.json`, `selected-last.json` and consumed/rejected records in `NewfiesBlockRepair`. They share automatic/manual backup policy and the one-staged-job limit with global and inventory repairs. Saved chunk bytes, world identity and block registry must still match at startup. Preview expires after 15 minutes. Cancel removes staged jobs without editing terrain.

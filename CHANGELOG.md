@@ -1,14 +1,15 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.52
+## Server Essentials Suite 1.2.44
 
-- Added `/rollback block 2h` for the looked-at block/container, plus absolute coordinate and dimension targets for missing blocks. Includes logged container inventory automatically, previews concrete slot changes and uses the existing execution token, receipts and live-state checks. Neighboring cells are excluded in both SQL and live validation; no restart is needed for loaded compatible locations.
-- Fixed unsafe rollback chat output: help placeholders, logged values and errors are escaped before chat rendering. Responses are bounded, malformed controls/Unicode are removed, and failed private sends cannot leave recovery stuck. The official game VTML parser reproduced the old markup mismatch and accepts the corrected replies followed by normal chat.
-
-- Added a separate automatic inventory restoration workflow with a preview and explicit staging for the next restart, limited to one location and compatible retained vanilla container metadata.
-- Retained mode reconnects the original bookshelf/shelf/chest block while preserving its complete saved inventory payload and item attributes byte for byte.
-- Snapshot mode fills an empty compatible inventory from a selected BlockLogger snapshot, preserving other container data. Historical codes/counts produce default item attributes; missing written text, durability, freshness or bag contents cannot be reconstructed.
-- Refuses occupied destinations, missing metadata/items, wrong worlds/coordinates, incompatible classes/layouts, changed saved data, changed snapshots and later logged block/item mutations, including legacy overworld dimension records. Bookshelf shape/material and usable slots are checked.
-- Durable per-location restore receipts prevent replaying old snapshots or uncertain attempts. One generic repair or inventory restore can be staged at a time. Backup remains enabled by default and can be disabled only with the existing manual-copy acknowledgement.
-- Added Owner webpanel and `restorepreview` / `restorestage` command controls. Safe Diagnostics Mode blocks restoration. Existing generic block-entity protection remains in place.
-- Suite advances to 1.2.52; NOS and companion mods are unchanged.
+- Corrected the Suite version to 1.2.44 across mod metadata, assembly/project version, manifest, build identity and current guides. The previous 1.2.49–1.2.52 labels were development build numbering; this build keeps their fixes and uses the requested public version.
+- Added `/rollback help` and bare `/rollback` help, available even while recovery is running or its receipt index is initializing. Covers block/container, player, area, duration/UTC syntax, claims, execution, cancellation and inventory limitations.
+- Added `/rollback block 2h` to preview the looked-at block and its logged container inventory; explicit absolute coordinates and dimension can target missing blocks. Includes slot changes, fixed target/time, execution tokens and durable recovery receipts. Neighboring cells are excluded.
+- Added in-game Block ID Repair selection: `select`, `select above` for a removed plant, or `select at X Y Z [dimension]`; `results`, `suggest`, `replace CODE confirm-risk`, and `selectedstage ID` provide a reviewed one-location repair workflow. Container destinations route to compatible retained-inventory recovery.
+- Added matching Owner webpanel controls to import an in-game selection, inspect retained mismatches, choose suggested destinations, preview one solid position and stage it for restart. Coordinate/target/backup edits invalidate staging. Unrelated occurrences of the source ID are excluded.
+- Scans now expose orphaned block-entity class/code mismatches separately from missing IDs, including retained bookshelves whose host became a registered block or air. Also flags saved/current registry code mismatches for review. Up to 256 container examples are shown; incomplete records are counted.
+- Removed plants already saved as air cannot be identified from an ID scan alone. The selected-location workflow supports explicit restoration from air, with a separate acknowledgement, exact-coordinate history suggestions and backup protection. Global air remapping remains blocked.
+- Retained container restoration now supports empty compatible bookshelves/shelves as well as surviving inventories, preserving the saved payload. Snapshot restoration fills only an empty compatible retained inventory using logged codes/counts; missing historical item attributes cannot be reconstructed.
+- Retained and selected repairs revalidate world, registry and saved data on restart, verify automatic world backups by default and consume staged jobs before writing. Disabling backup requires manual-copy acknowledgement. Only one selected/global/inventory repair may be staged.
+- Fixed rollback chat markup and oversized replies, including raw help placeholders and diagnostic values. Failed private sends cannot leave recovery stuck. History recommendations recognize the legacy overworld dimension alias.
+- Block ID Repair remains experimental and restricted to the inspected official Vintage Story 1.22.7 saved format. Unsupported metadata and destructive generic container replacements are refused. NOS and companion mod versions are unchanged.
