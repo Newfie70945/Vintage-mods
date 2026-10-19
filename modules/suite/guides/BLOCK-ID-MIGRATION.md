@@ -13,7 +13,7 @@ The old Block ID Repair page and whole-world repair staging have been replaced b
 5. **Review Selected Mappings**, then **Enable Migration on Next Restart**. Alternatively, **Prepare All Exact-Code Matches** collects up to 4,096 exact installed identities and lists excluded IDs. Review before enabling.
 6. Restart once. The migrator verifies its world/registry, creates and checks the backup, then starts before terrain loads. Configured IDs are replaced when saved chunks load. Normal saves persist successful repairs; no separate whole-world sweep runs.
 
-The page shows configured rules, active/staged/failed state, session chunks/reference counts, refused chunks and the last refusal. **Disable Migration** stops further replacements immediately and persists that setting. Previously saved repairs are not undone. To change rules, disable, scan and review a new configuration, then restart.
+The page shows configured rules, active/staged/failed state, session chunks/reference counts, refused chunks and the last refusal. **Disable Migration** stops further replacements immediately and persists that setting. Previously saved repairs are not undone. The **Migration Rules** table lists each numeric source, target and active/pending state. Use **Save Rule Without Scan**, Edit, Remove or Clear All Rules to manage explicit IDs without waiting for scanning. Saving changes pauses migration until the next restart; it does not edit terrain immediately.
 
 Only missing definitions are eligible: coded `IsMissing` placeholders, code-less slots left by remapping and undefined numeric IDs. **Healthy registered source IDs are always protected**, even if an old client submits an allow-valid override. Scan totals include underground/unloaded references; they are not proof that every occurrence is a visible question-mark cube. Missing client textures, ordinary registered blocks and plants already saved as air are outside this recovery.
 
@@ -28,9 +28,10 @@ Requires `controlserver`. Commands and help are encoded for Vintage Story chat s
 - `/nseblockmigrate enable PREVIEWID` — save the reviewed configuration; backup and activation occur on restart.
 - `/nseblockmigrate disable` — stop future migrations immediately.
 - `/nseblockmigrate status`
+- `/nseblockmigrate rules [page]` — list saved source IDs and replacements in chat.
 - `/nseblockmigrate cancel` — cancel scanning, discard the preview and disable a migration awaiting restart.
 
-**Create an ID-wide rule from your hand:** hold the registered replacement block in your active hotbar slot, look at a missing block, and run `/nseblockmigrate replaceheld`. It stages a rule for **all missing blocks with that numeric source ID**, not just the looked-at position. Other enabled migration rules are retained; running migration pauses until restart activates the new configuration. A fresh verified automatic backup is created on restart. No scan is required for this command, and no held blocks are consumed. Use status to review rules, or disable to cancel. Healthy sources, invalid held items, fluid positions and incompatible container targets are refused. Actual chunk metadata is checked as chunks load; unknown/deleted inventory data is never invented.
+**Create an ID-wide rule from your hand:** hold the registered replacement block in your active hotbar slot, look at a missing block, and run `/nseblockmigrate replaceheld`. It stages a rule for **all missing blocks with that numeric source ID**, not just the looked-at position. Other enabled migration rules are retained; running migration pauses until restart activates the new configuration. A fresh verified automatic backup is created on restart. No scan is required for this command, including while another scan is running, and no held blocks are consumed. Use status to review rules, or disable to cancel. Healthy sources, invalid held items, fluid positions and incompatible container targets are refused. Actual chunk metadata is checked as chunks load; unknown/deleted inventory data is never invented.
 
 The old `/nseblockrepair` command points to the replacement. Old pending repair files are retained with `.retired` suffix and are not executed. Existing rollback commands remain separate.
 
@@ -38,7 +39,19 @@ The old `/nseblockrepair` command points to the replacement. Old pending repair 
 
 For exact saved-code identity reconnection, the migrator verifies the retained block-entity class and saved code and requires compatible metadata at every affected container occurrence in that chunk. Its saved entity bytes, including existing inventory contents/attributes, are preserved byte for byte before the official loader handles them.
 
-It does not invent a bookshelf's shape/material, convert arbitrary mod inventories, resurrect deleted data, or change IDs inside player/container item stacks. A source retaining incompatible data skips the entire affected chunk. You may need the original mod restored or a verified world backup. An unavailable original Ape asset is not automatically replaced with a similar-looking vanilla block. Choose replacements explicitly for non-container assets.
+Choose an inventory mode before reviewing a migration, or add command flags:
+
+- **Preserve** (default): preserve compatible surviving container bytes; never recreate lost items.
+- **Recover Empty**: preserve occupied containers and fill empty compatible retained inventories from the latest exact-position BlockLogger snapshot at/before the chosen cutoff.
+- **Replace Contents**: explicitly replace retained contents with that snapshot. Requires an additional overwrite acknowledgement.
+
+Examples: `/nseblockmigrate replaceheld recover-empty confirm-inventory-risk` or `/nseblockmigrate replaceheld replace confirm-inventory-risk confirm-overwrite before=2026-10-01T00:00:00Z`. Without flags the held command retains the configured inventory mode.
+
+Rules save immediately. Recovery evidence is prepared separately in the background and queues behind an existing scan; restart only after preparation reports complete. The page shows preparation totals/skipped examples and runtime recovery counters. Preparation reads existing saved data without activating terrain. Supported vanilla containers need surviving, compatible block-entity metadata. Cross-code conversion is restricted to verified vanilla bookshelf layouts; arbitrary mod containers and missing shape/material are refused. In recovery modes, an unprepared/changed container stays untouched while compatible neighbors can migrate.
+
+**BlockLogger snapshots contain item codes and quantities, not written-book text, durability, perish state or custom item attributes.** Reconstructed stacks use defaults. Surviving inventory attributes are preserved byte for byte. Later logged block changes/item transfers invalidate stale snapshots, but unlogged transfers cannot be detected. Durable receipts prevent restoring the same old inventory repeatedly across plans/restarts; an uncertain crash after receipt reservation also blocks replay. Do not delete these receipts to retry blindly.
+
+This does not recreate deleted block-entity metadata, alter player/item IDs, or restore already healthy remapped shelves globally. Restore original mods or a verified backup where compatible evidence is unavailable.
 
 The uploaded More Lanterns 1.4.4 contains `assets/game/config/remaps.json`; 1.4.6 removes that file, while the uploaded block/item asset definitions are unchanged. That establishes a change to the supplied global remap file, but does not by itself prove which commands changed the IDs in a particular world. If its saved original codes were overwritten, history or a pre-update backup is needed to recover the original identities.
 

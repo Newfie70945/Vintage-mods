@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Reflection;
+using BlockLogger.WorldRepair;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
 using Vintagestory.API.MathTools;
@@ -10,14 +12,22 @@ public sealed class InventoryRestoreProbe : ModSystem
     public override void StartServerSide(ICoreServerAPI api)
     {
         var p=api.ChatCommands.Parsers;
+        api.ChatCommands.Create("nseinventoryhookprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Word("replay or changed")).HandleWith(a=>
+        {
+            string kind=(string)a[0];if(kind is not ("replay" or "changed"))return TextCommandResult.Error("Unsupported fixture.");
+            var bytes=File.ReadAllBytes(Path.Combine(api.GetOrCreateDataPath("NSSInventoryProbe"),kind+".bin"));object?[] arguments=[bytes,api.World,null];
+            typeof(BlockIdRepairService).GetMethod("BeforeLoadedChunk",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,arguments);
+            bool unchanged=bytes.SequenceEqual((byte[])arguments[0]!);if(!unchanged||arguments[2]!=null)throw new Exception("Rejected inventory fixture changed or produced a successful-load marker.");
+            api.Logger.Notification("{0}","NSE_INVENTORY_GUARD_PROBE "+JsonSerializer.Serialize(new{kind,unchanged,noLoadMarker=arguments[2]==null}));return TextCommandResult.Success("Inventory guard hook checked.");
+        });
         api.ChatCommands.Create("nseinvprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>{
             var pos=new BlockPos((int)a[0],(int)a[1],(int)a[2]);bool already=api.World.BlockAccessor.GetBlockEntity(pos)!=null;int attempts=0;
-            api.WorldManager.LoadChunkColumn(pos.X/32,pos.Z/32,true);
+            api.WorldManager.LoadChunkColumnPriority(pos.X/32,pos.Z/32,new ChunkLoadOptions{KeepLoaded=true});
             void Check(float dt){var entity=api.World.BlockAccessor.GetBlockEntity(pos);
                 if(entity is IBlockEntityContainer container){var inv=container.Inventory;var slots=new List<object>();for(int i=0;i<inv.Count;i++){var stack=inv[i]?.Itemstack;if(stack==null)continue;slots.Add(new{slot=i,code=stack.Collectible?.Code?.ToString(),quantity=stack.StackSize,text=stack.Attributes?.GetString("text","")??""});}
-                    api.Logger.Notification("{0}","NSE_INV_PROBE_RESULT "+JsonSerializer.Serialize(new{success=true,block=api.World.BlockAccessor.GetBlock(pos).Code?.ToString(),slots=inv.Count,items=slots}));if(!already)api.WorldManager.UnloadChunkColumn(pos.X/32,pos.Z/32);}
+                    api.Logger.Notification("{0}","NSE_INV_PROBE_RESULT "+JsonSerializer.Serialize(new{success=true,block=api.World.BlockAccessor.GetBlock(pos).Code?.ToString(),slots=inv.Count,items=slots}));}
                 else if(++attempts<600)api.Event.RegisterCallback(Check,100);
-                else {if(!already)api.WorldManager.UnloadChunkColumn(pos.X/32,pos.Z/32);api.Logger.Error("[InventoryRestoreProbe] No initialized inventory at fixture location after 600 polls.");}}
+                else {api.Logger.Error("[InventoryRestoreProbe] No initialized inventory at fixture location after 600 polls.");}}
             api.Event.RegisterCallback(Check,100);return TextCommandResult.Success("Fixture column requested; awaiting normal block-entity initialization.");
         });
     }

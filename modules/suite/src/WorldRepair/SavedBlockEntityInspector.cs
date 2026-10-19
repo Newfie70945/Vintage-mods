@@ -43,6 +43,8 @@ public static class SavedBlockEntityInspector
         public string ShapeType { get; set; } = "";
         public string Material { get; set; } = "";
         public int? InventorySlotCount { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore] public int BlockCodeOffset { get; set; } = -1;
+        [System.Text.Json.Serialization.JsonIgnore] public int BlockCodeLength { get; set; }
         [System.Text.Json.Serialization.JsonIgnore] public int SlotsOffset { get; set; } = -1;
         [System.Text.Json.Serialization.JsonIgnore] public int SlotsLength { get; set; }
 
@@ -114,7 +116,7 @@ public static class SavedBlockEntityInspector
                         break;
                     case 2: case 3: Skip(8); break;
                     case 4: Skip(4); break;
-                    case 5: string text = Text(); if (depth == 0){if(key == "blockCode") result.SavedBlockCode = text;if(key=="type") result.ShapeType=text;if(key=="material") result.Material=text;} break;
+                    case 5: int textStart=checked((int)reader.BaseStream.Position);string text = Text(); if (depth == 0){if(key == "blockCode"){result.SavedBlockCode = text;result.BlockCodeOffset=textStart;result.BlockCodeLength=checked((int)reader.BaseStream.Position)-textStart;}if(key=="type") result.ShapeType=text;if(key=="material") result.Material=text;} break;
                     case 6:
                         if ((key.Contains("inventory", StringComparison.OrdinalIgnoreCase) || key == "inv") && result.InventoryPaths.Count < 32) result.InventoryPaths.Add(current);
                         int start = checked((int)reader.BaseStream.Position);

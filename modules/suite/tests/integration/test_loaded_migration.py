@@ -71,7 +71,7 @@ def wait_field(field):
         if time.monotonic()>until:raise RuntimeError('Timed out waiting for '+field)
         time.sleep(.2)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-recovery1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationinventory1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -105,6 +105,8 @@ try:
     result.update(normalLoaderObservedDestinations=observed,changedChunks=active['sessionChunksChanged'],changedReferences=active['sessionBlocksChanged'])
     # Test the actual looked-at/held adapter using a detached administrator,
     # not an authenticated network client. Two occurrences share the third ID.
+    status,_=request('/api/block-migration',dict(operation='scan'));assert status==200
+    assert state()['scan']['state']=='running';result['heldCommandIssuedDuringWholeWorldScan']=True
     offset=len(lines);process.stdin.write('/nseheldmigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
     until=time.monotonic()+30;heldmarker='NSE_HELD_MIGRATION_PROBE '
     while not any(heldmarker in line for line in lines[offset:]):
@@ -112,6 +114,7 @@ try:
         time.sleep(.1)
     held=json.loads(next(line.split(heldmarker,1)[1] for line in lines[offset:] if heldmarker in line));assert held['heldQuantity']==7 and held['healthyRejected'],held
     staged=state()['loadedMigration'];assert staged['state']=='staged' and not staged['active'] and len(staged['plan']['mappings'])==3,staged
+    assert 'no world scan' in held['message'];result['heldRuleDoesNotWaitForRunningScan']=True
     assert {m['source'] for m in staged['plan']['mappings']}=={999999,999998,999997};result['heldRulePreservesOtherRulesAndHeldStack']=True;result['healthyLookedAtSourceRefused']=True
     stop();offset=len(lines);launch();ready(offset);active=state()['loadedMigration'];assert active['active'],active
     offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()

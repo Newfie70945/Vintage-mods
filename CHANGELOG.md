@@ -2,12 +2,18 @@
 
 ## Server Essentials Suite 1.2.44
 
+- `/nseblockmigrate replaceheld` saves an ID-wide rule immediately, even during a running world scan. Optional inventory preparation runs separately; ordinary rules need no world scan.
+- Added a visible **Migration Rules** table with each source ID, replacement, inventory mode and active/pending state, plus `/nseblockmigrate rules [page]` in-game. Save, edit, remove or clear explicit rules without scanning.
+- Added opt-in **Recover Empty** and **Replace Contents** migration modes using compatible retained container metadata and exact-position BlockLogger snapshots. Existing contents are preserved by default; replacing contents requires a separate acknowledgement.
+- Recovery prepares bounded disk-backed evidence before activation. Chunk loads recheck retained data and durable recovery receipts to prevent stale overwrites and repeated restoration. Compatible containers can migrate while unprepared neighbors are skipped.
+- Historical snapshots restore logged item codes and quantities only. Written-book text and other missing attributes cannot be recovered; retained inventory bytes preserve surviving attributes.
+
 - Replaced Block ID Repair with **Block ID Migration**: choose missing numeric IDs and a replacement ID/code for each, review once, then migrate existing saved chunks as they load. Removed the old whole-world repair controls and staging routes; old pending jobs are retired without editing the world.
 - Added persistent enable/disable controls, activation after restart, verified automatic backup (or explicit manual-copy acknowledgement), current-session progress and rate-limited skipped-chunk diagnostics. Normal world saves persist migrated chunks; no terrain is generated for migration.
 - Missing-block scans now include code-less remapper holes and undefined saved IDs. Healthy registered sources are protected even if an old client submits the legacy override flag.
 - Added exact-code preparation for installed original identities, with excluded IDs listed for review. Compatible retained container/block-entity bytes are preserved; missing originals, incompatible metadata and deleted inventories are never guessed or invented.
 - Added `/nseblockmigrate replaceheld`: stage an ID-wide migration from the missing block you look at to the registered solid block held in your hotbar. Retains other enabled rules, backs up and activates on restart, and migrates all matching missing IDs as their chunks load. Protects healthy sources, fluid positions and incompatible container data; does not consume held blocks.
-- Improved per-ID replacement searches, explicit evidence/confidence suggestions, findings filtering/paging, review invalidation, owner/safe-mode controls and diagnostic downloads. Suite remains **1.2.44**, build `ms11-recovery1`.
+- Improved per-ID replacement searches, explicit evidence/confidence suggestions, findings filtering/paging, review invalidation, owner/safe-mode controls and diagnostic downloads. Suite remains **1.2.44**, build `ms11-migrationinventory1`.
 
 - QueryFix1: fixed recovery reads that walked unrelated world events/snapshots even for a single-block rollback. Queries now drive existing position-index seeks from the affected-cell set, retaining prior inventory baselines, all actors and later conflict evidence. The existing 30-second cancellation/deadline and row limits remain in place; no new database index or migration is required.
 - Split player/area query branches so unused scope branches do not force broad reads, and use the existing indexed player-name lookup. Single-block work is covered by large-history and native SQLite regression tests.

@@ -54,7 +54,7 @@ public sealed partial class BlockIdRepairService
             return new{success=true,recommendationId=report.Id};
         }
     }
-    public object SearchTargets(string query,int? source=null,bool allowAir=false,bool allowValid=false)
+    public object SearchTargets(string query,int? source=null,bool allowAir=false,bool allowValid=false,string inventoryMode="preserve")
     {
         query=query.Trim();if(query.Length==0||query.Length>128||(query.Length<2&&!int.TryParse(query,out _)))throw new ArgumentException("Enter 2–128 characters of a block code, or an exact numeric ID.");
         int.TryParse(query,NumberStyles.Integer,CultureInfo.InvariantCulture,out int numeric);
@@ -62,7 +62,7 @@ public sealed partial class BlockIdRepairService
         var context=source.HasValue?scan?.Findings.SingleOrDefault(f=>f.Id==source.Value&&f.Count>0):null;
         if(source.HasValue&&context==null)throw new ArgumentException("Source ID is not in the current scan.");
         var matches=api.World.Blocks.Where(b=>b?.Code!=null&&!b.IsMissing&&(isNumber?b.BlockId==numeric:b.Code.ToString().Contains(query,StringComparison.OrdinalIgnoreCase)))
-            .Take(51).Select(b=>{string issue=context==null?(string.IsNullOrEmpty(b.EntityClass)?"":"Block entity: dedicated migration required; generic remap blocked."):RemapTargetPolicy.Issue(new(context.Id,Missing(context.Id),context.Solid,context.Fluid,context.Decor),new(b.BlockId,b.Code.ToString(),b.ForFluidsLayer,BlockIdChunkCodec.Canonical(context.Code)==b.Code.ToString()&&context.AutomaticIssue.Length==0?"":b.EntityClass??""),allowAir,allowValid);return new{id=b.BlockId,code=b.Code.ToString(),entityClass=b.EntityClass??"",fluid=b.ForFluidsLayer,selectable=issue.Length==0,reason=issue};}).ToArray();
+            .Take(51).Select(b=>{string issue=context==null?(string.IsNullOrEmpty(b.EntityClass)?"":"Block entity: dedicated migration required; generic remap blocked."):RemapTargetPolicy.Issue(new(context.Id,Missing(context.Id),context.Solid,context.Fluid,context.Decor),new(b.BlockId,b.Code.ToString(),b.ForFluidsLayer,((BlockIdChunkCodec.Canonical(context.Code)==b.Code.ToString()&&context.AutomaticIssue.Length==0)||(inventoryMode is "recover-empty" or "replace"&&b.Code.Domain=="game"&&SupportedContainer(b.EntityClass??"")))?"":b.EntityClass??""),allowAir,allowValid);return new{id=b.BlockId,code=b.Code.ToString(),entityClass=b.EntityClass??"",fluid=b.ForFluidsLayer,selectable=issue.Length==0,reason=issue};}).ToArray();
         return new{results=matches.Take(50).ToArray(),limited=matches.Length>50};
     }
     public object StartInspection(int x,int y,int z,int dimension,string chunkKey="")
