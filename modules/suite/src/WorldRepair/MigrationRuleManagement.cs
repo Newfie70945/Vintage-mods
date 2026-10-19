@@ -63,7 +63,7 @@ public sealed partial class BlockIdRepairService
     {
         lock(gate)lock(loadedGate)
         {
-            loadedActive=false;loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
+            CancelLiveActivation();loadedActive=false;loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
     }
 }

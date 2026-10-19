@@ -72,7 +72,7 @@ def wait_field(field):
         if time.monotonic()>until:raise RuntimeError('Timed out waiting for '+field)
         time.sleep(.2)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationinventory1','officialGameVersion':'1.22.7','inventoryMode':mode,'initiallyOccupied':filled,'authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-livemigration1','officialGameVersion':'1.22.7','inventoryMode':mode,'initiallyOccupied':filled,'authenticatedGameClients':0}
 
 def wait_inventory():
     until=time.monotonic()+120
@@ -113,8 +113,16 @@ try:
     assert report['recovered']==expected_recovery and report['preserved']==1-expected_recovery,report;result['preparation']=report
     mismatch=options|dict(inventoryBeforeUtc='2026-10-01T00:00:00Z')
     status,error=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],**mismatch));assert status==400 and 'options changed' in error['error'],error;result['changedInventoryOptionsRefused']=True
-    status,loaded=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],**options));assert status==200 and loaded['state']=='staged',loaded
-    stop();offset=len(lines);launch();ready(offset);active=state()['loadedMigration'];assert active['active'],active
+    direct=os.environ.get('NSS_INVENTORY_DIRECT','0')=='1'
+    status,loaded=request('/api/block-migration',dict(operation='rule-set',sourceId=999999,destination='game:bookshelf',**options) if direct else dict(operation='loaded-stage',previewId=plan['id'],**options))
+    assert status==200 and loaded['state'] in ('preparing-inventories','backing-up','activating','active'),loaded
+    original_pid=process.pid;until=time.monotonic()+120
+    while True:
+        active=state()['loadedMigration']
+        if active['active']:break
+        if active['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live inventory activation failed: '+str(active))
+        time.sleep(.1)
+    assert process.pid==original_pid;result['activatedWithoutRestart']=True;result['automaticPreparationOnDirectRule']=direct
     with sqlite3.connect(active['plan']['backup']) as db:assert db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0]==seed;assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
     position=str(location['x'])+' '+str(location['y'])+' '+str(location['z'])
     observed=command('/nseinvprobe '+position,'NSE_INV_PROBE_RESULT ');assert observed['success'] and observed['block']=='game:bookshelf' and observed['slots']==14,observed

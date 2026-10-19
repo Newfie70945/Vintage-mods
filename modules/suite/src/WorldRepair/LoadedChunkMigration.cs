@@ -46,37 +46,42 @@ public sealed partial class BlockIdRepairService
     {
         lock(loadedGate)
         {
-            var settings=new LoadedMigration{Enabled=true,State=plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete"?"preparing-inventories":"staged",Plan=plan,Message="Starts on the next restart. Every configured missing ID is migrated in saved chunks as they load. Already loaded chunks require reloading. Changes persist through normal world saves."};
-            Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
+            var settings=new LoadedMigration{Enabled=true,State=plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete"?"preparing-inventories":"activating",Plan=plan,Message="Rule saved. Backup/preparation runs automatically, then migration enables without a restart. Already loaded chunks require reloading; normal saves persist changes."};
+            CancelLiveActivation();Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
         }
+        if(plan.Inventory.Mode=="preserve"||plan.InventoryReport.State=="complete")QueueLiveActivation();
     }
     public object DisableLoadedMigration()
     {
         lock(gate)lock(loadedGate)
         {
-            loadedActive=false;loadedMigration.Enabled=false;loadedMigration.State="disabled";
+            CancelLiveActivation();loadedActive=false;loadedMigration.Enabled=false;loadedMigration.State="disabled";
             loadedMigration.Message="Further chunk migrations disabled. Previously migrated blocks are not reverted.";
             Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
     }
-    private void ActivateLoadedMigration()
+    private void ActivateLoadedMigration(bool startup=true)
     {
-        if(!LoadedConfigured())return;
+        if(!LoadedConfigured()||(startup&&loadedMigration.State!="active"))return;
+        if(startup&&loadedMigration.Plan is{Inventory.Mode:not "preserve",InventoryReport.State:not "complete"})return;
+        lock(loadedGate)
+        {
         try
         {
             Guard();var p=loadedMigration.Plan??throw new InvalidOperationException("Migration has no reviewed mappings.");Validate(p);
             if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("A separate repair is staged. Disable loaded migration before other repairs.");
-            if(api.Server.CurrentRunPhase!=EnumServerRunPhase.AssetsFinalize||api.WorldManager.AllLoadedChunks.Count>0)throw new InvalidOperationException("Activation requires startup before terrain loads.");
+            if(startup?(api.Server.CurrentRunPhase!=EnumServerRunPhase.AssetsFinalize||api.WorldManager.AllLoadedChunks.Count>0):api.Server.CurrentRunPhase!=EnumServerRunPhase.RunGame)throw new InvalidOperationException("Migration activation requires startup or a running official server.");
             var method=AccessTools.Method(typeof(ServerChunk),nameof(ServerChunk.FromBytes),[typeof(byte[]),typeof(ChunkDataPool),typeof(IWorldAccessor)]);
-            if(method==null||Harmony.GetPatchInfo(method)?.Owners.Count>0)throw new NotSupportedException("Another mod patches chunk deserialization. Loaded migration disabled to protect saved data.");
+            if(method==null||Harmony.GetPatchInfo(method)?.Owners.Any(owner=>owner!="newfies.suite.loaded-block-migration")==true)throw new NotSupportedException("Another mod patches chunk deserialization. Loaded migration disabled to protect saved data.");
             if(loadedOwner!=null&&loadedOwner!=this)throw new InvalidOperationException("Another loaded migration instance is active.");
             if(p.CreateBackup)
             {
                 // Retain the first verified backup across restarts. Each new reviewed
                 // configuration gets a fresh plan ID and therefore its own backup.
                 string backup=Path.Combine(directory,"world-before-loaded-"+p.Id+".vcdbs");
-                if(loadedMigration.State!="active"||p.Backup!=backup||!File.Exists(backup))
+                if(p.Backup!=backup||!File.Exists(backup))
                 {
+                    if(!startup)throw new InvalidOperationException("A verified background backup is required before live activation.");
                     Database().CreateBackup(backup);using var connection=Open(backup);using var check=connection.CreateCommand();check.CommandTimeout=600;check.CommandText="PRAGMA quick_check";
                     if(!string.Equals(Convert.ToString(check.ExecuteScalar()),"ok",StringComparison.Ordinal))throw new InvalidDataException("Migration backup integrity check failed.");
                     p.Backup=backup;
@@ -93,9 +98,9 @@ public sealed partial class BlockIdRepairService
                 loadedManifest=InventoryManifest(p);loadedInventoryWorld=p.World;loadedInventoryPlan=p.Id;MigrationInventoryStore.EnsureReceipts(InventoryReceipts);
             }
             loadedPlainReplacements=loadedReplacements.Where(m=>!loadedInventorySources.Contains(m.Key)).ToDictionary(m=>m.Key,m=>m.Value);
-            loadedPool=new ChunkDataPool(32,(ServerMain)api.World){CacheSize=32};loadedCodec=new(loadedPool);
-            loadedHarmony=new Harmony("newfies.suite.loaded-block-migration");loadedOwner=this;
-            loadedHarmony.Patch(method,prefix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(BeforeLoadedChunk)),postfix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(AfterLoadedChunk)));
+            loadedPool??=new ChunkDataPool(32,(ServerMain)api.World){CacheSize=32};loadedCodec??=new(loadedPool);
+            loadedHarmony??=new Harmony("newfies.suite.loaded-block-migration");loadedOwner=this;
+            if(Harmony.GetPatchInfo(method)?.Owners.Contains("newfies.suite.loaded-block-migration")!=true)loadedHarmony.Patch(method,prefix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(BeforeLoadedChunk)),postfix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(AfterLoadedChunk)));
             loadedMigration.State="active";loadedMigration.Message="Configured missing IDs are migrated before each saved chunk is deserialized. Only successful loads are marked for normal saving. Incompatible chunks are skipped and reported; no missing inventory data is invented.";
             Write(LoadedMigrationFile,loadedMigration);loadedActive=true;
             api.Logger.Notification("[BlockMigration] Loaded-chunk migration active: {0} mappings. Backup: {1}",mappings.Count,p.Backup);
@@ -103,9 +108,9 @@ public sealed partial class BlockIdRepairService
         catch(Exception e)
         {
             loadedActive=false;loadedMigration.State="failed";loadedMigration.Message=e.Message+" No new loaded-chunk migrations enabled.";
-            loadedHarmony?.UnpatchAll("newfies.suite.loaded-block-migration");if(loadedOwner==this)loadedOwner=null;
-            loadedPool?.FreeAll();loadedPool=null;loadedCodec=null;Write(LoadedMigrationFile,loadedMigration);
+            Write(LoadedMigrationFile,loadedMigration);
             api.Logger.Error("[BlockMigration] {0}",loadedMigration.Message);
+        }
         }
     }
     private sealed record LoadedChange(long Blocks,long Recovered,long Preserved,long Items);

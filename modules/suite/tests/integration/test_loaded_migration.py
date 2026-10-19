@@ -71,7 +71,15 @@ def wait_field(field):
         if time.monotonic()>until:raise RuntimeError('Timed out waiting for '+field)
         time.sleep(.2)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationinventory1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+def wait_active():
+    until=time.monotonic()+120
+    while True:
+        loaded=state()['loadedMigration']
+        if loaded['active']:return loaded
+        if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
+        time.sleep(.1)
+
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-livemigration1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -89,11 +97,10 @@ try:
     mappings=[dict(sourceId=999999,destination='game:rock-granite'),dict(sourceId=999998,destination='game:rock-basalt')]
     status,plan=request('/api/block-migration',dict(operation='batch-preview',mappings=mappings,**options));assert status==200,plan
     status,error=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],createBackup=False,manualBackupAcknowledged=True));assert status==400,error
-    status,loaded=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],**options));assert status==200 and loaded['state']=='staged' and not loaded['active'],loaded
+    status,loaded=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],**options));assert status==200 and loaded['state'] in ('backing-up','activating','active'),loaded
     assert state()['preview'] is None;result['reviewedMappingAndBackupOptionsBound']=True
-    stop();offset=len(lines);launch();ready(offset)
-    active=state()['loadedMigration'];assert active['active'] and active['state']=='active',active
-    result['activeAfterRestart']=True;backup=active['plan']['backup'];assert Path(backup).is_file()
+    original_pid=process.pid;active=wait_active();assert process.pid==original_pid
+    result['activatedWithoutRestart']=True;backup=active['plan']['backup'];assert Path(backup).is_file()
     with sqlite3.connect(backup) as db:assert db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0]==seed;assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
     offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x'])+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
     until=time.monotonic()+90;marker='NSE_LOADED_MIGRATION_PROBE '
@@ -113,19 +120,32 @@ try:
         if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held adapter probe timed out: '+str(root))
         time.sleep(.1)
     held=json.loads(next(line.split(heldmarker,1)[1] for line in lines[offset:] if heldmarker in line));assert held['heldQuantity']==7 and held['healthyRejected'],held
-    staged=state()['loadedMigration'];assert staged['state']=='staged' and not staged['active'] and len(staged['plan']['mappings'])==3,staged
+    staged=wait_active();assert len(staged['plan']['mappings'])==3 and process.pid==original_pid,staged;result['heldRuleAutomaticallyActiveWithoutRestart']=True
     assert 'no world scan' in held['message'];result['heldRuleDoesNotWaitForRunningScan']=True
     assert {m['source'] for m in staged['plan']['mappings']}=={999999,999998,999997};result['heldRulePreservesOtherRulesAndHeldStack']=True;result['healthyLookedAtSourceRefused']=True
-    stop();offset=len(lines);launch();ready(offset);active=state()['loadedMigration'];assert active['active'],active
+    # Save normally before explicitly reloading this disposable fixture column.
+    process.stdin.write('/autosavenow\n');process.stdin.flush();until=time.monotonic()+90
+    while True:
+        with sqlite3.connect(world) as db:saved=db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0]
+        if saved!=seed:break
+        if time.monotonic()>until:raise RuntimeError('Normal autosave did not persist the fixture column')
+        time.sleep(.2)
+    process.stdin.write('/nseunloadfixture '+str(location['x']//32)+' '+str(location['z']//32)+'\n');process.stdin.flush()
+    result['fixtureReloadedAfterNormalAutosave']=True
     offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
     until=time.monotonic()+90
     while not any(marker in line for line in lines[offset:]):
         if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held-rule load probe timed out: '+str(root))
         time.sleep(.1)
     both=json.loads(next(line.split(marker,1)[1] for line in lines[offset:] if marker in line));assert both['firstCode']==both['secondCode']=='game:rock-granite',both
-    active=state()['loadedMigration'];assert active['sessionBlocksChanged']==2 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
+    active=state()['loadedMigration'];assert active['sessionBlocksChanged']==4 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
     status,disabled=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not disabled['active'] and not disabled['enabled'],disabled
     result['disableImmediate']=True
+    offset=len(lines);process.stdin.write('/nsemigrationcancelprobe\n');process.stdin.flush();until=time.monotonic()+20;cancelmarker='NSE_LIVE_CANCEL_PROBE '
+    while not any(cancelmarker in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Queued activation cancellation probe timed out')
+        time.sleep(.1)
+    result['disabledQueuedActivationCannotReactivate']=True
     stop()
     with sqlite3.connect(world) as db:
         after=db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0];assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
