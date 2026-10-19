@@ -306,8 +306,8 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "POST", Path = "/api/operations/alert-remove", Access = "Authenticated + CSRF", Risk = "Removes an operations alert", Safety = "Safe", CooldownSeconds = 1 },
         new() { Method = "POST", Path = "/api/optimizations/experiment/evaluate", Access = "Authenticated + CSRF", Risk = "Optimization experiment evaluation", Safety = "Moderate", CooldownSeconds = 2 },
         new() { Method = "GET", Path = "/api/optimizations/synergy", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
-        new() { Method = "GET", Path = "/api/block-repair", Access = "Authenticated read", Risk = "Saved block ID scan and staged repair status", Safety = "Safe" },
-        new() { Method = "POST", Path = "/api/block-repair", Access = "Owner + CSRF", Risk = "Scan or stage numeric saved-map repair for next startup", Safety = "High", CooldownSeconds = 1 },
+        new() { Method = "GET", Path = "/api/block-migration", Access = "Authenticated read", Risk = "Missing-block scan and loaded-chunk migration status", Safety = "Safe" },
+        new() { Method = "POST", Path = "/api/block-migration", Access = "Owner + CSRF", Risk = "Configure numeric block ID migration as chunks load", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/optimizations/newfies", Access = "Authenticated read", Risk = "Optimizer status", Safety = "Safe" },
         new() { Method = "POST", Path = "/api/optimizations/newfies", Access = "Administrator/Owner + CSRF", Risk = "Optimizer module settings / capture controls", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/optimizations/tungsten", Access = "Authenticated read", Risk = "External optimizer status", Safety = "Safe" },
@@ -1224,7 +1224,7 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/all")
             return true;
 
-        if (path == "/api/block-repair" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "inspect" or "search" or "recommend" or "mapping-advice");
+        if (path == "/api/block-migration" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "loaded-disable" or "search" or "mapping-advice" or "check-destinations");
 
         if (path == "/api/optimizations/newfies" && request.Method == "POST")
             return GetJsonString(request.Body, "operation", "set") != "profile-stop";
@@ -4102,9 +4102,9 @@ public sealed partial class WebDashboardService : IDisposable
             return;
         }
 
-        if (request.Method == "POST" && path == "/api/block-repair" && !(webSession?.IsOwner ?? false) && !LocalAnonymousMode)
+        if (request.Method == "POST" && path == "/api/block-migration" && !(webSession?.IsOwner ?? false) && !LocalAnonymousMode)
         {
-            await WriteJsonAsync(stream,403,new {error="Only the panel Owner can control saved-map block repair."},cancellationToken).ConfigureAwait(false);
+            await WriteJsonAsync(stream,403,new {error="Only the panel Owner can configure block ID migration."},cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -8535,34 +8535,28 @@ public sealed partial class WebDashboardService : IDisposable
             return;
         }
 
-        if(path=="/api/block-repair"&&(request.Method=="GET"||request.Method=="POST"))
+        if(path=="/api/block-migration"&&(request.Method=="GET"||request.Method=="POST"))
         {
             try{
                 string operation=request.Method=="GET"?"status":GetJsonString(request.Body,"operation","");
                 var result=await RunOnMainThreadAsync<object>(()=>{
-                    var repair=module.BlockRepair??throw new InvalidOperationException("Block repair is unavailable.");
-                    BlockLogger.WorldRepair.BlockIdRepairService.SelectedRequest SelectedRequest()=>new(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"destination",""),GetJsonBool(request.Body,"allowAirSource",false),GetJsonBool(request.Body,"riskAcknowledged",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false));
+                    var repair=module.BlockRepair??throw new InvalidOperationException("Block migration is unavailable.");
                     List<BlockLogger.WorldRepair.RemapChoice> Choices(){using var json=JsonDocument.Parse(request.Body);if(!json.RootElement.TryGetProperty("mappings",out var items)||items.ValueKind!=JsonValueKind.Array||items.GetArrayLength() is <1 or >32)throw new ArgumentException("Select 1–32 mappings.");return items.EnumerateArray().Select(e=>new BlockLogger.WorldRepair.RemapChoice(e.GetProperty("sourceId").GetInt32(),e.GetProperty("destination").GetString()??"")).ToList();}
                     List<int> Sources(){using var json=JsonDocument.Parse(request.Body);if(!json.RootElement.TryGetProperty("sources",out var items)||items.ValueKind!=JsonValueKind.Array||items.GetArrayLength() is <1 or >32)throw new ArgumentException("Select 1–32 IDs.");return items.EnumerateArray().Select(e=>e.GetInt32()).ToList();}
                     return operation switch {
-                        "selected-preview"=>repair.PreviewSelected(SelectedRequest()),
-                        "selected-stage"=>repair.StageSelected(GetJsonString(request.Body,"selectedId",""),SelectedRequest()),
-                        "restore-preview"=>repair.StartInventoryRestorePreview(new BlockLogger.WorldRepair.BlockIdRepairService.InventoryRestoreRequest(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"mode","retained"),GetJsonLong(request.Body,"snapshotId",0),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"riskAcknowledged",false))),
-                        "restore-stage"=>repair.StageInventoryRestore(GetJsonString(request.Body,"restoreId",""),new BlockLogger.WorldRepair.BlockIdRepairService.InventoryRestoreRequest(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"mode","retained"),GetJsonLong(request.Body,"snapshotId",0),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"riskAcknowledged",false))),
                         "status"=>repair.Snapshot((webSession?.IsOwner??false)||LocalAnonymousMode),
-                        "recommend"=>repair.StartRecommendations(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"beforeUtc","")),
-                        "search"=>repair.SearchTargets(GetJsonString(request.Body,"query","")),
-                        "inspect"=>repair.StartInspection(GetJsonInt(request.Body,"x",-1),GetJsonInt(request.Body,"y",-1),GetJsonInt(request.Body,"z",-1),GetJsonInt(request.Body,"dimension",0),GetJsonString(request.Body,"chunkKey","")),
+                        "search"=>repair.SearchTargets(GetJsonString(request.Body,"query",""),GetJsonInt(request.Body,"sourceId",0) is int searchSource&&searchSource!=0?searchSource:null,GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
+                        "check-destinations"=>repair.CheckDestinations(Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
                         "mapping-advice"=>repair.StartMappingAdvice(Sources()),
+                        "loaded-stage"=>repair.StageLoadedMigration(GetJsonString(request.Body,"previewId",""),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
+                        "loaded-disable"=>repair.DisableLoadedMigration(),
+                        "automatic-preview"=>repair.PreviewAutomatic(GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
                         "batch-preview"=>repair.PreviewBatch(Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
-                        "batch-stage"=>repair.StageBatch(GetJsonString(request.Body,"previewId",""),Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
-                        "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null,GetJsonBool(request.Body,"diagnostics",false)),
-                        "preview"=>repair.Preview(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
-                        "stage"=>repair.Stage(GetJsonString(request.Body,"previewId",""),GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",GetJsonInt(request.Body,"targetId",-1).ToString(System.Globalization.CultureInfo.InvariantCulture)),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
+                        "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null,false),
                         "cancel"=>repair.Cancel(),
-                        _=>throw new ArgumentException("Unsupported block repair operation.")};
-                },"web-block-repair").ConfigureAwait(false);
-                if(request.Method=="POST")RecordWebAudit("block-repair-"+operation,"Numeric saved-map repair workflow", "Requested",remote.ToString(),requestActor);
+                        _=>throw new ArgumentException("Unsupported block migration operation.")};
+                },"web-block-migration").ConfigureAwait(false);
+                if(request.Method=="POST")RecordWebAudit("block-migration-"+operation,"Missing block migration workflow", "Requested",remote.ToString(),requestActor);
                 await WriteJsonAsync(stream,200,result,cancellationToken).ConfigureAwait(false);
             }catch(Exception e){await WriteJsonAsync(stream,400,new{error=e.Message},cancellationToken).ConfigureAwait(false);}
             return;

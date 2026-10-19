@@ -1,0 +1,139 @@
+"""Opt-in official-server integration. Requires an existing disposable baseline world.
+NSS_BATCH_TEST_BASELINE points to its data directory; VINTAGE_STORY and DOTNET_ROOT
+point to official 1.22.7 and .NET 10. Never point the baseline at a running world.
+The baseline is copied; all edits and credentials stay under ignored artifacts/.
+Run tools/build.py --module suite and BlockRepairChecks before this script.
+"""
+from pathlib import Path
+import http.cookiejar, json, os, secrets, shutil, sqlite3
+import subprocess, threading, time, urllib.error, urllib.request
+repo=Path(__file__).resolve().parents[4]
+root=repo/'artifacts/validation'/('loaded-migration-1.2.44-'+str(int(time.time())))
+data=root/'data';root.mkdir(parents=True)
+baseline=Path(os.environ['NSS_BATCH_TEST_BASELINE']).resolve()
+shutil.copytree(baseline,data,ignore=shutil.ignore_patterns('Logs','Mods','Cache','NewfiesBlockRepair','NewfiesOptimizer'))
+net=str(Path(os.environ['DOTNET_ROOT'])/'dotnet');game=Path(os.environ['VINTAGE_STORY']);env=os.environ.copy()
+helper=repo/'modules/suite/tests/BlockRepairChecks/bin/Release/net10.0/BlockRepairChecks.dll'
+config=json.loads((data/'serverconfig.json').read_text());save=Path(config['WorldConfig']['SaveFileLocation']).name
+config.update(Ip='127.0.0.1',Port=42598,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,PassTimeWhenEmpty=True,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save);(data/'serverconfig.json').write_text(json.dumps(config))
+mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.44.zip',mods)
+configdir=data/'ModConfig/NewfiesServerEssentialsSuite';webfile=configdir/'NewfiesWebServer.json';web=json.loads(webfile.read_text());password=secrets.token_hex(20);web.update(Enabled=True,BindAddress='127.0.0.1',Port=42668,AdminUsername='fixtureowner',Password=password,PasswordSalt='',PasswordHash='',SafeDiagnosticsMode=False);webfile.write_text(json.dumps(web))
+features=configdir/'NewfiesServerEssentialsFeatures.json';f=json.loads(features.read_text());f['WebDashboard']=True;features.write_text(json.dumps(f))
+world=data/'Saves'/save
+with sqlite3.connect(world) as db:key,blob=db.execute('SELECT position,data FROM chunk ORDER BY position DESC LIMIT 1').fetchone()
+(root/'original.bin').write_bytes(blob)
+subprocess.run([net,str(helper),'seed-live',str(root/'original.bin'),str(root/'seeded.bin')],env=env,check=True)
+seed=(root/'seeded.bin').read_bytes()
+with sqlite3.connect(world) as db:db.execute('UPDATE chunk SET data=? WHERE position=?',(seed,key))
+unsigned=key&((1<<64)-1);location=dict(x=(unsigned&4194303)*32+17,y=((unsigned>>54)&511)*32,z=((unsigned>>27)&4194303)*32)
+lines=[];process=None
+
+def launch():
+    global process
+    process=subprocess.Popen([net,str(game/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port','42598'],cwd=game,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
+    def read(proc):
+        with (root/'console.log').open('a') as log:
+            for line in proc.stdout:lines.append(line);log.write(line);log.flush()
+    threading.Thread(target=read,args=(process,),daemon=True).start()
+
+def ready(offset):
+    until=time.monotonic()+180
+    while not any('Dedicated Server now running on Port' in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Test server failed to start; see '+str(root/'console.log'))
+        time.sleep(.1)
+
+def stop():
+    process.stdin.write('/stop\n');process.stdin.flush();process.wait(timeout=60);assert process.returncode==0
+
+base='http://127.0.0.1:42668';client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));csrf=None
+
+def request(path,body=None):
+    headers={'Origin':base,'Accept':'application/json'}
+    if csrf:headers['X-CSRF-Token']=csrf
+    if body is not None:headers['Content-Type']='application/json';time.sleep(1.15)
+    req=urllib.request.Request(base+path,data=json.dumps(body).encode() if body is not None else None,headers=headers)
+    try:
+        with client.open(req,timeout=20) as response:return response.status,json.load(response)
+    except urllib.error.HTTPError as error:return error.code,json.load(error)
+
+def state():
+    global csrf
+    status,result=request('/api/block-migration')
+    if status==401:
+        csrf=None;status,auth=request('/api/login',{'username':'fixtureowner','password':password});assert status==200,auth;csrf=auth['csrfToken'];status,result=request('/api/block-migration')
+    assert status==200,result;return result
+
+def wait_field(field):
+    until=time.monotonic()+90
+    while True:
+        result=state();item=result.get(field) or {}
+        if item.get('state')!='running':return item,result
+        if time.monotonic()>until:raise RuntimeError('Timed out waiting for '+field)
+        time.sleep(.2)
+
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-recovery1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+try:
+    # Compile and package only the disposable test probe, never a production ZIP.
+    import zipfile
+    project=repo/'modules/suite/tests/LoadedMigrationProbe'
+    subprocess.run([net,'build',str(project/'LoadedMigrationProbe.csproj'),'-c','Release','--nologo'],env=env,check=True)
+    with zipfile.ZipFile(mods/'LoadedMigrationProbe.zip','w',zipfile.ZIP_DEFLATED) as z:
+        z.write(project/'bin/Release/net10.0/LoadedMigrationProbe.dll','LoadedMigrationProbe.dll')
+        z.writestr('modinfo.json',json.dumps(dict(type='code',modid='nseloadedmigrationprobe',name='Disposable Loaded Migration Probe',version='1.0.0',side='server',requiredOnClient=False)))
+    launch();ready(0)
+    status,auth=request('/api/login',{'username':'fixtureowner','password':password});assert status==200,auth;csrf=auth['csrfToken']
+    status,_=request('/api/block-migration',dict(operation='scan'));assert status==200
+    scan,current=wait_field('scan');assert scan['state']=='complete' and scan['errors']==scan['unsupported']==0,scan
+    ids={f['id']:f for f in scan['findings']};assert ids[999999]['count']==ids[999998]['count']==1
+    options=dict(createBackup=True,manualBackupAcknowledged=False,allowAir=False,allowValidSource=False)
+    mappings=[dict(sourceId=999999,destination='game:rock-granite'),dict(sourceId=999998,destination='game:rock-basalt')]
+    status,plan=request('/api/block-migration',dict(operation='batch-preview',mappings=mappings,**options));assert status==200,plan
+    status,error=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],createBackup=False,manualBackupAcknowledged=True));assert status==400,error
+    status,loaded=request('/api/block-migration',dict(operation='loaded-stage',previewId=plan['id'],**options));assert status==200 and loaded['state']=='staged' and not loaded['active'],loaded
+    assert state()['preview'] is None;result['reviewedMappingAndBackupOptionsBound']=True
+    stop();offset=len(lines);launch();ready(offset)
+    active=state()['loadedMigration'];assert active['active'] and active['state']=='active',active
+    result['activeAfterRestart']=True;backup=active['plan']['backup'];assert Path(backup).is_file()
+    with sqlite3.connect(backup) as db:assert db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0]==seed;assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+    offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x'])+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
+    until=time.monotonic()+90;marker='NSE_LOADED_MIGRATION_PROBE '
+    while not any(marker in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Normal chunk-load probe timed out: '+str(root))
+        time.sleep(.1)
+    observed=json.loads(next(line.split(marker,1)[1] for line in lines[offset:] if marker in line));assert observed['firstCode']=='game:rock-granite' and observed['secondCode']=='game:rock-basalt',observed
+    active=state()['loadedMigration'];assert active['sessionBlocksChanged']==2 and active['sessionChunksChanged']==1 and active['sessionChunksRefused']==0,active
+    result.update(normalLoaderObservedDestinations=observed,changedChunks=active['sessionChunksChanged'],changedReferences=active['sessionBlocksChanged'])
+    # Test the actual looked-at/held adapter using a detached administrator,
+    # not an authenticated network client. Two occurrences share the third ID.
+    offset=len(lines);process.stdin.write('/nseheldmigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
+    until=time.monotonic()+30;heldmarker='NSE_HELD_MIGRATION_PROBE '
+    while not any(heldmarker in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held adapter probe timed out: '+str(root))
+        time.sleep(.1)
+    held=json.loads(next(line.split(heldmarker,1)[1] for line in lines[offset:] if heldmarker in line));assert held['heldQuantity']==7 and held['healthyRejected'],held
+    staged=state()['loadedMigration'];assert staged['state']=='staged' and not staged['active'] and len(staged['plan']['mappings'])==3,staged
+    assert {m['source'] for m in staged['plan']['mappings']}=={999999,999998,999997};result['heldRulePreservesOtherRulesAndHeldStack']=True;result['healthyLookedAtSourceRefused']=True
+    stop();offset=len(lines);launch();ready(offset);active=state()['loadedMigration'];assert active['active'],active
+    offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
+    until=time.monotonic()+90
+    while not any(marker in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held-rule load probe timed out: '+str(root))
+        time.sleep(.1)
+    both=json.loads(next(line.split(marker,1)[1] for line in lines[offset:] if marker in line));assert both['firstCode']==both['secondCode']=='game:rock-granite',both
+    active=state()['loadedMigration'];assert active['sessionBlocksChanged']==2 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
+    status,disabled=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not disabled['active'] and not disabled['enabled'],disabled
+    result['disableImmediate']=True
+    stop()
+    with sqlite3.connect(world) as db:
+        after=db.execute('SELECT data FROM chunk WHERE position=?',(key,)).fetchone()[0];assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+    (root/'repaired.bin').write_bytes(after)
+    # Official normal saving may refresh light/entity fields; verify every solid
+    # cell, including all healthy neighbors, rather than assuming those bytes freeze.
+    subprocess.run([net,str(helper),'verify-live',str(root/'seeded.bin'),str(root/'repaired.bin'),str(plan['mappings'][0]['target']),str(plan['mappings'][1]['target'])],env=env,check=True)
+    result['normalSavePersistedAll32768CellsVerified']=True
+    offset=len(lines);launch();ready(offset);off=state()['loadedMigration'];assert not off['active'] and not off['enabled'];result['disabledStateSurvivesRestart']=True
+    stop();(root/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));print('Validation output: '+str(root))
+finally:
+    if process is not None and process.poll() is None:
+        try:stop()
+        except Exception:process.terminate();process.wait(timeout=30)

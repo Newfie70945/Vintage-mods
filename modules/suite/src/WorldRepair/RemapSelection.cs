@@ -5,9 +5,9 @@ public sealed record RemapChoice(int SourceId,string Destination);
 internal static class RemapSelection
 {
     internal const int Limit=32;
-    internal static Dictionary<int,int> Resolve(IReadOnlyList<RemapChoice> choices,Func<string,int> resolve)
+    internal static Dictionary<int,int> Resolve(IReadOnlyList<RemapChoice> choices,Func<string,int> resolve,int limit=Limit)
     {
-        if(choices==null||choices.Count is <1 or >Limit)throw new ArgumentException("Select 1–32 IDs to remap.");
+        if(choices==null||(choices.Count<1||choices.Count>limit)||limit is <1 or >4096)throw new ArgumentException("Selection exceeds the supported mapping limit.");
         var result=new Dictionary<int,int>();
         foreach(var choice in choices)
         {

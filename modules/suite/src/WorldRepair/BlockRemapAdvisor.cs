@@ -46,10 +46,16 @@ public static class BlockRemapAdvisor
             if(conflicting){c.Confidence="Low";c.Score=Math.Min(c.Score,40);c.Reason+=" Sample histories contain a different plausible identity; no consensus.";}
             bool layer=(fluid==0||target.Fluid)&&((solid==0&&decor==0)||!target.Fluid);
             c.Selectable=layer&&string.IsNullOrEmpty(target.EntityClass);
-            c.Restriction=!string.IsNullOrEmpty(target.EntityClass)?"Container/block entity: use the dedicated retained-inventory recovery workflow.":!layer?"Destination does not match the saved solid/fluid layers.":"";
+            c.Restriction=!string.IsNullOrEmpty(target.EntityClass)?"Block entity/inventory: requires exact-code migration with compatible retained metadata.":!layer?"Destination does not match the saved solid/fluid layers.":"";
+            if(familyMatch&&!exact&&observations.Count==0)
+            {
+                var originalTokens=path.Split('-').ToHashSet(StringComparer.Ordinal);var variantTokens=targetPath.ToString().Split('-').ToHashSet(StringComparer.Ordinal);
+                int overlap=variantTokens.Count(t=>originalTokens.Contains(t));
+                c.Score=20+(int)(15.0*overlap/Math.Max(1,originalTokens.Union(variantTokens).Count()));
+            }
             result.Add(c);
         }
-        return result.OrderByDescending(c=>c.Selectable).ThenByDescending(c=>c.Score).ThenBy(c=>c.Code,StringComparer.Ordinal).ThenBy(c=>c.Id).Take(5).ToList();
+        return result.OrderByDescending(c=>c.Score).ThenByDescending(c=>c.Selectable).ThenBy(c=>c.Code,StringComparer.Ordinal).ThenBy(c=>c.Id).Take(5).ToList();
     }
     private static string Canonical(string code)=>string.IsNullOrWhiteSpace(code)?"":code.Contains(':')?code:"game:"+code;
 }

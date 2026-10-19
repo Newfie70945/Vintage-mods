@@ -64,7 +64,7 @@ public sealed partial class BlockIdRepairService
     }
     public SelectedPlan StageSelected(string id,SelectedRequest? expected=null)
     {
-        Guard();lock(gate){var p=selectedPreview;if(p==null||p.Id!=id||p.State!="preview"||DateTime.UtcNow-p.CreatedUtc>TimeSpan.FromMinutes(15))throw new InvalidOperationException("A fresh successful selected-location preview is required.");
+        Guard();lock(gate){if(LoadedConfigured())throw new InvalidOperationException("Disable loaded-chunk migration before staging another repair.");var p=selectedPreview;if(p==null||p.Id!=id||p.State!="preview"||DateTime.UtcNow-p.CreatedUtc>TimeSpan.FromMinutes(15))throw new InvalidOperationException("A fresh successful selected-location preview is required.");
             if(expected!=null&&expected!=p.Request)throw new InvalidOperationException("Selected repair inputs changed; preview again.");
             if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Another repair is staged.");
             ValidateSelectedRequest(p.Request);if(p.World!=api.World.SavegameIdentifier||p.Registry!=Fingerprint(Mapping()))throw new InvalidOperationException("World or registry changed.");

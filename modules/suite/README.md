@@ -1,4 +1,4 @@
-# Newfie's Server Essentials Suite 1.2.43
+# Newfie's Server Essentials Suite 1.2.44
 
 
 Current companion: Client Integrity **1.1.28 / protocol 13**, OreShield sync **v3**. Older milestone notes below describe historical intermediate protocols.
@@ -7,9 +7,9 @@ Current release and validation: see [release notes](../../CHANGELOG.md).
 
 1.2.42 uses terrain-only decoding for startup map exports, releases export-owned pools, and preserves the existing map if a database read fails. Keep `UseDirectSaveDatabaseTerrain` enabled (the default); the explicitly selected legacy loader can still create mod/entity state.
 
-Current build: [1.2.43 validation](../VALIDATION-1.2.43.md). Historical [1.2.41 audit repairs](../AUDIT-1.2.41.md) are retained. Retains [SharedLoadFix1 notes](../SHAREDLOADFIX1-NOTES.md) and [validation](../VALIDATION-SHAREDLOADFIX1.md), including [SqliteFix1 notes](../SQLITEFIX1-NOTES.md) and [validation](../VALIDATION-SQLITEFIX1.md), retaining [InteractionFix1](../INTERACTIONFIX1-NOTES.md), [AdminPanel2](../ADMINPANEL2-NOTES.md) and all preceding improvements.
+Current build: [1.2.44 migration validation](../../docs/VALIDATION-BLOCK-MIGRATION-1.2.44.md). Historical [1.2.43 validation](../VALIDATION-1.2.43.md) is retained. Historical [1.2.41 audit repairs](../AUDIT-1.2.41.md) are retained. Retains [SharedLoadFix1 notes](../SHAREDLOADFIX1-NOTES.md) and [validation](../VALIDATION-SHAREDLOADFIX1.md), including [SqliteFix1 notes](../SQLITEFIX1-NOTES.md) and [validation](../VALIDATION-SQLITEFIX1.md), retaining [InteractionFix1](../INTERACTIONFIX1-NOTES.md), [AdminPanel2](../ADMINPANEL2-NOTES.md) and all preceding improvements.
 
-Build ID: `newfies-server-essentials-suite-1.2.43-ms11-ui1`
+Build ID: `newfies-server-essentials-suite-1.2.44-ms11-recovery1`
 
 Ordinary Visual Studio / `dotnet build` and `dotnet publish` output now place native SQLite files beneath `native/runtimes/`. If zipping manually, zip the **contents** of the output directory so `modinfo.json` and managed DLLs are at the ZIP root. See [build/package instructions](../SQLITEFIX1-NOTES.md).
 
@@ -385,6 +385,7 @@ dotnet build NewfiesServerEssentialsSuite.csproj -c Release
 ## Documentation
 
 - `guides/README.md` — documentation index and starting point
+- [Block ID Migration](guides/BLOCK-ID-MIGRATION.md) — missing-ID rules applied as chunks load and held-block ID selection
 - `guides/QUICKSTART.md` — production setup checklist
 - `guides/SETUP.md` — installation, first boot, feature gates, privileges, and subsystem setup
 - `guides/UPGRADING.md` — backups, migrations, verification, and rollback
