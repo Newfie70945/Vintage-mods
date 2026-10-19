@@ -25,7 +25,7 @@ internal sealed class AntiCheatIncidentCorrelator
     public void Observe(string playerUid, ScanFindingDto finding, long nowUtc)
     {
         if (string.IsNullOrWhiteSpace(playerUid) || finding == null || finding.Severity <= 0) return;
-        if (AntiCheatObservationPolicy.IsReviewOnly(finding.Code)) return;
+        if (AntiCheatObservationPolicy.IsReviewOnly(finding.Code,finding.Evidence)) return;
         if (string.Equals(finding.Scanner, "CorrelationPolicy", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(finding.Code, "CROSS_DETECTOR_INCIDENT", StringComparison.OrdinalIgnoreCase)) return;
 

@@ -24,13 +24,13 @@ internal static class AntiCheatFindingIntelligence
         var all = (allFindings ?? Array.Empty<ScanFindingDto>()).Where(x => x != null).ToList();
         string code = (finding.Code ?? "").Trim();
         string category = GetCategory(code, finding.Scanner);
-        if (AntiCheatObservationPolicy.IsReviewOnly(code))
+        if (AntiCheatObservationPolicy.IsReviewOnly(code,finding.Evidence))
             return new AntiCheatFindingInsight
             {
-                Category = "Movement",
+                Category = category,
                 Confidence = "Low",
                 ConfidenceScore = 30,
-                Why = "Sustained unsupported, non-falling movement was sampled against loaded server terrain. Modded physics can produce similar observations; this is review context only.",
+                Why = code=="PACKET_FLIGHT_REVIEW" ? "Sustained unsupported, non-falling movement was sampled against loaded server terrain. Modded physics can produce similar observations; this is review context only." : "This observation lacks reliable repeated enforcement evidence. A short packet burst, right-click/modded interaction or degraded server timing can produce it; resource limits still apply.",
                 RecommendedAction = "Review the recorded duration, terrain, movement and exclusions with the player's gameplay context. This observation adds no risk or automatic consequences."
             };
         int score = BaseConfidence(finding);
@@ -42,7 +42,7 @@ internal static class AntiCheatFindingIntelligence
             ? 0
             : all.Where(x => !ReferenceEquals(x, finding) && x.Severity >= 1 &&
                 !string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase) &&
-                !AntiCheatObservationPolicy.IsReviewOnly(x.Code) &&
+                !AntiCheatObservationPolicy.IsReviewOnly(x.Code,x.Evidence) &&
                 !string.Equals(x.Scanner, "CorrelationPolicy", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(x.Code, "CROSS_DETECTOR_INCIDENT", StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(GetCategory(x.Code, x.Scanner), category, StringComparison.OrdinalIgnoreCase))
@@ -112,7 +112,7 @@ internal static class AntiCheatFindingIntelligence
 
     public static string GetCategory(string? code, string? scanner)
     {
-        if (AntiCheatObservationPolicy.IsReviewOnly(code)) return "Movement";
+        if (string.Equals(code,"PACKET_FLIGHT_REVIEW",StringComparison.OrdinalIgnoreCase)) return "Movement";
         string c = code ?? "";
         if (c.Equals("CROSS_DETECTOR_INCIDENT", StringComparison.OrdinalIgnoreCase)) return "Correlated Incident";
         if (c.Contains("REACH", StringComparison.OrdinalIgnoreCase)) return "Reach";

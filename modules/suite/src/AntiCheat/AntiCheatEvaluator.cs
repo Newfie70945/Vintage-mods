@@ -229,7 +229,7 @@ public sealed class AntiCheatEvaluator
     internal static int RiskPoints(ScanFindingDto finding)
     {
         string code = finding.Code ?? "";
-        if (AntiCheatObservationPolicy.IsReviewOnly(code)) return 0;
+        if (AntiCheatObservationPolicy.IsReviewOnly(code,finding.Evidence)) return 0;
 
         // Connection/compatibility state is coverage information, not evidence of cheating.
         if (code.Equals("CLIENT_MISSING", StringComparison.OrdinalIgnoreCase) ||

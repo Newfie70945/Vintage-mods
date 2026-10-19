@@ -28,6 +28,7 @@ internal sealed class PacketIngressGuard : IDisposable
     private static PacketIngressGuard? current;
     private readonly ICoreServerAPI api;
     private readonly AntiCheatConfig config;
+    private readonly Func<PacketGuardTpsSnapshot> getTickHealth;
     private readonly Action<IServerPlayer, string, AntiCheatSeverity, string, string, string> reportFinding;
     private readonly ConditionalWeakTable<ConnectedClient, ConnectionState> connections = new();
     private Harmony? harmony;
@@ -50,15 +51,19 @@ internal sealed class PacketIngressGuard : IDisposable
         internal readonly PacketIngressBudget Blocks = new();
         internal readonly PacketIngressBudget Settings = new();
         internal readonly PacketIngressBudget Positions = new();
+        internal readonly PacketFloodConfirmation WireFlood=new(),BlockFlood=new(),SettingsFlood=new(),PositionFlood=new();
+        internal long HealthCheckedUtc;
+        internal bool TimingReliable;
         internal readonly Dictionary<string, long> ReportTimes = new(StringComparer.Ordinal);
     }
 
     internal PacketIngressGuard(ICoreServerAPI api, AntiCheatConfig config,
-        Action<IServerPlayer, string, AntiCheatSeverity, string, string, string> reportFinding)
+        Action<IServerPlayer, string, AntiCheatSeverity, string, string, string> reportFinding,Func<PacketGuardTpsSnapshot> getTickHealth)
     {
         this.api = api;
         this.config = config;
         this.reportFinding = reportFinding;
+        this.getTickHealth=getTickHealth;
     }
 
     internal void Start()
@@ -207,9 +212,7 @@ internal sealed class PacketIngressGuard : IDisposable
         if (data == null || length <= 0 || length > data.Length || length > (long)config.PacketGuardIngressMaxPacketKiB * 1024)
             return Reject(client, "PACKET_MALFORMED_PACKET", "Rejected an invalid or oversized vanilla TCP packet before deserialization.", $"stage=pre-deserialize;length={length};capKiB={config.PacketGuardIngressMaxPacketKiB}");
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
-        bool permitted;
-        lock (state) permitted = state.Wire.TryConsume(Environment.TickCount64, config.PacketGuardIngressPacketsPerSecond, config.PacketGuardIngressPacketBurst);
-        return permitted || Reject(client, "PACKET_FLOOD", "Dropped client packets above the bounded ingress budget before parsing/queueing.", "stage=pre-deserialize;budget=wire");
+        return ConsumeBudget(client,state,state.Wire,state.WireFlood,config.PacketGuardIngressPacketsPerSecond,config.PacketGuardIngressPacketBurst,"stage=pre-deserialize;budget=wire");
     }
 
     private bool ValidatePacket(ConnectedClient client, Packet_Client packet)
@@ -428,23 +431,33 @@ internal sealed class PacketIngressGuard : IDisposable
             !PacketIngressPolicy.IsValidCoordinate(CollectibleNet.DeserializeDoublePrecise(packet.MotionZ)))
             return Reject(client, "PACKET_MALFORMED_PACKET", "Rejected an invalid UDP/TCP-fallback player-position packet before applying it.", "stage=player-position;reason=identity-or-coordinate");
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
-        if (!state.Positions.TryConsume(Environment.TickCount64, config.PacketGuardIngressPacketsPerSecond, config.PacketGuardIngressPacketBurst))
-            return Reject(client, "PACKET_FLOOD", "Dropped excessive player-position updates before position application/broadcast.", "budget=positions");
-        return true;
+        return ConsumeBudget(client,state,state.Positions,state.PositionFlood,config.PacketGuardIngressPacketsPerSecond,config.PacketGuardIngressPacketBurst,"budget=positions");
     }
 
     private bool BlockBudget(ConnectedClient client)
     {
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
-        return state.Blocks.TryConsume(Environment.TickCount64, config.PacketGuardBlockPacketsPerSecond, config.PacketGuardBlockPacketBurst) ||
-            Reject(client, "PACKET_FLOOD", "Dropped excessive block/action packets before world mutation.", "budget=block-actions");
+        return ConsumeBudget(client,state,state.Blocks,state.BlockFlood,config.PacketGuardBlockPacketsPerSecond,config.PacketGuardBlockPacketBurst,"budget=block-actions");
     }
 
     private bool SettingsBudget(ConnectedClient client)
     {
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
-        return state.Settings.TryConsume(Environment.TickCount64, config.PacketGuardSettingsPacketsPerSecond, config.PacketGuardSettingsPacketBurst) ||
-            Reject(client, "PACKET_FLOOD", "Dropped excessive identification/settings packets before repeated chunk/settings work.", "budget=settings");
+        return ConsumeBudget(client,state,state.Settings,state.SettingsFlood,config.PacketGuardSettingsPacketsPerSecond,config.PacketGuardSettingsPacketBurst,"budget=settings");
+    }
+
+    private bool ConsumeBudget(ConnectedClient client,ConnectionState state,PacketIngressBudget budget,PacketFloodConfirmation confirmation,int rate,int burst,string evidence)
+    {
+        long now=Environment.TickCount64;bool confirmed;
+        lock(state)
+        {
+            if(budget.TryConsume(now,rate,burst))return true;
+            if(now-state.HealthCheckedUtc>=250||state.HealthCheckedUtc==0)
+            {var health=getTickHealth();state.TimingReliable=!health.Enabled||(health.Ready&&!health.IsDegraded);state.HealthCheckedUtc=now;}
+            confirmed=confirmation.Observe(now,state.TimingReliable);
+        }
+        Report(client,"PACKET_FLOOD","Dropped traffic above a bounded resource budget; isolated bursts and lag catch-up are review-only.",evidence,AntiCheatSeverity.High,confirmed);
+        return false;
     }
 
     private bool Malformed(ConnectedClient client, int packetId) =>
@@ -456,7 +469,7 @@ internal sealed class PacketIngressGuard : IDisposable
         return false;
     }
 
-    private void Report(ConnectedClient client, string code, string summary, string evidence, AntiCheatSeverity severity)
+    private void Report(ConnectedClient client, string code, string summary, string evidence, AntiCheatSeverity severity,bool floodCandidate=false)
     {
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
         long now = Environment.TickCount64;
@@ -471,6 +484,13 @@ internal sealed class PacketIngressGuard : IDisposable
         {
             if (!active) return;
             IServerPlayer? player = client.Player;
+            if(code=="PACKET_FLOOD")
+            {
+                var health=getTickHealth();long queueDelay=Math.Max(0,Environment.TickCount64-now);
+                bool confirmed=floodCandidate&&queueDelay<=1000&&(!health.Enabled||(health.Ready&&!health.IsDegraded));
+                evidence+=$";floodConfirmed={confirmed};confirmationMinimumMs=3000;queueDelayMs={queueDelay};{health.Evidence}";
+                if(!confirmed)severity=AntiCheatSeverity.Info;
+            }
             api.Logger.Warning("[ServerEssentials/AntiCheat/Ingress] connection={0};playerUid={1};player={2};code={3};{4}",
                 client.Id, player?.PlayerUID ?? "unauthenticated", Clean(player?.PlayerName), code, evidence);
             if (player != null && player.ClientId == client.Id)
