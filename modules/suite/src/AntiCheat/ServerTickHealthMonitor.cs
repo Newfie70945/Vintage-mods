@@ -142,7 +142,11 @@ internal sealed class ServerTickHealthMonitor : IDisposable
     {
         lock (sync)
         {
-            double estimated = 1000.0 / Math.Max(1.0, smoothedTickMs);
+            // A backed-up packet queue can run before the next tick callback. Do not
+            // advertise the previous healthy tick throughout a current server stall.
+            double elapsed=lastStamp==0?targetTickMs:(Stopwatch.GetTimestamp()-lastStamp)*1000.0/Stopwatch.Frequency;
+            double effective=PacketTimingHealth.EffectiveTickMs(smoothedTickMs,elapsed,targetTickMs,config.PacketGuardTpsMaxTimingMultiplier);
+            double estimated = 1000.0 / Math.Max(1.0, effective);
             double health = Math.Clamp(estimated / Math.Max(0.1, targetTps) * 100.0, 0.0, 100.0);
             int warmupSamples = Math.Clamp((int)Math.Ceiling(targetTps * 2.0), 12, 80);
             bool ready = sampleCount >= warmupSamples;

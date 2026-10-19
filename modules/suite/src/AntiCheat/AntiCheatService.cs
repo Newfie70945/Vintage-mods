@@ -6242,7 +6242,7 @@ public sealed class AntiCheatService : IDisposable
         }
 
         var finding = session.Findings.FirstOrDefault(f =>
-            !AntiCheatObservationPolicy.IsReviewOnly(f.Code) &&
+            !AntiCheatObservationPolicy.IsReviewOnly(f.Code,f.Evidence) &&
             string.Equals(f.Code, rule.TriggerValue, StringComparison.OrdinalIgnoreCase) &&
             (string.IsNullOrWhiteSpace(rule.Subject) || string.Equals(f.Subject, rule.Subject, StringComparison.OrdinalIgnoreCase)));
         return finding == null
@@ -6310,10 +6310,10 @@ public sealed class AntiCheatService : IDisposable
         string.Equals(scanner, "ServerIntegrity", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(scanner, "ModDbPolicy", StringComparison.OrdinalIgnoreCase);
 
-    private void SendPacketGuardPlayerWarning(IServerPlayer player, string code)
+    private void SendPacketGuardPlayerWarning(IServerPlayer player, string code,string evidence)
     {
         if (!config.PacketGuardPlayerWarningEnabled || player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;
-        if (AntiCheatObservationPolicy.IsReviewOnly(code)) return;
+        if (AntiCheatObservationPolicy.IsReviewOnly(code,evidence)) return;
         if (string.IsNullOrWhiteSpace(code) || !code.StartsWith("PACKET_", StringComparison.OrdinalIgnoreCase)) return;
         // Diagnostic/uncertain observations should not alarm the player; only confirmed PacketGuard findings do.
         if (string.Equals(code, "PACKET_MINING_CADENCE_UNCERTAIN", StringComparison.OrdinalIgnoreCase) ||
@@ -6352,8 +6352,8 @@ public sealed class AntiCheatService : IDisposable
     {
         if (!config.Enabled || !runtimeAvailable) return;
         if (player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;
-        bool reviewOnly = AntiCheatObservationPolicy.IsReviewOnly(code);
-        SendPacketGuardPlayerWarning(player, code);
+        bool reviewOnly = AntiCheatObservationPolicy.IsReviewOnly(code,evidence);
+        SendPacketGuardPlayerWarning(player, code,evidence);
         var session = sessions.GetOrCreate(player.PlayerUID, player.PlayerName);
         long correlationNow = NowMs();
         bool confirmedSpeed = ConfirmedSpeedRisk.Eligible(code, (int)severity, evidence);
@@ -6363,7 +6363,7 @@ public sealed class AntiCheatService : IDisposable
         // Keep the retention window aligned with incident correlation so only contemporaneous
         // behavior can corroborate or escalate.
         PruneExpiredPacketBehaviorFindings(session, correlationNow);
-        RebuildSessionRiskFromCurrentEvidence(session);
+        RebuildSessionRiskFromCurrentEvidence(session,reevaluateClientEvidence:false);
         int riskBefore = session.RiskScore;
         long previousConsequenceUtc = session.LastConsequenceUtc;
         if (confirmedSpeed)
@@ -6372,9 +6372,6 @@ public sealed class AntiCheatService : IDisposable
             evidence += $";confirmedSpeedReports={count};repeatWindowMs=60000;repeatRiskBonus={session.ConfirmedSpeed.Bonus(correlationNow, config.PacketGuardConfirmedSpeedRepeatRisk)}";
         }
 
-        session.Findings.RemoveAll(f =>
-            string.Equals(f.Scanner, "ServerBehavior", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(f.Code, code, StringComparison.OrdinalIgnoreCase));
         var serverFinding = new NewfiesAntiCheat.Shared.Models.ScanFindingDto
         {
             Scanner = "ServerBehavior",
@@ -6384,12 +6381,10 @@ public sealed class AntiCheatService : IDisposable
             Subject = subject ?? "",
             Evidence = evidence ?? "server-behavior"
         };
-        session.Findings.Add(serverFinding);
-        session.ServerBehaviorFindingUtc[code] = correlationNow;
-        MarkFindingObserved(session, serverFinding.Scanner, serverFinding.Code, serverFinding.Subject, correlationNow);
+        StoreServerBehaviorObservation(session,serverFinding,correlationNow);
         if (!reviewOnly) incidentCorrelator.Observe(player.PlayerUID, serverFinding, correlationNow);
 
-        RebuildSessionRiskFromCurrentEvidence(session);
+        RebuildSessionRiskFromCurrentEvidence(session,reevaluateClientEvidence:false);
 
         // Risk above was rebuilt from base findings and therefore no longer includes any previous
         // synthetic correlation bonus, even if the old synthetic row is still in session.Findings.
@@ -6421,6 +6416,17 @@ public sealed class AntiCheatService : IDisposable
         PublishPlayer(session);
     }
 
+    private static void StoreServerBehaviorObservation(AntiCheatSession session,NewfiesAntiCheat.Shared.Models.ScanFindingDto finding,long observedUtc)
+    {
+        // Advisory repeats are still recorded in history, but cannot erase or refresh
+        // the lifetime of earlier independently confirmed evidence of the same code.
+        if(AntiCheatObservationPolicy.IsReviewOnly(finding.Code,finding.Evidence)&&session.Findings.Any(f=>
+            string.Equals(f.Scanner,"ServerBehavior",StringComparison.OrdinalIgnoreCase)&&string.Equals(f.Code,finding.Code,StringComparison.OrdinalIgnoreCase)&&!AntiCheatObservationPolicy.IsReviewOnly(f.Code,f.Evidence)))return;
+        session.Findings.RemoveAll(f=>string.Equals(f.Scanner,"ServerBehavior",StringComparison.OrdinalIgnoreCase)&&string.Equals(f.Code,finding.Code,StringComparison.OrdinalIgnoreCase));
+        session.Findings.Add(finding);session.ServerBehaviorFindingUtc[finding.Code]=observedUtc;
+        MarkFindingObserved(session,finding.Scanner,finding.Code,finding.Subject,observedUtc);
+    }
+
     private void PruneExpiredPacketBehaviorFindings(AntiCheatSession session, long nowUtc)
     {
         var expired = session.ServerBehaviorFindingUtc
@@ -6444,9 +6450,9 @@ public sealed class AntiCheatService : IDisposable
         foreach (string code in expired) session.ServerBehaviorFindingUtc.Remove(code);
     }
 
-    private void RebuildSessionRiskFromCurrentEvidence(AntiCheatSession session)
+    private void RebuildSessionRiskFromCurrentEvidence(AntiCheatSession session,bool reevaluateClientEvidence=true)
     {
-        if (session.LastScanUtc > 0)
+        if (session.LastScanUtc > 0 && reevaluateClientEvidence)
         {
             var inputs = session.Findings
                 .Where(f => !IsServerEvaluationScanner(f.Scanner))
@@ -6472,7 +6478,7 @@ public sealed class AntiCheatService : IDisposable
         }
 
         int score = AntiCheatEvaluator.ComputeRiskScore(session.Findings
-            .Where(f => string.Equals(f.Scanner, "ServerBehavior", StringComparison.OrdinalIgnoreCase)));
+            .Where(f => session.LastScanUtc>0 ? !string.Equals(f.Scanner,"CorrelationPolicy",StringComparison.OrdinalIgnoreCase) : string.Equals(f.Scanner, "ServerBehavior", StringComparison.OrdinalIgnoreCase)));
         if (session.Findings.Any(f => f.Code == "PACKET_SPEED_HACK" && f.Severity == (int)AntiCheatSeverity.Critical))
             score = Math.Min(100, score + session.ConfirmedSpeed.Bonus(NowMs(), config.PacketGuardConfirmedSpeedRepeatRisk));
         session.RiskScore = score;
@@ -6580,11 +6586,16 @@ public sealed class AntiCheatService : IDisposable
             session.FindingObservedUtc.Remove(key);
     }
 
+    // All risk updates are server-thread owned. Scratch dictionaries are never
+    // published into sessions and can be reused across players/correlation passes.
+    private Dictionary<string,Dictionary<string,int>>? familyRiskScratch;
+    private Dictionary<string,long>? familyLastScratch;
     private void UpdateSessionFamilyRisk(AntiCheatSession session, long nowUtc, bool preserveOperationalStatus = false)
     {
         if (!config.PerFamilyRiskEnabled) return;
-        var codeScoresByFamily = RiskFamilyOrder.ToDictionary(x => x, _ => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
-        var lastByFamily = RiskFamilyOrder.ToDictionary(x => x, _ => 0L, StringComparer.OrdinalIgnoreCase);
+        var codeScoresByFamily = familyRiskScratch??=RiskFamilyOrder.ToDictionary(x => x, _ => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+        var lastByFamily = familyLastScratch??=RiskFamilyOrder.ToDictionary(x => x, _ => 0L, StringComparer.OrdinalIgnoreCase);
+        foreach(string family in RiskFamilyOrder){codeScoresByFamily[family].Clear();lastByFamily[family]=0;}
 
         foreach (var finding in session.Findings ?? new List<NewfiesAntiCheat.Shared.Models.ScanFindingDto>())
         {

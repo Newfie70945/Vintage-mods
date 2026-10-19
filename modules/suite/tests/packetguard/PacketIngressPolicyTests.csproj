@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/AntiCheat/PacketEvidenceConfirmation.cs" Link="PacketEvidenceConfirmation.cs"/>
+    <Compile Include="../../src/AntiCheat/AntiCheatObservationPolicy.cs" Link="AntiCheatObservationPolicy.cs"/>
     <Compile Include="../../src/AntiCheat/PacketIngressPolicy.cs" Link="PacketIngressPolicy.cs" />
     <Compile Include="../../src/AntiCheat/PacketFlightReviewWindow.cs" Link="PacketFlightReviewWindow.cs" />
   </ItemGroup>

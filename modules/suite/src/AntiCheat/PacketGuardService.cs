@@ -346,7 +346,7 @@ internal sealed class PacketGuardService : IDisposable
         this.config = config;
         this.reportFinding = reportFinding;
         tickHealth = new ServerTickHealthMonitor(api, config);
-        ingressGuard = new PacketIngressGuard(api, config, reportFinding);
+        ingressGuard = new PacketIngressGuard(api, config, reportFinding,tickHealth.GetSnapshot);
         try { tprunesEnabled = api.ModLoader.IsModEnabled("tprunes"); }
         catch { tprunesEnabled = false; }
         try { th3EssentialsEnabled = api.ModLoader.IsModEnabled("th3essentials"); }
@@ -2931,6 +2931,8 @@ internal sealed class PacketGuardService : IDisposable
             return true;
         }
 
+        if(!double.IsFinite(entityPos.X)||!double.IsFinite(entityPos.Y)||!double.IsFinite(entityPos.Z)||!double.IsFinite(eyeOffset.X)||!double.IsFinite(eyeOffset.Y)||!double.IsFinite(eyeOffset.Z))
+        {result=ReachCheckResult.Unavailable;return true;}
         double currentEyeX = entityPos.X + eyeOffset.X;
         double currentEyeY = entityPos.Y + eyeOffset.Y;
         double currentEyeZ = entityPos.Z + eyeOffset.Z;
@@ -2938,7 +2940,7 @@ internal sealed class PacketGuardService : IDisposable
         double bestDistance = currentDistance;
         bool usedHistory = false;
         long bestSampleAgeMs = 0;
-        double pingMs = Math.Clamp(player.Ping * 1000.0, 0.0, 1000.0);
+        double pingMs = PacketReachEvidence.PingMilliseconds(player.Ping);
         int effectiveRewindMs = Math.Min(
             config.PacketGuardReachPositionHistoryMs,
             Math.Max(100, (int)Math.Round(config.PacketGuardReachMaxRewindMs * timingMultiplier)));
@@ -2972,6 +2974,7 @@ internal sealed class PacketGuardService : IDisposable
             try { RecordReachPosition(player, now); } catch { }
         }
 
+        if(!double.IsFinite(player.WorldData.PickingRange)||player.WorldData.PickingRange<=0){result=ReachCheckResult.Unavailable;return true;}
         double baseRange = Math.Max(0.1, player.WorldData.PickingRange);
         double actionAllowance = string.Equals(action, "use", StringComparison.OrdinalIgnoreCase)
             ? config.PacketGuardReachUseExtraTolerance
@@ -2990,6 +2993,33 @@ internal sealed class PacketGuardService : IDisposable
         }
 
         double allowed = baseRange + config.PacketGuardReachTolerance + actionAllowance + latencyAllowance;
+        if(bestDistance>allowed)
+        {
+            if(pos.dimension!=entityPos.Dimension){result=ReachCheckResult.Unavailable;return true;}
+            try
+            {
+                var accessor=api.World.BlockAccessor;
+                if(accessor.GetChunkAtBlockPos(pos)==null){result=ReachCheckResult.Unavailable;return true;}
+                var boxes=accessor.GetBlock(pos).GetSelectionBoxes(accessor,pos);
+                if(boxes==null||boxes.Length is 0 or >128){result=ReachCheckResult.Unavailable;return true;}
+                foreach(var box in boxes)
+                {
+                    if(!PacketReachGeometry.ValidBox(box.X1,box.Y1,box.Z1,box.X2,box.Y2,box.Z2)){result=ReachCheckResult.Unavailable;return true;}
+                    if(box.X1>=0&&box.Y1>=0&&box.Z1>=0&&box.X2<=1&&box.Y2<=1&&box.Z2<=1)continue;
+                    double x1=(double)pos.X+box.X1,y1=(double)pos.Y+box.Y1,z1=(double)pos.Z+box.Z1,x2=(double)pos.X+box.X2,y2=(double)pos.Y+box.Y2,z2=(double)pos.Z+box.Z2;
+                    currentDistance=Math.Min(currentDistance,PacketReachGeometry.Distance(currentEyeX,currentEyeY,currentEyeZ,x1,y1,z1,x2,y2,z2));
+                    bestDistance=Math.Min(bestDistance,currentDistance);
+                    if(config.PacketGuardReachPositionHistoryEnabled&&reachPositionHistory.TryGetValue(player.PlayerUID,out var shapeSamples))
+                    foreach(var sample in shapeSamples)
+                    {
+                        if(sample.Utc<now-effectiveRewindMs||sample.Dimension!=entityPos.Dimension||sample.EntityId!=entity.EntityId)continue;
+                        double candidate=PacketReachGeometry.Distance(sample.EyeX,sample.EyeY,sample.EyeZ,x1,y1,z1,x2,y2,z2);
+                        if(candidate>=bestDistance)continue;bestDistance=candidate;usedHistory=true;bestSampleAgeMs=Math.Max(0,now-sample.Utc);
+                    }
+                }
+            }
+            catch{result=ReachCheckResult.Unavailable;return true;}
+        }
         double exactHitDistance = TryDistanceToExactHit(currentEyeX, currentEyeY, currentEyeZ, blockSel, out double hitDistance)
             ? hitDistance
             : -1;
@@ -3072,7 +3102,8 @@ internal sealed class PacketGuardService : IDisposable
             config.PacketGuardReachNearThresholdStrikes,
             12);
         int duplicateWindowMs = Math.Clamp((int)Math.Round(300 * timingMultiplier), 300, 1500);
-        string signature = $"{action}:{pos.X}:{pos.InternalY}:{pos.Z}:{pos.dimension}";
+        string targetSignature=$"{pos.X}:{pos.InternalY}:{pos.Z}:{pos.dimension}";
+        string signature = action+":"+targetSignature;
 
         if (!reachViolations.TryGetValue(player.PlayerUID, out ViolationCounter? counter))
         {
@@ -3093,6 +3124,10 @@ internal sealed class PacketGuardService : IDisposable
             }
         }
 
+        bool timingReliable=!tps.Enabled||(tps.Ready&&!tps.IsDegraded);
+        // Lag/warmup observations must not prime a later healthy reach punishment.
+        if(!timingReliable||!counter.ReachTimingReliable){counter.Count=0;counter.FirstUtc=0;counter.LastUtc=0;counter.LastSignature="";}
+        counter.ReachTimingReliable=timingReliable;
         counter.PruneSignatures(now - config.PacketGuardReachStrikeWindowMs);
         bool duplicate = counter.LastSignature == signature && now - counter.LastUtc <= duplicateWindowMs;
         double excess = Math.Max(0, reach.Distance - reach.Allowed);
@@ -3108,15 +3143,21 @@ internal sealed class PacketGuardService : IDisposable
                    (!tps.SuppressTimingRejections || hard);
         }
 
+        if(counter.Count==0)counter.FirstUtc=now;
         counter.Count++;
         counter.LastUtc = now;
         counter.LastSignature = signature;
-        counter.RecordSignature(signature, now);
+        counter.RecordSignature(targetSignature, now);
 
         bool enoughStrikes = counter.Count >= effectiveNearThresholdStrikes;
         bool enoughDistinctTargets = counter.DistinctSignatureCount >= config.PacketGuardReachDistinctTargetsRequired;
         if (!hard && (!enoughStrikes || !enoughDistinctTargets)) return false;
 
+        bool enforcementEligible=PacketReachEvidence.Eligible(action,counter.Count,counter.DistinctSignatureCount,Math.Max(0,now-counter.FirstUtc),effectiveNearThresholdStrikes,config.PacketGuardReachDistinctTargetsRequired,timingReliable);
+        bool reportDue=counter.LastReportUtc==0||now-counter.LastReportUtc>=5000||(enforcementEligible&&!counter.LastReportEligible);
+        if(reportDue)
+        {
+        counter.LastReportUtc=now;counter.LastReportEligible=enforcementEligible;
         AntiCheatSeverity severity = hard || counter.Count >= effectiveNearThresholdStrikes + 2
             ? AntiCheatSeverity.High
             : AntiCheatSeverity.Moderate;
@@ -3126,7 +3167,7 @@ internal sealed class PacketGuardService : IDisposable
             : $"{blockSel.HitPosition.X:0.00},{blockSel.HitPosition.Y:0.00},{blockSel.HitPosition.Z:0.00}";
         string selectionId = GetSelectionBoxIdCompat(blockSel).Replace(';', '_').Replace('=', '_');
         string evidence =
-            $"action={action};target={pos.X},{pos.InternalY},{pos.Z};distance={reach.Distance:0.00};" +
+            $"reachEnforcementEligible={enforcementEligible};confirmationSpanMs={Math.Max(0,now-counter.FirstUtc)};action={action};target={pos.X},{pos.InternalY},{pos.Z};distance={reach.Distance:0.00};" +
             $"currentDistance={reach.CurrentDistance:0.00};exactHitDistance={(reach.ExactHitDistance >= 0 ? reach.ExactHitDistance.ToString("0.00") : "n/a")};" +
             $"allowed={reach.Allowed:0.00};excess={excess:0.00};hardExcess={config.PacketGuardReachHardExcess:0.00};" +
             $"basePickingRange={player.WorldData.PickingRange:0.00};configuredTolerance={config.PacketGuardReachTolerance:0.00};" +
@@ -3150,6 +3191,7 @@ internal sealed class PacketGuardService : IDisposable
                         : "The server observed repeated block actions outside the player's TPS-, history-, and latency-adjusted interaction range.",
             player.PlayerUID,
             evidence);
+        }
 
         if (action.Equals("use", StringComparison.OrdinalIgnoreCase)) return false;
         return config.PacketGuardRejectOutOfReachActions && (!tps.SuppressTimingRejections || hard);
@@ -4101,19 +4143,22 @@ internal sealed class PacketGuardService : IDisposable
         public int Count;
         public long LastUtc;
         public string LastSignature = "";
+        public long FirstUtc,LastReportUtc;public bool LastReportEligible,ReachTimingReliable;
+        private readonly List<string> expiredSignatures=new();
         private readonly Dictionary<string, long> signatures = new(StringComparer.Ordinal);
         public int DistinctSignatureCount => signatures.Count;
 
         public void RecordSignature(string signature, long now)
         {
-            if (!string.IsNullOrEmpty(signature)) signatures[signature] = now;
+            if (!string.IsNullOrEmpty(signature)&&(signatures.Count<128||signatures.ContainsKey(signature))) signatures[signature] = now;
         }
 
         public void PruneSignatures(long cutoffUtc)
         {
             if (signatures.Count == 0) return;
-            foreach (string key in signatures.Where(x => x.Value < cutoffUtc).Select(x => x.Key).ToArray())
-                signatures.Remove(key);
+            expiredSignatures.Clear();foreach(var item in signatures)if(item.Value<cutoffUtc)expiredSignatures.Add(item.Key);
+            foreach(string key in expiredSignatures)signatures.Remove(key);
+            expiredSignatures.Clear();
             if (Count == 0 && signatures.Count > 0) signatures.Clear();
         }
     }

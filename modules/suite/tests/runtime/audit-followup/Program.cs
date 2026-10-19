@@ -52,7 +52,9 @@ object events = Proxy(eventsType, (method, args) => {
     throw new Exception("Unexpected event access " + method.Name);
 });
 object api = Proxy(apiType, (method, args) => method.Name == "get_Event" ? events : throw new Exception("Unexpected API access " + method.Name));
-object guard = constructor.Invoke(new[] { api, Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatConfig")), null });
+var healthType=constructor.GetParameters()[3].ParameterType;
+object health=System.Linq.Expressions.Expression.Lambda(healthType,System.Linq.Expressions.Expression.Default(healthType.GetGenericArguments()[0])).Compile();
+object guard = constructor.Invoke(new[] { api, Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatConfig")), null,health });
 Set(guard, "active", true);
 object client = RuntimeHelpers.GetUninitializedObject(E("Vintagestory.Server.ConnectedClient"));
 Set(client, "Player", player);
