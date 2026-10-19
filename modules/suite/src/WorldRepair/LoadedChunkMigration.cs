@@ -1,0 +1,143 @@
+using HarmonyLib;
+using Vintagestory.API.Common;
+using Vintagestory.API.Server;
+using Vintagestory.Common;
+using Vintagestory.Server;
+
+namespace BlockLogger.WorldRepair;
+
+public sealed partial class BlockIdRepairService
+{
+    public sealed class LoadedMigration
+    {
+        public bool Enabled {get;set;}public string State {get;set;}="disabled";public string Message {get;set;}="";
+        public Plan? Plan {get;set;}
+    }
+    private string LoadedMigrationFile=>Path.Combine(directory,"loaded-chunk-migration.json");
+    private readonly object loadedGate=new();private LoadedMigration loadedMigration=new();private Harmony? loadedHarmony;
+    private static BlockIdRepairService? loadedOwner;
+    private ChunkDataPool? loadedPool;private BlockIdChunkCodec? loadedCodec;
+    private Dictionary<int,int> loadedReplacements=[];private Dictionary<int,BlockIdChunkCodec.Identity> loadedIdentities=[];
+    private Dictionary<int,bool> loadedFluids=[];private bool loadedActive;
+    private long loadedChecked,loadedChanged,loadedBlocks,loadedRefused;private string loadedLastIssue="";
+    private void LoadLoadedMigration()
+    {
+        try{loadedMigration=Read<LoadedMigration>(LoadedMigrationFile)??new();}
+        catch(Exception e){loadedMigration=new(){State="failed",Message="Cannot read migration settings: "+e.Message};}
+    }
+    private bool LoadedConfigured()=>loadedMigration.Enabled;
+    private object LoadedMigrationSnapshot()
+    {
+        lock(loadedGate)return new{loadedMigration.Enabled,loadedMigration.State,loadedMigration.Message,loadedMigration.Plan,active=loadedActive,sessionChunksChecked=loadedChecked,sessionChunksChanged=loadedChanged,sessionBlocksChanged=loadedBlocks,sessionChunksRefused=loadedRefused,lastIssue=loadedLastIssue};
+    }
+    public object StageLoadedMigration(string previewId,bool createBackup,bool manualBackupAcknowledged)
+    {
+        Guard();lock(gate)
+        {
+            if(worker is{IsCompleted:false}||pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Wait for scans and cancel other staged repairs first.");
+            if(LoadedConfigured())throw new InvalidOperationException("Disable the current loaded-chunk migration before replacing its settings.");
+            if(preview==null||preview.Id!=previewId||preview.CreateBackup!=createBackup||preview.ManualBackupAcknowledged!=manualBackupAcknowledged)throw new InvalidOperationException("Preview or backup options changed. Prepare a fresh preview.");
+            Validate(preview);
+            SaveLoadedConfiguration(preview);preview=null;return LoadedMigrationSnapshot();
+        }
+    }
+    private void SaveLoadedConfiguration(Plan plan)
+    {
+        lock(loadedGate)
+        {
+            var settings=new LoadedMigration{Enabled=true,State="staged",Plan=plan,Message="Starts on the next restart. Every configured missing ID is migrated in saved chunks as they load. Already loaded chunks require reloading. Changes persist through normal world saves."};
+            Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
+        }
+    }
+    public object DisableLoadedMigration()
+    {
+        lock(gate)lock(loadedGate)
+        {
+            loadedActive=false;loadedMigration.Enabled=false;loadedMigration.State="disabled";
+            loadedMigration.Message="Further chunk migrations disabled. Previously migrated blocks are not reverted.";
+            Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
+        }
+    }
+    private void ActivateLoadedMigration()
+    {
+        if(!LoadedConfigured())return;
+        try
+        {
+            Guard();var p=loadedMigration.Plan??throw new InvalidOperationException("Migration has no reviewed mappings.");Validate(p);
+            if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("A separate repair is staged. Disable loaded migration before other repairs.");
+            if(api.Server.CurrentRunPhase!=EnumServerRunPhase.AssetsFinalize||api.WorldManager.AllLoadedChunks.Count>0)throw new InvalidOperationException("Activation requires startup before terrain loads.");
+            var method=AccessTools.Method(typeof(ServerChunk),nameof(ServerChunk.FromBytes),[typeof(byte[]),typeof(ChunkDataPool),typeof(IWorldAccessor)]);
+            if(method==null||Harmony.GetPatchInfo(method)?.Owners.Count>0)throw new NotSupportedException("Another mod patches chunk deserialization. Loaded migration disabled to protect saved data.");
+            if(loadedOwner!=null&&loadedOwner!=this)throw new InvalidOperationException("Another loaded migration instance is active.");
+            if(p.CreateBackup)
+            {
+                // Retain the first verified backup across restarts. Each new reviewed
+                // configuration gets a fresh plan ID and therefore its own backup.
+                string backup=Path.Combine(directory,"world-before-loaded-"+p.Id+".vcdbs");
+                if(loadedMigration.State!="active"||p.Backup!=backup||!File.Exists(backup))
+                {
+                    Database().CreateBackup(backup);using var connection=Open(backup);using var check=connection.CreateCommand();check.CommandTimeout=600;check.CommandText="PRAGMA quick_check";
+                    if(!string.Equals(Convert.ToString(check.ExecuteScalar()),"ok",StringComparison.Ordinal))throw new InvalidDataException("Migration backup integrity check failed.");
+                    p.Backup=backup;
+                }
+            }
+            var mappings=EffectiveMappings(p);loadedReplacements=mappings.ToDictionary(m=>m.Source,m=>m.Target);
+            loadedFluids=mappings.ToDictionary(m=>m.Source,m=>api.World.Blocks[m.Target].ForFluidsLayer);
+            loadedIdentities=mappings.Where(m=>m.Target!=0&&BlockIdChunkCodec.Canonical(m.SourceCode)==m.TargetCode).ToDictionary(m=>m.Source,m=>new BlockIdChunkCodec.Identity(m.TargetCode,api.World.Blocks[m.Target].EntityClass??"",api.World.Blocks[m.Target].ForFluidsLayer));
+            loadedPool=new ChunkDataPool(32,(ServerMain)api.World){CacheSize=32};loadedCodec=new(loadedPool);
+            loadedHarmony=new Harmony("newfies.suite.loaded-block-migration");loadedOwner=this;
+            loadedHarmony.Patch(method,prefix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(BeforeLoadedChunk)),postfix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(AfterLoadedChunk)));
+            loadedMigration.State="active";loadedMigration.Message="Configured missing IDs are migrated before each saved chunk is deserialized. Only successful loads are marked for normal saving. Incompatible chunks are skipped and reported; no missing inventory data is invented.";
+            Write(LoadedMigrationFile,loadedMigration);loadedActive=true;
+            api.Logger.Notification("[BlockMigration] Loaded-chunk migration active: {0} mappings. Backup: {1}",mappings.Count,p.Backup);
+        }
+        catch(Exception e)
+        {
+            loadedActive=false;loadedMigration.State="failed";loadedMigration.Message=e.Message+" No new loaded-chunk migrations enabled.";
+            loadedHarmony?.UnpatchAll("newfies.suite.loaded-block-migration");if(loadedOwner==this)loadedOwner=null;
+            loadedPool?.FreeAll();loadedPool=null;loadedCodec=null;Write(LoadedMigrationFile,loadedMigration);
+            api.Logger.Error("[BlockMigration] {0}",loadedMigration.Message);
+        }
+    }
+    private static void BeforeLoadedChunk(ref byte[] __0,IWorldAccessor __2,out long __state)
+    {
+        __state=0;var owner=loadedOwner;if(owner==null||!ReferenceEquals(owner.api.World,__2))return;
+        lock(owner.loadedGate)
+        {
+            if(!owner.loadedActive||owner.loadedCodec==null)return;
+            try
+            {
+                owner.loadedChecked++;var counts=owner.loadedCodec.Inspect(__0,owner.loadedReplacements.ContainsKey);if(counts.Count==0)return;
+                foreach(var entry in counts)
+                {
+                    if(!owner.Missing(entry.Key))throw new InvalidDataException("Source ID became registered; it is protected from migration.");
+                    int target=owner.loadedReplacements[entry.Key];bool fluid=owner.loadedFluids[entry.Key];var c=entry.Value;
+                    if(target!=0&&((c[1]>0&&!fluid)||((c[0]+c[2]>0)&&fluid)))throw new InvalidDataException("Replacement conflicts with the affected solid/fluid layer for ID "+entry.Key+".");
+                }
+                var bytes=owner.loadedCodec.ReplaceMany(__0,owner.loadedReplacements,out long changed,owner.loadedIdentities);
+                if(changed>0){__0=bytes;__state=changed;}
+            }
+            catch(Exception e)
+            {
+                owner.loadedRefused++;owner.loadedLastIssue=e.Message;
+                // One log initially and at powers of two: a damaged region cannot
+                // flood logs, but its refusal remains visible in the panel.
+                if((owner.loadedRefused&(owner.loadedRefused-1))==0)owner.api.Logger.Warning("[BlockMigration] Skipped unsafe chunk ({0} refusals): {1}",owner.loadedRefused,e.Message);
+            }
+        }
+    }
+    private static void AfterLoadedChunk(ServerChunk __result,long __state)
+    {
+        if(__state==0||__result==null)return;
+        __result.MarkModified();var owner=loadedOwner;if(owner==null)return;
+        lock(owner.loadedGate){owner.loadedChanged++;owner.loadedBlocks+=__state;}
+    }
+    private void DisposeLoadedMigration()
+    {
+        lock(loadedGate)
+        {
+            loadedActive=false;loadedHarmony?.UnpatchAll("newfies.suite.loaded-block-migration");loadedHarmony=null;
+            if(loadedOwner==this)loadedOwner=null;loadedPool?.FreeAll();loadedPool=null;loadedCodec=null;
+        }
+    }
+}

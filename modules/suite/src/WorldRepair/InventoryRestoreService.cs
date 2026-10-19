@@ -109,7 +109,7 @@ public sealed partial class BlockIdRepairService
     }
     public InventoryRestorePlan StageInventoryRestore(string id,InventoryRestoreRequest? expected=null)
     {
-        Guard();lock(gate){var p=restorePreview;if(p==null||p.Id!=id||p.State!="preview"||DateTime.UtcNow-p.CreatedUtc>TimeSpan.FromMinutes(15))throw new InvalidOperationException("A fresh successful inventory restore preview is required.");
+        Guard();lock(gate){if(LoadedConfigured())throw new InvalidOperationException("Disable loaded-chunk migration before staging another repair.");var p=restorePreview;if(p==null||p.Id!=id||p.State!="preview"||DateTime.UtcNow-p.CreatedUtc>TimeSpan.FromMinutes(15))throw new InvalidOperationException("A fresh successful inventory restore preview is required.");
             if(expected!=null&&expected!=p.Request)throw new InvalidOperationException("Restore options changed; generate a fresh preview.");
             if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Another repair is already staged.");
             ValidateRestoreRequest(p.Request);if(p.World!=api.World.SavegameIdentifier||p.Registry!=RestoreRegistry())throw new InvalidOperationException("World or item/block registry changed.");

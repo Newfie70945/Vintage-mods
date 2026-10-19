@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Reflection;
 using Vintagestory.API.Datastructures;
 using Vintagestory.Common;
+using Vintagestory.Common.Database;
 
 namespace BlockLogger.WorldRepair;
 
@@ -99,22 +100,57 @@ internal sealed class BlockIdChunkCodec
         using var output=new MemoryStream();foreach(var field in fields){if(field.Start==solid.Start){Var(output,(ulong)((field.Tag<<3)|2));Var(output,(ulong)compressed.Length);output.Write(compressed);}else output.Write(blob,field.Start,field.End-field.Start);}
         return output.ToArray();
     }
+    internal sealed record Identity(string Code,string EntityClass,bool Fluid);
+    internal static string Canonical(string code)=>string.IsNullOrWhiteSpace(code)?"":code.Contains(':')?code:"game:"+code;
+    // Exact-identity recovery reconnects retained metadata; it never manufactures it.
+    internal Dictionary<int,string> CheckIdentityRecovery(byte[] blob,Dictionary<int,long[]> counts,IReadOnlyDictionary<int,Identity> identities,ChunkPos? chunk=null)
+    {
+        var issues=new Dictionary<int,string>();if(counts.Count==0)return issues;var hosted=new Dictionary<int,int>();var positions=new HashSet<int>();
+        try
+        {
+            var entities=Fields(blob).Where(f=>f.Tag==8).ToArray();
+            if(entities.Length>256||entities.Sum(f=>(long)f.Length)>8*1024*1024)throw new InvalidDataException("Retained block entities exceed verification limits.");
+            var records=new List<(int Index,SavedBlockEntityInspector.EntitySummary Summary)>();
+            foreach(var field in entities)
+            {
+                if(field.Wire!=2)throw new InvalidDataException("Invalid block-entity payload.");
+                var retained=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
+                if(!retained.Complete)throw new InvalidDataException("Unverifiable retained block entity: "+retained.Issue);
+                if(chunk.HasValue&&(retained.X/32!=chunk.Value.X||retained.Y/32!=chunk.Value.Y||retained.Z/32!=chunk.Value.Z||retained.Dimension!=chunk.Value.Dimension))throw new InvalidDataException("Retained block entity is outside its saved chunk.");
+                int index=(((retained.InternalY!.Value&31)*32+(retained.Z!.Value&31))*32)+(retained.X!.Value&31);
+                if(!positions.Add(index))throw new InvalidDataException("Duplicate retained block entities at one position.");
+                records.Add((index,retained));
+            }
+            var cells=records.Count>0?ReadCells(blob,records.Select(e=>e.Index)):new Dictionary<int,int[]>();
+            foreach(var record in records)
+                foreach(int id in cells[record.Index].Distinct().Where(counts.ContainsKey))
+                {
+                    hosted[id]=hosted.GetValueOrDefault(id)+1;
+                    if(!identities.TryGetValue(id,out var identity)||identity.EntityClass.Length==0||record.Summary.Class!=identity.EntityClass||
+                        (record.Summary.SavedBlockCode.Length>0&&Canonical(record.Summary.SavedBlockCode)!=Canonical(identity.Code)))
+                        issues[id]="Retained block entity is incompatible with this replacement. Restore its original mod or use dedicated inventory recovery.";
+                }
+            foreach(var entry in counts)
+                if(identities.TryGetValue(entry.Key,out var identity))
+                {
+                    var c=entry.Value;
+                    if((c[1]>0&&!identity.Fluid)||((c[0]+c[2]>0)&&identity.Fluid))issues[entry.Key]="Exact code conflicts with the saved solid/fluid layer.";
+                    if(identity.EntityClass.Length>0&&(c[1]>0||c[2]>0||hosted.GetValueOrDefault(entry.Key)!=c[0]))issues[entry.Key]="Some occurrences have no compatible retained block entity. No inventory or metadata will be invented.";
+                }
+        }
+        catch(Exception e)when(e is InvalidDataException or NotSupportedException or ArgumentException or OverflowException)
+        {foreach(int id in counts.Keys)issues[id]=e.Message;}
+        return issues;
+    }
     public byte[] Replace(byte[] blob,int source,int target,out long changed)
         =>ReplaceMany(blob,new Dictionary<int,int>{{source,target}},out changed);
-    public byte[] ReplaceMany(byte[] blob,IReadOnlyDictionary<int,int> mapping,out long changed)
+    public byte[] ReplaceMany(byte[] blob,IReadOnlyDictionary<int,int> mapping,out long changed,IReadOnlyDictionary<int,Identity>? identities=null,ChunkPos? chunk=null)
     {
-        if(mapping.Count is <1 or >32||mapping.Any(x=>x.Key==0||x.Value<0||x.Key==x.Value))throw new ArgumentException("Use 1–32 distinct non-air sources and different non-negative destinations.");
+        if(mapping.Count is <1 or >4096||mapping.Any(x=>x.Key==0||x.Value<0||x.Key==x.Value))throw new ArgumentException("Use 1–4096 distinct non-air sources and different non-negative destinations.");
         changed=0;var fields=Fields(blob);var counts=Inspect(blob,mapping.ContainsKey);if(counts.Count==0)return blob;
         var found=new long[3];foreach(var count in counts.Values)for(int i=0;i<3;i++)found[i]+=count[i];
-        // Never orphan an inventory or mod block entity when replacing its host.
-        // Parse only the standard tree payload, without constructing mod classes.
-        foreach(var field in fields.Where(x=>x.Tag==8)){
-            if(field.Wire!=2)throw new InvalidDataException("Invalid block-entity payload.");
-            var retained=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
-            if(!retained.Complete)throw new InvalidDataException("Saved block-entity data cannot be fully verified; generic replacement refused. Inspect the chunk for a dedicated migration. "+retained.Issue);
-            int index=(((retained.InternalY!.Value&31)*32+(retained.Z!.Value&31))*32)+(retained.X!.Value&31);
-            foreach(var solid in fields.Where(x=>x.Tag is 1 or 16)){var layer=Decode(blob.AsSpan(solid.Data,solid.Length).ToArray());try{if(mapping.ContainsKey(layer.GetUnsafe(index)))throw new InvalidOperationException("Source block hosts a block entity; inventory-safe replacement requires restoring its mod or a dedicated migration.");}finally{pool.FreeArrays(layer);}}
-        }
+        var issues=CheckIdentityRecovery(blob,counts,identities??new Dictionary<int,Identity>(),chunk);
+        if(issues.Count>0)throw new InvalidOperationException("Source ID "+issues.First().Key+": "+issues.First().Value);
         var replacements=new Dictionary<int,byte[]>();
         foreach(var field in fields.Where(x=>x.Tag is 1 or 16)){
             if(found[field.Tag==1?0:1]==0)continue;var layer=Decode(blob.AsSpan(field.Data,field.Length).ToArray());
