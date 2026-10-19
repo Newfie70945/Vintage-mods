@@ -42,7 +42,7 @@ public sealed partial class BlockIdRepairService
             var pool=new ChunkDataPool(32,server){CacheSize=32};var codec=new BlockIdChunkCodec(pool);long? cursor=null;long bytesPrepared=0;
             try
             {
-                MigrationInventoryStore.Create(manifest,ManifestIdentity(p));using var output=MigrationInventoryStore.Connect(manifest,false);using var receipts=MigrationInventoryStore.Connect(InventoryReceipts,true);
+                foreach(string suffix in new[]{"","-journal","-wal","-shm"})if(File.Exists(manifest+suffix))File.Delete(manifest+suffix);MigrationInventoryStore.Create(manifest,ManifestIdentity(p));using var output=MigrationInventoryStore.Connect(manifest,false);using var receipts=MigrationInventoryStore.Connect(InventoryReceipts,true);
                 while(true)
                 {
                     token.ThrowIfCancellationRequested();var page=Page(worldPath,cursor);if(page.Count==0)break;
@@ -96,9 +96,10 @@ public sealed partial class BlockIdRepairService
                     p.InventoryReport=CopyReport(report);
                     if(loadedMigration.Enabled&&loadedMigration.Plan?.Id==p.Id)lock(loadedGate)
                     {
-                        loadedMigration.State=report.State=="complete"?"staged":"preparation-"+report.State;
-                        loadedMigration.Message=report.State=="complete"?"Rules and inventory evidence are ready. Restart to create the backup and activate migration.":report.Message;
+                        loadedMigration.State=report.State=="complete"?"activating":"preparation-"+report.State;
+                        loadedMigration.Message=report.State=="complete"?"Rules and inventory evidence are ready. Backup and activation start automatically; no restart needed.":report.Message;
                         Write(LoadedMigrationFile,loadedMigration);
+                        if(report.State=="complete")api.Event.EnqueueMainThreadTask(()=>{lock(gate){if(!disposed&&loadedMigration.Enabled&&loadedMigration.Plan?.Id==p.Id)QueueLiveActivation();}},"migration-inventory-auto-enable");
                     }
                 }
             }

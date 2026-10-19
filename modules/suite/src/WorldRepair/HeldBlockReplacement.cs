@@ -27,7 +27,7 @@ public sealed partial class BlockIdRepairService
             var rules=CopyConfiguredRules();rules.RemoveAll(m=>m.Source==source);rules.Add(new(){Source=source,Target=target!.Id,SourceCode=Label(source,map),TargetCode=target.Code.ToString()});
             SaveConfiguredRules(rules,inventory);
             api.Logger.Notification("[BlockMigration] {0} saved ID-wide rule {1} -> {2}; {3} configured rules, no world scan required.",player.PlayerUID,source,target.Code,rules.Count);
-            return $"Saved migration rule for ALL missing blocks with ID {source} → {target.Code} (ID {target.Id}). {rules.Count} rules retained; no world scan required. "+(inventory.Mode=="preserve"?"Restart once to back up and activate migration as chunks load.":"Optional inventory recovery is preparing separately. Restart after preparation completes; see Block ID Migration → Migration Rules.")+" Your held stack was not consumed.";
+            return $"Saved migration rule for ALL missing blocks with ID {source} → {target.Code} (ID {target.Id}). {rules.Count} rules retained; no world scan required. "+(inventory.Mode=="preserve"?"Backup and activation start automatically; no restart needed. Already loaded terrain changes when it next reloads.":"Optional inventory recovery is preparing separately. It will back up and enable automatically when ready; see Block ID Migration → Migration Rules.")+" Your held stack was not consumed.";
         }
     }
 }

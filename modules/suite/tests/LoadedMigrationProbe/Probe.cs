@@ -41,6 +41,23 @@ public sealed class LoadedMigrationProbe:ModSystem
             api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,message}));
             return TextCommandResult.Success("Held migration adapter checked using detached administrator fixture.");
         });
+        api.ChatCommands.Create("nsemigrationcancelprobe").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>
+        {
+            var repair=(BlockIdRepairService)typeof(BlockLoggerModSystem).GetField("blockRepair",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(api.ModLoader.GetModSystem<BlockLoggerModSystem>())!;
+            repair.ConfigureMigrationRule(999997,"game:rock-granite",new(),false,true);
+            var work=(System.Threading.Tasks.Task)typeof(BlockIdRepairService).GetField("liveActivationWorker",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(repair)!;
+            if(!work.Wait(TimeSpan.FromSeconds(5)))throw new Exception("Activation did not enqueue its callback.");
+            repair.DisableLoadedMigration();
+            api.Event.RegisterCallback(dt=>
+            {
+                var snapshot=JsonSerializer.SerializeToElement(repair.Snapshot());var loaded=snapshot.GetProperty("loadedMigration");
+                if(loaded.GetProperty("active").GetBoolean()||loaded.GetProperty("Enabled").GetBoolean())throw new Exception("Stale activation re-enabled disabled migration.");
+                api.Logger.Notification("{0}","NSE_LIVE_CANCEL_PROBE "+JsonSerializer.Serialize(new{disabled=true,queuedActivationCouldNotReactivate=true}));
+            },300);
+            return TextCommandResult.Success("Queued activation cancelled before its server-thread callback.");
+        });
+        api.ChatCommands.Create("nseunloadfixture").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("chunk X"),p.Int("chunk Z")).HandleWith(a=>
+        {api.WorldManager.UnloadChunkColumn((int)a[0],(int)a[1]);return TextCommandResult.Success("Saved fixture column unloaded.");});
         api.ChatCommands.Create("nsemigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>
         {
             var pos=new BlockPos((int)a[0],(int)a[1],(int)a[2]);
