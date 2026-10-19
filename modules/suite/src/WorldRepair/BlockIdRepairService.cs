@@ -38,6 +38,7 @@ public sealed partial class BlockIdRepairService : IDisposable
     public sealed class Plan
     {
         public string Id {get;set;}=Guid.NewGuid().ToString("N"); public string World {get;set;}="";public string Registry {get;set;}="";public string ScanId {get;set;}="";
+        public MigrationInventoryOptions Inventory {get;set;}=new();public MigrationInventoryReport InventoryReport {get;set;}=new();public string InventoryRegistry {get;set;}="";public string InventoryManifestHash {get;set;}="";
         public bool LoadedOnly {get;set;}public bool Automatic {get;set;}public List<AutomaticSkip> Skipped {get;set;}=[];
         public List<RepairMapping> Mappings {get;set;}=[];
         public int Source {get;set;} public int Target {get;set;} public string SourceCode {get;set;}="";public string TargetCode {get;set;}="";
@@ -71,7 +72,7 @@ public sealed partial class BlockIdRepairService : IDisposable
     private string Label(int id,Dictionary<int,string> map)=>map.TryGetValue(id,out var code)?code:id>=0&&id<api.World.Blocks.Count?api.World.Blocks[id]?.Code?.ToString()??"":"";
     public object Snapshot(bool includeInspection=true)
     {
-        lock(gate)return new{world=api.World.SavegameIdentifier,scan,preview,loadedMigration=LoadedMigrationSnapshot(),mappingAdvice=includeInspection?mappingAdvice:null,
+        lock(gate)return new{world=api.World.SavegameIdentifier,scan,preview=includeInspection?preview:null,loadedMigration=LoadedMigrationSnapshot(includeInspection),mappingAdvice=includeInspection?mappingAdvice:null,
             scope="Only missing definitions, code-less remapper holes and undefined saved numeric IDs. Healthy registered source IDs are protected. Migration runs as saved chunks load; it does not load terrain itself.",
             limitations="Only configured terrain/fluid/decor IDs are migrated. Compatible retained block-entity bytes are preserved for exact-code reconnection. Deleted inventories, inventory stack IDs, client texture errors and plants saved as air are not reconstructed."};
     }
@@ -105,10 +106,11 @@ public sealed partial class BlockIdRepairService : IDisposable
     }
     private static Finding Clone(Finding f)=>new(){Id=f.Id,Code=f.Code,Problem=f.Problem,Solid=f.Solid,Fluid=f.Fluid,Decor=f.Decor,Chunks=f.Chunks,Examples=f.Examples.ToList(),AutomaticIssue=f.AutomaticIssue,Category=f.Category,CurrentCode=f.CurrentCode,SameCodeRegisteredId=f.SameCodeRegisteredId,Positions=f.Positions.ToList()};
     private static List<RepairMapping> EffectiveMappings(Plan p)=>p.Mappings.Count>0?p.Mappings:[new(){Source=p.Source,Target=p.Target,SourceCode=p.SourceCode,TargetCode=p.TargetCode,Count=p.Count,Chunks=p.Chunks}];
-    private void Validate(Plan p)
+    private void Validate(Plan p,bool inventoryReady=true)
     {
         if(!SavedBlockEntityInspector.BuiltinTypesSupported())throw new NotSupportedException("A mod changed built-in saved attribute types; repair is disabled to protect retained block entities.");
         if(!p.CreateBackup&&!p.ManualBackupAcknowledged)throw new InvalidOperationException("Automatic backup is disabled. Make a manual copy of your world and acknowledge it before previewing or staging a repair.");
+        ValidateInventory(p,inventoryReady);
         var currentMap=Mapping();
         if(p.World!=api.World.SavegameIdentifier||p.Registry!=Fingerprint(currentMap))throw new InvalidOperationException("World or block-ID mapping changed; make a fresh scan and preview.");
         var mappings=EffectiveMappings(p);RemapSelection.Resolve(mappings.Select(m=>new RemapChoice(m.Source,m.Target.ToString(System.Globalization.CultureInfo.InvariantCulture))).ToArray(),int.Parse,p.Automatic||p.LoadedOnly?4096:RemapSelection.Limit);
@@ -119,7 +121,7 @@ public sealed partial class BlockIdRepairService : IDisposable
             if(Missing(m.Target))throw new ArgumentException("Destination is missing or unregistered.");var target=api.World.Blocks[m.Target];
             if(m.TargetCode!=target.Code.ToString())throw new InvalidOperationException("Destination code no longer matches its reviewed numeric ID; create a fresh preview.");
             if(p.Automatic&&(m.Target==0||BlockIdChunkCodec.Canonical(currentMap.GetValueOrDefault(m.Source,""))!=m.TargetCode))throw new InvalidOperationException("Automatic migration requires the exact original saved code; replacements are never guessed.");
-            if(!p.Automatic&&!string.IsNullOrEmpty(target.EntityClass)&&BlockIdChunkCodec.Canonical(currentMap.GetValueOrDefault(m.Source,""))!=m.TargetCode)throw new ArgumentException("Destination requires block-entity data. Only exact original-code migration can reconnect compatible retained metadata.");
+            if(!p.Automatic&&!string.IsNullOrEmpty(target.EntityClass)&&BlockIdChunkCodec.Canonical(currentMap.GetValueOrDefault(m.Source,""))!=m.TargetCode&&(p.Inventory.Mode=="preserve"||!SupportedContainer(target.EntityClass)||!m.TargetCode.StartsWith("game:",StringComparison.Ordinal)))throw new ArgumentException("Destination requires block-entity data. Only exact original-code migration can reconnect compatible retained metadata.");
             if(!p.LoadedOnly&&p.Mappings.Count>0&&m.Count<=0)throw new ArgumentException("Every selected mapping must have scanned occurrences.");
         }
     }
@@ -134,23 +136,25 @@ public sealed partial class BlockIdRepairService : IDisposable
     }
     public Plan Preview(int source,string destination,bool allowAir,bool allowValid,bool createBackup=true,bool manualBackupAcknowledged=false)
         =>PreviewMappings([new(source,destination)],allowAir,allowValid,createBackup,manualBackupAcknowledged,false);
-    public Plan PreviewBatch(IReadOnlyList<RemapChoice> choices,bool allowAir,bool allowValid,bool createBackup=true,bool manualBackupAcknowledged=false)
-        =>PreviewMappings(choices,allowAir,allowValid,createBackup,manualBackupAcknowledged,true);
-    private Plan PreviewMappings(IReadOnlyList<RemapChoice> choices,bool allowAir,bool allowValid,bool createBackup,bool manualBackupAcknowledged,bool batch,bool automatic=false)
+    public Plan PreviewBatch(IReadOnlyList<RemapChoice> choices,bool allowAir,bool allowValid,bool createBackup=true,bool manualBackupAcknowledged=false,MigrationInventoryOptions? inventory=null)
+        =>PreviewMappings(choices,allowAir,allowValid,createBackup,manualBackupAcknowledged,true,false,inventory);
+    private Plan PreviewMappings(IReadOnlyList<RemapChoice> choices,bool allowAir,bool allowValid,bool createBackup,bool manualBackupAcknowledged,bool batch,bool automatic=false,MigrationInventoryOptions? inventory=null)
     {
         Guard();lock(gate)
         {
+            if(worker is{IsCompleted:false})throw new InvalidOperationException("Wait for the current scan/inventory preparation to finish or cancel it first.");
             if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Cancel the staged repair first.");
             if(scan?.State!="complete"||scan.Errors!=0||scan.Unsupported!=0)throw new InvalidOperationException("A complete, error-free missing-block scan is required. Legacy chunks must be converted first.");
+            inventory??=new();inventory.Validate();
             var resolved=RemapSelection.Resolve(choices,ResolveTarget,automatic?4096:RemapSelection.Limit);var map=Mapping();var mappings=new List<RepairMapping>();
-            foreach(var pair in resolved)mappings.Add(ResolveMapping(pair.Key,pair.Value,scan,map,allowAir,allowValid,automatic));
-            var first=mappings[0];var plan=new Plan{Automatic=automatic,Mappings=batch?mappings:[],Source=first.Source,Target=first.Target,SourceCode=first.SourceCode,TargetCode=first.TargetCode,Count=mappings.Sum(m=>m.Count),Chunks=mappings.Sum(m=>m.Chunks),AllowAir=allowAir,AllowValidSource=allowValid,CreateBackup=createBackup,ManualBackupAcknowledged=manualBackupAcknowledged,World=api.World.SavegameIdentifier,Registry=scan.Registry,ScanId=scan.Id};Validate(plan);
-            plan.Message="Preview only: "+mappings.Count+" mapping(s), "+plan.Count+" saved occurrences. Only checked source IDs are included; every saved occurrence of each source is replaced. Per-ID chunk counts overlap. "+(createBackup?"One verified automatic world backup will be created before edits.":"AUTOMATIC BACKUP DISABLED. Your acknowledged manual copy is the recovery path.")+" Enable migration to apply these IDs as saved chunks load after restart.";preview=plan;return plan;
+            foreach(var pair in resolved)mappings.Add(ResolveMapping(pair.Key,pair.Value,scan,map,allowAir,allowValid,automatic,inventory));
+            var first=mappings[0];var plan=new Plan{Inventory=inventory,Automatic=automatic,Mappings=batch?mappings:[],Source=first.Source,Target=first.Target,SourceCode=first.SourceCode,TargetCode=first.TargetCode,Count=mappings.Sum(m=>m.Count),Chunks=mappings.Sum(m=>m.Chunks),AllowAir=allowAir,AllowValidSource=allowValid,CreateBackup=createBackup,ManualBackupAcknowledged=manualBackupAcknowledged,World=api.World.SavegameIdentifier,Registry=scan.Registry,ScanId=scan.Id};if(inventory.Mode!="preserve")plan.InventoryRegistry=RestoreRegistry();Validate(plan,false);
+            plan.Message="Preview only: "+mappings.Count+" mapping(s), "+plan.Count+" saved occurrences. Only checked source IDs are included; every saved occurrence of each source is replaced. Per-ID chunk counts overlap. "+(createBackup?"One verified automatic world backup will be created before edits.":"AUTOMATIC BACKUP DISABLED. Your acknowledged manual copy is the recovery path.")+" Enable migration to apply these IDs as saved chunks load after restart.";preview=plan;StartMigrationInventoryPreparation(plan);return plan;
         }
     }
     public object Cancel()
     {
-        lock(gate){if(loadedMigration.Enabled&&loadedMigration.State=="staged")DisableLoadedMigration();cancel?.Cancel();selectedPreview=null;if(File.Exists(SelectedPendingFile))File.Delete(SelectedPendingFile);selectedPending=null;restorePreview=null;if(File.Exists(RestorePendingFile))File.Delete(RestorePendingFile);restorePending=null;preview=null;if(File.Exists(pendingFile))File.Delete(pendingFile);pending=null;return new{success=true,message="Scan cancellation requested; staged repair removed. No terrain changed."};}
+        lock(gate){if(loadedMigration.Enabled&&!loadedActive)DisableLoadedMigration();cancel?.Cancel();selectedPreview=null;if(File.Exists(SelectedPendingFile))File.Delete(SelectedPendingFile);selectedPending=null;restorePreview=null;if(File.Exists(RestorePendingFile))File.Delete(RestorePendingFile);restorePending=null;preview=null;if(File.Exists(pendingFile))File.Delete(pendingFile);pending=null;return new{success=true,message="Scan cancellation requested; staged repair removed. No terrain changed."};}
     }
     public void ApplyBeforeTerrainLoads()=>ActivateLoadedMigration();
     private void RegisterCommands()
@@ -158,14 +162,15 @@ public sealed partial class BlockIdRepairService : IDisposable
         var p=api.ChatCommands.Parsers;
         api.ChatCommands.Create("nseblockrepair").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>TextCommandResult.Success("Block ID Repair was replaced by Block ID Migration. Use /nseblockmigrate help or the webpanel Block ID Migration page."));
         api.ChatCommands.Create("nseblockmigrate").RequiresPrivilege(Privilege.controlserver).WithDescription("Configure missing block ID migrations as saved chunks load")
-            .BeginSubCommand("help").HandleWith(_=>TextCommandResult.Success(BlockLogger.Commands.RollbackChatText.Encode("Block ID Migration (experimental): scan [ID]; preview OLDID domain:code [allow-air] [no-backup manual-copy-confirmed]; automigrate (all exact installed codes); enable PREVIEWID (activation and backup on restart); disable; status; cancel. replaceheld stages an ID-wide rule from the missing block you look at to your held block, preserving other configured rules; restart to activate. Incompatible containers are skipped. Only missing source IDs change. Chunks migrate when loaded and persist on normal saves. Make a world backup. Deleted inventory data cannot be invented. The webpanel supports multiple per-ID rules and suggestions."))).EndSubCommand()
-            .BeginSubCommand("replaceheld").RequiresPlayer().HandleWith(a=>PlayerResult(a,ReplaceLookedAtHeld)).EndSubCommand()
+            .BeginSubCommand("help").HandleWith(_=>TextCommandResult.Success(BlockLogger.Commands.RollbackChatText.Encode("Block ID Migration (experimental): scan [ID]; preview OLDID domain:code [allow-air] [no-backup manual-copy-confirmed]; automigrate (all exact installed codes); enable PREVIEWID (activation and backup on restart); disable; status; rules [page]; cancel. replaceheld stages an ID-wide rule from the missing block you look at to your held block, preserving other configured rules; restart to activate. Inventory option: replaceheld recover-empty confirm-inventory-risk [before=ISO-UTC]; replace also needs confirm-overwrite. Rules save without waiting for scans. Optional inventory preparation must finish before restart; incompatible containers are skipped. Only missing source IDs change. Chunks migrate when loaded and persist on normal saves. Make a world backup. Deleted inventory data cannot be invented. The webpanel supports multiple per-ID rules and suggestions."))).EndSubCommand()
+            .BeginSubCommand("replaceheld").RequiresPlayer().WithArgs(p.OptionalAll("inventory options")).HandleWith(a=>PlayerResult(a,player=>ReplaceLookedAtHeldOptions(player,a[0] as string??""))).EndSubCommand()
             .BeginSubCommand("scan").WithArgs(p.OptionalInt("missing source ID")).HandleWith(a=>Run(()=>StartScan(a.Parsers[0].IsMissing?null:(int)a[0]))).EndSubCommand()
             .BeginSubCommand("preview").WithArgs(p.Int("missing source ID"),p.Word("destination ID or code"),p.OptionalAll("options")).HandleWith(a=>Run(()=>MigrationCommandPreview((int)a[0],(string)a[1],a[2] as string??""))).EndSubCommand()
             .BeginSubCommand("automigrate").HandleWith(_=>Run(()=>PreviewAutomatic())).EndSubCommand()
             .BeginSubCommand("enable").WithArgs(p.Word("reviewed preview ID")).HandleWith(a=>Run(()=>StageLoadedMigration((string)a[0],preview?.CreateBackup??true,preview?.ManualBackupAcknowledged??false))).EndSubCommand()
             .BeginSubCommand("disable").HandleWith(_=>Run(DisableLoadedMigration)).EndSubCommand()
             .BeginSubCommand("status").HandleWith(_=>Run(()=>Snapshot())).EndSubCommand()
+            .BeginSubCommand("rules").WithArgs(p.OptionalInt("page")).HandleWith(a=>ListMigrationRules(a.Parsers[0].IsMissing?1:(int)a[0])).EndSubCommand()
             .BeginSubCommand("cancel").HandleWith(_=>Run(Cancel)).EndSubCommand();
     }
     private Plan MigrationCommandPreview(int source,string destination,string options)

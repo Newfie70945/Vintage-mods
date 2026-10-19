@@ -54,6 +54,26 @@ internal sealed class BlockIdChunkCodec
         return cells;
     }
     public sealed record Retained(Field Field,byte[] Bytes,SavedBlockEntityInspector.EntitySummary Summary);
+    internal Retained EntityAtBytes(byte[] blob,Field field)
+    {
+        if(field.Tag!=8||field.Wire!=2||field.Length>2*1024*1024)throw new InvalidDataException("Invalid or oversized retained container record.");
+        var bytes=blob.AsSpan(field.Data,field.Length).ToArray();var summary=SavedBlockEntityInspector.Inspect(bytes);
+        if(!summary.Complete)throw new InvalidDataException("Retained container cannot be verified: "+summary.Issue);
+        return new(field,bytes,summary);
+    }
+    internal byte[] ReplaceEntityPayloads(byte[] blob,IReadOnlyDictionary<int,byte[]> replacements)
+    {
+        using var output=new MemoryStream();foreach(var field in Fields(blob))
+        {
+            if(replacements.TryGetValue(field.Start,out var payload))
+            {
+                if(field.Tag!=8||field.Wire!=2||payload.Length>2*1024*1024||!SavedBlockEntityInspector.Inspect(payload).Complete)throw new InvalidDataException("Invalid prepared container payload.");
+                Var(output,(ulong)((8<<3)|2));Var(output,(ulong)payload.Length);output.Write(payload);
+            }
+            else output.Write(blob,field.Start,field.End-field.Start);
+        }
+        return output.ToArray();
+    }
     public Retained EntityAt(byte[] blob,int x,int y,int z,int dimension)
     {
         Retained? selected=null;long bytes=0;int count=0;
@@ -99,6 +119,16 @@ internal sealed class BlockIdChunkCodec
         try{Unpack.Invoke(layer,[blob.AsSpan(solid.Data,solid.Length).ToArray()]);layer.Set(index,target);compressed=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}
         using var output=new MemoryStream();foreach(var field in fields){if(field.Start==solid.Start){Var(output,(ulong)((field.Tag<<3)|2));Var(output,(ulong)compressed.Length);output.Write(compressed);}else output.Write(blob,field.Start,field.End-field.Start);}
         return output.ToArray();
+    }
+    // Only called after the migration inventory processor verifies each retained
+    // entity/hash/slot layout. Unapproved positions sharing an ID stay unchanged.
+    internal byte[] ReplaceVerifiedContainerCells(byte[] blob,IReadOnlyDictionary<int,(int Source,int Target)> choices)
+    {
+        if(choices.Count==0)return blob;if(choices.Count>256)throw new InvalidDataException("Too many verified container positions in one chunk.");
+        var cells=ReadCells(blob,choices.Keys);foreach(var e in choices)if(e.Key<0||e.Key>=32768||e.Value.Target<=0||cells[e.Key][0]!=e.Value.Source||cells[e.Key][1]!=0)throw new InvalidOperationException("Verified container position changed or contains fluid.");
+        var field=Fields(blob).Single(f=>f.Tag==1&&f.Wire==2);var layer=new BlockChunkDataLayer(pool);byte[] compressed;
+        try{Unpack.Invoke(layer,[blob.AsSpan(field.Data,field.Length).ToArray()]);foreach(var e in choices)layer.Set(e.Key,e.Value.Target);compressed=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}
+        using var output=new MemoryStream();foreach(var f in Fields(blob)){if(f.Start==field.Start){Var(output,(ulong)((1<<3)|2));Var(output,(ulong)compressed.Length);output.Write(compressed);}else output.Write(blob,f.Start,f.End-f.Start);}return output.ToArray();
     }
     internal sealed record Identity(string Code,string EntityClass,bool Fluid);
     internal static string Canonical(string code)=>string.IsNullOrWhiteSpace(code)?"":code.Contains(':')?code:"game:"+code;

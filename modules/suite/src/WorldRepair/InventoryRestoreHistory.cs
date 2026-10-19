@@ -16,6 +16,18 @@ public static class InventoryRestoreHistory
         public List<BlockHistoryAdvisor.SnapshotSlot> Slots {get;set;}=[];
         public string Hash=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{Id,Code,TimestampUtc,SlotCount,Slots}))));
     }
+    public static Source LatestBefore(string path,string world,int x,int y,int z,int dimension,DateTime before)
+    {
+        if(!File.Exists(path))throw new InvalidOperationException("BlockLogger history is unavailable.");
+        using var db=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=path,Mode=SqliteOpenMode.ReadOnly,Pooling=false,DefaultTimeout=1}.ToString());db.Open();
+        using var cmd=db.CreateCommand();cmd.CommandTimeout=2;
+        cmd.CommandText="SELECT id FROM snapshots INDEXED BY idx_snapshots_world_dim_pos_time WHERE world_id=$world AND dimension IN ($dim,$legacy) AND x=$x AND y=$y AND z=$z AND timestamp_ticks<=$before ORDER BY timestamp_ticks DESC,id DESC LIMIT 1";
+        cmd.Parameters.AddWithValue("$world",world);cmd.Parameters.AddWithValue("$dim",dimension.ToString(System.Globalization.CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$legacy",dimension==0?"overworld":dimension.ToString(System.Globalization.CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$x",x);cmd.Parameters.AddWithValue("$y",y);cmd.Parameters.AddWithValue("$z",z);cmd.Parameters.AddWithValue("$before",before.Ticks);
+        object? id=cmd.ExecuteScalar();if(id==null)throw new InvalidOperationException("No inventory snapshot exists at/before the selected cutoff for this exact location.");
+        // Never skip a newer empty/invalid/mismatched snapshot to resurrect an
+        // older non-empty one. Read also rejects later logged block/item changes.
+        return Read(path,world,x,y,z,dimension,Convert.ToInt64(id));
+    }
     public static Source Read(string path,string world,int x,int y,int z,int dimension,long id)
     {
         if(id<=0||!File.Exists(path))throw new InvalidOperationException("Choose a retained BlockLogger snapshot for this exact location.");

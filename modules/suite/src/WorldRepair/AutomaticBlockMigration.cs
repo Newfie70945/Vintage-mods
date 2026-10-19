@@ -3,7 +3,7 @@ namespace BlockLogger.WorldRepair;
 public sealed partial class BlockIdRepairService
 {
     public sealed record AutomaticSkip(int SourceId,string SavedCode,long Count,string Reason);
-    public Plan PreviewAutomatic(bool createBackup=true,bool manualBackupAcknowledged=false)
+    public Plan PreviewAutomatic(bool createBackup=true,bool manualBackupAcknowledged=false,MigrationInventoryOptions? inventory=null)
     {
         Guard();lock(gate)
         {
@@ -21,8 +21,8 @@ public sealed partial class BlockIdRepairService
                 else choices.Add(new(finding.Id,api.World.Blocks[target!.Value].Code.ToString()));
             }
             if(choices.Count==0)throw new InvalidOperationException("No exact installed identities can be migrated automatically. "+string.Join(" ",skipped.Select(s=>s.Reason).Distinct().Take(3)));
-            var plan=PreviewMappings(choices,false,false,createBackup,manualBackupAcknowledged,true,true);plan.Skipped=skipped;
-            plan.Message=$"Automatic exact-code recovery: {plan.Mappings.Count} missing IDs / {plan.Count} saved occurrences. {skipped.Count} IDs excluded and listed for manual review. Healthy source definitions are protected. Compatible retained block-entity bytes are preserved, including inventory contents already present. Missing/deleted metadata and inventory stack IDs are not reconstructed. Review the mappings, then stage for restart. "+(createBackup?"Automatic world backup enabled.":"Automatic backup disabled; retain your acknowledged manual world copy.");
+            var plan=PreviewMappings(choices,false,false,createBackup,manualBackupAcknowledged,true,true,inventory);plan.Skipped=skipped;
+            plan.Message=$"Automatic exact-code recovery: {plan.Mappings.Count} missing IDs / {plan.Count} saved occurrences. {skipped.Count} IDs excluded and listed for manual review. Healthy source definitions are protected. Compatible retained block-entity bytes are preserved, including inventory contents already present. Inventory recovery mode: {plan.Inventory.Mode}. Historical recovery requires compatible retained metadata and a successful preparation review. Deleted metadata and unresolved item definitions are not invented. Review the mappings, then stage for restart. "+(createBackup?"Automatic world backup enabled.":"Automatic backup disabled; retain your acknowledged manual world copy.");
             return plan;
         }
     }

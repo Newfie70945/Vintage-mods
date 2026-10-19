@@ -3,13 +3,13 @@ namespace BlockLogger.WorldRepair;
 public sealed partial class BlockIdRepairService
 {
     public sealed record DestinationCheck(int SourceId,string Destination,bool Valid,int? TargetId,string TargetCode,string Message);
-    private RepairMapping ResolveMapping(int source,int target,Scan current,Dictionary<int,string> map,bool allowAir,bool allowValid,bool automatic=false)
+    private RepairMapping ResolveMapping(int source,int target,Scan current,Dictionary<int,string> map,bool allowAir,bool allowValid,bool automatic=false,MigrationInventoryOptions? inventory=null)
     {
         var finding=current.Findings.SingleOrDefault(f=>f.Id==source&&f.Count>0)??throw new ArgumentException("Source ID has no missing-block occurrences in the completed scan.");
         var block=Missing(target)?null:api.World.Blocks[target];
         var info=block==null?null:new BlockRemapAdvisor.Target(target,block.Code.ToString(),block.ForFluidsLayer,block.EntityClass??"");
         if(automatic&&(block==null||!Missing(source)||target==0||BlockIdChunkCodec.Canonical(map.GetValueOrDefault(source,""))!=block.Code.ToString()||finding.AutomaticIssue.Length>0))throw new ArgumentException("Exact identity recovery is unavailable or has incompatible retained metadata.");
-        string issue=RemapTargetPolicy.Issue(new(source,Missing(source),finding.Solid,finding.Fluid,finding.Decor),info!=null&&BlockIdChunkCodec.Canonical(map.GetValueOrDefault(source,""))==info.Code&&finding.AutomaticIssue.Length==0?info with{EntityClass=""}:info,allowAir,allowValid);
+        string issue=RemapTargetPolicy.Issue(new(source,Missing(source),finding.Solid,finding.Fluid,finding.Decor),info!=null&&((BlockIdChunkCodec.Canonical(map.GetValueOrDefault(source,""))==info.Code&&finding.AutomaticIssue.Length==0)||(inventory?.Mode!="preserve"&&inventory!=null&&info.Code.StartsWith("game:",StringComparison.Ordinal)&&SupportedContainer(info.EntityClass)))?info with{EntityClass=""}:info,allowAir,allowValid);
         if(issue.Length>0)throw new ArgumentException(issue);
         return new(){Source=source,Target=target,SourceCode=Label(source,map),TargetCode=info!.Code,Count=finding.Count,Chunks=finding.Chunks};
     }

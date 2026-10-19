@@ -30,13 +30,15 @@ public sealed class LoadedMigrationProbe:ModSystem
             int before=api.World.BlockAccessor.GetBlockId(pos);
             string message=(string)typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeld",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player])!;
             int after=api.World.BlockAccessor.GetBlockId(pos);
+            var ruleList=(TextCommandResult)typeof(BlockIdRepairService).GetMethod("ListMigrationRules",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[1])!;
+            bool rulesShown=ruleList.StatusMessage.Contains("999997")&&ruleList.StatusMessage.Contains("game:rock-granite");if(!rulesShown)throw new Exception("Saved held rule was not visible in the in-game rule list.");
             if(before!=999997||after!=before||inventory[0].StackSize!=7)throw new Exception("Held rule changed terrain immediately or consumed held stack.");
             // The same adapter must reject a healthy looked-at source.
             data.EntityPlayer.BlockSelection=new(){Position=pos.AddCopy(-2,0,0)};bool healthyRejected=false;
             try{typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeld",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player]);}
             catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("protected")==true){healthyRejected=true;}
             if(!healthyRejected)throw new Exception("Healthy looked-at source was not protected.");
-            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,message}));
+            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,message}));
             return TextCommandResult.Success("Held migration adapter checked using detached administrator fixture.");
         });
         api.ChatCommands.Create("nsemigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>

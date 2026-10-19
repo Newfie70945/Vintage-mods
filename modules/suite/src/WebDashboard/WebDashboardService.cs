@@ -1224,7 +1224,7 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/all")
             return true;
 
-        if (path == "/api/block-migration" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "loaded-disable" or "search" or "mapping-advice" or "check-destinations");
+        if (path == "/api/block-migration" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "loaded-disable" or "rules-clear" or "search" or "mapping-advice" or "check-destinations");
 
         if (path == "/api/optimizations/newfies" && request.Method == "POST")
             return GetJsonString(request.Body, "operation", "set") != "profile-stop";
@@ -8542,16 +8542,20 @@ public sealed partial class WebDashboardService : IDisposable
                 var result=await RunOnMainThreadAsync<object>(()=>{
                     var repair=module.BlockRepair??throw new InvalidOperationException("Block migration is unavailable.");
                     List<BlockLogger.WorldRepair.RemapChoice> Choices(){using var json=JsonDocument.Parse(request.Body);if(!json.RootElement.TryGetProperty("mappings",out var items)||items.ValueKind!=JsonValueKind.Array||items.GetArrayLength() is <1 or >32)throw new ArgumentException("Select 1–32 mappings.");return items.EnumerateArray().Select(e=>new BlockLogger.WorldRepair.RemapChoice(e.GetProperty("sourceId").GetInt32(),e.GetProperty("destination").GetString()??"")).ToList();}
+                    BlockLogger.WorldRepair.MigrationInventoryOptions Inventory()=>BlockLogger.WorldRepair.MigrationInventoryOptions.Parse(GetJsonString(request.Body,"inventoryMode","preserve"),GetJsonString(request.Body,"inventoryBeforeUtc",""),GetJsonBool(request.Body,"inventoryRiskAcknowledged",false),GetJsonBool(request.Body,"inventoryOverwriteAcknowledged",false));
                     List<int> Sources(){using var json=JsonDocument.Parse(request.Body);if(!json.RootElement.TryGetProperty("sources",out var items)||items.ValueKind!=JsonValueKind.Array||items.GetArrayLength() is <1 or >32)throw new ArgumentException("Select 1–32 IDs.");return items.EnumerateArray().Select(e=>e.GetInt32()).ToList();}
                     return operation switch {
                         "status"=>repair.Snapshot((webSession?.IsOwner??false)||LocalAnonymousMode),
-                        "search"=>repair.SearchTargets(GetJsonString(request.Body,"query",""),GetJsonInt(request.Body,"sourceId",0) is int searchSource&&searchSource!=0?searchSource:null,GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
+                        "search"=>repair.SearchTargets(GetJsonString(request.Body,"query",""),GetJsonInt(request.Body,"sourceId",0) is int searchSource&&searchSource!=0?searchSource:null,GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonString(request.Body,"inventoryMode","preserve")),
                         "check-destinations"=>repair.CheckDestinations(Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false)),
                         "mapping-advice"=>repair.StartMappingAdvice(Sources()),
-                        "loaded-stage"=>repair.StageLoadedMigration(GetJsonString(request.Body,"previewId",""),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
+                        "loaded-stage"=>repair.StageLoadedMigration(GetJsonString(request.Body,"previewId",""),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),Inventory()),
                         "loaded-disable"=>repair.DisableLoadedMigration(),
-                        "automatic-preview"=>repair.PreviewAutomatic(GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
-                        "batch-preview"=>repair.PreviewBatch(Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
+                        "rule-set"=>repair.ConfigureMigrationRule(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",""),Inventory(),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false)),
+                        "rule-remove"=>repair.RemoveMigrationRule(GetJsonInt(request.Body,"sourceId",0)),
+                        "rules-clear"=>repair.ClearMigrationRules(),
+                        "automatic-preview"=>repair.PreviewAutomatic(GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),Inventory()),
+                        "batch-preview"=>repair.PreviewBatch(Choices(),GetJsonBool(request.Body,"allowAir",false),GetJsonBool(request.Body,"allowValidSource",false),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),Inventory()),
                         "scan"=>repair.StartScan(GetJsonInt(request.Body,"sourceId",0) is int focus&&focus!=0?focus:null,false),
                         "cancel"=>repair.Cancel(),
                         _=>throw new ArgumentException("Unsupported block migration operation.")};
