@@ -22,3 +22,5 @@ No chunk codec, replacement policy, inventory evidence requirements or recovery 
 - Source/version consistency and whitespace checks passed. No production server or world was accessed.
 
 Browser API fixtures and the dedicated-server test are separate checks. No authenticated game client was used. Retained inventories and damaged production worlds may have missing/incompatible evidence; this UI pass does not promise that every bookshelf or item can be recovered. Preview images use synthetic test IDs and replacement results.
+
+[Final server result and shipping ZIP hash](validation/migration-ui2-server.json). An intermediate rerun timed out because the harness sent unload/load commands before the console acknowledged the first; the test-only fixture now waits for an explicit unload acknowledgement. The corrected final run passed with the shipping ZIP.

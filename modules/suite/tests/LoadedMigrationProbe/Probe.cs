@@ -57,7 +57,7 @@ public sealed class LoadedMigrationProbe:ModSystem
             return TextCommandResult.Success("Queued activation cancelled before its server-thread callback.");
         });
         api.ChatCommands.Create("nseunloadfixture").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("chunk X"),p.Int("chunk Z")).HandleWith(a=>
-        {api.WorldManager.UnloadChunkColumn((int)a[0],(int)a[1]);return TextCommandResult.Success("Saved fixture column unloaded.");});
+        {api.WorldManager.UnloadChunkColumn((int)a[0],(int)a[1]);api.Logger.Notification("NSE_FIXTURE_UNLOADED");return TextCommandResult.Success("Saved fixture column unloaded.");});
         api.ChatCommands.Create("nsemigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>
         {
             var pos=new BlockPos((int)a[0],(int)a[1],(int)a[2]);

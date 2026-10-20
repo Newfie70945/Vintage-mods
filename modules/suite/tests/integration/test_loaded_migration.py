@@ -130,7 +130,12 @@ try:
         if saved!=seed:break
         if time.monotonic()>until:raise RuntimeError('Normal autosave did not persist the fixture column')
         time.sleep(.2)
+    unload_offset=len(lines)
     process.stdin.write('/nseunloadfixture '+str(location['x']//32)+' '+str(location['z']//32)+'\n');process.stdin.flush()
+    until=time.monotonic()+30
+    while not any('NSE_FIXTURE_UNLOADED' in line for line in lines[unload_offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Fixture column unload was not acknowledged')
+        time.sleep(.1)
     result['fixtureReloadedAfterNormalAutosave']=True
     offset=len(lines);process.stdin.write('/nsemigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
     until=time.monotonic()+90
