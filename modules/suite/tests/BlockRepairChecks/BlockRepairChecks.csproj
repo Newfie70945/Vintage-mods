@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup><Compile Include="../../src/WorldRepair/MigrationSkipHistory.cs" Link="MigrationSkipHistory.cs"/>
 <Reference Include="SQLitePCLRaw.core"><HintPath>$(VINTAGE_STORY)/Lib/SQLitePCLRaw.core.dll</HintPath><Private>false</Private></Reference>
 <Compile Include="../../src/WorldRepair/ChiseledMaterialPayload.cs" Link="ChiseledMaterialPayload.cs"/>
 <Compile Include="../../src/WorldRepair/MigrationWorldBackup.cs" Link="MigrationWorldBackup.cs"/>

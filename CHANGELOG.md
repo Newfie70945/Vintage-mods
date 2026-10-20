@@ -2,6 +2,13 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationReview1: add read-only `/nseblockmigrate previewheld` using the same held-target/rule validation without changing terrain, rules or backups.
+- Add `/nseblockmigrate repairheld confirm-risk manual-copy-confirmed` for one plain missing block, without creating an ID-wide rule or automatic backup. Protect healthy blocks, fluids, retained metadata, containers and chiseled hosts; verify serialized live-chunk metadata before changing the cell. Held items are not consumed.
+- Improve `inspect` with saved identity, matching rule, migration state, live block-entity presence and per-material rules. Distinguish surviving metadata from historical inventory recovery evidence.
+- Show up to 32 recent loaded-cell refusal locations, source/target IDs, specific reasons and repeated attempt counts in webpanel diagnostics. Samples are bounded and contain no chunk/entity references; they are not a complete audit or undo log.
+- Suite remains **1.2.44**, build `ms11-migrationreview1`; companion module versions are unchanged.
+
+
 - DiscordEvents1: added a separate Temporal storms announcement route to the Discord webpanel controls, with enable toggle, channel routing and editable format. Suite stays 1.2.44, build `ms11-discordevents1`.
 
 ## Server Essentials Discord 1.0.14

@@ -80,7 +80,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationcontainers1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationreview1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -134,6 +134,8 @@ try:
         if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held adapter probe timed out: '+str(root))
         time.sleep(.1)
     held=json.loads(next(line.split(heldmarker,1)[1] for line in lines[offset:] if heldmarker in line));assert held['heldQuantity']==7 and held['healthyRejected'],held
+    assert all(held[k] for k in ['readOnlyPreview','singlePlainRepair','sameIdNeighbourUnchanged','metadataRefused','singleConfirmationRejected']),held
+    result['heldPreviewAndSingleRepair']=dict((k,held[k]) for k in ['readOnlyPreview','singlePlainRepair','sameIdNeighbourUnchanged','metadataRefused','singleConfirmationRejected'])
     staged=wait_active();assert len(staged['plan']['mappings'])==3 and process.pid==original_pid,staged;result['heldRuleAutomaticallyActiveWithoutRestart']=True
     assert 'no world scan' in held['message'];result['heldRuleDoesNotWaitForRunningScan']=True
     assert {m['source'] for m in staged['plan']['mappings']}=={999999,999998,999997};result['heldRulePreservesOtherRulesAndHeldStack']=True;result['healthyLookedAtSourceRefused']=True
