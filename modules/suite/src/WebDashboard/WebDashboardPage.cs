@@ -2754,6 +2754,16 @@ __NSS_RETENTION_HTML__
 <section id="blocklogger">
   <div class="pageTitle"><div><h2>BlockLogger</h2><div class="subtitle">Search audit history and control how much database history/backups are retained on disk.</div></div></div>
 
+  <div class="card" data-workspace-fixed="true"><div class="cardHeader"><h3>Recording &amp; recovery</h3><div class="spacer"></div><button id="blRecordingRefresh">Refresh status</button></div>
+    <div id="blRecordingStatus" class="compactNote" role="status">Loading live recording status…</div><div id="blRecordingCounters" class="small"></div>
+    <div class="grid" style="margin:12px 0"><label class="toggleLine"><input id="blRecEnabled" type="checkbox"> Record audit events</label><label class="toggleLine"><input id="blRecLogBlockBreak" type="checkbox"> Block breaks</label><label class="toggleLine"><input id="blRecLogBlockPlace" type="checkbox"> Block placements</label><label class="toggleLine"><input id="blRecLogBlockUse" type="checkbox"> Block interactions</label><label class="toggleLine"><input id="blRecLogContainerAccess" type="checkbox"> Container access</label><label class="toggleLine"><input id="blRecLogContainerItemChanges" type="checkbox"> Take / put item changes</label><label class="toggleLine"><input id="blRecLogContainerSnapshots" type="checkbox"> Full container snapshots</label><label class="toggleLine"><input id="blRecSnapshotOnSlotChange" type="checkbox"> Snapshots after slot changes</label></div><div class="grid"><label>Snapshot debounce (ms)<input id="blRecSnapshotDebounceMs" type="number" min="250" max="30000"></label><label>Tracked container limit<input id="blRecMaxTrackedContainerSessions" type="number" min="16" max="8192"></label></div>
+    <p class="small">Take/put rows record transfers; snapshots record complete contents. For future snapshot-based recovery, enable all three container content settings. Reopen containers after changing settings. Snapshot debouncing reduces repeated writes; snapshots increase database usage. Original item attributes are not stored.</p>
+    <details style="margin:10px 0"><summary>Entity logging, queue limits &amp; ignored codes</summary><div class="grid" style="margin:12px 0"><label class="toggleLine"><input id="blRecLogEntityInteract" type="checkbox"> Entity interactions</label><label class="toggleLine"><input id="blRecLogEntitySpawn" type="checkbox"> Entity spawns</label><label class="toggleLine"><input id="blRecLogEntityDeath" type="checkbox"> Entity deaths</label><label class="toggleLine"><input id="blRecLogEntityDespawn" type="checkbox"> Entity despawns</label><label class="toggleLine"><input id="blRecAggregateEntitySpawnDespawn" type="checkbox"> Aggregate spawn / despawn rows</label><label class="toggleLine"><input id="blRecAdaptiveEntityAggregation" type="checkbox"> Adaptive entity aggregation</label></div><div class="grid"><label>Writer flush interval (ms)<input id="blRecFlushIntervalMs" type="number" min="100" max="60000"></label><label>Normal audit queue limit<input id="blRecMaxQueuedEvents" type="number" min="500" max="250000"></label><label>Emergency queue reserve<input id="blRecEmergencyOverflowCapacity" type="number" min="1000" max="1000000"></label><label>Entity aggregation window (ms)<input id="blRecEntityAggregateWindowMs" type="number" min="1000" max="60000"></label><label>Entity position sampling (ms; 0 = off)<input id="blRecBulkEntityPositionSampleIntervalMs" type="number" min="0" max="60000"></label><label>History search radius<input id="blRecDefaultRadius" type="number" min="0" max="256"></label><label>Default history rows<input id="blRecDefaultDisplayCount" type="number" min="1" max="2000"></label></div><div class="grid" style="margin-top:12px"><label>Ignore block-code prefixes (one per line)<textarea id="blRecIgnoredBlockCodePrefixes" rows="3" style="width:100%;box-sizing:border-box"></textarea></label><label>Ignore entity-code prefixes (one per line)<textarea id="blRecIgnoredEntityCodePrefixes" rows="3" style="width:100%;box-sizing:border-box"></textarea></label></div></details>
+    <div class="quickActions"><button id="blRecordingSave" class="primary" disabled>Save recording settings</button><button id="blRecordingPreset" disabled>Prepare recovery recording</button><button id="blRecordingDiscard">Discard edits</button></div>
+    <div id="blRecordingResult" class="small" role="status" aria-live="polite"></div>
+    <details><summary>Why rollback can show zero recoverable changes</summary><p class="small">A remapper can change IDs without generating break/place logs. A visible ? texture can also belong to a healthy registered block. Single-block rollback now prints its actual code/ID and history counts. For an existing container with take/put rows but no old snapshots, explicitly preview <code>/rollback block 48h --from-live --include-claims</code>. For a genuinely missing definition, preview <code>/rollback block 48h --repair-missing --include-claims</code>; unsupported retained containers still need Block ID Migration. Preview never changes blocks. Missing history, removed mod assets and old item attributes cannot be invented.</p></details>
+  </div>
+
   <div class="card" style="margin-bottom:12px">
     <div class="cardHeader"><h3>Database Maintenance &amp; Disk Usage</h3><div class="spacer"></div><button id="blMaintenanceRefresh">Refresh</button></div>
     <div id="blMaintenanceStatus" class="small">Loading BlockLogger database policy…</div>
@@ -6569,7 +6579,7 @@ function setSection(section,load=true) {
   if(section==='tickDebug')loadTickDebug(true);
   if(section==='memory')loadMemoryCenter(true);
   if(section==='optimizations')loadOptimizations();
-  if(section==='blocklogger')loadBlockLoggerMaintenance();
+  if(section==='blocklogger'){loadBlockLoggerMaintenance();loadBlockLoggerRecording();}
   if(section==='animals'){loadAnimalStatus();loadAnimalRules();}
   if(section==='loginProtection')loadLoginProtection();
   if(section==='announcements')loadAnnouncements();
@@ -6992,6 +7002,38 @@ async function runBlockLoggerSearch(kind,offset=0){
     if(e?.name!=='AbortError')$('blResultInfo').textContent=e.message;
   }
 }
+
+let blRecordingDirty=false,blRecordingBusy=false,blRecordingState=null;
+const blRecordingBools=["Enabled", "LogBlockBreak", "LogBlockPlace", "LogBlockUse", "LogContainerAccess", "LogContainerItemChanges", "LogContainerSnapshots", "SnapshotOnSlotChange", "LogEntityInteract", "LogEntitySpawn", "LogEntityDeath", "LogEntityDespawn", "AggregateEntitySpawnDespawn", "AdaptiveEntityAggregation"];
+const blRecordingInts=["SnapshotDebounceMs", "MaxTrackedContainerSessions", "FlushIntervalMs", "MaxQueuedEvents", "EmergencyOverflowCapacity", "EntityAggregateWindowMs", "BulkEntityPositionSampleIntervalMs", "DefaultRadius", "DefaultDisplayCount"];
+const blRecordingLists=['IgnoredBlockCodePrefixes','IgnoredEntityCodePrefixes'];
+const blRecKey=name=>name[0].toLowerCase()+name.slice(1);
+function renderBlockLoggerRecording(data){
+ blRecordingState=data;const c=data.settings;if(!c){$('blRecordingStatus').textContent='Recording status unavailable. Refresh or check the installed Suite build.';return;}
+ const locked=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal||!data.featureEnabled;
+ for(const name of [...blRecordingBools,...blRecordingInts,...blRecordingLists]){const e=$('blRec'+name);if(!blRecordingDirty){const v=c[blRecKey(name)];if(blRecordingBools.includes(name))e.checked=!!v;else e.value=blRecordingLists.includes(name)?(v||[]).join('\n'):String(v??0);}e.disabled=locked||blRecordingBusy;}
+ $('blRecordingStatus').textContent=!data.featureEnabled?'BlockLogger module is disabled for this process. Enable it in Suite Features and restart.':!c.enabled?'Recording is OFF. Existing history remains searchable.':!data.ready?'Recording configured ON; storage is not ready.':data.snapshotRecovery?'Recording ON · transfer logs and slot-change snapshots configured for future recovery.':'Recording ON · '+(c.logContainerItemChanges?'take/put enabled':'take/put disabled')+' · '+(c.logContainerSnapshots?'snapshots enabled':'snapshots OFF')+' · '+(c.snapshotOnSlotChange?'slot-change snapshots enabled':'slot-change snapshots OFF')+'.';
+ $('blRecordingCounters').textContent=`This process: ${data.writtenEvents||0} events / ${data.writtenSnapshots||0} snapshots written · ${data.pendingEvents||0} events / ${data.pendingSnapshots||0} snapshots queued · ${data.activeSessions||0} tracked containers · ${data.droppedEvents||0} events / ${data.droppedSnapshots||0} snapshots dropped. Counters are not historical database totals.`;
+ for(const id of ['blRecordingSave','blRecordingPreset'])$(id).disabled=locked||blRecordingBusy;
+ $('blRecordingDiscard').disabled=blRecordingBusy||!blRecordingDirty;$('blRecordingRefresh').disabled=blRecordingBusy;
+ if(locked)$('blRecordingResult').textContent=!data.featureEnabled?'Enable the BlockLogger module in Suite Features and restart before changing live recording settings.':'Read-only access or Safe Diagnostics Mode: recording settings are locked.';
+}
+async function loadBlockLoggerRecording(){try{renderBlockLoggerRecording(await api('/api/blocklogger/recording'));}catch(e){$('blRecordingResult').textContent='Status failed: '+e.message;}}
+async function saveBlockLoggerRecording(){
+ if(blRecordingBusy||currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal)return;
+ if(!blRecordingState?.settings){$('blRecordingResult').textContent='Load recording settings before saving.';return;}
+ const body={};for(const name of blRecordingBools)body[blRecKey(name)]=$('blRec'+name).checked;
+ for(const name of blRecordingInts){const e=$('blRec'+name),n=Number(e.value);if(!e.value.trim()||!Number.isInteger(n)||n<Number(e.min)||n>Number(e.max)){$('blRecordingResult').textContent='Enter a whole number within the shown range for '+name+'.';e.focus();return;}body[blRecKey(name)]=n;}
+ for(const name of blRecordingLists)body[blRecKey(name)]=$('blRec'+name).value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ blRecordingBusy=true;if(blRecordingState)renderBlockLoggerRecording(blRecordingState);$('blRecordingResult').textContent='Saving…';
+ try{const result=await api('/api/blocklogger/recording',{method:'POST',body:JSON.stringify(body)});blRecordingDirty=false;renderBlockLoggerRecording(result);$('blRecordingResult').textContent='Saved. Settings apply to future activity; reopen containers to start tracking. Existing missing history was not recreated.';}
+ catch(e){$('blRecordingResult').textContent='Save failed: '+e.message+' Your edits are retained.';}
+ finally{blRecordingBusy=false;if(blRecordingState)renderBlockLoggerRecording(blRecordingState);}
+}
+for(const name of [...blRecordingBools,...blRecordingInts,...blRecordingLists])$('blRec'+name).addEventListener('input',()=>{blRecordingDirty=true;$('blRecordingResult').textContent='Unsaved recording settings.';if(blRecordingState)renderBlockLoggerRecording(blRecordingState);});
+$('blRecordingSave').onclick=saveBlockLoggerRecording;$('blRecordingRefresh').onclick=loadBlockLoggerRecording;
+$('blRecordingDiscard').onclick=()=>{blRecordingDirty=false;loadBlockLoggerRecording();$('blRecordingResult').textContent='Edits discarded.';};
+$('blRecordingPreset').onclick=()=>{if(currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal||blRecordingBusy)return;for(const name of ['Enabled','LogContainerItemChanges','LogContainerSnapshots','SnapshotOnSlotChange'])$('blRec'+name).checked=true;blRecordingDirty=true;renderBlockLoggerRecording(blRecordingState);$('blRecordingResult').textContent='Recovery recording prepared — click Save recording settings. Snapshots add database writes; existing history is unchanged.';};
 
 async function loadBlockLoggerMaintenance(){
   const out=$('blMaintenanceStatus');

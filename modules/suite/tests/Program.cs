@@ -63,6 +63,18 @@ internal static class Program
         h=History(Block(10,"alice","game:stone","air",LogActionType.BlockBreak));h.AreaMode=true;h.Events.Add(new(){StorageId=next++,TimestampUtc=From.AddMinutes(20),Dimension="0",X=10,Y=100,Z=10,Action=LogActionType.BlockUse,Meta=new(){["rollbackToken"]="prior"}});Check(Build(h).Operations.Count==0,"Area still respects earlier recovery barriers");
         using(var cancelled=new CancellationTokenSource())
         {cancelled.Cancel();try{RollbackRecoveryPlanner.Build(h,From,To,true,true,cancelled.Token);throw new Exception("Cancelled planning returned operations");}catch(OperationCanceledException){ }}
+        var cell=new RecoveryCell("0",10,100,10);
+        h=History(Delta(10,5,LogActionType.ContainerTake));h.AreaMode=true;h.Events[0].BlockCode="game:chest-east";h.Events[0].Meta["inventoryId"]="chest-one";
+        var live=new RecoveryLiveInventory(cell,"game:chest-east","chest-one",16,new(){new(0,"game:ingot-copper",5)});
+        RecoveryBuild Live()=>RollbackRecoveryPlanner.Build(h,From,To,true,false,default,live);
+        Check(Build(h,true).Operations.Count==0,"Snapshot-free rollback must remain explicit");
+        op=Live().Operations.Single();Check(op.InventoryBefore!.Single().Count==10&&op.InventoryAfter!.Single().Count==5,"Explicit live anchor reverses missing-snapshot take logs");
+        h.Events[0].Meta["inventoryId"]="other";Check(Live().Operations.Count==0,"Wrong inventory cannot use live anchor");h.Events[0].Meta["inventoryId"]="chest-one";
+        h.Events[0].Action=LogActionType.ContainerPut;h.Events[0].Meta["quantity"]="6";Check(Live().Operations.Count==0,"Impossible inverse count must fail");
+        h.Events[0].Action=LogActionType.ContainerTake;h.Events[0].Meta["quantity"]="5";h.Events.Add(Block(70,"other","game:chest-east","air"));Check(Live().Operations.Count==0,"Post-window replacement blocks live-anchor recovery");
+        h=History(new LogEventRecord(){StorageId=90000,TimestampUtc=From.AddMinutes(10),Action=LogActionType.BlockUse,BlockCode="game:stone",Dimension="0",X=10,Y=100,Z=10});h.AreaMode=true;
+        op=RollbackRecoveryPlanner.Build(h,From,To,true,false,default,null,new(cell,999999)).Operations.Single();Check(op.Before=="game:stone"&&op.MissingBlockId==999999,"Missing numeric block can use unambiguous same-location use history");
+        h.Events.Add(new(){StorageId=90001,TimestampUtc=From.AddMinutes(20),Action=LogActionType.BlockUse,BlockCode="game:dirt",Dimension="0",X=10,Y=100,Z=10});Check(RollbackRecoveryPlanner.Build(h,From,To,true,false,default,null,new(cell,999999)).Operations.Count==0,"Ambiguous block identity cannot be guessed");
         Console.WriteLine("PASS: production planner recovery/conflict/legacy/snapshot/entity cases.");
     }
 }

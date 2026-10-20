@@ -79,7 +79,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationui2','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-rollbacklogging1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -90,6 +90,14 @@ try:
         z.writestr('modinfo.json',json.dumps(dict(type='code',modid='nseloadedmigrationprobe',name='Disposable Loaded Migration Probe',version='1.0.0',side='server',requiredOnClient=False)))
     launch();ready(0)
     status,auth=request('/api/login',{'username':'fixtureowner','password':password});assert status==200,auth;csrf=auth['csrfToken']
+    status,recording=request('/api/blocklogger/recording');assert status==200 and recording['featureEnabled'] and recording['ready'],recording
+    original_recording={k:recording['settings'][k] for k in ['logContainerSnapshots','snapshotOnSlotChange','snapshotDebounceMs']}
+    status,recording=request('/api/blocklogger/recording',dict(logContainerSnapshots=True,snapshotOnSlotChange=True,snapshotDebounceMs=4000));assert status==200 and recording['snapshotRecovery'],recording
+    assert recording['settings']['snapshotDebounceMs']==4000
+    saved_logger=json.loads((configdir/'NewfiesBlocklogger.json').read_text());assert saved_logger['LogContainerSnapshots'] and saved_logger['SnapshotOnSlotChange']
+    status,rejected=request('/api/blocklogger/recording',dict(logContainerSnapshots='yes'));assert status==400,rejected
+    status,recording=request('/api/blocklogger/recording',original_recording);assert status==200,recording
+    result['liveRecordingSettingsPersistAndRejectInvalidTypes']=True
     status,_=request('/api/block-migration',dict(operation='scan'));assert status==200
     scan,current=wait_field('scan');assert scan['state']=='complete' and scan['errors']==scan['unsupported']==0,scan
     ids={f['id']:f for f in scan['findings']};assert ids[999999]['count']==ids[999998]['count']==1
@@ -175,7 +183,11 @@ try:
     # cell, including all healthy neighbors, rather than assuming those bytes freeze.
     subprocess.run([net,str(helper),'verify-live',str(root/'seeded.bin'),str(root/'repaired.bin'),str(plan['mappings'][0]['target']),str(plan['mappings'][1]['target'])],env=env,check=True)
     result['normalSavePersistedAll32768CellsVerified']=True
+    f['BlockLogger']=False;features.write_text(json.dumps(f))
     offset=len(lines);launch();ready(offset);off=state()['loadedMigration'];assert not off['active'] and not off['enabled'];result['disabledStateSurvivesRestart']=True
+    status,off_recording=request('/api/blocklogger/recording');assert status==200 and off_recording['featureEnabled'] is False and off_recording['recording'] is False,off_recording
+    status,_=request('/api/blocklogger/recording',dict(enabled=True));assert status!=200,'disabled module accepted a recording write'
+    result['disabledModuleRecordingStatusRemainsReadable']=True
     stop();(root/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));print('Validation output: '+str(root))
 finally:
     if process is not None and process.poll() is None:

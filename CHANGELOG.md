@@ -2,6 +2,13 @@
 
 ## Server Essentials Suite 1.2.44
 
+- RollbackLogging1: single-block previews report actual numeric ID/code, missing-definition status, event/transfer/snapshot counts and actionable recovery limits.
+- Added explicit `/rollback block TIME --from-live` for existing containers without old snapshots: reverse identity-matching take/put rows from captured current contents, with fixed preview binding, live-change checks and durable receipts. Unlogged transfers and original item attributes cannot be verified.
+- Added explicit `--repair-missing` for one genuinely missing block. Uses existing block-change history or one unambiguous recorded identity; validates the installed target and binds the missing ID. Compatible retained block entities use ExchangeBlock to preserve their data; healthy blocks, conflicting identities and incompatible metadata are refused.
+- Exact-cell history now returns retained snapshot evidence even when an unlogged remap created no events in the selected window. Existing world/dimension isolation, indexed seeks, deadlines and row caps remain.
+- Added live BlockLogger recording/recovery controls: block/container/entity toggles, snapshots and slot-change snapshots, debounce/session limits, queue/flush settings, aggregation/search defaults and ignored prefixes. Shows effective recording/module/storage status plus current-process written/queued/dropped event and snapshot counters. Recovery preset requires an explicit save; failures preserve edits.
+- Suite remains **1.2.44**, build `ms11-rollbacklogging1`. NOS and companion versions are unchanged.
+
 - MigrationUI2: rebuilt Block ID Migration around a compact rule editor with the replacement, inventory handling, backup choice and **Save & enable rule** together. Saved rules remain visible; optional scans and diagnostics are collapsed.
 - Invalid or incomplete saves now show a specific inline message instead of returning silently. Successful saves and server errors are visible beside the action; Enter submits the rule, failed saves retain the draft, and replacement search is available directly in the editor.
 - New webpanel rules do not opt into automatic backup. They require manual-copy acknowledgement unless automatic backup is explicitly selected. Saved backup and inventory settings restore on refresh and edit; in-game replaceheld still requests automatic backup.

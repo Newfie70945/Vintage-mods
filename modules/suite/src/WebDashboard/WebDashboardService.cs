@@ -296,6 +296,8 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "GET", Path = "/api/animals/recommendations", Access = "Authenticated read", Risk = "Animal Limiter recommendation results", Safety = "Safe" },
         new() { Method = "GET", Path = "/api/blocklogger/nearby", Access = "Authenticated read", Risk = "Sensitive nearby audit lookup", Safety = "Moderate" },
         new() { Method = "GET", Path = "/api/blocklogger/player", Access = "Authenticated read", Risk = "Sensitive player audit lookup", Safety = "Moderate" },
+        new() { Method = "GET", Path = "/api/blocklogger/recording", Access = "Authenticated read", Risk = "Live recording and snapshot recovery status", Safety = "Safe" },
+        new() { Method = "POST", Path = "/api/blocklogger/recording", Access = "Authenticated + CSRF", Risk = "Change future audit recording", Safety = "Admin / High impact", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/blocklogger/maintenance", Access = "Authenticated read", Risk = "BlockLogger storage policy/status", Safety = "Safe" },
         new() { Method = "POST", Path = "/api/blocklogger/maintenance/config", Access = "Administrator/Owner + CSRF", Risk = "Changes BlockLogger retention and backup policy", Safety = "Moderate", CooldownSeconds = 1 },
         new() { Method = "POST", Path = "/api/blocklogger/purge", Access = "Administrator/Owner + CSRF", Risk = "Deletes selected historical BlockLogger database rows and may compact SQLite", Safety = "High", CooldownSeconds = 10, ExclusiveHeavyOperation = true },
@@ -4162,7 +4164,7 @@ public sealed partial class WebDashboardService : IDisposable
             return;
         }
 
-        if (TryGetMasterDisabledFeature(path, out string disabledFeature))
+        if (!(request.Method=="GET" && path=="/api/blocklogger/recording") && TryGetMasterDisabledFeature(path, out string disabledFeature))
         {
             await WriteJsonAsync(
                 stream,
@@ -9113,6 +9115,18 @@ public sealed partial class WebDashboardService : IDisposable
 
             await WriteJsonAsync(stream, result.Success ? 200 : 400, result, cancellationToken)
                 .ConfigureAwait(false);
+            return;
+        }
+
+        if(path=="/api/blocklogger/recording" && request.Method is "GET" or "POST")
+        {
+            try
+            {
+                var payload=await RunOnMainThreadAsync<object>(()=>request.Method=="POST"?SaveBlockLoggerRecording(request.Body):BlockLoggerRecordingSnapshot(),"web-blocklogger-recording").ConfigureAwait(false);
+                if(request.Method=="POST")RecordWebAudit("blocklogger-recording","Recording and recovery settings","Saved",remoteText,requestActor);
+                await WriteJsonAsync(stream,200,payload,cancellationToken).ConfigureAwait(false);
+            }
+            catch(Exception e){await WriteJsonAsync(stream,400,new{error=e.Message},cancellationToken).ConfigureAwait(false);}
             return;
         }
 

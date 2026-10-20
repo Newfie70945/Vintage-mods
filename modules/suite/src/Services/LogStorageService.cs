@@ -678,6 +678,7 @@ public sealed class LogStorageService : IDisposable
                         AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
                         AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2
                         AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                        UNION ALL SELECT $dimension,$cx,$cy,$cz WHERE $area=1 AND $r2=0
                     )
                 ), baselines AS MATERIALIZED (
                     SELECT c.*, (SELECT MAX(prior.timestamp_ticks) FROM snapshots prior INDEXED BY idx_snapshots_world_dim_pos_time
@@ -722,6 +723,7 @@ public sealed class LogStorageService : IDisposable
                         AND x BETWEEN $minX AND $maxX AND y BETWEEN $minY AND $maxY AND z BETWEEN $minZ AND $maxZ
                         AND (1.0*(x-$cx)*(x-$cx)+1.0*(y-$cy)*(y-$cy)+1.0*(z-$cz)*(z-$cz))<=$r2
                         AND timestamp_ticks BETWEEN $from AND $to AND action IN (1,2,3,4,5,6)
+                        UNION ALL SELECT $dimension,$cx,$cy,$cz WHERE $area=1 AND $r2=0
                     )
                 ), baselines AS MATERIALIZED (
                     SELECT c.*, (SELECT old.id FROM snapshots old INDEXED BY idx_snapshots_world_dim_pos_time

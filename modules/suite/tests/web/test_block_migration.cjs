@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];let failSave=false,failNextStatus=false;
  const state={world:'fixture-world',scan:{id:'scan-a',registry:'registry-a',state:'complete',errors:0,unsupported:0,chunks:20,findings:[{id:999999,code:'<img src=x onerror=alert(1)>',solid:1,fluid:0,decor:0,count:1},{id:999998,code:'removed:block',solid:1,fluid:0,decor:0,count:1},{id:42,code:'game:healthy',category:'registered-mismatch',solid:1,count:1}]},loadedMigration:{enabled:false,state:'disabled'},preview:null};
  page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',route=>{const req=route.request(),url=new URL(req.url());if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
+ if(url.pathname==='/api/session')return route.fulfill({contentType:'application/json',body:JSON.stringify({authenticated:true,username:'Owner',role:'Owner',owner:true,safeDiagnosticsMode:false})});
  if(url.pathname==='/api/block-migration'){
   let result=state;if(req.method()==='GET'&&failNextStatus){failNextStatus=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Temporary refresh failure'})});}
   if(req.method()==='POST'){

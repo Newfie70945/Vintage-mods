@@ -69,3 +69,11 @@ assert not ids.intersection({23,24,25,26,27,30,33}), ids
 assert {row[17] for row in c.execute(sql['snapshots'],exact)}=={10,11}
 assert not list(c.execute(sql['cmd'],dict(exact,dimension='2')))
 print('PASS: exact single-cell SQL excludes neighboring blocks/dimensions/worlds and retains all actors, inventory baselines and later conflicts.')
+
+# A remapper can corrupt a block without any event in the selected window.
+c.execute('DELETE FROM events');c.execute('DELETE FROM snapshots')
+snapshot(80,20,x=10);c.execute('UPDATE snapshots SET z=10 WHERE id=80')
+assert not list(c.execute(sql['cmd'],exact))
+assert {row[17] for row in c.execute(sql['snapshots'],exact)}=={80}, 'exact-cell snapshot history disappeared without window events'
+assert not list(c.execute(sql['snapshots'],dict(exact,dimension='2')))
+print('PASS: exact-cell snapshot-only evidence is available without window mutations; dimensions remain isolated.')

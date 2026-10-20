@@ -84,6 +84,24 @@ static class Program {
  // If the inventory changes after preview, revalidation refuses to overwrite it.
  container.Inventory[0].Itemstack!.StackSize=5;storage.History.Events[0].StorageId=5000;storage.History.Events[1].StorageId=5001;
  Run("block 30m at 50 100 10");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==4,"Changed container was overwritten after targeted preview");
+ // No old snapshots: explicit live anchor and identity-matching take/put records.
+ storage.History.Snapshots.Clear();container.Inventory[0].Itemstack!.StackSize=5;
+ foreach(var row in storage.History.Events){row.StorageId+=10000;row.BlockCode="game:chest-east";row.Meta["inventoryId"]=container.Inventory.InventoryID;}
+ Run("block 30m at 50 100 10 --from-live");token=Token();Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==10,"Explicit live-anchor take/put rollback failed without snapshots");
+ // A remapper placeholder has no break event; use identity evidence only for this missing cell.
+ api.World.Blocks["game:missing-fixture"]=new(){BlockId=999999,Code=new("missing-fixture"),IsMissing=true};api.World.BlockAccessor.Blocks["0:60:100:10"]=999999;
+ storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99001,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=60,Y=100,Z=10,Action=LogActionType.BlockUse,BlockCode="game:stone"});
+ Run("block 30m at 60 100 10 --repair-missing");token=Token();Run("execute "+token);Check(api.World.BlockAccessor.Blocks["0:60:100:10"]==1,"Missing block identity repair did not apply");
+ Run("block 30m at 60 100 10 --repair-missing");Check(admin.Messages.Last().Contains("registered block"),"Healthy registered block was not protected from missing-ID repair");
+ // Reconnect a compatible retained container using ExchangeBlock, keeping its inventory object.
+ api.World.BlockAccessor.Blocks["0:70:100:10"]=999999;var retainedContainer=new ContainerEntity();retainedContainer.Slots.Slots=new[]{new ItemSlot{Itemstack=new(api.World.Items["game:ingot-copper"],7)}};api.World.BlockAccessor.Entities["0:70:100:10"]=retainedContainer;
+ storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99002,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=70,Y=100,Z=10,Action=LogActionType.ContainerOpen,BlockCode="game:chest-east"});
+ Run("block 30m at 70 100 10 --repair-missing");token=Token();Run("execute "+token);Check(api.World.BlockAccessor.Blocks["0:70:100:10"]==2&&ReferenceEquals(api.World.BlockAccessor.Entities["0:70:100:10"],retainedContainer)&&retainedContainer.Inventory[0].Itemstack!.StackSize==7,"Compatible missing-container repair discarded retained inventory");
+ // Refuse a changed live anchor and a replacement that would discard retained metadata.
+ container.Inventory[0].Itemstack!.StackSize=5;storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99003,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=50,Y=100,Z=10,Action=LogActionType.ContainerTake,BlockCode="game:chest-east",Meta=new(){["slotId"]="0",["quantity"]="5",["itemCode"]="game:ingot-copper",["inventoryId"]=container.Inventory.InventoryID}});
+ Run("block 30m at 50 100 10 --from-live");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==4,"Live-anchor recovery overwrote a changed inventory");
+ api.World.BlockAccessor.Blocks["0:80:100:10"]=999999;api.World.BlockAccessor.Entities["0:80:100:10"]=retainedContainer;storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99004,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=80,Y=100,Z=10,Action=LogActionType.BlockUse,BlockCode="game:stone"});
+ Run("block 30m at 80 100 10 --repair-missing");Run("execute "+Token());Check(api.World.BlockAccessor.Blocks["0:80:100:10"]==999999,"Plain replacement discarded an incompatible retained container");
  Console.WriteLine("PASS: single-block selection/coordinates/dimensions, exact-cell neighbor isolation, fixed time/target, empty-preview refusal, automatic mixed-actor container restoration, slot preview and changed-inventory refusal.");
  // Chat diagnostics must be literal markup-safe text, including command help and logged values.
  Run("help");Check(admin.Messages.Any(m=>m.Contains("/rollback execute TOKEN"))&&!admin.Messages.Last().Contains('<'),"Rollback help missing or contains raw VTML placeholders");
