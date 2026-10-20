@@ -25,3 +25,5 @@ Completed checks for this build:
 - Official 1.22.7 serialization: 139 block-ID codec/restore/preservation assertions, including dense unrelated metadata, plus 17 history/recommendation, 24 inventory/replay, 8 online backup/cancellation and 5 chat-parser checks.
 - Chromium: migration save/acknowledgement, inventory review, loaded/saved counters and reasons, read-only/Safe Mode, escaped output and mobile layout.
 - Disposable official-server integration: normal load/save/restart, held no-backup acknowledgement, no backup creation, both loaded matching occurrences migrated without a reload, healthy-cell preservation and disable/cancel checks. See the accompanying JSON for final execution results. No production world was modified.
+
+Recorded result: [migrationlive1-server.json](validation/migrationlive1-server.json). The shipping ZIP hash matches the copy exercised by this official-server run.

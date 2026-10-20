@@ -434,3 +434,5 @@ The [current release notes](../../CHANGELOG.md) includes 1.2.38 audit fixes and 
 Migration UI 2: [workflow and validation](../../docs/VALIDATION-MIGRATION-UI-1.2.44.md).
 
 Rollback/logging update: [validation and limitations](../../docs/VALIDATION-ROLLBACK-LOGGING-1.2.44.md).
+
+MigrationLive1 validation and command guide: [VALIDATION-MIGRATION-LIVE-1.2.44.md](../../docs/VALIDATION-MIGRATION-LIVE-1.2.44.md).
