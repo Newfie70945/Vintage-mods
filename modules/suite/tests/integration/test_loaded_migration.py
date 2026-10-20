@@ -79,7 +79,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-livemigration1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationui2','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -141,6 +141,22 @@ try:
     active=state()['loadedMigration'];assert active['sessionBlocksChanged']==4 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
     status,disabled=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not disabled['active'] and not disabled['enabled'],disabled
     result['disableImmediate']=True
+    # Direct web-editor save: no scan or automatic backup, then pause/resume
+    # using the stored backup policy. Use the same mappings already verified.
+    backups_before_manual_rules={p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}
+    for entry in mappings:
+        status,direct=request('/api/block-migration',dict(operation='rule-set',sourceId=entry['sourceId'],destination=entry['destination'],createBackup=False,manualBackupAcknowledged=True,inventoryMode='preserve'))
+        assert status==200,direct
+        ready_rules=wait_active();assert ready_rules['plan']['createBackup'] is False and ready_rules['plan']['manualBackupAcknowledged'] is True
+        assert ready_rules['plan']['backup']=='',ready_rules['plan']
+        assert {p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}==backups_before_manual_rules
+    before_resume={p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}
+    status,paused=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not paused['active']
+    status,resumed=request('/api/block-migration',dict(operation='loaded-resume'));assert status==200,resumed
+    resumed=wait_active();assert resumed['plan']['createBackup'] is False and resumed['plan']['manualBackupAcknowledged'] is True
+    assert {p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}==before_resume
+    status,_=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200
+    result['directRuleSaveAndResumeRetainManualBackupPolicy']=True
     offset=len(lines);process.stdin.write('/nsemigrationcancelprobe\n');process.stdin.flush();until=time.monotonic()+20;cancelmarker='NSE_LIVE_CANCEL_PROBE '
     while not any(cancelmarker in line for line in lines[offset:]):
         if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Queued activation cancellation probe timed out')

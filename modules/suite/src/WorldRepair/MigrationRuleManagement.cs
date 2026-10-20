@@ -59,6 +59,22 @@ public sealed partial class BlockIdRepairService
             var old=loadedMigration.Plan!;SaveConfiguredRules(rules,old.Inventory,old.CreateBackup,old.ManualBackupAcknowledged);return LoadedMigrationSnapshot();
         }
     }
+    public object ResumeConfiguredMigration()
+    {
+        Guard();lock(gate)
+        {
+            var plan=loadedMigration.Plan??throw new InvalidOperationException("No saved migration rules. Save a rule first.");
+            Validate(plan,false);
+            if(loadedActive)return LoadedMigrationSnapshot();
+            lock(loadedGate)
+            {
+                loadedMigration.Enabled=true;loadedMigration.State="activating";
+                loadedMigration.Message="Resuming saved rules using their stored backup and inventory options.";
+                Write(LoadedMigrationFile,loadedMigration);
+            }
+            ResumeLiveMigration();return LoadedMigrationSnapshot();
+        }
+    }
     public object ClearMigrationRules()
     {
         lock(gate)lock(loadedGate)

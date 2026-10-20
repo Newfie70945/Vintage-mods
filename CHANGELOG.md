@@ -2,6 +2,12 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationUI2: rebuilt Block ID Migration around a compact rule editor with the replacement, inventory handling, backup choice and **Save & enable rule** together. Saved rules remain visible; optional scans and diagnostics are collapsed.
+- Invalid or incomplete saves now show a specific inline message instead of returning silently. Successful saves and server errors are visible beside the action; Enter submits the rule, failed saves retain the draft, and replacement search is available directly in the editor.
+- New webpanel rules do not opt into automatic backup. They require manual-copy acknowledgement unless automatic backup is explicitly selected. Saved backup and inventory settings restore on refresh and edit; in-game replaceheld still requests automatic backup.
+- Added pause/resume and retry for saved rules, preserving their stored backup/inventory policy. Added compact activation/session counters and explanations for blocked batch actions. Scanning is available while migration is enabled; reviewing a replacement batch still requires pausing.
+- Suite remains **1.2.44**, build `ms11-migrationui2`. NOS and companion versions are unchanged.
+
 - ModpackStability1: automatic 3-second engine profiles now default OFF and have a separate Profiler-page opt-in. Lightweight diagnostics and manual profiles remain available. Disabling automatic captures stops an active automatic burst without stopping a manual capture; obsolete timers cannot terminate newer captures.
 - Profiler attribution now normalizes each marker once and reuses normalized catalog tokens, eliminating repeated normalization work while retaining matching and ambiguity rules.
 - Fixed automatic updates for PascalCase mod manifests, including Floral Zones. Added an explicit option for releases tagged for earlier stable game patches of the same major/minor version, useful for some Forgotten Armory listings. Exact compatibility remains the default. Identity/version/dependency/archive safety, backups and restart staging remain in place; updates cannot downgrade installed versions.
