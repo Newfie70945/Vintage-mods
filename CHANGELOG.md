@@ -2,12 +2,18 @@
 
 ## Server Essentials Suite 1.2.44
 
+- ModpackStability1: automatic 3-second engine profiles now default OFF and have a separate Profiler-page opt-in. Lightweight diagnostics and manual profiles remain available. Disabling automatic captures stops an active automatic burst without stopping a manual capture; obsolete timers cannot terminate newer captures.
+- Profiler attribution now normalizes each marker once and reuses normalized catalog tokens, eliminating repeated normalization work while retaining matching and ambiguity rules.
+- Fixed automatic updates for PascalCase mod manifests, including Floral Zones. Added an explicit option for releases tagged for earlier stable game patches of the same major/minor version, useful for some Forgotten Armory listings. Exact compatibility remains the default. Identity/version/dependency/archive safety, backups and restart staging remain in place; updates cannot downgrade installed versions.
+- Added the separate NOS 0.6.0 AI task-start switch to Suite Optimizations.
+- Suite stays **1.2.44**, build `ms11-modpackstability1`; companion versions are unchanged. NOS advances to **0.6.0-preview**.
+
 - PacketStability1: a short packet-budget burst is now advisory. Punishment-grade flood evidence requires sustained excess on one budget and reliable server timing. Existing packet, settings, movement and block-action limits still drop excess traffic immediately.
 - Right-click reach, uncertain mining and unverified teleport observations cannot add risk, corroborate incidents or match automatic finding-code punishments. Break-reach punishment requires repeated distinct targets over time with healthy timing; the same target's use/break callbacks no longer count as different targets.
 - Reach checks now consider oversized server-defined selection boxes when cube/history reconciliation fails. Client hit coordinates cannot expand reach. Ordinary in-range actions skip the extra geometry work, and unknown/invalid geometry is not treated as proof.
 - TPS awareness now notices a current stall before the next tick callback. Reach reporting is coalesced, recent-target bookkeeping is bounded, and timing-sensitive observations during lag remain review-only.
 - Server-behavior findings reuse validated client evidence instead of reevaluating the full mod/assembly policy twice per report. Family-risk calculations reuse temporary dictionaries. Full evaluation still runs on client scans and policy changes.
-- Suite stays **1.2.44**, build `ms11-packetstability1`; companion versions are unchanged.
+- PacketStability1 behavior and validation are retained.
 
 - Migration rules now enable automatically without a server restart. World backups run in cancellable background page batches, then verified rules switch on for future chunk loads. Inventory rules enable automatically after preparation and backup finish.
 - Updated migration controls and status polling for live activation. Changing/disabling rules cancels obsolete activation, and repeated updates reuse a single deserialization hook. Already loaded terrain uses new rules when it reloads.

@@ -58,6 +58,7 @@ public sealed class ServerHealthService : IDisposable
 
     // Manual engine frame-profiler capture.
     private bool profileRunning;
+    private long profileGeneration;
     private bool profilerWasEnabled;
     private long profileListenerId = -1;
     private long lastProfileRootStart = long.MinValue;
@@ -90,7 +91,7 @@ public sealed class ServerHealthService : IDisposable
     private List<ServerProfileSlowTick> lastProfileSlowTicks = new();
     private List<ServerProfilerOffThreadReport> lastOffThreadReports = new();
     private ServerProfileSummary lastProfile = new();
-    private bool automaticIncidentProfilingEnabled = true;
+    private bool automaticIncidentProfilingEnabled;
     private long lastAutomaticIncidentProfileUnixMilliseconds;
     private long lastAutomaticIncidentTriggerUnixMilliseconds;
     private double lastAutomaticIncidentTriggerDelayMs;
@@ -151,7 +152,13 @@ public sealed class ServerHealthService : IDisposable
 
     public void SetAutomaticIncidentProfilingEnabled(bool value)
     {
-        lock (sync) automaticIncidentProfilingEnabled = value;
+        bool stopAutomatic;
+        lock (sync)
+        {
+            automaticIncidentProfilingEnabled = value;
+            stopAutomatic = !value && profileRunning && profileAutomatic;
+        }
+        if (stopAutomatic) FinishManualProfileSafe();
     }
 
     /// <summary>
@@ -543,7 +550,12 @@ public sealed class ServerHealthService : IDisposable
                 ex => api.Logger.Warning("[ServerHealth] profiler capture tick failed: {0}: {1}", ex.GetType().Name, ex.Message),
                 automatic ? AutomaticProfileSampleIntervalMs : ManualProfileSampleIntervalMs);
 
-            api.Event.RegisterCallback(_ => FinishManualProfileSafe(), seconds * 1000);
+            long generation = ++profileGeneration;
+            api.Event.RegisterCallback(_ =>
+            {
+                lock (sync) { if (!profileRunning || profileGeneration != generation) return; }
+                FinishManualProfileSafe();
+            }, seconds * 1000);
             message = automatic
                 ? $"Started {seconds}s lightweight automatic Vintage Story engine profile."
                 : $"Started {seconds}s Vintage Story engine profile.";
@@ -2178,12 +2190,13 @@ public sealed class ServerHealthService : IDisposable
         ModIdentity? best = null;
         string bestConfidence = "Low";
         bool tied = false;
+        string? normalizedPath = null;
 
         foreach (var mod in modIdentities)
         {
             foreach (var token in mod.Tokens)
             {
-                if (!ContainsProfilerToken(path, token.Value)) continue;
+                if (!ContainsProfilerToken(path, token, ref normalizedPath)) continue;
 
                 int score = token.Score + Math.Min(30, token.Value.Length);
                 if (score > bestScore)
@@ -2234,8 +2247,9 @@ public sealed class ServerHealthService : IDisposable
             best.IsCore);
     }
 
-    private static bool ContainsProfilerToken(string haystack, string token)
+    private static bool ContainsProfilerToken(string haystack, ModToken candidate, ref string? normalizedPath)
     {
+        string token = candidate.Value;
         if (string.IsNullOrWhiteSpace(token) || token.Length < 3) return false;
 
         // Domain/full namespace/type tokens are safe as substring matches.
@@ -2259,19 +2273,21 @@ public sealed class ServerHealthService : IDisposable
 
         // A normalized mod name/source filename can appear embedded inside a
         // profiler marker. Only allow that for longer tokens.
-        return token.Length >= 8 &&
-               NormalizeToken(haystack).Contains(
-                   NormalizeToken(token),
-                   StringComparison.OrdinalIgnoreCase);
+        if (token.Length < 8) return false;
+        // A capture can contain thousands of paths and hundreds of tokens per mod.
+        // Normalize each marker at most once, and each catalog token once at creation.
+        normalizedPath ??= NormalizeToken(haystack);
+        return normalizedPath.Contains(candidate.NormalizedValue, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeToken(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return "";
-        return new string(value
-            .Where(char.IsLetterOrDigit)
-            .Select(char.ToLowerInvariant)
-            .ToArray());
+        Span<char> buffer = value.Length <= 512 ? stackalloc char[value.Length] : new char[value.Length];
+        int count = 0;
+        foreach (char c in value)
+            if (char.IsLetterOrDigit(c)) buffer[count++] = char.ToLowerInvariant(c);
+        return new string(buffer[..count]);
     }
 
     private static string ShortCode(string? value, int maxLength)
@@ -2654,7 +2670,10 @@ public sealed class ServerHealthService : IDisposable
         public List<ModToken> Tokens { get; } = new();
     }
 
-    private sealed record ModToken(string Value, int Score, string Confidence);
+    private sealed record ModToken(string Value, int Score, string Confidence)
+    {
+        public string NormalizedValue { get; } = NormalizeToken(Value);
+    }
     private readonly record struct ProfileLeafSample(string Path, double ElapsedMs, int Calls);
 
     private sealed record ModAttribution(
@@ -2710,6 +2729,7 @@ public sealed class ServerHealthSnapshot
     public bool ProfileRunning { get; set; }
     public int ProfileDurationSeconds { get; set; }
     public int ProfileRemainingSeconds { get; set; }
+    public bool AutomaticIncidentProfilingConfigured { get; set; }
     public bool AutomaticIncidentProfilingEnabled { get; set; }
     public int AutomaticIncidentProfileDurationSeconds { get; set; }
     public int AutomaticIncidentProfileCooldownSeconds { get; set; }

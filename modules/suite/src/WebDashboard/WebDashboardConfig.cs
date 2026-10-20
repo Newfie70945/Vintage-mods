@@ -38,6 +38,10 @@ public sealed class WebDashboardConfig
     // dashboard is reached through an HTTPS reverse proxy.
     public bool SecureCookies { get; set; } = false;
     public bool SafeDiagnosticsMode { get; set; } = false;
+    // Full engine profiling adds work to every tick, even when we sample its output less often.
+    // Opt in explicitly; ordinary diagnostics and manual captures remain independently usable.
+    public bool AutomaticIncidentProfilingEnabled { get; set; } = false;
+    public bool AllowSameMinorGameModUpdates { get; set; } = false;
     public bool TickDebuggingEnabled { get; set; } = true;
 
     // Dedicated bounded HTTP worker pool. Network parsing, authentication,

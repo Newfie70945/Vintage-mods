@@ -1,0 +1,36 @@
+{
+  "checks": 105,
+  "trials": [
+    {
+      "stockNs": 169.17066666666668,
+      "optimizedNs": 20.183333333333334,
+      "stockBytes": 120,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 158.01766666666666,
+      "optimizedNs": 20.678333333333335,
+      "stockBytes": 120,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 153.29066666666668,
+      "optimizedNs": 19.290666666666667,
+      "stockBytes": 120,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 150.59633333333332,
+      "optimizedNs": 18.892,
+      "stockBytes": 120,
+      "optimizedBytes": 0
+    },
+    {
+      "stockNs": 150.10166666666666,
+      "optimizedNs": 18.831,
+      "stockBytes": 120,
+      "optimizedBytes": 0
+    }
+  ],
+  "scope": "Actual official ExecuteTask target through delegate, synthetic tasks and veto subscribers; not production TPS."
+}

@@ -609,7 +609,8 @@ public sealed partial class WebDashboardService : IDisposable
             module.SaveRuntimeConfig();
         }
 
-        module.ServerHealth?.SetAutomaticIncidentProfilingEnabled(!config.SafeDiagnosticsMode);
+        if (module.ModUpdates != null) module.ModUpdates.AllowSameMinorGameUpdates = config.AllowSameMinorGameModUpdates;
+        module.ServerHealth?.SetAutomaticIncidentProfilingEnabled(config.AutomaticIncidentProfilingEnabled && !config.SafeDiagnosticsMode);
 
         RegisterCommands();
 
@@ -7214,6 +7215,43 @@ public sealed partial class WebDashboardService : IDisposable
             return;
         }
 
+        if (request.Method == "POST" && path == "/api/mod-updates/compatibility")
+        {
+            bool enabled = GetJsonBool(request.Body, "allowSameMinorGameUpdates", false);
+            var result = await RunOnMainThreadAsync(() =>
+            {
+                bool previous = config.AllowSameMinorGameModUpdates;
+                config.AllowSameMinorGameModUpdates = enabled;
+                try { SaveConfig(); }
+                catch { config.AllowSameMinorGameModUpdates = previous; throw; }
+                if (module.ModUpdates != null) module.ModUpdates.AllowSameMinorGameUpdates = enabled;
+                RecordWebAudit("mod-update-compatibility", enabled ? "Earlier same-minor patches allowed" : "Exact game tags", "Success", remoteText, requestActor);
+                return new { success = true, enabled };
+            }, "mod-update-compatibility").ConfigureAwait(false);
+            await WriteJsonAsync(stream, 200, result, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (request.Method == "POST" && path == "/api/performance/automatic-profiling")
+        {
+            bool enabled = GetJsonBool(request.Body, "enabled", false);
+            var result = await RunOnMainThreadAsync(() =>
+            {
+                bool previous = config.AutomaticIncidentProfilingEnabled;
+                config.AutomaticIncidentProfilingEnabled = enabled;
+                try { SaveConfig(); }
+                catch { config.AutomaticIncidentProfilingEnabled = previous; throw; }
+                module.ServerHealth?.SetAutomaticIncidentProfilingEnabled(enabled && !config.SafeDiagnosticsMode);
+                RecordWebAudit("automatic-profiling", enabled ? "Enabled" : "Disabled", "Success", remoteText, requestActor);
+                return new { success = true, enabled = enabled && !config.SafeDiagnosticsMode,
+                    configured = enabled, message = enabled
+                        ? "Automatic engine captures opted in. Captures add diagnostic overhead; Safe Diagnostics Mode still blocks them."
+                        : "Automatic engine captures disabled. Lightweight health sampling and manual captures remain available." };
+            }, "automatic-profiling").ConfigureAwait(false);
+            await WriteJsonAsync(stream, 200, result, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (request.Method == "POST" &&
             path == "/api/health/safe-mode")
         {
@@ -7236,7 +7274,7 @@ public sealed partial class WebDashboardService : IDisposable
                         module.SaveRuntimeConfig();
                     }
 
-                    module.ServerHealth?.SetAutomaticIncidentProfilingEnabled(!enabled);
+                    module.ServerHealth?.SetAutomaticIncidentProfilingEnabled(config.AutomaticIncidentProfilingEnabled && !enabled);
 
                     RecordWebAudit(
                         "safe-diagnostics-mode",
@@ -9692,6 +9730,7 @@ public sealed partial class WebDashboardService : IDisposable
                 () => module.ServerHealth?.GetSnapshot(graphPoints, windowSeconds),
                 "web-profiler-status").ConfigureAwait(false);
 
+            if (payload != null) payload.AutomaticIncidentProfilingConfigured = config.AutomaticIncidentProfilingEnabled;
             object responsePayload = payload == null
                 ? new { available = false }
                 : payload;
@@ -11949,6 +11988,7 @@ public sealed partial class WebDashboardService : IDisposable
             automaticModAttribution = new
             {
                 enabled = health.AutomaticIncidentProfilingEnabled,
+                configured = config.AutomaticIncidentProfilingEnabled,
                 profileDurationSeconds = health.AutomaticIncidentProfileDurationSeconds,
                 cooldownSeconds = health.AutomaticIncidentProfileCooldownSeconds,
                 lastTriggeredUnixMilliseconds = health.LastAutomaticIncidentTriggerUnixMilliseconds,
@@ -12197,7 +12237,7 @@ public sealed partial class WebDashboardService : IDisposable
             new { name = "Entity/chunk hotspot scan", cadence = "Manual only", thread = "Main thread", cost = "High", automatic = false, cached = true, detail = "Walks loaded entities only after an explicit administrator request. Protected by cooldown/exclusive-operation policy." },
             new { name = "Harmony compatibility deep scan", cadence = "Manual only", thread = "Main thread reflection", cost = "Moderate", automatic = false, cached = false, detail = "Inspects patched methods/owners only when Run Deep Scan is pressed; ordinary Compatibility Center loading does not run it." },
             new { name = "BlockLogger activity hotspot query", cadence = "Manual / support export", thread = "Background SQLite", cost = "Moderate", automatic = false, cached = false, detail = "Bounded recent-coordinate aggregation. Activity evidence only, not CPU timing." },
-            new { name = "Bounded Vintage Story engine profile", cadence = "Manual 10s/30s + automatic 3s major-stall burst", thread = "Engine profiler", cost = "High / diagnostic / time-limited", automatic = true, cached = false, detail = "Manual profiles provide full diagnosis. Automatic attribution is limited to unexplained 750ms+ stalls, a 3-second capture, a 300-second cooldown, and is disabled by Safe Diagnostics Mode." }
+            new { name = "Bounded Vintage Story engine profile", cadence = "Manual 10s/30s; optional 3s major-stall burst", thread = "Engine profiler", cost = "High / diagnostic / time-limited", automatic = true, cached = false, detail = "Manual profiles provide full diagnosis. Automatic attribution is OFF by default because it adds per-tick overhead. When opted in, it is limited to unexplained 750ms+ stalls, a 3-second capture, a 300-second cooldown, and is disabled by Safe Diagnostics Mode." }
         };
 
         return new

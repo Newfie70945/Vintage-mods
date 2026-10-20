@@ -11,13 +11,14 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.5.0", success = true,
+        available = true, protocol = 1, version = "0.6.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
             worldgenRequestReuse = currentConfig.EngineOptimizations.WorldgenRequestReuse,
             saveSnapshotRelease = currentConfig.EngineOptimizations.SaveSnapshotRelease,
+            aiTaskStartDispatch = currentConfig.EngineOptimizations.AiTaskStartDispatch,
             aiFilterDispatch = currentConfig.EngineOptimizations.AiFilterDispatch,
             repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
             nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
@@ -66,6 +67,7 @@ public sealed partial class OptimizerMod
                 case "safeMode": candidate.Compatibility.SafeMode=B(); break;
                 case "worldgenRequestReuse": candidate.EngineOptimizations.WorldgenRequestReuse=B(); break;
                 case "saveSnapshotRelease": candidate.EngineOptimizations.SaveSnapshotRelease=B(); break;
+                case "aiTaskStartDispatch": candidate.EngineOptimizations.AiTaskStartDispatch=B(); break;
                 case "aiFilterDispatch": candidate.EngineOptimizations.AiFilterDispatch=B(); break;
                 case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
                 case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;
