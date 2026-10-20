@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 
 namespace NewfiesServerEssentials.Discord.Relay;
 
-public sealed class GameRelayService
+public sealed partial class GameRelayService
 {
     private readonly ICoreServerAPI sapi;
     private readonly DiscordBridgeService discord;
@@ -30,7 +30,9 @@ public sealed class GameRelayService
 
     public void Register()
     {
+        if(active)return;
         active = true;
+        RegisterGameEvents();
         sapi.Event.PlayerChat += OnPlayerChat;
         sapi.Event.PlayerNowPlaying += OnPlayerJoin;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
@@ -46,6 +48,7 @@ public sealed class GameRelayService
     public void Unregister()
     {
         active = false;
+        UnregisterGameEvents();
         sapi.Event.PlayerChat -= OnPlayerChat;
         sapi.Event.PlayerNowPlaying -= OnPlayerJoin;
         sapi.Event.PlayerDisconnect -= OnPlayerDisconnect;
@@ -142,12 +145,11 @@ public sealed class GameRelayService
 
     private void OnPlayerDeath(IServerPlayer player, DamageSource damageSource)
     {
-        var e = getConfig().Events.PlayerDeath;
-        var source = damageSource?.Source.ToString() ?? "Unknown";
-        var msg = e.Format
-            .Replace("{player}", EscapeDiscord(player.PlayerName))
-            .Replace("{source}", EscapeDiscord(source));
-        RelayEvent(e, msg);
+        // Native capture receives the exact finalized text, including the
+        // engine's random flavour variant. Event fallback is used only when
+        // native messages are disabled or the optional capture hook is absent.
+        if(nativeDeathCapture&&!sapi.World.Config.GetBool("disableDeathMessages",false))return;
+        RelayDeath(player,damageSource,null);
     }
 
     private void RelayEvent(DiscordIntegrationConfig.RoutedEvent e, string message)

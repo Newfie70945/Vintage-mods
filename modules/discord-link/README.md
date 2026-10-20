@@ -1,4 +1,4 @@
-# Newfie's Server Essentials - Discord 1.0.13
+# Newfie's Server Essentials - Discord 1.0.14
 
 Current fixes: [current release notes](../../CHANGELOG.md).
 Target: **Vintage Story 1.22.7 / .NET 10**
@@ -11,7 +11,7 @@ This is the single Discord module for Newfie's Server Suite. Starting with 1.0.0
 - `/discord` invite command
 - `/discordstatus` and `/discordreload` admin commands
 - Game ↔ Discord global chat bridge
-- Join, leave, death, server start/stop announcements
+- Join, leave, synced game death messages, temporal-storm and server start/stop announcements
 - Per-event channel routing and message formats
 - Admin-audit routing
 - Newfie's Client Integrity / Anti-Cheat routing
@@ -102,3 +102,13 @@ When Server Suite 1.2.34 and Community MOTD 2.1.1 are installed, the Suite-hoste
 
 ### Manual role ownership
 If an administrator wants to keep a role that Discord previously assigned but make it permanently manual, use `/discordrolesync release <player>`. The current role is left unchanged and Discord ownership is discarded.
+
+## Death messages and temporal storms (1.0.14)
+
+Enable these independently under Suite **WebPanel → Discord → Announcements**, or in the Discord JSON config under `Events.PlayerDeath` and `Events.TemporalStorm`. Each route has `Enabled`, `ChannelId` and `Format`; channel `0` inherits `Chat.ChannelId`. The bot needs permission to send messages in the selected channel. Temporal-storm controls are available in the webpanel and config, not the in-game Integrations form.
+
+Death format `☠️ **{message}**` relays the actual game-generated death message, including its randomized cause text. The exact former stock template is upgraded automatically; custom templates are preserved. Supported death placeholders: `{message}`, `{player}`, `{cause}`, `{source}`, `{killer}`. When native announcements are disabled or their hook is unavailable, a cause-aware fallback is used instead of the original randomized message.
+
+Storm format `🌀 **{message}**` reports approaching, imminent, started, waning and ended transitions. Additional placeholders: `{phase}`, `{strength}`. Startup/reload establishes a baseline without replaying an already-active phase. Alerts are observed from the official temporal-stability system; they do not change the storm schedule. New routes default off. Existing installations must enable temporal-storm alerts explicitly.
+
+The native observer is tested against Vintage Story 1.22.7. If unavailable it logs a diagnostic and uses the death event fallback. This does not modify another Discord mod or prove the reported TH3 connection issue originated in the Suite.

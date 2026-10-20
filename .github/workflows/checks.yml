@@ -28,6 +28,8 @@ jobs:
           dotnet run --project modules/suite/tests/recovery-performance/RecoveryPerformanceTests.csproj -c Release
       - name: Check packet budgets and conservative flood/reach confirmation
         run: dotnet run --project modules/suite/tests/packetguard/PacketIngressPolicyTests.csproj -c Release
+      - name: Check Discord event formatting and storm transitions
+        run: dotnet run --project tests/discord-events/DiscordEventTests.csproj -c Release
       - name: Check optimizer profiler data structures
         run: dotnet run --project modules/optimizer/tests/ProfilerTests/ProfilerTests.csproj -c Release
       - name: Check probe capture analysis

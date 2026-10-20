@@ -263,6 +263,7 @@ public sealed class SuiteEventBridge
         PutRoute(tree, "playerJoin", cfg.Events.PlayerJoin);
         PutRoute(tree, "playerLeave", cfg.Events.PlayerLeave);
         PutRoute(tree, "playerDeath", cfg.Events.PlayerDeath);
+        PutRoute(tree, "temporalStorm", cfg.Events.TemporalStorm);
         PutRoute(tree, "serverStarted", cfg.Events.ServerStarted);
         PutRoute(tree, "serverStopping", cfg.Events.ServerStopping);
         PutRoute(tree, "discordLinked", cfg.Events.DiscordLinked);
@@ -368,6 +369,7 @@ public sealed class SuiteEventBridge
             "playerjoin" => cfg.Events.PlayerJoin,
             "playerleave" => cfg.Events.PlayerLeave,
             "playerdeath" => cfg.Events.PlayerDeath,
+            "temporalstorm" => cfg.Events.TemporalStorm,
             "serverstarted" => cfg.Events.ServerStarted,
             "serverstopping" => cfg.Events.ServerStopping,
             "discordlinked" => cfg.Events.DiscordLinked,

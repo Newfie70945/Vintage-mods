@@ -55,7 +55,7 @@ public sealed class DiscordIntegrationModSystem : ModSystem
             RelayServerStarted();
         });
 
-        api.Logger.Notification("[NSE Discord] Unified module 1.0.13 loaded. Config: {0}; linked accounts: {1}; role sync: {2}", DiscordConfigStorage.RelativePath(ConfigFile), linkService.LinkedAccountCount, config.Linking.RoleSync.Enabled ? "enabled" : "disabled");
+        api.Logger.Notification("[NSE Discord] Unified module 1.0.14 loaded. Config: {0}; linked accounts: {1}; role sync: {2}", DiscordConfigStorage.RelativePath(ConfigFile), linkService.LinkedAccountCount, config.Linking.RoleSync.Enabled ? "enabled" : "disabled");
     }
 
     public override void Dispose()
@@ -130,6 +130,9 @@ public sealed class DiscordIntegrationModSystem : ModSystem
             config.Linking.RoleSync ??= new DiscordRoleSyncConfig();
             config.Linking.RoleSync.EligibleBaseRoleCodes ??= ["suplayer"];
             config.Linking.RoleSync.Mappings ??= new List<DiscordRoleMapping>();
+            config.Events ??= new DiscordIntegrationConfig.EventRoutingConfig();
+            config.Events.PlayerDeath ??= new(false,0,"☠️ **{message}**");
+            config.Events.TemporalStorm ??= new(false,0,"🌀 **{message}**");
             config.Motd ??= new DiscordIntegrationConfig.MotdFeedConfig();
             MigrateStockAnnouncementFormats();
             DiscordConfigStorage.Store(sapi, config, ConfigFile);
@@ -144,6 +147,7 @@ public sealed class DiscordIntegrationModSystem : ModSystem
 
     private void MigrateStockAnnouncementFormats()
     {
+        if(config.Events.PlayerDeath.Format=="☠️ **{player} died**")config.Events.PlayerDeath.Format="☠️ **{message}**";
         // Upgrade only the exact historical stock strings. Any administrator-edited
         // custom format is preserved byte-for-byte.
         if (string.Equals(config.Events.PlayerJoin.Format, "🟢 **{player} joined the server**", StringComparison.Ordinal))

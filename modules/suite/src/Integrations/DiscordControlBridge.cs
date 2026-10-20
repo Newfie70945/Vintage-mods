@@ -42,6 +42,7 @@ public sealed class DiscordControlSnapshot
     public DiscordAnnouncementSnapshot PlayerJoin { get; set; } = new();
     public DiscordAnnouncementSnapshot PlayerLeave { get; set; } = new();
     public DiscordAnnouncementSnapshot PlayerDeath { get; set; } = new();
+    public DiscordAnnouncementSnapshot TemporalStorm { get; set; } = new();
     public DiscordAnnouncementSnapshot ServerStarted { get; set; } = new();
     public DiscordAnnouncementSnapshot ServerStopping { get; set; } = new();
     public DiscordAnnouncementSnapshot DiscordLinked { get; set; } = new();
@@ -133,6 +134,7 @@ public static class DiscordControlBridge
             PlayerJoin = Route(t, "playerJoin"),
             PlayerLeave = Route(t, "playerLeave"),
             PlayerDeath = Route(t, "playerDeath"),
+            TemporalStorm = Route(t, "temporalStorm"),
             ServerStarted = Route(t, "serverStarted"),
             ServerStopping = Route(t, "serverStopping"),
             DiscordLinked = Route(t, "discordLinked"),

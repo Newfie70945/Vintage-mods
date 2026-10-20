@@ -2,6 +2,17 @@
 
 ## Server Essentials Suite 1.2.44
 
+- DiscordEvents1: added a separate Temporal storms announcement route to the Discord webpanel controls, with enable toggle, channel routing and editable format. Suite stays 1.2.44, build `ms11-discordevents1`.
+
+## Server Essentials Discord 1.0.14
+
+- Relay the actual game-generated death announcement, including randomized hunger, lightning and creature flavour text, once per death. Use a cause-aware fallback if native death announcements are disabled or the observer cannot be installed.
+- Upgrade only the exact former stock death format to `{message}`; preserve custom templates. Add `{cause}`, `{source}` and `{killer}` placeholders.
+- Add independently enabled temporal-storm alerts for approaching, imminent, started, waning and ended phases, with per-event channel/format settings and `{phase}`/`{strength}` placeholders. Startup establishes a baseline without replaying stale phases.
+- Bound and escape event text, prevent repeated identical storm-phase alerts and detach native observers/timers on shutdown. No Discord credentials or external delivery were used for validation.
+
+## Earlier Suite 1.2.44 changes
+
 - MigrationContainers1: add explicit `replaceheld reconnect confirm-inventory-risk` and a matching webpanel mode for compatible retained containers. Reconnect changes their block identity while preserving current contents/attributes, including empty inventories; it requires no BlockLogger snapshot or world-wide preparation scan. Missing/incompatible metadata stays protected.
 - Improve bookshelf refusals with actionable reconnect and historical-recovery commands. Historical recovery remains a separate opt-in operation with evidence and replay protection.
 - Repair numeric missing materials inside vanilla chiseled blocks without replacing the host or voxel geometry. `inspect` lists material IDs; `source=ID` resolves multiple missing materials; `at=X,Y,Z dimension=N` targets loaded blocks that cannot be selected normally. Rules apply to both loaded and saved material palettes while protecting healthy materials.
