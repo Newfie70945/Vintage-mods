@@ -1,0 +1,31 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-migrationui2",
+  "officialGameVersion": "1.22.7",
+  "authenticatedGameClients": 0,
+  "reviewedMappingAndBackupOptionsBound": true,
+  "activatedWithoutRestart": true,
+  "normalLoaderObservedDestinations": {
+    "firstId": 12698,
+    "firstCode": "game:rock-granite",
+    "secondId": 12701,
+    "secondCode": "game:rock-basalt"
+  },
+  "changedChunks": 1,
+  "changedReferences": 2,
+  "heldCommandIssuedDuringWholeWorldScan": true,
+  "heldRuleAutomaticallyActiveWithoutRestart": true,
+  "heldRuleDoesNotWaitForRunningScan": true,
+  "heldRulePreservesOtherRulesAndHeldStack": true,
+  "healthyLookedAtSourceRefused": true,
+  "fixtureReloadedAfterNormalAutosave": true,
+  "heldRuleMigratesBothMatchingOccurrences": true,
+  "disableImmediate": true,
+  "directRuleSaveAndResumeRetainManualBackupPolicy": true,
+  "disabledQueuedActivationCannotReactivate": true,
+  "normalSavePersistedAll32768CellsVerified": true,
+  "disabledStateSurvivesRestart": true,
+  "suiteZipSha256": "faeda1088d09e083f2410360d9394ce5a07b121ef4b45e0f58baf7144d750f73",
+  "productionSourceCommit": "9815ae355029424b0519d99c8ca495843e513cb4",
+  "fixtureNote": "An intermediate rerun coalesced unload and load console commands and timed out. The test-only probe/runner now waits for explicit unload acknowledgement; this final run passed with the shipping Suite ZIP."
+}

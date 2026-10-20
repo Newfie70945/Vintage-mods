@@ -8589,6 +8589,7 @@ public sealed partial class WebDashboardService : IDisposable
                         "mapping-advice"=>repair.StartMappingAdvice(Sources()),
                         "loaded-stage"=>repair.StageLoadedMigration(GetJsonString(request.Body,"previewId",""),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),Inventory()),
                         "loaded-disable"=>repair.DisableLoadedMigration(),
+                        "loaded-resume"=>repair.ResumeConfiguredMigration(),
                         "rule-set"=>repair.ConfigureMigrationRule(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",""),Inventory(),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false)),
                         "rule-remove"=>repair.RemoveMigrationRule(GetJsonInt(request.Body,"sourceId",0)),
                         "rules-clear"=>repair.ClearMigrationRules(),
