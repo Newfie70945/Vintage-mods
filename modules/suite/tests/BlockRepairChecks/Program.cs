@@ -93,6 +93,17 @@ static class Checks
   using var be=new MemoryStream();using(var writer=new BinaryWriter(be,Encoding.UTF8,true)){writer.Write("Chest");var tree=new TreeAttribute();tree.SetInt("posx",17);tree.SetInt("posy",0);tree.SetInt("posz",0);tree.ToBytes(writer);}
   var protectedBlob=Blob(ChunkDataLayer.Compress(solid,scratch),ChunkDataLayer.Compress(fluid,scratch),entity:be.ToArray());
   try{codec.Replace(protectedBlob,123456,42,out _);throw new Exception("Missing inventory guard");}catch(InvalidOperationException){Assert(true,"source block entity prevents destructive replacement");}
+  // A densely decorated base must not block an unrelated plank palette repair.
+  byte[] DenseEntity(int index){using var data=new MemoryStream();using(var writer=new BinaryWriter(data,Encoding.UTF8,true)){writer.Write("Chest");var tree=new TreeAttribute();tree.SetInt("posx",index&31);tree.SetInt("posy",index>>10);tree.SetInt("posz",(index>>5)&31);tree.ToBytes(writer);}return Field(8,data.ToArray());}
+  using(var dense=new MemoryStream())
+  {
+   dense.Write(blob);for(int i=100;i<700;i++)dense.Write(DenseEntity(i));var originalDense=dense.ToArray();
+   var denseFixed=codec.Replace(originalDense,123456,42,out long denseCount);Assert(denseCount==4,"600 unrelated retained entities do not block plain missing-ID migration");
+   var oldRecords=BlockIdChunkCodec.Fields(originalDense).Where(f=>f.Tag==8).ToArray();var newRecords=BlockIdChunkCodec.Fields(denseFixed).Where(f=>f.Tag==8).ToArray();
+   Assert(newRecords.Length==600&&oldRecords.Zip(newRecords).All(pair=>originalDense.AsSpan(pair.First.Start,pair.First.End-pair.First.Start).SequenceEqual(denseFixed.AsSpan(pair.Second.Start,pair.Second.End-pair.Second.Start))),"all 600 unrelated retained payloads remain byte exact");
+   using(var atSource=new MemoryStream()){atSource.Write(originalDense);atSource.Write(DenseEntity(17));try{codec.Replace(atSource.ToArray(),123456,42,out _);throw new Exception("Dense source inventory protection lost");}catch(InvalidOperationException){Assert(true,"dense chunks still protect retained metadata at a replaced cell");}}
+   using(var repeated=new MemoryStream()){repeated.Write(originalDense);repeated.Write(DenseEntity(100));try{codec.Replace(repeated.ToArray(),123456,42,out _);throw new Exception("Dense duplicate position protection lost");}catch(InvalidOperationException){Assert(true,"dense chunks still reject duplicate retained positions");}}
+  }
   try{codec.Replace(blob,0,42,out _);throw new Exception("Missing air-source guard");}catch(ArgumentException){Assert(true,"air source refused");}
   foreach(var bad in new[]{new byte[]{0},new byte[]{10,255},new byte[]{11},new byte[]{128,128,128,128,128,128,128,128,128,128,128}}){try{BlockIdChunkCodec.Fields(bad);throw new Exception("Missing malformed data guard");}catch(InvalidDataException){count++;}}
   using var duplicate=new MemoryStream();duplicate.Write(blob);duplicate.Write(Field(1,[]));try{codec.Inspect(duplicate.ToArray(),_=>true);throw new Exception("Missing duplicate guard");}catch(InvalidDataException){count++;}

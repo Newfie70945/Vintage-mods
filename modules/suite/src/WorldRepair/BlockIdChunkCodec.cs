@@ -11,6 +11,10 @@ namespace BlockLogger.WorldRepair;
 internal sealed class BlockIdChunkCodec
 {
     internal sealed record Field(int Tag,int Wire,int Start,int End,int Data,int Length,ulong Number);
+    // A chunk has 32^3 cells. Dense builds can legitimately exceed the old
+    // 256-entity limit; duplicate positions and bounded bytes remain mandatory.
+    private const int MaxRetainedEntities=32768;
+    private const int MaxRetainedBytes=32*1024*1024;
     private readonly ChunkDataPool pool;
     private readonly int[] compressionScratch=new int[15360];
     private static readonly MethodInfo Unpack=typeof(ChunkDataLayer).GetMethod("Decompress",BindingFlags.Instance|BindingFlags.NonPublic)!;
@@ -44,7 +48,7 @@ internal sealed class BlockIdChunkCodec
     public Dictionary<int,int[]> ReadCells(byte[] blob,IEnumerable<int> indices)
     {
         var cells=indices.Distinct().ToDictionary(i=>i,_=>new int[2]);
-        if(cells.Keys.Any(i=>i<0||i>=32768)||cells.Count>257)throw new ArgumentOutOfRangeException(nameof(indices));
+        if(cells.Keys.Any(i=>i<0||i>=32768)||cells.Count>MaxRetainedEntities)throw new ArgumentOutOfRangeException(nameof(indices));
         var fields=Fields(blob);int version=(int)(fields.LastOrDefault(x=>x.Tag==15)?.Number??0);
         if(version is not (1 or 2))throw new NotSupportedException("Legacy chunk compression cannot be inspected safely.");
         foreach(var field in fields.Where(x=>x.Tag is 1 or 16)){
@@ -139,25 +143,26 @@ internal sealed class BlockIdChunkCodec
         try
         {
             var entities=Fields(blob).Where(f=>f.Tag==8).ToArray();
-            if(entities.Length>256||entities.Sum(f=>(long)f.Length)>8*1024*1024)throw new InvalidDataException("Retained block entities exceed verification limits.");
-            var records=new List<(int Index,SavedBlockEntityInspector.EntitySummary Summary)>();
+            if(entities.Length>MaxRetainedEntities||entities.Sum(f=>(long)f.Length)>MaxRetainedBytes)
+                throw new InvalidDataException($"Retained block entities exceed verification limits: {entities.Length} records / {entities.Sum(f=>(long)f.Length)} bytes; maximum {MaxRetainedEntities} records / {MaxRetainedBytes} bytes.");
+            var records=new List<(int Index,string Class,string Code)>();
             foreach(var field in entities)
             {
-                if(field.Wire!=2)throw new InvalidDataException("Invalid block-entity payload.");
+                if(field.Wire!=2||field.Length>2*1024*1024)throw new InvalidDataException("Invalid or oversized block-entity payload.");
                 var retained=SavedBlockEntityInspector.Inspect(blob.AsSpan(field.Data,field.Length).ToArray());
                 if(!retained.Complete)throw new InvalidDataException("Unverifiable retained block entity: "+retained.Issue);
                 if(chunk.HasValue&&(retained.X/32!=chunk.Value.X||retained.Y/32!=chunk.Value.Y||retained.Z/32!=chunk.Value.Z||retained.Dimension!=chunk.Value.Dimension))throw new InvalidDataException("Retained block entity is outside its saved chunk.");
                 int index=(((retained.InternalY!.Value&31)*32+(retained.Z!.Value&31))*32)+(retained.X!.Value&31);
                 if(!positions.Add(index))throw new InvalidDataException("Duplicate retained block entities at one position.");
-                records.Add((index,retained));
+                records.Add((index,retained.Class,retained.SavedBlockCode));
             }
             var cells=records.Count>0?ReadCells(blob,records.Select(e=>e.Index)):new Dictionary<int,int[]>();
             foreach(var record in records)
                 foreach(int id in cells[record.Index].Distinct().Where(counts.ContainsKey))
                 {
                     hosted[id]=hosted.GetValueOrDefault(id)+1;
-                    if(!identities.TryGetValue(id,out var identity)||identity.EntityClass.Length==0||record.Summary.Class!=identity.EntityClass||
-                        (record.Summary.SavedBlockCode.Length>0&&Canonical(record.Summary.SavedBlockCode)!=Canonical(identity.Code)))
+                    if(!identities.TryGetValue(id,out var identity)||identity.EntityClass.Length==0||record.Class!=identity.EntityClass||
+                        (record.Code.Length>0&&Canonical(record.Code)!=Canonical(identity.Code)))
                         issues[id]="Retained block entity is incompatible with this replacement. Restore its original mod or use dedicated inventory recovery.";
                 }
             foreach(var entry in counts)

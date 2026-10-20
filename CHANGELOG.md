@@ -2,6 +2,11 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationLive1: `/nseblockmigrate replaceheld no-backup manual-copy-confirmed` saves and activates an ID-wide rule without creating an automatic world backup. Missing acknowledgement is refused; existing rules and the held stack are preserved.
+- Fixed migration refusing densely built chunks at the old 256 block-entity verification cap. The verifier supports up to one retained entity per chunk cell with bounded bytes; unrelated payloads remain byte-for-byte unchanged, and metadata at replacement cells stays protected.
+- Added a one-time bounded pass over already-loaded solid terrain after migration activates. Only configured missing IDs change; safe cells can migrate without unloading the base. Inventory recovery and unsupported layers still use the saved-chunk path. Disable/clear/reconfigure cancels the pass.
+- Show loaded-terrain progress, skipped cells and reasons separately from skipped saved chunks. Chunk refusals include a retained-block location when available. Land claims do not block Block ID Migration.
+
 - RollbackLogging1: single-block previews report actual numeric ID/code, missing-definition status, event/transfer/snapshot counts and actionable recovery limits.
 - Replace typed rollback execution tokens with `/rollback apply`, which confirms the latest preview belonging to the administrator.
 - Added explicit `/rollback block TIME --from-live` for existing containers without old snapshots: reverse identity-matching take/put rows from captured current contents, with fixed preview binding, live-change checks and durable receipts. Unlogged transfers and original item attributes cannot be verified.

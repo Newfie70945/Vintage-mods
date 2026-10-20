@@ -3206,7 +3206,7 @@ __NSS_RETENTION_HTML__
 <section id="blockMigration">
   <div class="pageTitle"><div><h2>Block ID Migration</h2><div class="subtitle">Choose a missing ID, save its replacement, then let visited chunks migrate.</div></div><span class="badge">1.2.44 · Migration UI 2</span></div>
   <div class="bmNotice"><strong>Experimental.</strong> Test on a world copy. Only missing IDs change; every occurrence of that ID is affected. The author is not responsible for data lost through misuse.</div>
-  <div class="bmStatusBar"><div><span class="small">Migration</span><strong id="bmStateLabel">Loading…</strong></div><div><span class="small">Saved rules</span><strong id="bmRuleCount">—</strong></div><div><span class="small">Changed this session</span><strong id="bmChangedCount">—</strong></div><div><span class="small">Skipped chunks</span><strong id="bmSkippedCount">—</strong></div></div>
+  <div class="bmStatusBar"><div><span class="small">Migration</span><strong id="bmStateLabel">Loading…</strong></div><div><span class="small">Saved rules</span><strong id="bmRuleCount">—</strong></div><div><span class="small">Changed this session</span><strong id="bmChangedCount">—</strong></div><div><span class="small">Skipped chunk loads</span><strong id="bmSkippedCount">—</strong></div></div>
   <div class="bmStatusActions"><button id="bmRefresh">Refresh</button><button id="bmResume" disabled>Resume saved rules</button><button id="bmDisable" disabled>Pause migration</button><button id="bmCancel">Cancel pending work</button></div>
   <div id="bmLiveStatus" class="small bmLiveText" role="status"></div><pre hidden id="bmLiveMappings"></pre>
 
@@ -3223,7 +3223,7 @@ __NSS_RETENTION_HTML__
       <div class="bmSaveBar"><button id="bmRuleSave" type="submit" class="primary">Save &amp; enable rule</button><span id="bmSaveHint" class="small" aria-live="polite"></span></div>
       <div id="bmActionStatus" class="bmActionStatus" role="status" aria-live="polite" hidden></div>
     </form>
-    <p class="small bmFootnote">No scan or restart needed. After preparation, blocks change when their chunks next load. Already loaded terrain must unload and reload; normal saves persist changes.</p>
+    <p class="small bmFootnote">No scan or restart needed. After preparation, safe already-loaded solid blocks change in bounded batches. Inventory recovery, fluid and decor changes run when saved chunks next load; normal saves persist changes.</p>
   </div>
 
   <div class="card" id="bmSavedRulesCard" data-workspace-fixed="true"><div class="cardHeader"><div><h3>Saved rules</h3><div id="bmRulesStatus" class="small" role="status"></div></div><button id="bmRulesClear">Clear all rules</button></div>
@@ -3244,7 +3244,7 @@ __NSS_RETENTION_HTML__
     <div id="bmBatchHint" class="small" aria-live="polite"></div><div id="bmReviewStatus" class="small" role="status"></div><pre id="bmReview" class="bmDetailsText"></pre>
   </details>
 
-  <details class="card bmOptional"><summary>Diagnostics &amp; in-game help</summary><p class="small">In game: look at a missing block, hold the replacement, then run <code>/nseblockmigrate replaceheld</code>. That command enables automatic backup when saving; use this page for manual-backup rules. Use <code>/nseblockmigrate rules</code> and <code>/nseblockmigrate status</code> to check progress.</p>
+  <details class="card bmOptional"><summary>Diagnostics &amp; in-game help</summary><p class="small">In game: look at a missing block, hold the replacement, then run <code>/nseblockmigrate replaceheld</code>. To skip automatic backup, use <code>/nseblockmigrate replaceheld no-backup manual-copy-confirmed</code> after making a manual world copy. Use <code>/nseblockmigrate rules</code> and <code>/nseblockmigrate status</code> to check progress.</p>
     <p class="small">Pause stops future changes; it does not undo saved migrations. Incompatible containers, layers or bytes are skipped. Removed mods need an installed replacement; suggestions are evidence for your review, not guaranteed restoration.</p>
     <p id="bmDiagnosticsStatus" class="small"></p><pre id="bmInventoryDetails" class="bmDetailsText"></pre><button id="bmExport">Download diagnostics</button><p class="small">Migration settings and backups are under <code>NewfiesBlockRepair</code> in server data.</p>
   </details>
@@ -9778,8 +9778,8 @@ function renderBlockMigration(data){
   bmState=data;const value=bmValue,scan=data.scan,findings=value(scan,'Findings')||[],scanId=value(scan,'Id')||'';
   if(bmScanId!==scanId){bmScanId=scanId;bmChoices.clear();bmSearch.clear();bmReviewedId='';bmPage=0;}
   const clean=value(scan,'State')==='complete'&&!value(scan,'Errors')&&!value(scan,'Unsupported'),loaded=data.loadedMigration,enabled=!!value(loaded,'Enabled');
-  $('bmDiagnosticsStatus').textContent=(loaded?`${value(loaded,'State')} · ${value(loaded,'Message')||''} This session: ${loaded.sessionChunksChanged||0} chunks / ${loaded.sessionBlocksChanged||0} references migrated; ${loaded.sessionChunksRefused||0} chunks skipped. ${loaded.sessionInventoriesRecovered||0} inventories / ${loaded.sessionInventoryItemsRecovered||0} items recovered; ${loaded.sessionInventoryRecoveriesSkipped||0} inventory recoveries skipped.${loaded.lastInventoryIssue?' Last inventory issue: '+loaded.lastInventoryIssue:''}${loaded.lastIssue?' Last issue: '+loaded.lastIssue:''}`:'Migration disabled.');
-  $('bmLiveStatus').textContent=(value(loaded,'Message')||'Save a rule to get started.')+(loaded?.lastIssue?' Last issue: '+loaded.lastIssue:'')+(loaded?.lastInventoryIssue?' Inventory issue: '+loaded.lastInventoryIssue:'');
+  $('bmDiagnosticsStatus').textContent=(loaded?`${value(loaded,'State')} · ${value(loaded,'Message')||''} This session: ${loaded.sessionChunksChanged||0} chunks / ${loaded.sessionBlocksChanged||0} references migrated; ${loaded.sessionChunksRefused||0} chunk-load attempts skipped (may repeat the same chunk). ${loaded.sessionInventoriesRecovered||0} inventories / ${loaded.sessionInventoryItemsRecovered||0} items recovered; ${loaded.sessionInventoryRecoveriesSkipped||0} inventory recoveries skipped.${loaded.lastInventoryIssue?' Last inventory issue: '+loaded.lastInventoryIssue:''}${loaded.lastIssue?' Last issue: '+loaded.lastIssue:''} Loaded terrain: ${loaded.loadedSweepBlocksChanged||0} blocks changed; ${loaded.loadedSweepPending||0} chunks pending; ${loaded.loadedSweepBlocksSkipped||0} cells skipped. ${loaded.lastLoadedSweepIssue||''}`:'Migration disabled.');
+  $('bmLiveStatus').textContent=(value(loaded,'Message')||'Save a rule to get started.')+(loaded?.lastIssue?' Last issue: '+loaded.lastIssue:'')+(loaded?.lastInventoryIssue?' Inventory issue: '+loaded.lastInventoryIssue:'')+(loaded?.lastLoadedSweepIssue?' Loaded terrain: '+loaded.lastLoadedSweepIssue:'')+(loaded?.loadedSweepPending?' Loaded-terrain pass: '+loaded.loadedSweepPending+' chunks pending.':'');
   $('bmRefresh').disabled=bmBusy;
   const configured=value(loaded,'Plan'),configuredRules=value(configured,'Mappings')||[];bmSyncForm(configured);
   $('bmLiveMappings').textContent=configured?(configuredRules.length?configuredRules:[configured]).map(m=>`Missing ID ${value(m,'Source')} → ${value(m,'TargetCode')} (ID ${value(m,'Target')})`).join('\n'):'';
@@ -9796,7 +9796,7 @@ function renderBlockMigration(data){
   for(const id of ['bmRuleSource','bmRuleTarget','bmBackup','bmManualAck','bmAir','bmInventoryMode','bmInventoryBefore','bmInventoryRisk','bmInventoryOverwrite'])$(id).disabled=bmBusy||!bmCanEdit();
   $('bmStateLabel').textContent=loaded?.active?'Active':enabled?(value(loaded,'State')||'Preparing'):'Paused';
   if(['failed','preparation-failed'].includes(value(loaded,'State')))$('bmStateLabel').textContent='Needs attention';
-  $('bmRuleCount').textContent=String(ruleList.length);$('bmChangedCount').textContent=String(loaded?.sessionBlocksChanged||0)+' blocks';$('bmSkippedCount').textContent=String(loaded?.sessionChunksRefused||0);
+  $('bmRuleCount').textContent=String(ruleList.length);$('bmChangedCount').textContent=String((loaded?.sessionBlocksChanged||0)+(loaded?.loadedSweepBlocksChanged||0))+' blocks';$('bmSkippedCount').textContent=String(loaded?.sessionChunksRefused||0);
   $('bmResume').disabled=bmBusy||!bmCanEdit()||!ruleList.length||!!loaded?.active||['backing-up','activating','preparing-inventories'].includes(value(loaded,'State'));
   $('bmResume').textContent=['failed','preparation-failed'].includes(value(loaded,'State'))?'Retry saved rules':'Resume saved rules';
   $('bmResume').title='Uses the backup and inventory options stored with the saved rules, not unsaved editor changes.';

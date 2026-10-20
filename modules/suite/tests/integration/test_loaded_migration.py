@@ -79,7 +79,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-rollbacklogging1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationlive1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -126,6 +126,7 @@ try:
     # not an authenticated network client. Two occurrences share the third ID.
     status,_=request('/api/block-migration',dict(operation='scan'));assert status==200
     assert state()['scan']['state']=='running';result['heldCommandIssuedDuringWholeWorldScan']=True
+    held_backups={p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}
     offset=len(lines);process.stdin.write('/nseheldmigrationprobe '+str(location['x']+2)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
     until=time.monotonic()+30;heldmarker='NSE_HELD_MIGRATION_PROBE '
     while not any(heldmarker in line for line in lines[offset:]):
@@ -135,6 +136,17 @@ try:
     staged=wait_active();assert len(staged['plan']['mappings'])==3 and process.pid==original_pid,staged;result['heldRuleAutomaticallyActiveWithoutRestart']=True
     assert 'no world scan' in held['message'];result['heldRuleDoesNotWaitForRunningScan']=True
     assert {m['source'] for m in staged['plan']['mappings']}=={999999,999998,999997};result['heldRulePreservesOtherRulesAndHeldStack']=True;result['healthyLookedAtSourceRefused']=True
+    assert held['unacknowledgedRejected'] and held['noAutomaticBackup'],held
+    until=time.monotonic()+45
+    while True:
+        active=state()['loadedMigration']
+        if active['loadedSweepBlocksChanged']>=2:break
+        if time.monotonic()>until:raise RuntimeError('Already-loaded terrain was not migrated: '+str(active))
+        time.sleep(.1)
+    assert active['loadedSweepBlocksChanged']==2 and active['loadedSweepBlocksSkipped']==0,active
+    assert {p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}==held_backups
+    result['heldNoBackupRequiresAcknowledgementAndCreatesNoBackup']=True
+    result['alreadyLoadedBothMatchingBlocksMigratedWithoutReload']=True
     # Save normally before explicitly reloading this disposable fixture column.
     process.stdin.write('/autosavenow\n');process.stdin.flush();until=time.monotonic()+90
     while True:
@@ -155,7 +167,7 @@ try:
         if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Held-rule load probe timed out: '+str(root))
         time.sleep(.1)
     both=json.loads(next(line.split(marker,1)[1] for line in lines[offset:] if marker in line));assert both['firstCode']==both['secondCode']=='game:rock-granite',both
-    active=state()['loadedMigration'];assert active['sessionBlocksChanged']==4 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
+    active=state()['loadedMigration'];assert active['sessionBlocksChanged']+active['loadedSweepBlocksChanged']==4 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
     status,disabled=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not disabled['active'] and not disabled['enabled'],disabled
     result['disableImmediate']=True
     # Direct web-editor save: no scan or automatic backup, then pause/resume
