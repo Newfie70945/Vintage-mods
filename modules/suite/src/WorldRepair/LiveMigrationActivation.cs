@@ -22,7 +22,7 @@ public sealed partial class BlockIdRepairService
         CancelLiveActivation();
         var plan=loadedMigration.Plan;
         if(disposed||!loadedMigration.Enabled||plan==null)return;
-        if(plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete")return;
+        if(plan.Inventory.RequiresPreparation&&plan.InventoryReport.State!="complete")return;
         try
         {
             Guard();Validate(plan);
@@ -85,7 +85,7 @@ public sealed partial class BlockIdRepairService
         {
             if(disposed||loadedActive||!loadedMigration.Enabled||loadedMigration.Plan==null)return;
             var plan=loadedMigration.Plan;
-            if(plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete")
+            if(plan.Inventory.RequiresPreparation&&plan.InventoryReport.State!="complete")
             {
                 try{Guard();Validate(plan,false);StartMigrationInventoryPreparation(plan);}
                 catch(Exception error){lock(loadedGate){loadedMigration.State="preparation-failed";loadedMigration.Message=error.Message;Write(LoadedMigrationFile,loadedMigration);}}

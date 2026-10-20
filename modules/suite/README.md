@@ -9,7 +9,7 @@ Current release and validation: see [release notes](../../CHANGELOG.md).
 
 Current build: [1.2.44 ModpackStability1 validation](../../docs/VALIDATION-MODPACK-STABILITY-1.2.44.md). [Packet-stability validation](../../docs/VALIDATION-PACKET-STABILITY-1.2.44.md) is retained. [Migration validation](../../docs/VALIDATION-BLOCK-MIGRATION-1.2.44.md) is retained. Historical [1.2.43 validation](../VALIDATION-1.2.43.md) is retained. Historical [1.2.41 audit repairs](../AUDIT-1.2.41.md) are retained. Retains [SharedLoadFix1 notes](../SHAREDLOADFIX1-NOTES.md) and [validation](../VALIDATION-SHAREDLOADFIX1.md), including [SqliteFix1 notes](../SQLITEFIX1-NOTES.md) and [validation](../VALIDATION-SQLITEFIX1.md), retaining [InteractionFix1](../INTERACTIONFIX1-NOTES.md), [AdminPanel2](../ADMINPANEL2-NOTES.md) and all preceding improvements.
 
-Build ID: `newfies-server-essentials-suite-1.2.44-ms11-migrationlive1`
+Build ID: `newfies-server-essentials-suite-1.2.44-ms11-migrationcontainers1`
 
 Ordinary Visual Studio / `dotnet build` and `dotnet publish` output now place native SQLite files beneath `native/runtimes/`. If zipping manually, zip the **contents** of the output directory so `modinfo.json` and managed DLLs are at the ZIP root. See [build/package instructions](../SQLITEFIX1-NOTES.md).
 
@@ -436,3 +436,5 @@ Migration UI 2: [workflow and validation](../../docs/VALIDATION-MIGRATION-UI-1.2
 Rollback/logging update: [validation and limitations](../../docs/VALIDATION-ROLLBACK-LOGGING-1.2.44.md).
 
 MigrationLive1 validation and command guide: [VALIDATION-MIGRATION-LIVE-1.2.44.md](../../docs/VALIDATION-MIGRATION-LIVE-1.2.44.md).
+
+Bookshelf reconnect and chiseled-material commands: [MigrationContainers1 guide](../../docs/VALIDATION-MIGRATION-CONTAINERS-1.2.44.md).

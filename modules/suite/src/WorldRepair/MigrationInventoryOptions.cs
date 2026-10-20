@@ -4,6 +4,7 @@ namespace BlockLogger.WorldRepair;
 
 public sealed record MigrationInventoryOptions(string Mode="preserve",DateTime? BeforeUtc=null,bool RiskAcknowledged=false,bool OverwriteAcknowledged=false)
 {
+    [System.Text.Json.Serialization.JsonIgnore] public bool RequiresPreparation=>Mode is "recover-empty" or "replace";
     public static MigrationInventoryOptions Parse(string mode,string before,bool risk,bool overwrite)
     {
         DateTime? cutoff=null;
@@ -16,9 +17,9 @@ public sealed record MigrationInventoryOptions(string Mode="preserve",DateTime? 
     }
     public void Validate()
     {
-        if(Mode is not ("preserve" or "recover-empty" or "replace"))throw new ArgumentException("Choose preserve, recover-empty or replace inventory mode.");
+        if(Mode is not ("preserve" or "reconnect" or "recover-empty" or "replace"))throw new ArgumentException("Choose preserve, reconnect, recover-empty or replace inventory mode.");
         if(BeforeUtc.HasValue&&(BeforeUtc.Value.Kind!=DateTimeKind.Utc||BeforeUtc.Value>DateTime.UtcNow))throw new ArgumentException("Inventory cutoff must be UTC and cannot be in the future.");
-        if(Mode!="preserve"&&!RiskAcknowledged)throw new InvalidOperationException("Acknowledge historical inventory recovery risks: snapshots may lack attributes and unlogged transfers can duplicate items.");
+        if(Mode!="preserve"&&!RiskAcknowledged)throw new InvalidOperationException(Mode=="reconnect"?"Acknowledge compatible container reconnection; incompatible or missing metadata will remain unchanged.":"Acknowledge historical inventory recovery risks: snapshots may lack attributes and unlogged transfers can duplicate items.");
         if(Mode=="replace"&&!OverwriteAcknowledged)throw new InvalidOperationException("Explicitly acknowledge replacing existing container contents before using Replace mode.");
     }
 }

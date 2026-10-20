@@ -1,0 +1,192 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-migrationcontainers1",
+  "officialGameVersion": "1.22.7",
+  "authenticatedGameClients": 0,
+  "compiledZipSha256": "45385e662c99e9cc311284ee6f2b550c7c91b182f760f625b3cfb8b377484cfd",
+  "compiledAssemblySha256": "e9a684691177a2d533fe9153c609230d7f2da6cf85c5e596174c9c88741df5e9",
+  "allFourTestedZipsMatchShippingZip": true,
+  "codecChecks": 146,
+  "historyChecks": 17,
+  "inventoryPayloadAndReplayChecks": 24,
+  "backupChecks": 8,
+  "chatParserChecks": 5,
+  "browserChecks": "passed: reconnect/no-history review, saving, role/Safe Mode, diagnostics and mobile",
+  "cases": {
+    "loadedTerrainAndChiseledMaterials": {
+      "suiteVersion": "1.2.44",
+      "buildSuffix": "ms11-migrationcontainers1",
+      "officialGameVersion": "1.22.7",
+      "authenticatedGameClients": 0,
+      "liveRecordingSettingsPersistAndRejectInvalidTypes": true,
+      "recordingWritesBlockedBySafeDiagnosticsMode": true,
+      "reviewedMappingAndBackupOptionsBound": true,
+      "activatedWithoutRestart": true,
+      "normalLoaderObservedDestinations": {
+        "firstId": 12698,
+        "firstCode": "game:rock-granite",
+        "secondId": 12701,
+        "secondCode": "game:rock-basalt"
+      },
+      "changedChunks": 1,
+      "changedReferences": 2,
+      "heldCommandIssuedDuringWholeWorldScan": true,
+      "heldRuleAutomaticallyActiveWithoutRestart": true,
+      "heldRuleDoesNotWaitForRunningScan": true,
+      "heldRulePreservesOtherRulesAndHeldStack": true,
+      "healthyLookedAtSourceRefused": true,
+      "heldNoBackupRequiresAcknowledgementAndCreatesNoBackup": true,
+      "alreadyLoadedBothMatchingBlocksMigratedWithoutReload": true,
+      "fixtureReloadedAfterNormalAutosave": true,
+      "heldRuleMigratesBothMatchingOccurrences": true,
+      "chiseledMaterials": {
+        "coordinateSelection": true,
+        "ambiguousRejected": true,
+        "liveMaterialMigrated": true,
+        "hostAndGeometryPreserved": true,
+        "healthyMaterialPreserved": true,
+        "savedMaterialOnlyHookPreservesOtherBytes": true,
+        "heldQuantity": 7,
+        "message": "Saved migration rule for ALL missing blocks/chiseled material references with ID 999996 \u2192 game:rock-granite (ID 12698). 4 rules retained; no world scan required. Automatic backup skipped by explicit acknowledgement; activation starts automatically. Safe already-loaded solid blocks are processed in a bounded background pass on the server thread; reconnect checks compatible containers; unverifiable cells remain unchanged. Your held stack was not consumed."
+      },
+      "disableImmediate": true,
+      "directRuleSaveAndResumeRetainManualBackupPolicy": true,
+      "disabledQueuedActivationCannotReactivate": true,
+      "normalSavePersistedAll32768CellsVerified": true,
+      "disabledStateSurvivesRestart": true,
+      "disabledModuleRecordingStatusRemainsReadable": true
+    },
+    "reconnectOccupiedWithoutHistory": {
+      "suiteVersion": "1.2.44",
+      "buildSuffix": "ms11-migrationcontainers1",
+      "officialGameVersion": "1.22.7",
+      "inventoryMode": "reconnect",
+      "initiallyOccupied": true,
+      "authenticatedGameClients": 0,
+      "riskAcknowledgementEnforced": true,
+      "reconnectNeedsNoHistoryOrWholeWorldPreparation": true,
+      "preparation": {
+        "state": "not-requested",
+        "message": "",
+        "chunks": 0,
+        "prepared": 0,
+        "preserved": 0,
+        "recovered": 0,
+        "items": 0,
+        "skipped": 0,
+        "samples": []
+      },
+      "changedInventoryOptionsRefused": true,
+      "activatedWithoutRestart": true,
+      "automaticPreparationOnDirectRule": true,
+      "officialEngineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": [
+          {
+            "slot": 0,
+            "code": "game:clothes-nadiya-neck-tule-root-amulet",
+            "quantity": 7,
+            "text": "Keep this exact written text"
+          }
+        ]
+      },
+      "liveReconnection": {
+        "entityInstancePreserved": true,
+        "inventoryInstancePreserved": true,
+        "itemInstancesAndAttributesPreserved": true,
+        "quantity": 7,
+        "emptyStayedEmpty": false,
+        "heldQuantity": 7,
+        "message": "Saved migration rule for ALL missing blocks/chiseled material references with ID 999998 \u2192 game:bookshelf (ID 6645). 2 rules retained; no world scan required. Automatic backup skipped by explicit acknowledgement; activation starts automatically. Safe already-loaded solid blocks are processed in a bounded background pass on the server thread; reconnect checks compatible containers; unverifiable cells remain unchanged. Your held stack was not consumed."
+      },
+      "normalSaveHealthyCellsAndIntegrityVerified": true,
+      "backupPreservedOriginal": true,
+      "liveHeldRuleCreatesNoAdditionalBackup": true
+    },
+    "reconnectEmptyWithoutHistory": {
+      "suiteVersion": "1.2.44",
+      "buildSuffix": "ms11-migrationcontainers1",
+      "officialGameVersion": "1.22.7",
+      "inventoryMode": "reconnect",
+      "initiallyOccupied": false,
+      "authenticatedGameClients": 0,
+      "riskAcknowledgementEnforced": true,
+      "reconnectNeedsNoHistoryOrWholeWorldPreparation": true,
+      "preparation": {
+        "state": "not-requested",
+        "message": "",
+        "chunks": 0,
+        "prepared": 0,
+        "preserved": 0,
+        "recovered": 0,
+        "items": 0,
+        "skipped": 0,
+        "samples": []
+      },
+      "changedInventoryOptionsRefused": true,
+      "activatedWithoutRestart": true,
+      "automaticPreparationOnDirectRule": false,
+      "emptyInventoryStaysEmptyWithoutHistory": true,
+      "officialEngineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": []
+      },
+      "liveReconnection": {
+        "entityInstancePreserved": true,
+        "inventoryInstancePreserved": true,
+        "itemInstancesAndAttributesPreserved": true,
+        "quantity": 0,
+        "emptyStayedEmpty": true,
+        "heldQuantity": 7,
+        "message": "Saved migration rule for ALL missing blocks/chiseled material references with ID 999998 \u2192 game:bookshelf (ID 6645). 2 rules retained; no world scan required. Automatic backup skipped by explicit acknowledgement; activation starts automatically. Safe already-loaded solid blocks are processed in a bounded background pass on the server thread; reconnect checks compatible containers; unverifiable cells remain unchanged. Your held stack was not consumed."
+      },
+      "normalSaveHealthyCellsAndIntegrityVerified": true,
+      "backupPreservedOriginal": true,
+      "liveHeldRuleCreatesNoAdditionalBackup": true
+    },
+    "historicalRecoveryRegression": {
+      "suiteVersion": "1.2.44",
+      "buildSuffix": "ms11-migrationcontainers1",
+      "officialGameVersion": "1.22.7",
+      "inventoryMode": "recover-empty",
+      "initiallyOccupied": false,
+      "authenticatedGameClients": 0,
+      "riskAcknowledgementEnforced": true,
+      "preparation": {
+        "state": "complete",
+        "message": "Reviewed 1 compatible container(s): 1 inventory snapshot recoveries (1 items), 0 retained inventories preserved, 0 skipped candidates. Snapshots restore logged codes/quantities with default attributes; written text, durability and custom contents were not logged. Unprepared or changed container positions will be skipped; compatible neighbors can still migrate.",
+        "chunks": 1800,
+        "prepared": 1,
+        "preserved": 0,
+        "recovered": 1,
+        "items": 1,
+        "skipped": 0,
+        "samples": []
+      },
+      "changedInventoryOptionsRefused": true,
+      "activatedWithoutRestart": true,
+      "automaticPreparationOnDirectRule": false,
+      "officialEngineLoadedInventory": {
+        "success": true,
+        "block": "game:bookshelf",
+        "slots": 14,
+        "items": [
+          {
+            "slot": 0,
+            "code": "game:book-normal-brickred",
+            "quantity": 1,
+            "text": ""
+          }
+        ]
+      },
+      "durableReceiptBlocksReplay": true,
+      "changedRetainedInventoryRefused": true,
+      "normalSaveHealthyCellsAndIntegrityVerified": true,
+      "backupPreservedOriginal": true
+    }
+  }
+}

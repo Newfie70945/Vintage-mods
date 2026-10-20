@@ -128,7 +128,7 @@ internal sealed class BlockIdChunkCodec
     // entity/hash/slot layout. Unapproved positions sharing an ID stay unchanged.
     internal byte[] ReplaceVerifiedContainerCells(byte[] blob,IReadOnlyDictionary<int,(int Source,int Target)> choices)
     {
-        if(choices.Count==0)return blob;if(choices.Count>256)throw new InvalidDataException("Too many verified container positions in one chunk.");
+        if(choices.Count==0)return blob;if(choices.Count>32768)throw new InvalidDataException("Too many verified container positions in one chunk.");
         var cells=ReadCells(blob,choices.Keys);foreach(var e in choices)if(e.Key<0||e.Key>=32768||e.Value.Target<=0||cells[e.Key][0]!=e.Value.Source||cells[e.Key][1]!=0)throw new InvalidOperationException("Verified container position changed or contains fluid.");
         var field=Fields(blob).Single(f=>f.Tag==1&&f.Wire==2);var layer=new BlockChunkDataLayer(pool);byte[] compressed;
         try{Unpack.Invoke(layer,[blob.AsSpan(field.Data,field.Length).ToArray()]);foreach(var e in choices)layer.Set(e.Key,e.Value.Target);compressed=ChunkDataLayer.Compress(layer,compressionScratch);}finally{pool.FreeArrays(layer);}

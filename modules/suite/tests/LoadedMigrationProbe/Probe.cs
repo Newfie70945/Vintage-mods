@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Vintagestory.GameContent;
+using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using BlockLogger;
@@ -46,6 +48,41 @@ public sealed class LoadedMigrationProbe:ModSystem
             if(!healthyRejected)throw new Exception("Healthy looked-at source was not protected.");
             api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,unacknowledgedRejected,noAutomaticBackup=true,message}));
             return TextCommandResult.Success("Held migration adapter checked using detached administrator fixture.");
+        });
+        api.ChatCommands.Create("nsechiselmigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>
+        {
+            var repair=(BlockIdRepairService)typeof(BlockLoggerModSystem).GetField("blockRepair",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(api.ModLoader.GetModSystem<BlockLoggerModSystem>())!;
+            var pos=new BlockPos((int)a[0],(int)a[1],(int)a[2]);int oldId=api.World.BlockAccessor.GetBlockId(pos);
+            if(api.World.BlockAccessor.GetBlockEntity(pos)!=null)throw new Exception("Chisel probe would overwrite an existing entity.");
+            var host=api.World.GetBlock(new AssetLocation("game:microblock"))??throw new Exception("Missing microblock asset.");var target=api.World.GetBlock(new AssetLocation("game:rock-granite"))??throw new Exception("Missing granite asset.");var healthy=api.World.GetBlock(new AssetLocation("game:rock-basalt"))??throw new Exception("Missing basalt asset.");
+            api.World.BlockAccessor.SetBlock(host.Id,pos);var micro=(BlockEntityMicroBlock)api.World.BlockAccessor.GetBlockEntity(pos)!;
+            micro.BlockIds=[999996,healthy.Id];micro.VoxelCuboids=[BlockEntityMicroBlock.ToUint(0,0,0,8,16,16,0),BlockEntityMicroBlock.ToUint(8,0,0,16,16,16,1)];var geometry=micro.VoxelCuboids.ToArray();
+            var player=(ServerPlayer)RuntimeHelpers.GetUninitializedObject(typeof(ServerPlayer));var data=(ServerWorldPlayerData)RuntimeHelpers.GetUninitializedObject(typeof(ServerWorldPlayerData));const string uid="chisel-migration-test-admin";
+            typeof(ServerWorldPlayerData).GetField("PlayerUID",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(data,uid);data.EntityPlayer=new EntityPlayer();typeof(ServerPlayer).GetField("worlddata",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(player,data);
+            var inventory=new InventoryGeneric(11,"hotbar-"+uid,api);inventory[0].Itemstack=new ItemStack(target,7);var inventories=new Vintagestory.API.Datastructures.OrderedDictionary<string,InventoryBase>();inventories.Add("hotbar-"+uid,inventory);typeof(ServerPlayer).GetField("inventoryMgr",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(player,new ServerPlayerInventoryManager(inventories,player,(ServerMain)api.World));
+            string at=$"at={pos.X},{pos.Y},{pos.Z} dimension=0";var inspect=(string)typeof(BlockIdRepairService).GetMethod("InspectMigrationTarget",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player,at])!;
+            if(!inspect.Contains("999996 (missing)"))throw new Exception("Inspector did not identify the embedded missing material.");
+            bool ambiguousRejected=false;try{typeof(BlockIdRepairService).GetMethod("SelectMissingMaterial",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[new int[]{999996,999995},Array.Empty<string>()]);}catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("Several")==true){ambiguousRejected=true;}
+            if(!ambiguousRejected)throw new Exception("Ambiguous missing materials were guessed.");
+            string message=(string)typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeldOptions",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player,"preserve source=999996 "+at+" no-backup manual-copy-confirmed"])!;
+            int attempts=0;
+            void Check(float dt)
+            {
+                if(!JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration").GetProperty("active").GetBoolean())
+                {if(++attempts>600)throw new Exception("Chisel activation timed out.");api.Event.RegisterCallback(Check,50);return;}
+                if(micro.BlockIds[0]!=target.Id){if(++attempts>600)throw new Exception("Live chiseled material did not migrate.");api.Event.RegisterCallback(Check,50);return;}
+                if(micro.BlockIds[1]!=healthy.Id||!micro.VoxelCuboids.SequenceEqual(geometry)||api.World.BlockAccessor.GetBlockId(pos)!=host.Id||inventory[0].StackSize!=7)throw new Exception("Chisel host/geometry/healthy material/held quantity changed.");
+                // Serialize with the official engine, then exercise the actual
+                // saved-load prefix on material-only damage (no missing host).
+                micro.BlockIds[0]=999996;var chunk=(ServerChunk)api.World.BlockAccessor.GetChunkAtBlockPos(pos);byte[] before=chunk.ToBytes();object?[] arguments=[before,api.World,null];typeof(BlockIdRepairService).GetMethod("BeforeLoadedChunk",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,arguments);var after=(byte[])arguments[0]!;
+                if(arguments[2]==null||before.SequenceEqual(after)||before.Length!=after.Length)throw new Exception("Saved hook ignored material-only damage.");
+                var codec=typeof(BlockIdRepairService).Assembly.GetType("BlockLogger.WorldRepair.BlockIdChunkCodec")!;var fields=(IEnumerable)codec.GetMethod("Fields",BindingFlags.Public|BindingFlags.Static)!.Invoke(null,[before])!;int offset=-1;
+                foreach(var field in fields){var type=field!.GetType();if((int)type.GetProperty("Tag")!.GetValue(field)! !=8)continue;int start=(int)type.GetProperty("Data")!.GetValue(field)!,length=(int)type.GetProperty("Length")!.GetValue(field)!;var summary=SavedBlockEntityInspector.Inspect(before.AsSpan(start,length).ToArray());if(summary.Class=="MicroBlock"&&summary.X==pos.X&&summary.Z==pos.Z)offset=start+(int)typeof(SavedBlockEntityInspector.EntitySummary).GetProperty("MaterialIdsOffset")!.GetValue(summary)!;}
+                if(offset<0||System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(after.AsSpan(offset,4))!=target.Id||!Enumerable.Range(0,before.Length).Where(i=>i<offset||i>=offset+4).All(i=>before[i]==after[i]))throw new Exception("Saved hook changed geometry or healthy material bytes.");
+                micro.BlockIds[0]=target.Id;api.World.BlockAccessor.SetBlock(oldId,pos);
+                api.Logger.Notification("{0}","NSE_CHISEL_MIGRATION_PROBE "+JsonSerializer.Serialize(new{coordinateSelection=true,ambiguousRejected,liveMaterialMigrated=true,hostAndGeometryPreserved=true,healthyMaterialPreserved=true,savedMaterialOnlyHookPreservesOtherBytes=true,heldQuantity=inventory[0].StackSize,message}));
+            }
+            api.Event.RegisterCallback(Check,50);return TextCommandResult.Success("Testing chiseled material migration in disposable terrain.");
         });
         api.ChatCommands.Create("nsemigrationcancelprobe").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>
         {
