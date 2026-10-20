@@ -30,7 +30,7 @@
     "PlayerDeath": {
       "Enabled": false,
       "ChannelId": 0,
-      "Format": "\u2620\ufe0f **{player} died**"
+      "Format": "\u2620\ufe0f **{message}**"
     },
     "ServerStarted": {
       "Enabled": false,
@@ -51,6 +51,11 @@
       "Enabled": false,
       "ChannelId": 0,
       "Format": "\ud83d\udd13 **{player} unlinked Discord account {discord}**"
+    },
+    "TemporalStorm": {
+      "Enabled": false,
+      "ChannelId": 0,
+      "Format": "\ud83c\udf00 **{message}**"
     }
   },
   "AdminAudit": {

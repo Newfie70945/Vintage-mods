@@ -6,7 +6,7 @@
     "Newfie"
   ],
   "description": "Unified server-side Discord module for Newfie's Server Suite: bot connection, chat relay, announcements, account linking, PlayerUID mappings, slash commands, admin audit, Anti-Cheat routing, and shared Shift+L/WebPanel controls.",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "dependencies": {
     "game": "1.22.7"
   },

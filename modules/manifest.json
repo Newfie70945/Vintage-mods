@@ -33,7 +33,7 @@
       "id": "discord-link",
       "path": "modules/discord-link",
       "assembly": "NewfiesServerEssentialsDiscord",
-      "version": "1.0.13",
+      "version": "1.0.14",
       "origin": "restored author source"
     },
     {

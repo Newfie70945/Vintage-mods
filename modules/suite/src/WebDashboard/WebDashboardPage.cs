@@ -4981,6 +4981,7 @@ __NSS_ROLE_HTML__
     <div class="tableWrap dataScrollTall">
       <table><thead><tr><th>Event</th><th>Enabled</th><th>Channel ID</th><th>Message format</th><th></th></tr></thead><tbody id="discordAnnouncementRows"></tbody></table>
     </div>
+    <div class="compactNote">Death messages: use <code>{message}</code> for the game’s full announcement; optional <code>{player}</code>, <code>{cause}</code>, <code>{source}</code>, <code>{killer}</code>. Temporal storms: <code>{message}</code>, <code>{phase}</code>, <code>{strength}</code>. Enable each route and save its row. Storm alerts begin with the next observed phase.</div>
   </div>
 
   <div class="card perfSection">
@@ -14764,6 +14765,7 @@ const discordAnnouncementDefs=[
   ['playerJoin','Player joined'],
   ['playerLeave','Player left'],
   ['playerDeath','Player death'],
+  ['temporalStorm','Temporal storms'],
   ['serverStarted','Server started'],
   ['serverStopping','Server stopping'],
   ['discordLinked','Discord account linked'],

@@ -57,7 +57,8 @@ public sealed class DiscordIntegrationConfig
     {
         public RoutedEvent PlayerJoin { get; set; } = new(false, 0, "📥 ***Player {player} connected ({online}/{max})***");
         public RoutedEvent PlayerLeave { get; set; } = new(false, 0, "📤 ***Player {player} disconnected ({online}/{max})***");
-        public RoutedEvent PlayerDeath { get; set; } = new(false, 0, "☠️ **{player} died**");
+        public RoutedEvent PlayerDeath { get; set; } = new(false, 0, "☠️ **{message}**");
+        public RoutedEvent TemporalStorm { get; set; } = new(false, 0, "🌀 **{message}**");
         public RoutedEvent ServerStarted { get; set; } = new(false, 0, "✅ **Server started**");
         public RoutedEvent ServerStopping { get; set; } = new(false, 0, "🛑 **Server stopping**");
         public RoutedEvent DiscordLinked { get; set; } = new(false, 0, "🔗 **{player} linked Discord account {discord}**");
