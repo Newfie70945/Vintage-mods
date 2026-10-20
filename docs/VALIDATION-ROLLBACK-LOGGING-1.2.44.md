@@ -4,13 +4,15 @@ The supplied screenshot shows a completed preview with zero eligible operations,
 
 ## Behavior
 
+- `/rollback apply` confirms your latest unexpired preview without a typed token. Extra arguments, missing/cancelled previews and changed live state are refused. Internal receipt IDs remain for recovery journals.
+
 - `/rollback block 48h --from-live --include-claims` explicitly captures an existing registered container and reverses identity-matching take/put rows. This fallback requires no pre-change snapshot, refuses a known baseline conflict, later activity, block replacements/rollback barriers, missing/different inventory identity and impossible slot counts. Preview fixes the target, time and anchor; slot/live changes, claim access, history fingerprints and receipts are rechecked before mutation. Old item attributes and unlogged transfers cannot be verified; warnings explain possible duplication. Historical end-time windows cannot use a current-state anchor.
 - `/rollback block 48h --repair-missing --include-claims` explicitly repairs one missing definition, using a block-change rollback or a single unambiguous recorded identity at that cell. It does not create a global migration rule. The current raw ID is bound to the preview and rechecked. A registered block with a missing texture/model is refused. Removed destination assets require reinstalling their mod or choosing a Block ID Migration replacement.
 - Compatible retained block entities can be reconnected with the official `ExchangeBlock` API when the registered entity class matches and there is no historical-content overwrite in that operation. This preserves surviving data; absent/incompatible metadata is not invented. Plain replacement targets are refused if they would discard a retained entity. Unsupported historical containers still use Block ID Migration.
 - Snapshot-only history is available through indexed exact-cell queries even when no event occurred during the selected window. Other scopes keep their previous selection rules. Existing row limits, writer barrier, cancellation/deadline and world/dimension filters remain.
 - The new BlockLogger Recording & recovery card exposes existing recording settings and effective module/storage status. Counters are for this process, not lifetime database totals. Preset edits are unsaved until Save is clicked. Live saves preserve unrelated config fields, reject wrong JSON types, clamp supported ranges, persist configuration and apply runtime tracking changes. Read-only and Safe Diagnostics Mode gates remain. Snapshot recording changes future history only; reopen containers to start a session.
 
-No automatic world backup was added to rollback. Existing explicit execution tokens and backup guidance remain. Database backup scheduling and migration backup policy are separate controls and are unchanged.
+No automatic world backup was added to rollback. Existing explicit preview confirmation and backup guidance remain. Database backup scheduling and migration backup policy are separate controls and are unchanged.
 
 ## Validation
 

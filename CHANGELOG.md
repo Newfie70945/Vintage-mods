@@ -3,6 +3,7 @@
 ## Server Essentials Suite 1.2.44
 
 - RollbackLogging1: single-block previews report actual numeric ID/code, missing-definition status, event/transfer/snapshot counts and actionable recovery limits.
+- Replace typed rollback execution tokens with `/rollback apply`, which confirms the latest preview belonging to the administrator.
 - Added explicit `/rollback block TIME --from-live` for existing containers without old snapshots: reverse identity-matching take/put rows from captured current contents, with fixed preview binding, live-change checks and durable receipts. Unlogged transfers and original item attributes cannot be verified.
 - Added explicit `--repair-missing` for one genuinely missing block. Uses existing block-change history or one unambiguous recorded identity; validates the installed target and binds the missing ID. Compatible retained block entities use ExchangeBlock to preserve their data; healthy blocks, conflicting identities and incompatible metadata are refused.
 - Exact-cell history now returns retained snapshot evidence even when an unlogged remap created no events in the selected window. Existing world/dimension isolation, indexed seeks, deadlines and row caps remain.
@@ -50,7 +51,7 @@
 
 - Corrected the Suite version to 1.2.44 across mod metadata, assembly/project version, manifest, build identity and current guides. The previous 1.2.49–1.2.52 labels were development build numbering; this build keeps their fixes and uses the requested public version.
 - Added `/rollback help` and bare `/rollback` help, available even while recovery is running or its receipt index is initializing. Covers block/container, player, area, duration/UTC syntax, claims, execution, cancellation and inventory limitations.
-- Added `/rollback block 2h` to preview the looked-at block and its logged container inventory; explicit absolute coordinates and dimension can target missing blocks. Includes slot changes, fixed target/time, execution tokens and durable recovery receipts. Neighboring cells are excluded.
+- Added `/rollback block 2h` to preview the looked-at block and its logged container inventory; explicit absolute coordinates and dimension can target missing blocks. Includes slot changes, fixed target/time, preview confirmations and durable recovery receipts. Neighboring cells are excluded.
 - Added in-game Block ID Repair selection: `select`, `select above` for a removed plant, or `select at X Y Z [dimension]`; `results`, `suggest`, `replace CODE confirm-risk`, and `selectedstage ID` provide a reviewed one-location repair workflow. Container destinations route to compatible retained-inventory recovery.
 - Added matching Owner webpanel controls to import an in-game selection, inspect retained mismatches, choose suggested destinations, preview one solid position and stage it for restart. Coordinate/target/backup edits invalidate staging. Unrelated occurrences of the source ID are excluded.
 - Scans now expose orphaned block-entity class/code mismatches separately from missing IDs, including retained bookshelves whose host became a registered block or air. Also flags saved/current registry code mismatches for review. Up to 256 container examples are shown; incomplete records are counted.

@@ -55,7 +55,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         maintenanceTick = api.Event.RegisterGameTickListener(_ => PruneExpiredPlans(), 30_000);
         api.Permissions.RegisterPrivilege("newfies.rollback","Preview and execute historical recovery",true);
 #pragma warning disable CS0618
-        api.RegisterCommand("rollback","Recover historical block, container, player or area changes",RollbackChatText.Encode("block <time> [at X Y Z] [dimension N] OR preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; execute <token>; cancel"),Command,"newfies.rollback");
+        api.RegisterCommand("rollback","Recover historical block, container, player or area changes",RollbackChatText.Encode("block <time> [at X Y Z] [dimension N] OR preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; apply; cancel"),Command,"newfies.rollback");
 #pragma warning restore CS0618
         api.Event.DidBreakBlock+=Break;api.Event.DidPlaceBlock+=Place;api.Event.DidUseBlock+=Use;
     }
@@ -112,10 +112,9 @@ public sealed class PlayerRollbackCommands : IDisposable
             else {plans.Clear();ClearWatchers();changed.Clear();Reply(p,g,"Preview cleared.");}return;
         }
         if(busy){Reply(p,g,"Recovery operation is running; its owner may /rollback cancel.",true);return;}
-        if(mode=="execute")
+        if(mode=="apply")
         {
-            var token=args.PopWord();
-            if(args.Length!=0 || !plans.TryGetValue(p.PlayerUID,out var plan) || token!=plan.Token || plan.Expires<DateTime.UtcNow)
+            if(args.Length!=0 || !plans.TryGetValue(p.PlayerUID,out var plan) || plan.Expires<DateTime.UtcNow)
             {Reply(p,g,"No matching unexpired preview. Request another preview.",true);return;}
             if(Occupied(plan,p.PlayerUID)){Reply(p,g,plan.Area?"Other players must leave the selected area before execution.":"Target must be offline.",true);return;}
             plans.Clear();busy=true;cancelRequested=false;activeAdmin=p.PlayerUID;
@@ -125,7 +124,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         var scope=mode=="block"?"block":mode=="preview"?args.PopWord()?.ToLowerInvariant():null;
         bool single=scope=="block", area=scope is "area" or "block";
         if(scope is not ("player" or "area" or "block"))
-        {Reply(p,g,"/rollback block <time> [at X Y Z] [dimension N]; /rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories]; /rollback execute <token>",true);return;}
+        {Reply(p,g,"/rollback block <time> [at X Y Z] [dimension N]; /rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories]; /rollback apply",true);return;}
         string? target=null;int radius=0;RecoveryCell? center=null;
         if(single)
         {
@@ -209,7 +208,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         Reply(p,g,"Player: /rollback preview player NAME_OR_UID 2h [radius 30] [--inventories]. Target must be offline when executing.");
         Reply(p,g,"Area, all actors: /rollback preview area 30 2h [--inventories]. Radius is a 3D sphere around you.");
         Reply(p,g,"Time: 1s..7d (s/m/h/d), or from YYYY-MM-DDTHH:mm:ssZ to YYYY-MM-DDTHH:mm:ssZ; Z means UTC.");
-        Reply(p,g,"Review the block/slot changes, make a backup, then /rollback execute TOKEN within 10 minutes. /rollback cancel stops your operation.");
+        Reply(p,g,"Review the block/slot changes, make a backup, then /rollback apply within 10 minutes. /rollback cancel stops your operation.");
         Reply(p,g,"Claims excluded by default; --include-claims still checks game permissions. --replace-entities is an explicit player/area option only.");
         Reply(p,g,"Single-block options: --from-live reverses take/put from current contents when old snapshots are absent; --repair-missing previews one missing block from unambiguous history. Neither invents missing mod assets.");
         Reply(p,g,"Inventory recovery requires recorded snapshots/transfers. Rebuilt stacks use default attributes; taken items elsewhere are not removed. New previews replace old previews. /rollback help shows this guide.");
@@ -300,7 +299,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                                         if(list.Count==0)Reply(p,g,"No eligible changes at this exact location/time. For take/put rows without old snapshots, explicitly preview --from-live on an existing container. Unlogged remaps need --repair-missing with an installed historical target, or a Block ID Migration rule. Recording settings affect future history only.");
                                     }
                                     if(plan.Area && !plan.SingleBlock)Reply(p,g,"Area mode includes everyone’s logged changes in the selected window. Clear other players from the area; later changes are excluded. Creature replacements may include natural deaths.");
-                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. "+(list.Count==0?"No executable changes; nothing was modified.":$"{(plan.SingleBlock?"Close the container":plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback execute {token} (10-minute expiry)."));
+                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. "+(list.Count==0?"No executable changes; nothing was modified.":$"{(plan.SingleBlock?"Close the container":plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback apply (10-minute expiry)."));
                                     if(list.Count==0){ClearWatchers();changed.Clear();trackedCells.Clear();receipts.Clear();}
                                 }).ConfigureAwait(false);
                             }
