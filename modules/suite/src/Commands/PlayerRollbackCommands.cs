@@ -42,6 +42,8 @@ public sealed class PlayerRollbackCommands : IDisposable
     private sealed record Prepared(RecoveryOperation Operation,string LiveHash);
     private sealed record Plan(string Token,string Uid,bool Area,DateTime From,DateTime To,DateTime Expires,bool Inventories,bool Entities,bool IncludeClaims,RecoveryCell? Center,int Radius,List<Prepared> Changes)
     {
+        public RecoveryLiveInventory? LiveInventory {get;init;}
+        public RecoveryMissingBlock? MissingBlock {get;init;}
         public bool SingleBlock => Area && Center != null && Radius == 0;
         public string Mode => SingleBlock ? "block" : Area ? "area" : "player";
     }
@@ -53,7 +55,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         maintenanceTick = api.Event.RegisterGameTickListener(_ => PruneExpiredPlans(), 30_000);
         api.Permissions.RegisterPrivilege("newfies.rollback","Preview and execute historical recovery",true);
 #pragma warning disable CS0618
-        api.RegisterCommand("rollback","Recover historical block, container, player or area changes",RollbackChatText.Encode("block <time> [at X Y Z] [dimension N] OR preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; execute <token>; cancel"),Command,"newfies.rollback");
+        api.RegisterCommand("rollback","Recover historical block, container, player or area changes",RollbackChatText.Encode("block <time> [at X Y Z] [dimension N] OR preview player <name|uid> <time> [radius N] OR preview area <radius> <time>; optional --inventories --replace-entities; apply; cancel"),Command,"newfies.rollback");
 #pragma warning restore CS0618
         api.Event.DidBreakBlock+=Break;api.Event.DidPlaceBlock+=Place;api.Event.DidUseBlock+=Use;
     }
@@ -110,10 +112,9 @@ public sealed class PlayerRollbackCommands : IDisposable
             else {plans.Clear();ClearWatchers();changed.Clear();Reply(p,g,"Preview cleared.");}return;
         }
         if(busy){Reply(p,g,"Recovery operation is running; its owner may /rollback cancel.",true);return;}
-        if(mode=="execute")
+        if(mode=="apply")
         {
-            var token=args.PopWord();
-            if(args.Length!=0 || !plans.TryGetValue(p.PlayerUID,out var plan) || token!=plan.Token || plan.Expires<DateTime.UtcNow)
+            if(args.Length!=0 || !plans.TryGetValue(p.PlayerUID,out var plan) || plan.Expires<DateTime.UtcNow)
             {Reply(p,g,"No matching unexpired preview. Request another preview.",true);return;}
             if(Occupied(plan,p.PlayerUID)){Reply(p,g,plan.Area?"Other players must leave the selected area before execution.":"Target must be offline.",true);return;}
             plans.Clear();busy=true;cancelRequested=false;activeAdmin=p.PlayerUID;
@@ -123,7 +124,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         var scope=mode=="block"?"block":mode=="preview"?args.PopWord()?.ToLowerInvariant():null;
         bool single=scope=="block", area=scope is "area" or "block";
         if(scope is not ("player" or "area" or "block"))
-        {Reply(p,g,"/rollback block <time> [at X Y Z] [dimension N]; /rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories]; /rollback execute <token>",true);return;}
+        {Reply(p,g,"/rollback block <time> [at X Y Z] [dimension N]; /rollback preview player <name|uid> <time> [radius N]; /rollback preview area <radius> <time> [--inventories]; /rollback apply",true);return;}
         string? target=null;int radius=0;RecoveryCell? center=null;
         if(single)
         {
@@ -146,7 +147,7 @@ public sealed class PlayerRollbackCommands : IDisposable
         }
         else
         {if(!Duration(duration,out var span)){Reply(p,g,"Duration: 1s through 7d; units s/m/h/d.",true);return;}from=to-span;}
-        bool inventories=single,entities=false,includeClaims=false,explicitCoordinates=false;
+        bool inventories=single,entities=false,includeClaims=false,fromLive=false,repairMissing=false,explicitCoordinates=false;
         while(args.Length>0)
         {
             var option=args.PopWord()?.ToLowerInvariant();
@@ -165,18 +166,38 @@ public sealed class PlayerRollbackCommands : IDisposable
                 {Reply(p,g,"Dimension must be a non-negative integer after at X Y Z.",true);return;}
                 center=center! with {Dimension=dimension.ToString(CultureInfo.InvariantCulture)};
             }
+            else if(single && option=="--from-live")fromLive=true;
+            else if(single && option=="--repair-missing")repairMissing=true;
             else if(option=="--include-claims")includeClaims=true;
             else if(option=="--inventories")inventories=true;
             else if(option=="--replace-entities" && !single)entities=true;
             else if(!area && option=="radius" && int.TryParse(args.PopWord(),out radius) && radius>=1 && radius<=4096 && EntityPositionResolver.TryGetBlockPos(p.Entity,out var pos))
                 center=new(pos.dimension.ToString(CultureInfo.InvariantCulture),pos.X,pos.Y,pos.Z);
-            else {Reply(p,g,"Unknown option. Block mode: at X Y Z, dimension N, --include-claims. Area/player mode: --inventories, --replace-entities, --include-claims, or player radius 1..4096.",true);return;}
+            else {Reply(p,g,"Unknown option. Block mode: at X Y Z, dimension N, --include-claims, --from-live, --repair-missing. Area/player mode: --inventories, --replace-entities, --include-claims, or player radius 1..4096.",true);return;}
         }
         if(single && center==null){Reply(p,g,"Look at the block/container, or use /rollback block 2h at X Y Z for a missing block. Coordinates are absolute.",true);return;}
         if(!area && string.IsNullOrWhiteSpace(target)){Reply(p,g,"Specify an exact name or UID.",true);return;}
+        if(fromLive&&duration=="from"){Reply(p,g,"--from-live requires a duration ending now, not a historical end time.",true);return;}
+        RecoveryLiveInventory? live=null;RecoveryMissingBlock? missing=null;
+        if(single&&center!=null)
+        {
+            var selectedPos=Position(center);if(selectedPos==null||!api.World.BlockAccessor.IsValidPos(selectedPos)||api.World.BlockAccessor.GetChunkAtBlockPos(selectedPos)==null){Reply(p,g,"Visit the target chunk before requesting single-block recovery.",true);return;}var block=selectedPos==null?null:SolidBlock(selectedPos);var rawId=selectedPos==null?0:api.World.BlockAccessor.GetBlockId(selectedPos);
+            Reply(p,g,$"Target {center.Key}: {block?.Code?.ToShortString()??"no code"}, numeric ID {rawId}; missing definition={block?.IsMissing==true||block?.Code==null}.");
+            if(rawId>0 && (block==null||block.IsMissing||block.Code==null) && repairMissing)missing=new(center,rawId);
+            if(fromLive)
+            {
+                if(selectedPos==null||block==null||block.IsMissing||block.Code==null||api.World.BlockAccessor.GetBlockEntity(selectedPos) is not IBlockEntityContainer c||c.Inventory.Count is <1 or >4096)
+                {Reply(p,g,"--from-live needs an existing registered container with a readable inventory. Use Block ID Migration for an incompatible/missing container.",true);return;}
+                var slots=new List<RecoverySlot>();for(int n=0;n<c.Inventory.Count;n++){var item=c.Inventory[n]?.Itemstack;if(item?.Collectible?.Code!=null&&item.StackSize>0)slots.Add(new(n,item.Collectible.Code.ToShortString(),item.StackSize));}
+                live=new(center,block.Code.ToShortString(),c.Inventory.InventoryID,c.Inventory.Count,slots);var window=to-from;to=DateTime.UtcNow;from=to-window;
+                Reply(p,g,"Explicit current-inventory anchor: reverses recorded take/put only. Unlogged transfers can duplicate items; old attributes are unavailable. Review before executing.");
+            }
+            if(repairMissing&&missing==null){Reply(p,g,"--repair-missing only accepts a missing block definition. This registered block may have a missing texture/model; no ID repair will be forced.",true);return;}
+        }
         plans.Clear();ClearWatchers();changed.Clear();trackedCells.Clear();trackAllDuringRead=true;busy=true;cancelRequested=false;activeAdmin=p.PlayerUID;
         operationCancellation=new();
-        _=Preview(p,g,target??"",area,from,to,inventories,entities,includeClaims,center,radius);
+        if(live!=null)Watch(new RecoveryOperation{Cell=live.Cell});
+        _=Preview(p,g,target??"",area,from,to,inventories,entities,includeClaims,center,radius,live,missing);
         Reply(p,g,"Reading existing event rows and container snapshots; no new history is required.");
     }
     private void Help(IServerPlayer p,int g)
@@ -187,8 +208,9 @@ public sealed class PlayerRollbackCommands : IDisposable
         Reply(p,g,"Player: /rollback preview player NAME_OR_UID 2h [radius 30] [--inventories]. Target must be offline when executing.");
         Reply(p,g,"Area, all actors: /rollback preview area 30 2h [--inventories]. Radius is a 3D sphere around you.");
         Reply(p,g,"Time: 1s..7d (s/m/h/d), or from YYYY-MM-DDTHH:mm:ssZ to YYYY-MM-DDTHH:mm:ssZ; Z means UTC.");
-        Reply(p,g,"Review the block/slot changes, make a backup, then /rollback execute TOKEN within 10 minutes. /rollback cancel stops your operation.");
+        Reply(p,g,"Review the block/slot changes, make a backup, then /rollback apply within 10 minutes. /rollback cancel stops your operation.");
         Reply(p,g,"Claims excluded by default; --include-claims still checks game permissions. --replace-entities is an explicit player/area option only.");
+        Reply(p,g,"Single-block options: --from-live reverses take/put from current contents when old snapshots are absent; --repair-missing previews one missing block from unambiguous history. Neither invents missing mod assets.");
         Reply(p,g,"Inventory recovery requires recorded snapshots/transfers. Rebuilt stacks use default attributes; taken items elsewhere are not removed. New previews replace old previews. /rollback help shows this guide.");
     }
     private static bool Utc(string? s,out DateTime utc)=>DateTime.TryParseExact(s,"yyyy-MM-dd'T'HH:mm:ss'Z'",CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal,out utc);
@@ -209,13 +231,13 @@ public sealed class PlayerRollbackCommands : IDisposable
         return api.World.AllOnlinePlayers.Any(x=>x.PlayerUID!=adminUid && EntityPositionResolver.TryGetBlockPos(x.Entity,out var pos)
             && InRadius(new RecoveryOperation {Cell=new(pos.dimension.ToString(CultureInfo.InvariantCulture),pos.X,pos.Y,pos.Z)},plan.Center,plan.Radius));
     }
-    private async Task Preview(IServerPlayer p,int g,string target,bool area,DateTime from,DateTime to,bool inventories,bool entities,bool includeClaims,RecoveryCell? center,int radius)
+    private async Task Preview(IServerPlayer p,int g,string target,bool area,DateTime from,DateTime to,bool inventories,bool entities,bool includeClaims,RecoveryCell? center,int radius,RecoveryLiveInventory? live=null,RecoveryMissingBlock? missing=null)
     {
         try
         {
             var cancellation=operationCancellation!.Token;
             var history=await storage.QueryRollbackRecoveryAsync(target,from,to,area?center:null,area?radius:0,cancellation).ConfigureAwait(false);
-            var build=await Task.Run(()=>RollbackRecoveryPlanner.Build(history,from,to,inventories,entities,cancellation),cancellation).ConfigureAwait(false);
+            var build=await Task.Run(()=>RollbackRecoveryPlanner.Build(history,from,to,inventories,entities,cancellation,live,missing),cancellation).ConfigureAwait(false);
             var relevantReceipts = await receiptIndex.FindAsync(build.Operations.Select(op => op.ReceiptKey), cancellation).ConfigureAwait(false);
             api.Event.EnqueueMainThreadTask(()=>
             {
@@ -243,7 +265,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                         }
                         if(index<build.Operations.Count){api.Event.RegisterCallback(Batch,10);return;}
                         var token=Guid.NewGuid().ToString("N")[..12];
-                        var plan=new Plan(token,history.PlayerUid,area,from,to,DateTime.UtcNow.AddMinutes(10),inventories,entities,includeClaims,center,radius,list);
+                        var plan=new Plan(token,history.PlayerUid,area,from,to,DateTime.UtcNow.AddMinutes(10),inventories,entities,includeClaims,center,radius,list){LiveInventory=live,MissingBlock=missing};
                         var report=storage.DatabasePath+".recovery-preview-"+token+".json";
                         _=PublishPreviewAsync();
                         async Task PublishPreviewAsync()
@@ -263,9 +285,10 @@ public sealed class PlayerRollbackCommands : IDisposable
                                     if(entities)Reply(p,g,"Entity replacements have default attributes, not the original generation, ownership, names or training.");
                                     if(plan.SingleBlock)
                                     {
+                                        Reply(p,g,$"History read: {history.Events.Count} event rows, {history.Events.Count(r=>r.Action is LogActionType.ContainerTake or LogActionType.ContainerPut)} take/put rows, {history.Snapshots.Count} container snapshots. See webpanel BlockLogger → Recording & recovery for live settings.");
                                         foreach(var prepared in list)
                                         {
-                                            var op=prepared.Operation;Reply(p,g,$"Block: {op.After} → {op.Before} at {op.Cell.Key}.");
+                                            var op=prepared.Operation;if(op.Evidence.Length>0)Reply(p,g,op.Evidence);Reply(p,g,$"Block: {(op.MissingBlockId.HasValue?$"missing ID {op.MissingBlockId.Value}":op.After)} → {op.Before} at {op.Cell.Key}.");
                                             if(op.InventoryBefore!=null)
                                             {
                                                 var previous=(op.InventoryAfter??new()).ToDictionary(s=>s.Slot);var desired=op.InventoryBefore.ToDictionary(s=>s.Slot);
@@ -273,10 +296,10 @@ public sealed class PlayerRollbackCommands : IDisposable
                                                 {var a=previous.GetValueOrDefault(slot);var b=desired.GetValueOrDefault(slot);Reply(p,g,$"Slot {slot}: {(a==null?"empty":$"{a.Count} × {a.Code}")} → {(b==null?"empty":$"{b.Count} × {b.Code}")}.");}
                                             }
                                         }
-                                        if(list.Count==0)Reply(p,g,"Nothing recoverable at this exact location/time. Inventory recovery needs a pre-change snapshot, item transfer logs and matching final snapshot. Enable LogContainerSnapshots and SnapshotOnSlotChange for future investigations; missing old history cannot be recreated.");
+                                        if(list.Count==0)Reply(p,g,"No eligible changes at this exact location/time. For take/put rows without old snapshots, explicitly preview --from-live on an existing container. Unlogged remaps need --repair-missing with an installed historical target, or a Block ID Migration rule. Recording settings affect future history only.");
                                     }
                                     if(plan.Area && !plan.SingleBlock)Reply(p,g,"Area mode includes everyone’s logged changes in the selected window. Clear other players from the area; later changes are excluded. Creature replacements may include natural deaths.");
-                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. "+(list.Count==0?"No executable changes; nothing was modified.":$"{(plan.SingleBlock?"Close the container":plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback execute {token} (10-minute expiry)."));
+                                    Reply(p,g,$"Full report: {Path.GetFileName(report)}. "+(list.Count==0?"No executable changes; nothing was modified.":$"{(plan.SingleBlock?"Close the container":plan.Area?"Clear area":"Keep target offline")}; backup first. /rollback apply (10-minute expiry)."));
                                     if(list.Count==0){ClearWatchers();changed.Clear();trackedCells.Clear();receipts.Clear();}
                                 }).ConfigureAwait(false);
                             }
@@ -296,7 +319,7 @@ public sealed class PlayerRollbackCommands : IDisposable
     private static bool BasicContainer(Block b)=>b.EntityClass!=null && (b.EntityClass.Contains("GenericContainer",StringComparison.OrdinalIgnoreCase)||b.EntityClass.Contains("Chest",StringComparison.OrdinalIgnoreCase)||b.EntityClass.Contains("Basket",StringComparison.OrdinalIgnoreCase)||b.EntityClass.Contains("Trunk",StringComparison.OrdinalIgnoreCase));
     private string? Validate(RecoveryOperation op,out string hash,IServerPlayer? actor=null,bool includeClaims=false)
     {
-        hash="";var pos=Position(op.Cell);if(pos==null)return "Unrecognized dimension";
+        hash="";op.PreserveBlockEntity=false;var pos=Position(op.Cell);if(pos==null)return "Unrecognized dimension";
         if (!includeClaims && api.World.Claims?.Get(pos)?.Any() == true) return "Protected claimed land (use --include-claims explicitly)";
         if (actor != null && api.World.Claims != null && api.World.Claims.TestAccess(actor,pos,EnumBlockAccessFlags.BuildOrBreak) != EnumWorldAccessResponse.Granted) return "Current land access denied";
         var ba=api.World.BlockAccessor;
@@ -312,21 +335,33 @@ public sealed class PlayerRollbackCommands : IDisposable
             hash="absent:"+op.OriginalEntityId;return null;
         }
         var before=api.World.GetBlock(new AssetLocation(op.Before));var after=api.World.GetBlock(new AssetLocation(op.After));
-        if(before==null||after==null)return "Missing block type";
+        if(before==null||after==null||before.IsMissing||after.IsMissing)return "Historical block type is not installed; reinstall its mod or choose a replacement in Block ID Migration";
         if(before.ForFluidsLayer||after.ForFluidsLayer||ba.GetBlock(pos,BlockLayersAccess.Fluid).BlockId!=0)return "Fluid state not captured by this logger";
         if(Multi(before)||Multi(after))return "Multiblock structure requires unavailable linked state";
-        if(ba.GetBlock(pos,BlockLayersAccess.Solid).BlockId!=after.BlockId)return "Current block differs from recorded final state";
+        var actual=SolidBlock(pos);var actualId=ba.GetBlockId(pos);
+        if(op.MissingBlockId.HasValue)
+        {
+            if(actualId!=op.MissingBlockId.Value||actual is {IsMissing:false,Code:not null})return "Selected missing numeric ID changed since preview";
+            var retained=ba.GetBlockEntity(pos);
+            if(retained!=null)
+            {
+                if(op.InventoryBefore!=null||RollbackRecoveryPlanner.Canonical(op.Before)!=RollbackRecoveryPlanner.Canonical(op.After)||string.IsNullOrWhiteSpace(before.EntityClass)||api.World.ClassRegistry.GetBlockEntityClass(retained.GetType())!=before.EntityClass)
+                    return "Retained block-entity class/history is incompatible; use Block ID Migration without discarding metadata";
+                op.PreserveBlockEntity=true;
+            }
+        }
+        else if(actual==null||actualId!=after.BlockId)return "Current block differs from recorded final state";
 #pragma warning disable CS0618
         if(ba.GetDecors(pos)?.Any(x=>x!=null&&x.BlockId!=0)==true)return "Live decor state would be affected";
 #pragma warning restore CS0618
-        if(op.Kind=="block" && !string.IsNullOrWhiteSpace(before.EntityClass))
+        if(op.Kind=="block" && !op.PreserveBlockEntity && !string.IsNullOrWhiteSpace(before.EntityClass))
         {
             if(Micro(before))return "Original chisel voxel/material data absent from existing DB";
             if(op.InventoryBefore==null || !BasicContainer(before))return "Original block-entity data unavailable (sign/door/machine/etc.)";
             // Recreating a destroyed static container is partial: snapshot knows inventory, not reinforcement/custom BE metadata.
         }
         var be=ba.GetBlockEntity(pos);
-        if(!string.IsNullOrWhiteSpace(after.EntityClass) && be==null)return "Current block entity missing";
+        if(!op.MissingBlockId.HasValue && !string.IsNullOrWhiteSpace(after.EntityClass) && be==null)return "Current block entity missing";
         if(op.Kind=="inventory")
         {
             if(be is not IBlockEntityContainer container || container.Inventory==null)return "Live inventory missing";
@@ -340,6 +375,12 @@ public sealed class PlayerRollbackCommands : IDisposable
             if(op.Kind=="block" && be is IBlockEntityContainer current && (current.Inventory.Count!=op.SlotCount||!SlotsEqual(current.Inventory,op.InventoryAfter)))return "Live container inventory changed";
         }
         hash=LiveHash(pos);return null;
+    }
+    private Block? SolidBlock(BlockPos pos)
+    {
+        try{return api.World.BlockAccessor.GetBlock(pos,BlockLayersAccess.Solid);}
+        catch(IndexOutOfRangeException){return null;}
+        catch(ArgumentOutOfRangeException){return null;}
     }
     private static bool SlotsEqual(IInventory inventory,List<RecoverySlot>? saved)
     {
@@ -363,13 +404,14 @@ public sealed class PlayerRollbackCommands : IDisposable
     {
         var tree=new TreeAttribute();var be=api.World.BlockAccessor.GetBlockEntity(pos);be?.ToTreeAttributes(tree);
         using var ms=new MemoryStream();using(var writer=new BinaryWriter(ms,Encoding.UTF8,true))tree.ToBytes(writer);
-        return Convert.ToHexString(SHA256.HashData(ms.ToArray()));
+        var solid=SolidBlock(pos);var fluid=api.World.BlockAccessor.GetBlock(pos,BlockLayersAccess.Fluid);
+        return api.World.BlockAccessor.GetBlockId(pos)+":"+solid?.Code?.ToShortString()+":"+fluid.BlockId+":"+Convert.ToHexString(SHA256.HashData(ms.ToArray()));
     }
     private object Capture(BlockPos pos)
     {
         var tree=new TreeAttribute();api.World.BlockAccessor.GetBlockEntity(pos)?.ToTreeAttributes(tree);
         using var ms=new MemoryStream();using(var writer=new BinaryWriter(ms,Encoding.UTF8,true))tree.ToBytes(writer);
-        return new {block=api.World.BlockAccessor.GetBlock(pos,BlockLayersAccess.Solid).Code.ToShortString(),blockEntityBase64=Convert.ToBase64String(ms.ToArray())};
+        return new {block=SolidBlock(pos)?.Code?.ToShortString(),blockEntityBase64=Convert.ToBase64String(ms.ToArray())};
     }
     private void RestoreSlots(IInventory inv,List<RecoverySlot> desired)
     {
@@ -428,7 +470,7 @@ public sealed class PlayerRollbackCommands : IDisposable
             await using var journal=new RecoveryJournal(audit,receiptPath);
             var cancellation=operationCancellation!.Token;
             var history=await storage.QueryRollbackRecoveryAsync(plan.Uid,plan.From,plan.To,plan.Area?plan.Center:null,plan.Area?plan.Radius:0,cancellation).ConfigureAwait(false);
-            var fresh=(await Task.Run(()=>RollbackRecoveryPlanner.Build(history,plan.From,plan.To,plan.Inventories,plan.Entities,cancellation),cancellation).ConfigureAwait(false)).Operations.ToDictionary(x=>x.ReceiptKey);
+            var fresh=(await Task.Run(()=>RollbackRecoveryPlanner.Build(history,plan.From,plan.To,plan.Inventories,plan.Entities,cancellation,plan.LiveInventory,plan.MissingBlock),cancellation).ConfigureAwait(false)).Operations.ToDictionary(x=>x.ReceiptKey);
             foreach(var prepared in plan.Changes)
             {
                 index++;var op=prepared.Operation;string? reason=null;object? current=null;
@@ -473,7 +515,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                     else
                     {
                         if(op.Kind=="block")
-                        {api.World.BlockAccessor.SetBlock(api.World.GetBlock(new AssetLocation(op.Before))!.BlockId,pos,BlockLayersAccess.Solid);blocks++;}
+                        {var destination=api.World.GetBlock(new AssetLocation(op.Before))!.BlockId;if(op.PreserveBlockEntity)api.World.BlockAccessor.ExchangeBlock(destination,pos);else api.World.BlockAccessor.SetBlock(destination,pos,BlockLayersAccess.Solid);blocks++;}
                         if(op.InventoryBefore!=null)
                         {
                             if(api.World.BlockAccessor.GetBlockEntity(pos) is not IBlockEntityContainer container || container.Inventory.Count!=op.SlotCount)

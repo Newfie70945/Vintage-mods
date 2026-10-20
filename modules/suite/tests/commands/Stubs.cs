@@ -26,11 +26,11 @@ namespace Vintagestory.API.Common {
  public class BlockSelection {public BlockPos? Position;}
  public class CollectibleObject {public AssetLocation Code=new("air");public int MaxStackSize=64;}
  public class Item:CollectibleObject {}
- public class Block:CollectibleObject {public int BlockId;public int Replaceable=6000;public string? EntityClass;public bool ForFluidsLayer;}
+ public class Block:CollectibleObject {public int BlockId;public bool IsMissing;public int Replaceable=6000;public string? EntityClass;public bool ForFluidsLayer;}
  public class ItemStack {public CollectibleObject Collectible;public int StackSize;public ItemStack(CollectibleObject c,int n){Collectible=c;StackSize=n;}public ItemStack Clone()=>new(Collectible,StackSize);}
  public class ItemSlot {public ItemStack? Itemstack;public void MarkDirty(){} }
- public interface IInventory {int Count {get;} ItemSlot this[int i] {get;}}
- public class InventoryBase:IInventory {public event Action<int>? SlotModified;public ItemSlot[] Slots=Array.Empty<ItemSlot>();public int Count=>Slots.Length;public ItemSlot this[int i]=>Slots[i];}
+ public interface IInventory {string InventoryID {get;} int Count {get;} ItemSlot this[int i] {get;}}
+ public class InventoryBase:IInventory {public string InventoryID {get;set;}="fixture-container";public event Action<int>? SlotModified;public ItemSlot[] Slots=Array.Empty<ItemSlot>();public int Count=>Slots.Length;public ItemSlot this[int i]=>Slots[i];}
  public interface IBlockEntityContainer {IInventory Inventory {get;}}
  public class ContainerEntity:BlockEntity,IBlockEntityContainer {public InventoryBase Slots=new();public IInventory Inventory=>Slots;}
  public class BlockEntity {public void ToTreeAttributes(TreeAttribute t){}public void MarkDirty(bool b){} }
@@ -56,11 +56,13 @@ namespace Vintagestory.API.Server {
  public class FakeAccessor {
  readonly FakeWorld world;public int Writes;public Action? BeforeWrite;public readonly Dictionary<string,int> Blocks=new();public FakeAccessor(FakeWorld w)=>world=w;
  public bool IsValidPos(BlockPos p)=>true;public object GetChunkAtBlockPos(BlockPos p)=>new();
+ public int GetBlockId(BlockPos p)=>Blocks.GetValueOrDefault(p.Key);
  public Block GetBlock(BlockPos p,int layer=0)=>world.Blocks.Values.First(b=>b.BlockId==(layer==1?0:Blocks.GetValueOrDefault(p.Key)));
  public readonly Dictionary<string,BlockEntity> Entities=new();public BlockEntity? GetBlockEntity(BlockPos p)=>Entities.GetValueOrDefault(p.Key);public Block[]? GetDecors(BlockPos p)=>null;
+ public void ExchangeBlock(int id,BlockPos p)=>SetBlock(id,p,0);
  public void SetBlock(int id,BlockPos p,int layer){BeforeWrite?.Invoke();Writes++;Blocks[p.Key]=id;}public void MarkBlockDirty(BlockPos p){}
  }
- public class FakeRegistry {public Entity CreateEntity(object type)=>new EntityAgent();}
+ public class FakeRegistry {public string GetBlockEntityClass(Type t)=>t==typeof(ContainerEntity)?"GenericContainer":"unknown";public Entity CreateEntity(object type)=>new EntityAgent();}
  public class FakeClaims {
  public bool Claimed,Deny;
  public IEnumerable<object> Get(BlockPos p)=>Claimed?new object[]{new object()}:Array.Empty<object>();

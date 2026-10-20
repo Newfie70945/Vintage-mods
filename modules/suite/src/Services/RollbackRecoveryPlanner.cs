@@ -25,8 +25,13 @@ public sealed record RecoveryCell(string Dimension,int X,int Y,int Z)
     public static string Normalize(string d) => d.Equals("overworld",StringComparison.OrdinalIgnoreCase) ? "0" : d;
 }
 public sealed record RecoverySlot(int Slot,string Code,int Count);
+public sealed record RecoveryLiveInventory(RecoveryCell Cell,string BlockCode,string InventoryId,int SlotCount,List<RecoverySlot> Slots);
+public sealed record RecoveryMissingBlock(RecoveryCell Cell,int BlockId);
 public sealed class RecoveryOperation
 {
+    public bool PreserveBlockEntity { get; set; }
+    public int? MissingBlockId { get; set; }
+    public string Evidence { get; set; } = "";
     public string Kind { get; set; } = "block";
     public RecoveryCell Cell { get; set; } = new("0",0,0,0);
     public string Before { get; set; } = "";
@@ -50,7 +55,7 @@ public static class RollbackRecoveryPlanner
 {
     private static bool Mutation(LogEventRecord r) => r.Action is LogActionType.BlockBreak or LogActionType.BlockPlace or LogActionType.ContainerTake or LogActionType.ContainerPut;
     private static bool BlockMutation(LogEventRecord r) => r.Action is LogActionType.BlockBreak or LogActionType.BlockPlace;
-    public static RecoveryBuild Build(RollbackHistory history,DateTime from,DateTime to,bool inventories,bool entities,CancellationToken cancellationToken=default)
+    public static RecoveryBuild Build(RollbackHistory history,DateTime from,DateTime to,bool inventories,bool entities,CancellationToken cancellationToken=default,RecoveryLiveInventory? liveInventory=null,RecoveryMissingBlock? missingBlock=null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var result=new RecoveryBuild();
@@ -135,6 +140,9 @@ public static class RollbackRecoveryPlanner
             Stamp(operation,history.WorldId);
             result.Operations.Add(operation);
         }
+        if(liveInventory!=null && !result.Operations.Any(o=>o.Cell==liveInventory.Cell))
+            AddLiveInventory(result,history,from,to,liveInventory,cancellationToken);
+        if(missingBlock!=null)AddMissingBlock(result,history,from,to,missingBlock);
         var deaths=history.Events.Where(r=>r.Action==LogActionType.EntityDeath && r.TimestampUtc>=from && r.TimestampUtc<=to &&
             (history.AreaMode || r.PlayerUid==history.PlayerUid || r.Meta.GetValueOrDefault("sourcePlayerUid")==history.PlayerUid));
         var seen=new HashSet<long>();
@@ -150,6 +158,39 @@ public static class RollbackRecoveryPlanner
             Stamp(op,history.WorldId);result.Operations.Add(op);
         }
         return result;
+    }
+    private static void AddLiveInventory(RecoveryBuild build,RollbackHistory history,DateTime from,DateTime to,RecoveryLiveInventory live,CancellationToken token)
+    {
+        if(!history.AreaMode)return;
+        var rows=history.Events.Where(r=>RecoveryCell.At(r)==live.Cell&&r.TimestampUtc>=from).OrderByDescending(r=>r.TimestampUtc).ThenByDescending(r=>r.StorageId).ToList();
+        var deltas=rows.Where(r=>r.TimestampUtc<=to&&r.Action is LogActionType.ContainerTake or LogActionType.ContainerPut).ToList();
+        if(deltas.Count==0){build.Skip("No take/put rows at the selected location/time");return;}
+        if(rows.Any(r=>r.TimestampUtc>to||BlockMutation(r)||r.Meta.ContainsKey("rollbackToken"))){build.Skip("Live-anchor recovery refused later activity, block replacement or rollback barrier");return;}
+        if(history.Snapshots.Any(x=>RecoveryCell.At(x)==live.Cell&&x.TimestampUtc<deltas.Min(r=>r.TimestampUtc))){build.Skip("Recorded baseline exists; resolve snapshot conflicts instead of bypassing them");return;}
+        if(string.IsNullOrWhiteSpace(live.InventoryId)||deltas.Any(r=>r.Meta.GetValueOrDefault("inventoryId")!=live.InventoryId||Canonical(r.BlockCode)!=Canonical(live.BlockCode))){build.Skip("Take/put inventory identity or block code is missing/different");return;}
+        var current=live.Slots.ToDictionary(x=>x.Slot);var before=new Dictionary<int,RecoverySlot>(current);
+        foreach(var row in deltas){token.ThrowIfCancellationRequested();var inverse=new LogEventRecord{Action=row.Action==LogActionType.ContainerTake?LogActionType.ContainerPut:LogActionType.ContainerTake,Meta=row.Meta};if(!ApplyDelta(before,inverse,live.SlotCount)){build.Skip("Take/put rows cannot be reversed consistently from the current contents");return;}}
+        if(Equal(before,current)){build.Skip("Take/put rows produce no net inventory change");return;}
+        var op=new RecoveryOperation{Kind="inventory",Cell=live.Cell,Before=live.BlockCode,After=live.BlockCode,SlotCount=live.SlotCount,InventoryBefore=Sorted(before),InventoryAfter=Sorted(current),SourceIds=deltas.Select(r=>r.StorageId).OrderBy(x=>x).ToList(),Evidence="Explicit --from-live: reversed recorded transfers from captured current contents; unlogged transfers and old attributes cannot be verified."};
+        Stamp(op,history.WorldId);build.Operations.Add(op);
+    }
+    private static void AddMissingBlock(RecoveryBuild build,RollbackHistory history,DateTime from,DateTime to,RecoveryMissingBlock missing)
+    {
+        if(!history.AreaMode)return;
+        var existing=build.Operations.FirstOrDefault(o=>o.Cell==missing.Cell&&o.Kind=="block");
+        if(existing!=null){existing.MissingBlockId=missing.BlockId;existing.Evidence="Recorded block-change rollback; current missing numeric ID is bound to this preview.";return;}
+        var rows=history.Events.Where(r=>RecoveryCell.At(r)==missing.Cell).ToList();
+        if(rows.Any(r=>r.TimestampUtc>to||r.Meta.ContainsKey("rollbackToken"))){build.Skip("Missing-block history has later activity or a rollback barrier");return;}
+        // A remapper does not emit ordinary break/place events. Only an unambiguous
+        // recorded final identity can reconnect a placeholder; never infer a mod asset.
+        var evidence=rows.Where(r=>r.TimestampUtc<=to&&r.TimestampUtc>=from&&r.Action is LogActionType.BlockUse or LogActionType.ContainerOpen or LogActionType.ContainerTake or LogActionType.ContainerPut).ToList();
+        var snaps=history.Snapshots.Where(x=>RecoveryCell.At(x)==missing.Cell&&x.TimestampUtc<=to).OrderByDescending(x=>x.TimestampUtc).ToList();
+        var codes=evidence.Select(r=>r.BlockCode).Concat(snaps.Take(1).Select(x=>x.BlockCode)).Where(c=>!string.IsNullOrWhiteSpace(c)&&c!="unknown").Select(Canonical).Distinct().ToArray();
+        if(codes.Length!=1||rows.Any(BlockMutation)){build.Skip("No unambiguous logged block identity for this missing ID; configure Block ID Migration");return;}
+        var op=new RecoveryOperation{Cell=missing.Cell,Before=codes[0],After=codes[0],MissingBlockId=missing.BlockId,Evidence="Unlogged remap: one recorded block identity at this exact location. Preview restores only this missing block; it does not migrate the world.",SourceIds=evidence.Select(r=>r.StorageId).OrderBy(x=>x).ToList()};
+        // Snapshot-only evidence must bind receipts even without event IDs.
+        if(op.SourceIds.Count==0&&snaps.Count>0)op.SourceIds.Add(-snaps[0].StorageId);
+        Stamp(op,history.WorldId);build.Operations.RemoveAll(o=>o.Cell==missing.Cell);build.Operations.Add(op);
     }
     public static string Canonical(string code) => code.Contains(':') ? code : "game:"+code;
     private static void Stamp(RecoveryOperation op,string world)

@@ -1,0 +1,32 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-rollbacklogging1",
+  "officialGameVersion": "1.22.7",
+  "authenticatedGameClients": 0,
+  "liveRecordingSettingsPersistAndRejectInvalidTypes": true,
+  "reviewedMappingAndBackupOptionsBound": true,
+  "activatedWithoutRestart": true,
+  "normalLoaderObservedDestinations": {
+    "firstId": 12698,
+    "firstCode": "game:rock-granite",
+    "secondId": 12701,
+    "secondCode": "game:rock-basalt"
+  },
+  "changedChunks": 1,
+  "changedReferences": 2,
+  "heldCommandIssuedDuringWholeWorldScan": true,
+  "heldRuleAutomaticallyActiveWithoutRestart": true,
+  "heldRuleDoesNotWaitForRunningScan": true,
+  "heldRulePreservesOtherRulesAndHeldStack": true,
+  "healthyLookedAtSourceRefused": true,
+  "fixtureReloadedAfterNormalAutosave": true,
+  "heldRuleMigratesBothMatchingOccurrences": true,
+  "disableImmediate": true,
+  "directRuleSaveAndResumeRetainManualBackupPolicy": true,
+  "disabledQueuedActivationCannotReactivate": true,
+  "normalSavePersistedAll32768CellsVerified": true,
+  "disabledStateSurvivesRestart": true,
+  "disabledModuleRecordingStatusRemainsReadable": true,
+  "suiteZipSha256": "f5a277f10a38c8b808b73cf6ddf4f827927955de221b0ac96bf196759e4e16f9",
+  "scope": "Disposable official server: recording settings API and migration workflow. New rollback orchestration is tested separately with production planner/command code and API/storage doubles; no authenticated gameplay client."
+}

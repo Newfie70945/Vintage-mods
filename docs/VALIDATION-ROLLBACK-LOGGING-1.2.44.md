@@ -1,0 +1,27 @@
+# Suite 1.2.44 — RollbackLogging1
+
+The supplied screenshot shows a completed preview with zero eligible operations, not a command-dispatch failure. Container take/put logging defaults on, while full snapshots and slot-change snapshots default off. Transfer history alone therefore did not satisfy the previous snapshot-based planner. The screenshot's “Wooden chest” tooltip also means the visible question-mark texture is not sufficient evidence of a missing numeric block definition.
+
+## Behavior
+
+- `/rollback apply` confirms your latest unexpired preview without a typed token. Extra arguments, missing/cancelled previews and changed live state are refused. Internal receipt IDs remain for recovery journals.
+
+- `/rollback block 48h --from-live --include-claims` explicitly captures an existing registered container and reverses identity-matching take/put rows. This fallback requires no pre-change snapshot, refuses a known baseline conflict, later activity, block replacements/rollback barriers, missing/different inventory identity and impossible slot counts. Preview fixes the target, time and anchor; slot/live changes, claim access, history fingerprints and receipts are rechecked before mutation. Old item attributes and unlogged transfers cannot be verified; warnings explain possible duplication. Historical end-time windows cannot use a current-state anchor.
+- `/rollback block 48h --repair-missing --include-claims` explicitly repairs one missing definition, using a block-change rollback or a single unambiguous recorded identity at that cell. It does not create a global migration rule. The current raw ID is bound to the preview and rechecked. A registered block with a missing texture/model is refused. Removed destination assets require reinstalling their mod or choosing a Block ID Migration replacement.
+- Compatible retained block entities can be reconnected with the official `ExchangeBlock` API when the registered entity class matches and there is no historical-content overwrite in that operation. This preserves surviving data; absent/incompatible metadata is not invented. Plain replacement targets are refused if they would discard a retained entity. Unsupported historical containers still use Block ID Migration.
+- Snapshot-only history is available through indexed exact-cell queries even when no event occurred during the selected window. Other scopes keep their previous selection rules. Existing row limits, writer barrier, cancellation/deadline and world/dimension filters remain.
+- The new BlockLogger Recording & recovery card exposes existing recording settings and effective module/storage status. Counters are for this process, not lifetime database totals. Preset edits are unsaved until Save is clicked. Live saves preserve unrelated config fields, reject wrong JSON types, clamp supported ranges, persist configuration and apply runtime tracking changes. Read-only and Safe Diagnostics Mode gates remain. Snapshot recording changes future history only; reopen containers to start a session.
+
+No automatic world backup was added to rollback. Existing explicit preview confirmation and backup guidance remain. Database backup scheduling and migration backup policy are separate controls and are unchanged.
+
+## Validation
+
+- Official Vintage Story 1.22.7 / .NET 10 Suite build, with zero warnings/errors.
+- Production planner/command tests cover legacy recovery, claims, mixed actors, durable-before-mutation receipts, cancellation, fixed target/time, inventory changes, explicit live-anchor recovery without snapshots, invalid inverse/identity/later-event refusal, one-block missing repair, healthy block protection and retained container preservation. API/storage doubles are used for command orchestration; these are not authenticated-client gameplay tests.
+- Actual SQLite tests cover snapshot-only exact-cell evidence, dimension/world/neighbor isolation and retained baselines/conflicts. Randomized fixtures preserve existing player/area results; a large-history seek fixture checks bounded exact-cell work.
+- Chromium checks cover effective recording status/counters, explicit preset/save, draft refresh and error preservation, discard, disabled module explanation, read-only, Safe Mode and mobile layout. Existing migration controls are regression-tested separately.
+- Disposable official-server integration checks recording GET/POST, live persistence, invalid type refusal and restoration, alongside migration/load/save/pause/resume/restart integrity checks. No production world or authenticated game client is used.
+
+A successful controlled test cannot guarantee recoverability of the owner's damaged blocks. Recovery still needs the relevant historical identity/data and compatible installed assets. The explicit live-anchor option is a partial codes/counts reconstruction, not a proof that every transfer was logged or an exact historical inventory clone.
+
+[Server result and shipping ZIP hash](validation/rollback-logging1-server.json). The status GET remains readable with the BlockLogger master module disabled; writes stay blocked until the feature is enabled and the server restarted. Browser fixtures return an authenticated session explicitly to avoid an unrelated bootstrap/login race during scripted setup.

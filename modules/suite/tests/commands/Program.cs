@@ -22,37 +22,38 @@ static class Program {
  foreach(var text in new[]{"preview area 0 2h","preview area 4097 2h","preview area 10 8d","preview area 10 from 2026-10-04T21:00:00Z to 2026-10-04T20:00:00Z","preview area 10 2h radius 20","preview area 10 2h garbage"})Run(text);
  Check(storage.Queries.Count==0,"Invalid area request reached storage");
  Run("preview area 20 2h --inventories");var query=storage.Queries.Single();Check(query.Target==""&&query.Center==new RecoveryCell("0",10,100,10)&&query.Radius==20&&query.To-query.From==TimeSpan.FromHours(2),"Area radius/center/time was not forwarded");Check(api.World.BlockAccessor.Writes==0,"Preview changed world");var token=Token();
- admin.Entity.Position=new(1000,100,1000,0);var visitor=new Player("visitor",new(30,100,10,0));api.World.AllOnlinePlayers=new[]{admin,visitor};Run("execute "+token);Check(storage.Queries.Count==1&&admin.Messages.Last().Contains("leave"),"Boundary occupant must block execution at saved center");
- visitor.Entity.Position=new(10,100,10,1);Run("execute "+token);Check(storage.Queries.Count==2&&storage.Queries.Last().Center==query.Center,"Execution moved center or rejected player in other dimension");
- Run("preview area 10 from 2026-10-04T20:00:00Z to 2026-10-04T20:30:00Z --replace-entities");Check(storage.Queries.Last().To-storage.Queries.Last().From==TimeSpan.FromMinutes(30),"Absolute area time window not parsed");Run("cancel");Run("execute "+Token());Check(admin.Messages.Last().Contains("No matching"),"Cancelled preview was executable");
+ Run("apply unexpected");Check(storage.Queries.Count==1&&api.World.BlockAccessor.Writes==0,"Apply accepted extra arguments");
+ admin.Entity.Position=new(1000,100,1000,0);var visitor=new Player("visitor",new(30,100,10,0));api.World.AllOnlinePlayers=new[]{admin,visitor};Run("apply");Check(storage.Queries.Count==1&&admin.Messages.Last().Contains("leave"),"Boundary occupant must block execution at saved center");
+ visitor.Entity.Position=new(10,100,10,1);Run("apply");Check(storage.Queries.Count==2&&storage.Queries.Last().Center==query.Center,"Execution moved center or rejected player in other dimension");
+ Run("preview area 10 from 2026-10-04T20:00:00Z to 2026-10-04T20:30:00Z --replace-entities");Check(storage.Queries.Last().To-storage.Queries.Last().From==TimeSpan.FromMinutes(30),"Absolute area time window not parsed");Run("cancel");Run("apply");Check(admin.Messages.Last().Contains("No matching"),"Cancelled preview was executable");
  Run("preview player attacker 2h radius 10");Check(storage.Queries.Last().Target=="attacker"&&storage.Queries.Last().Center==null,"Player radius accidentally enabled all-actor query");Run("cancel");
  // Run real command batching against a fake live world. Mutation remains the real adapter code.
  admin.Entity.Position=new(10,100,10,0);api.World.AllOnlinePlayers=new[]{admin};storage.History.Events.Clear();
  for(int i=0;i<17;i++)storage.History.Events.Add(new(){StorageId=100+i,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid=i%2==0?"alice":"bob",Dimension="0",X=10+i,Y=100,Z=10,Action=LogActionType.BlockBreak,BlockCode="game:stone",Meta=new(){["oldBlockCode"]="game:stone",["newBlockCode"]="air"}});
- Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("execute "+token));
+ Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("apply"));
  PumpUntil(()=>api.World.BlockAccessor.Writes==1);
  visitor.Entity.Position=new(10,100,10,0);api.World.AllOnlinePlayers=new[]{admin,visitor};PumpUntil(()=>!Busy());Check(api.World.BlockAccessor.Writes==1&&admin.Messages.Last().Contains("entered"),"Entrant must stop later recovery dispatches");
  // A live edit while the worker flushes its intent must be rechecked before mutation.
  api.World.AllOnlinePlayers=new[]{admin};storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=999,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="alice",Dimension="0",X=29,Y=100,Z=10,Action=LogActionType.BlockBreak,BlockCode="game:stone",Meta=new(){["oldBlockCode"]="game:stone",["newBlockCode"]="air"}});
- Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("execute "+token));
+ Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("apply"));
  PumpUntil(()=>!api.Event.Main.IsEmpty);Check(api.Event.Main.TryDequeue(out var prepare),"Prepare callback missing");prepare!();
  api.World.BlockAccessor.Blocks["0:29:100:10"]=1;PumpUntil(()=>!Busy());Check(api.World.BlockAccessor.Writes==1,"Live change during durable write was overwritten");
  // Durable receipt failure must leave the world unchanged.
  api.World.BlockAccessor.Blocks["0:29:100:10"]=0;storage.History.Events[0].StorageId=1000;
  Run("preview area 50 2h");token=Token();
- using(var lockedReceipt=new FileStream(storage.DatabasePath+".recovery-receipts.jsonl",FileMode.Open,FileAccess.ReadWrite,FileShare.None))Run("execute "+token);
+ using(var lockedReceipt=new FileStream(storage.DatabasePath+".recovery-receipts.jsonl",FileMode.Open,FileAccess.ReadWrite,FileShare.None))Run("apply");
  Check(api.World.BlockAccessor.Writes==1&&admin.Messages.Last().Contains("stopped"),"Failed journal write mutated world");
  // Explicit cancellation stops pending execution before its first mutation.
- storage.History.Events[0].StorageId=1001;Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("execute "+token));api.Handler!(admin,0,new CmdArgs("cancel"));PumpUntil(()=>!Busy());Check(api.World.BlockAccessor.Writes==1,"Cancelled operation mutated world");
+ storage.History.Events[0].StorageId=1001;Run("preview area 50 2h");token=Token();api.Handler!(admin,0,new CmdArgs("apply"));api.Handler!(admin,0,new CmdArgs("cancel"));PumpUntil(()=>!Busy());Check(api.World.BlockAccessor.Writes==1,"Cancelled operation mutated world");
  api.Handler!(admin,0,new CmdArgs("preview area 50 2h"));api.Handler!(admin,0,new CmdArgs("cancel"));PumpUntil(()=>!Busy());Check(api.World.BlockAccessor.Writes==1,"Cancelled preview mutated world");
  // A complete operation must close receipt handles before the next is admitted.
- storage.History.Events[0].StorageId=1002;Run("preview area 50 2h");Run("execute "+Token());Check(api.World.BlockAccessor.Writes==2,"Successful asynchronous recovery did not complete");
- api.World.BlockAccessor.Blocks["0:29:100:10"]=0;storage.History.Events[0].StorageId=1003;Run("preview area 50 2h");Run("execute "+Token());Check(api.World.BlockAccessor.Writes==3,"Previous completion retained the receipt writer handle");
+ storage.History.Events[0].StorageId=1002;Run("preview area 50 2h");Run("apply");Check(api.World.BlockAccessor.Writes==2,"Successful asynchronous recovery did not complete");
+ api.World.BlockAccessor.Blocks["0:29:100:10"]=0;storage.History.Events[0].StorageId=1003;Run("preview area 50 2h");Run("apply");Check(api.World.BlockAccessor.Writes==3,"Previous completion retained the receipt writer handle");
  // Claimed land needs an explicit flag; permissions are rechecked after preview.
  api.World.BlockAccessor.Blocks["0:29:100:10"]=0;storage.History.Events[0].StorageId=1004;api.World.Claims.Claimed=true;
- Run("preview area 50 2h");Run("execute "+Token());Check(api.World.BlockAccessor.Writes==3,"Default recovery overwrote claimed land");
- Run("preview area 50 2h --include-claims");token=Token();api.World.Claims.Deny=true;Run("execute "+token);Check(api.World.BlockAccessor.Writes==3,"Claim permission changed after preview but recovery still mutated");
- api.World.Claims.Deny=false;storage.History.Events[0].StorageId=1005;Run("preview area 50 2h --include-claims");Run("execute "+Token());Check(api.World.BlockAccessor.Writes==4,"Explicit authorized claim recovery did not execute");
+ Run("preview area 50 2h");Run("apply");Check(api.World.BlockAccessor.Writes==3,"Default recovery overwrote claimed land");
+ Run("preview area 50 2h --include-claims");token=Token();api.World.Claims.Deny=true;Run("apply");Check(api.World.BlockAccessor.Writes==3,"Claim permission changed after preview but recovery still mutated");
+ api.World.Claims.Deny=false;storage.History.Events[0].StorageId=1005;Run("preview area 50 2h --include-claims");Run("apply");Check(api.World.BlockAccessor.Writes==4,"Explicit authorized claim recovery did not execute");
  // Targeted block recovery locks the selected cell; storage-double neighboring events are filtered again by the adapter.
  api.World.Claims.Claimed=false;api.World.Claims.Deny=false;api.World.AllOnlinePlayers=new[]{admin};
  storage.History.Events.Clear();storage.History.Snapshots.Clear();storage.Queries.Clear();
@@ -65,12 +66,12 @@ static class Program {
  var singleReport=JsonDocument.Parse(File.ReadAllText(Directory.GetFiles(temp,"*"+token+".json").Single())).RootElement;
  Check(singleReport.GetProperty("mode").GetString()=="block"&&singleReport.GetProperty("eligible").GetArrayLength()==1,"Targeted report included a neighbor or wrong scope");
  admin.CurrentBlockSelection=new(){Position=new(41,100,10,0)};visitor.Entity.Position=new(41,100,10,0);api.World.AllOnlinePlayers=new[]{admin,visitor};
- Run("execute "+token);Check(api.World.BlockAccessor.Blocks.GetValueOrDefault("0:40:100:10")==1&&api.World.BlockAccessor.Blocks.GetValueOrDefault("0:41:100:10")==0,"Changing aim moved execution, or neighbor was overwritten");
+ Run("apply");Check(api.World.BlockAccessor.Blocks.GetValueOrDefault("0:40:100:10")==1&&api.World.BlockAccessor.Blocks.GetValueOrDefault("0:41:100:10")==0,"Changing aim moved execution, or neighbor was overwritten");
  Check(storage.Queries.Last().Center==selected&&storage.Queries.Last().To==query.To,"Execution changed selected cell or time");
  // Empty previews do not offer an executable token. Coordinates work without a current block selection.
  storage.History.Events.Clear();admin.CurrentBlockSelection=null;Run("preview block 30m at -40 100 -10 dimension 1");
  Check(storage.Queries.Last().Center==new RecoveryCell("1",-40,100,-10)&&storage.Queries.Last().Radius==0,"Coordinate/dimension target incorrect");
- Run("execute "+Token());Check(admin.Messages.Last().Contains("No matching"),"Empty single-block preview remained executable");
+ Run("apply");Check(admin.Messages.Last().Contains("No matching"),"Empty single-block preview remained executable");
  // Existing container inventory is included automatically, all actors are combined, and no adjacent inventory is touched.
  api.World.AllOnlinePlayers=new[]{admin};storage.History.Events.Clear();storage.History.Snapshots.Clear();
  api.World.Blocks["game:chest-east"]=new(){BlockId=2,Code=new("chest-east"),EntityClass="GenericContainer"};
@@ -80,13 +81,31 @@ static class Program {
  for(int i=0;i<2;i++)storage.History.Events.Add(new(){StorageId=3000+i,TimestampUtc=start.AddMinutes(20+i),PlayerUid=i==0?"alice":"bob",Dimension="0",X=50,Y=100,Z=10,Action=LogActionType.ContainerTake,Meta=new(){["slotId"]="0",["quantity"]=i==0?"2":"3",["itemCode"]="game:ingot-copper"}});
  foreach(var final in new[]{false,true})storage.History.Snapshots.Add(new(){StorageId=4000+(final?1:0),TimestampUtc=final?start.AddMinutes(22):start,Dimension="0",X=50,Y=100,Z=10,BlockCode="game:chest-east",InventoryId="chest-original",SlotCount=2,NonEmptySlotCount=1,TotalItemCount=final?5:10,Slots=new(){new(){SlotId=0,ItemCode="game:ingot-copper",StackSize=final?5:10}}});
  Run("block 30m at 50 100 10");token=Token();Check(admin.Messages.Any(m=>m.Contains("5 × game:ingot-copper → 10 × game:ingot-copper")),"Single-block preview omitted concrete slot changes");
- int writes=api.World.BlockAccessor.Writes;Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==10&&api.World.BlockAccessor.Writes==writes,"Container quantities not restored automatically or unchanged block recreated");
+ int writes=api.World.BlockAccessor.Writes;Run("apply");Check(container.Inventory[0].Itemstack!.StackSize==10&&api.World.BlockAccessor.Writes==writes,"Container quantities not restored automatically or unchanged block recreated");
  // If the inventory changes after preview, revalidation refuses to overwrite it.
  container.Inventory[0].Itemstack!.StackSize=5;storage.History.Events[0].StorageId=5000;storage.History.Events[1].StorageId=5001;
- Run("block 30m at 50 100 10");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==4,"Changed container was overwritten after targeted preview");
+ Run("block 30m at 50 100 10");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("apply");Check(container.Inventory[0].Itemstack!.StackSize==4,"Changed container was overwritten after targeted preview");
+ // No old snapshots: explicit live anchor and identity-matching take/put records.
+ storage.History.Snapshots.Clear();container.Inventory[0].Itemstack!.StackSize=5;
+ foreach(var row in storage.History.Events){row.StorageId+=10000;row.BlockCode="game:chest-east";row.Meta["inventoryId"]=container.Inventory.InventoryID;}
+ Run("block 7d at 50 100 10 --from-live");Check(storage.Queries.Last().To-storage.Queries.Last().From==TimeSpan.FromDays(7),"Live anchor exceeded the advertised maximum window");Run("block 30m at 50 100 10 --from-live");token=Token();Run("apply");Check(container.Inventory[0].Itemstack!.StackSize==10,"Explicit live-anchor take/put rollback failed without snapshots");
+ // A remapper placeholder has no break event; use identity evidence only for this missing cell.
+ api.World.Blocks["game:missing-fixture"]=new(){BlockId=999999,Code=new("missing-fixture"),IsMissing=true};api.World.BlockAccessor.Blocks["0:60:100:10"]=999999;
+ storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99001,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=60,Y=100,Z=10,Action=LogActionType.BlockUse,BlockCode="game:stone"});
+ Run("block 30m at 60 100 10 --repair-missing");Check(admin.Messages.Any(m=>m.Contains("missing ID 999999 → game:stone")),"Missing-ID preview hid the actual source ID");token=Token();Run("apply");Check(api.World.BlockAccessor.Blocks["0:60:100:10"]==1,"Missing block identity repair did not apply");
+ Run("block 30m at 60 100 10 --repair-missing");Check(admin.Messages.Last().Contains("registered block"),"Healthy registered block was not protected from missing-ID repair");
+ // Reconnect a compatible retained container using ExchangeBlock, keeping its inventory object.
+ api.World.BlockAccessor.Blocks["0:70:100:10"]=999999;var retainedContainer=new ContainerEntity();retainedContainer.Slots.Slots=new[]{new ItemSlot{Itemstack=new(api.World.Items["game:ingot-copper"],7)}};api.World.BlockAccessor.Entities["0:70:100:10"]=retainedContainer;
+ storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99002,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=70,Y=100,Z=10,Action=LogActionType.ContainerOpen,BlockCode="game:chest-east"});
+ Run("block 30m at 70 100 10 --repair-missing");token=Token();Run("apply");Check(api.World.BlockAccessor.Blocks["0:70:100:10"]==2&&ReferenceEquals(api.World.BlockAccessor.Entities["0:70:100:10"],retainedContainer)&&retainedContainer.Inventory[0].Itemstack!.StackSize==7,"Compatible missing-container repair discarded retained inventory");
+ // Refuse a changed live anchor and a replacement that would discard retained metadata.
+ container.Inventory[0].Itemstack!.StackSize=5;storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99003,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=50,Y=100,Z=10,Action=LogActionType.ContainerTake,BlockCode="game:chest-east",Meta=new(){["slotId"]="0",["quantity"]="5",["itemCode"]="game:ingot-copper",["inventoryId"]=container.Inventory.InventoryID}});
+ Run("block 30m at 50 100 10 --from-live");token=Token();container.Inventory[0].Itemstack!.StackSize=4;Run("apply");Check(container.Inventory[0].Itemstack!.StackSize==4,"Live-anchor recovery overwrote a changed inventory");
+ api.World.BlockAccessor.Blocks["0:80:100:10"]=999999;api.World.BlockAccessor.Entities["0:80:100:10"]=retainedContainer;storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99004,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=80,Y=100,Z=10,Action=LogActionType.BlockUse,BlockCode="game:stone"});
+ Run("block 30m at 80 100 10 --repair-missing");Run("apply");Check(api.World.BlockAccessor.Blocks["0:80:100:10"]==999999,"Plain replacement discarded an incompatible retained container");
  Console.WriteLine("PASS: single-block selection/coordinates/dimensions, exact-cell neighbor isolation, fixed time/target, empty-preview refusal, automatic mixed-actor container restoration, slot preview and changed-inventory refusal.");
  // Chat diagnostics must be literal markup-safe text, including command help and logged values.
- Run("help");Check(admin.Messages.Any(m=>m.Contains("/rollback execute TOKEN"))&&!admin.Messages.Last().Contains('<'),"Rollback help missing or contains raw VTML placeholders");
+ Run("help");Check(admin.Messages.Any(m=>m.Contains("/rollback apply"))&&!admin.Messages.Last().Contains('<'),"Rollback help missing or contains raw VTML placeholders");
  var reply=typeof(PlayerRollbackCommands).GetMethod("Reply",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
  reply.Invoke(cmd,new object[]{admin,0,"<font color=oops><itemstack>{broken} & \"\r\n\u0001",true});
  Check(!admin.Messages.Last().Contains('<')&&admin.Messages.Last().Contains("&amp;")&&!admin.Messages.Last().Contains('\u0001'),"Rollback diagnostics can inject tags or control characters into chat");
