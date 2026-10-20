@@ -28,7 +28,7 @@ public sealed partial class BlockIdRepairService
     private bool LoadedConfigured()=>loadedMigration.Enabled;
     private object LoadedMigrationSnapshot(bool includeInventoryDetails=true)
     {
-        lock(loadedGate)return new{loadedMigration.Enabled,loadedMigration.State,loadedMigration.Message,Plan=includeInventoryDetails?(object?)loadedMigration.Plan:loadedMigration.Plan==null?null:new{loadedMigration.Plan.Id,loadedMigration.Plan.Mappings,loadedMigration.Plan.Source,loadedMigration.Plan.Target,loadedMigration.Plan.SourceCode,loadedMigration.Plan.TargetCode,loadedMigration.Plan.Inventory},active=loadedActive,sessionChunksChecked=loadedChecked,sessionChunksChanged=loadedChanged,sessionBlocksChanged=loadedBlocks,sessionChunksRefused=loadedRefused,sessionInventoriesRecovered=loadedInventoriesRecovered,sessionInventoryItemsRecovered=loadedInventoryItems,sessionInventoriesPreserved=loadedInventoriesPreserved,sessionInventoryRecoveriesSkipped=loadedInventorySkipped,lastInventoryIssue=loadedInventoryLastIssue,lastIssue=loadedLastIssue};
+        lock(loadedGate)return new{loadedMigration.Enabled,loadedMigration.State,loadedMigration.Message,Plan=includeInventoryDetails?(object?)loadedMigration.Plan:loadedMigration.Plan==null?null:new{loadedMigration.Plan.Id,loadedMigration.Plan.Mappings,loadedMigration.Plan.Source,loadedMigration.Plan.Target,loadedMigration.Plan.SourceCode,loadedMigration.Plan.TargetCode,loadedMigration.Plan.Inventory},active=loadedActive,sessionChunksChecked=loadedChecked,sessionChunksChanged=loadedChanged,sessionBlocksChanged=loadedBlocks,sessionChunksRefused=loadedRefused,sessionInventoriesRecovered=loadedInventoriesRecovered,sessionInventoryItemsRecovered=loadedInventoryItems,sessionInventoriesPreserved=loadedInventoriesPreserved,sessionInventoryRecoveriesSkipped=loadedInventorySkipped,lastInventoryIssue=loadedInventoryLastIssue,loadedSweepPending=liveChunkKeys.Count+(liveChunkKey.HasValue?1:0),loadedSweepBlocksChanged=liveSweepBlocks,loadedSweepBlocksSkipped=liveSweepSkipped,lastLoadedSweepIssue=liveSweepIssue,lastIssue=loadedLastIssue};
     }
     public object StageLoadedMigration(string previewId,bool createBackup,bool manualBackupAcknowledged,MigrationInventoryOptions? inventory=null)
     {
@@ -46,8 +46,8 @@ public sealed partial class BlockIdRepairService
     {
         lock(loadedGate)
         {
-            var settings=new LoadedMigration{Enabled=true,State=plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete"?"preparing-inventories":"activating",Plan=plan,Message="Rule saved. Backup/preparation runs automatically, then migration enables without a restart. Already loaded chunks require reloading; normal saves persist changes."};
-            CancelLiveActivation();Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
+            var settings=new LoadedMigration{Enabled=true,State=plan.Inventory.Mode!="preserve"&&plan.InventoryReport.State!="complete"?"preparing-inventories":"activating",Plan=plan,Message="Rule saved. Backup/preparation runs automatically, then migration enables without a restart. Safe already-loaded solid blocks are processed in bounded batches after activation; inventory recovery and other layers require reloading. Normal saves persist changes."};
+            CancelLiveActivation();StopLoadedTerrainSweep();Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
         }
         if(plan.Inventory.Mode=="preserve"||plan.InventoryReport.State=="complete")QueueLiveActivation();
     }
@@ -55,7 +55,7 @@ public sealed partial class BlockIdRepairService
     {
         lock(gate)lock(loadedGate)
         {
-            CancelLiveActivation();loadedActive=false;loadedMigration.Enabled=false;loadedMigration.State="disabled";
+            CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;loadedMigration.Enabled=false;loadedMigration.State="disabled";
             loadedMigration.Message="Further chunk migrations disabled. Previously migrated blocks are not reverted.";
             Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
@@ -101,8 +101,8 @@ public sealed partial class BlockIdRepairService
             loadedPool??=new ChunkDataPool(32,(ServerMain)api.World){CacheSize=32};loadedCodec??=new(loadedPool);
             loadedHarmony??=new Harmony("newfies.suite.loaded-block-migration");loadedOwner=this;
             if(Harmony.GetPatchInfo(method)?.Owners.Contains("newfies.suite.loaded-block-migration")!=true)loadedHarmony.Patch(method,prefix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(BeforeLoadedChunk)),postfix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(AfterLoadedChunk)));
-            loadedMigration.State="active";loadedMigration.Message="Configured missing IDs are migrated before each saved chunk is deserialized. Only successful loads are marked for normal saving. Incompatible chunks are skipped and reported; no missing inventory data is invented.";
-            Write(LoadedMigrationFile,loadedMigration);loadedActive=true;
+            loadedMigration.State="active";loadedMigration.Message="Configured missing IDs are migrated before each saved chunk is deserialized. Only successful loads are marked for normal saving. Safe already-loaded solid blocks are processed in bounded batches. Incompatible cells/chunks are skipped and reported; inventory recovery requires saved-chunk loading. No missing inventory data is invented.";
+            Write(LoadedMigrationFile,loadedMigration);loadedActive=true;StartLoadedTerrainSweep();
             api.Logger.Notification("[BlockMigration] Loaded-chunk migration active: {0} mappings. Backup: {1}",mappings.Count,p.Backup);
         }
         catch(Exception e)
@@ -141,6 +141,17 @@ public sealed partial class BlockIdRepairService
             catch(Exception e)
             {
                 owner.loadedRefused++;owner.loadedLastIssue=e.Message;
+                try
+                {
+                    var field=BlockIdChunkCodec.Fields(__0).FirstOrDefault(f=>f.Tag==8&&f.Wire==2&&f.Length<=2*1024*1024);
+                    if(field!=null)
+                    {
+                        var entity=owner.loadedCodec.EntityAtBytes(__0,field).Summary;
+                        if(entity.X.HasValue&&entity.Y.HasValue&&entity.Z.HasValue&&entity.Dimension.HasValue)
+                            owner.loadedLastIssue+=$" Near retained block {entity.X}, {entity.Y}, {entity.Z}, dimension {entity.Dimension} (in the refused chunk).";
+                    }
+                }
+                catch{} // Diagnostic location must never affect chunk loading.
                 // One log initially and at powers of two: a damaged region cannot
                 // flood logs, but its refusal remains visible in the panel.
                 if((owner.loadedRefused&(owner.loadedRefused-1))==0)owner.api.Logger.Warning("[BlockMigration] Skipped unsafe chunk ({0} refusals): {1}",owner.loadedRefused,e.Message);
@@ -157,7 +168,7 @@ public sealed partial class BlockIdRepairService
     {
         lock(loadedGate)
         {
-            loadedActive=false;loadedHarmony?.UnpatchAll("newfies.suite.loaded-block-migration");loadedHarmony=null;
+            StopLoadedTerrainSweep();loadedActive=false;loadedHarmony?.UnpatchAll("newfies.suite.loaded-block-migration");loadedHarmony=null;
             if(loadedOwner==this)loadedOwner=null;loadedPool?.FreeAll();loadedPool=null;loadedCodec=null;
         }
     }

@@ -28,7 +28,13 @@ public sealed class LoadedMigrationProbe:ModSystem
             var inventories=new Vintagestory.API.Datastructures.OrderedDictionary<string,InventoryBase>();inventories.Add("hotbar-"+uid,inventory);
             var manager=new ServerPlayerInventoryManager(inventories,player,(ServerMain)api.World);typeof(ServerPlayer).GetField("inventoryMgr",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(player,manager);
             int before=api.World.BlockAccessor.GetBlockId(pos);
-            string message=(string)typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeld",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player])!;
+            var heldMethod=typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeldOptions",BindingFlags.NonPublic|BindingFlags.Instance)!;
+            bool unacknowledgedRejected=false;
+            try{heldMethod.Invoke(repair,[player,"no-backup"]);}catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("manual-copy-confirmed")==true){unacknowledgedRejected=true;}
+            if(!unacknowledgedRejected)throw new Exception("Unacknowledged no-backup was accepted.");
+            string message=(string)heldMethod.Invoke(repair,[player,"no-backup manual-copy-confirmed"])!;
+            var config=JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration").GetProperty("Plan");
+            if(config.GetProperty("CreateBackup").GetBoolean()||!config.GetProperty("ManualBackupAcknowledged").GetBoolean())throw new Exception("Held no-backup policy was not saved.");
             int after=api.World.BlockAccessor.GetBlockId(pos);
             var ruleList=(TextCommandResult)typeof(BlockIdRepairService).GetMethod("ListMigrationRules",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[1])!;
             bool rulesShown=ruleList.StatusMessage.Contains("999997")&&ruleList.StatusMessage.Contains("game:rock-granite");if(!rulesShown)throw new Exception("Saved held rule was not visible in the in-game rule list.");
@@ -38,7 +44,7 @@ public sealed class LoadedMigrationProbe:ModSystem
             try{typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeld",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player]);}
             catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("protected")==true){healthyRejected=true;}
             if(!healthyRejected)throw new Exception("Healthy looked-at source was not protected.");
-            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,message}));
+            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,unacknowledgedRejected,noAutomaticBackup=true,message}));
             return TextCommandResult.Success("Held migration adapter checked using detached administrator fixture.");
         });
         api.ChatCommands.Create("nsemigrationcancelprobe").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>
