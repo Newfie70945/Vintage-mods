@@ -36,6 +36,7 @@ public sealed class ModUpdateSnapshot
     public int UpdateCount { get; set; }
     public int CurrentCount { get; set; }
     public int UnknownCount { get; set; }
+    public bool AllowSameMinorGameUpdates { get; set; }
     public bool RestartRequired { get; set; }
     public List<string> StagedUpdates { get; set; } = new();
     public List<ModUpdateEntry> Mods { get; set; } = new();
@@ -73,6 +74,7 @@ public sealed class ModUpdateCheckerService : IDisposable
     private ModUpdateSnapshot snapshot = new();
     private long tickListenerId = -1;
     private bool disposed;
+    public bool AllowSameMinorGameUpdates { get; set; }
     private List<InstalledModInfo> installedMods = new();
     private readonly Dictionary<string, string> stagedUpdates = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, string> loadedModVersions = new(StringComparer.OrdinalIgnoreCase);
@@ -130,6 +132,7 @@ public sealed class ModUpdateCheckerService : IDisposable
                 UpdateCount = snapshot.UpdateCount,
                 CurrentCount = snapshot.CurrentCount,
                 UnknownCount = snapshot.UnknownCount,
+                AllowSameMinorGameUpdates = AllowSameMinorGameUpdates,
                 RestartRequired = snapshot.RestartRequired,
                 StagedUpdates = snapshot.StagedUpdates.ToList(),
                 Mods = snapshot.Mods.Select(x => new ModUpdateEntry { ModId=x.ModId, InstalledVersion=x.InstalledVersion, RecommendedVersion=x.RecommendedVersion, Status=x.Status, Detail=x.Detail, ModPageUrl=x.ModPageUrl, AutoUpdateSupported=x.AutoUpdateSupported, AutoUpdateReason=x.AutoUpdateReason }).ToList()
@@ -158,9 +161,9 @@ public sealed class ModUpdateCheckerService : IDisposable
             foreach (var batch in installed.Chunk(20))
             {
                 var batchItems = batch.ToList();
-                ModDbBatchResult lookup = await FetchInstallInformationAsync(batchItems, includeInstalledVersions: true).ConfigureAwait(false);
+                ModDbBatchResult lookup = await FetchCompatibleInformationAsync(batchItems, includeInstalledVersions: true).ConfigureAwait(false);
                 if (!lookup.Success)
-                    lookup = await FetchInstallInformationAsync(batchItems, includeInstalledVersions: false).ConfigureAwait(false);
+                    lookup = await FetchCompatibleInformationAsync(batchItems, includeInstalledVersions: false).ConfigureAwait(false);
 
                 foreach (var item in batchItems)
                 {
@@ -170,10 +173,10 @@ public sealed class ModUpdateCheckerService : IDisposable
                         // A partial Mod DB batch response should not make the whole inventory unknown.
                         // Retry the missing item by itself, first with installed version context and then
                         // with the plain identifier for API compatibility across Mod DB revisions.
-                        var single = await FetchInstallInformationAsync(new[] { item }, includeInstalledVersions: true).ConfigureAwait(false);
+                        var single = await FetchCompatibleInformationAsync(new[] { item }, includeInstalledVersions: true).ConfigureAwait(false);
                         if (!TryGetInfo(single.Data, item.Id, out info))
                         {
-                            single = await FetchInstallInformationAsync(new[] { item }, includeInstalledVersions: false).ConfigureAwait(false);
+                            single = await FetchCompatibleInformationAsync(new[] { item }, includeInstalledVersions: false).ConfigureAwait(false);
                         }
 
                         if (!TryGetInfo(single.Data, item.Id, out info))
@@ -278,7 +281,12 @@ public sealed class ModUpdateCheckerService : IDisposable
                 result.Message = selected.Error;
                 return result;
             }
-            if (string.Equals(selected.Version, installed.Version, StringComparison.OrdinalIgnoreCase))
+            if (!SemVer.TryParse(selected.Version, out var selectedSemver) || !SemVer.TryParse(installed.Version, out var installedSemver))
+            {
+                result.Message = "The installed or recommended version could not be compared safely. Use the listing page for a manual update.";
+                return result;
+            }
+            if (selectedSemver <= installedSemver)
             {
                 result.Message = $"{installed.Id} {installed.Version} is already current for Vintage Story {targetGameVersion}.";
                 return result;
@@ -447,12 +455,12 @@ public sealed class ModUpdateCheckerService : IDisposable
         // release while recommendedUpgrade only names the newer release. A plain identifier
         // selects the compatible release itself, so fileName/fileUrl and recommendedUpgrade
         // all describe the package we actually need to download and validate.
-        ModDbBatchResult lookup = await FetchInstallInformationAsync(new[] { probe }, includeInstalledVersions: false).ConfigureAwait(false);
+        ModDbBatchResult lookup = await FetchCompatibleInformationAsync(new[] { probe }, includeInstalledVersions: false).ConfigureAwait(false);
         if (!TryGetInfo(lookup.Data, modId, out var info))
         {
             // Versioned retry is diagnostic/fallback only; do not pair its attachment with a
             // newer recommendedUpgrade because that attachment may be the currently installed ZIP.
-            var versioned = await FetchInstallInformationAsync(new[] { probe }, includeInstalledVersions: true).ConfigureAwait(false);
+            var versioned = await FetchCompatibleInformationAsync(new[] { probe }, includeInstalledVersions: true).ConfigureAwait(false);
             string detail = versioned.Error.Length > 0 ? versioned.Error : lookup.Error;
             if (TryGetInfo(versioned.Data, modId, out var currentInfo) &&
                 currentInfo.TryGetProperty("recommendedUpgrade", out var upgrade) && upgrade.ValueKind == JsonValueKind.String)
@@ -477,12 +485,49 @@ public sealed class ModUpdateCheckerService : IDisposable
         return (true, version, fileName, absoluteUri.ToString(), "");
     }
 
-    private async Task<ModDbBatchResult> FetchInstallInformationAsync(IEnumerable<InstalledModInfo> mods, bool includeInstalledVersions)
+    private async Task<ModDbBatchResult> FetchCompatibleInformationAsync(IEnumerable<InstalledModInfo> mods, bool includeInstalledVersions)
+    {
+        var list = mods.ToList();
+        var result = await FetchInstallInformationAsync(list, includeInstalledVersions, targetGameVersion).ConfigureAwait(false);
+        // Explicit owner opt-in only: some authors tag 1.22.0/1.22.2 but not each later patch.
+        // Ask the official install index for each earlier stable patch. It still filters
+        // retracted releases; ZIP identity, version and dependencies are validated before staging.
+        if (!result.Success || !AllowSameMinorGameUpdates || !Version.TryParse(targetGameVersion, out var game) || game.Build <= 0 || game.Build > 32)
+            return result;
+        for (int patch = game.Build - 1; patch >= 0; patch--)
+        {
+            if (disposed) break;
+            string taggedGame = $"{game.Major}.{game.Minor}.{patch}";
+            var older = await FetchInstallInformationAsync(list, false, taggedGame).ConfigureAwait(false);
+            if (!older.Success) continue;
+            foreach (var mod in list)
+            {
+                if (!TryGetInfo(older.Data, mod.Id, out var candidate) || !TryReleaseVersion(candidate, out var version)) continue;
+                if (TryGetInfo(result.Data, mod.Id, out var existing) && TryReleaseVersion(existing, out var current) && current >= version) continue;
+                // Preserve the game tag in diagnostics, without changing the attachment/version pair.
+                var fields = candidate.EnumerateObject().ToDictionary(x => x.Name, x => x.Value.Clone());
+                fields["suiteCompatibleGameTag"] = JsonSerializer.SerializeToElement(taggedGame);
+                result.Data[mod.Id] = JsonSerializer.SerializeToElement(fields);
+                result.Success = true;
+            }
+        }
+        return result;
+    }
+
+    private static bool TryReleaseVersion(JsonElement info, out SemVer version)
+    {
+        version = null!;
+        return info.ValueKind == JsonValueKind.Object && !info.TryGetProperty("errorCode", out _) &&
+            info.TryGetProperty("recommendedUpgrade", out var value) && value.ValueKind == JsonValueKind.String &&
+            SemVer.TryParse(value.GetString() ?? "", out version);
+    }
+
+    private async Task<ModDbBatchResult> FetchInstallInformationAsync(IEnumerable<InstalledModInfo> mods, bool includeInstalledVersions, string gameVersion)
     {
         var list = mods.Where(x => !string.IsNullOrWhiteSpace(x.Id)).ToList();
         if (list.Count == 0) return new ModDbBatchResult { Success = true };
         string ids = string.Join(',', list.Select(x => Uri.EscapeDataString(includeInstalledVersions && !string.IsNullOrWhiteSpace(x.Version) ? x.Id + "@" + x.Version : x.Id)));
-        string url = $"https://mods.vintagestory.at/api/v2/mods/install-information?ids={ids}&gv={Uri.EscapeDataString(targetGameVersion)}";
+        string url = $"https://mods.vintagestory.at/api/v2/mods/install-information?ids={ids}&gv={Uri.EscapeDataString(gameVersion)}";
         string lastError = "";
         for (int attempt = 1; attempt <= 3; attempt++)
         {
@@ -550,10 +595,18 @@ public sealed class ModUpdateCheckerService : IDisposable
         {
             string version = rec.GetString() ?? "";
             entry.RecommendedVersion = version;
-            if (version.Length > 0 && !string.Equals(version, item.Version, StringComparison.OrdinalIgnoreCase))
+            if (version.Length > 0 && (!SemVer.TryParse(version, out _) || !SemVer.TryParse(item.Version, out _)))
+            {
+                entry.Status = "Unknown";
+                entry.Detail = "The installed or recommended version could not be compared safely; automatic replacement is blocked.";
+                return;
+            }
+            if (SemVer.TryParse(version, out var recommended) && SemVer.TryParse(item.Version, out var installed) && recommended > installed)
             {
                 entry.Status = "Update";
-                entry.Detail = "Compatible update available from the official Vintage Story Mod DB.";
+                entry.Detail = info.TryGetProperty("suiteCompatibleGameTag", out var tag)
+                    ? "Update tagged for Vintage Story " + tag.GetString() + "; allowed by your same-minor patch compatibility setting. Dependencies will be checked before staging."
+                    : "Compatible update available from the official Vintage Story Mod DB.";
             }
             else { entry.Status = "Current"; entry.Detail = "Installed version is current for the target game version."; }
         }
@@ -613,7 +666,7 @@ public sealed class ModUpdateCheckerService : IDisposable
         {
             4001 => "Mod DB could not parse this installed mod identifier/version.",
             4002 => "Mod DB requires a version or target game version for this lookup.",
-            4041 => "The Mod DB install index does not recognize this runtime mod ID. Check its listing page for public releases.",
+            4041 => "No indexed release matches this runtime ID and game version. The listing may use earlier game-patch tags. Check its listing page or explicitly allow earlier patches of the same game version.",
             4031 => "The Mod DB could not find an eligible published release for this mod identifier.",
             4032 => "The Mod DB refused the release-retraction override.",
             4101 => "The matching Mod DB release is retracted and is not eligible for automatic update.",
@@ -678,15 +731,21 @@ public sealed class ModUpdateCheckerService : IDisposable
             if (entry == null) return (false, "modinfo.json is missing from the ZIP root.", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
             if (entry.Length > 1024 * 1024) return (false, "modinfo.json is unexpectedly large.", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
             using var stream = entry.Open();
-            using var doc = JsonDocument.Parse(stream);
-            string actualId = doc.RootElement.TryGetProperty("modid", out var id) ? id.GetString() ?? "" : "";
-            string actualVersion = doc.RootElement.TryGetProperty("version", out var ver) ? ver.GetString() ?? "" : "";
+            using var doc = JsonDocument.Parse(stream, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+            // The game's JSON loader accepts PascalCase manifests (including Floral Zones).
+            // Match its casing tolerance, but reject ambiguous duplicate keys before staging.
+            var manifest = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in doc.RootElement.EnumerateObject())
+                if (!manifest.TryAdd(property.Name, property.Value))
+                    return (false, "Duplicate manifest field: " + property.Name, new Dictionary<string, string>());
+            string actualId = manifest.TryGetValue("modid", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() ?? "" : "";
+            string actualVersion = manifest.TryGetValue("version", out var ver) && ver.ValueKind == JsonValueKind.String ? ver.GetString() ?? "" : "";
             if (!string.Equals(actualId, expectedModId, StringComparison.OrdinalIgnoreCase))
                 return (false, $"expected mod ID {expectedModId}, package declares {actualId}.", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
             if (!string.Equals(actualVersion, expectedVersion, StringComparison.OrdinalIgnoreCase))
                 return (false, $"expected version {expectedVersion}, package declares {actualVersion}.", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
             var dependencies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (doc.RootElement.TryGetProperty("dependencies", out var deps))
+            if (manifest.TryGetValue("dependencies", out var deps))
             {
                 if (deps.ValueKind != JsonValueKind.Object) return (false, "dependencies must be an object.", dependencies);
                 foreach (var dependency in deps.EnumerateObject())

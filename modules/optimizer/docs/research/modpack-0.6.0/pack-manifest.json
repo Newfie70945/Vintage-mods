@@ -1,0 +1,205 @@
+[
+  {
+    "id": "attributerenderinglibrary",
+    "version": "3.2.0",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.0"
+    },
+    "file": "AttributeRenderingLibrary-v3.2.0.zip",
+    "sha256": "9665cb8e1e6c8f546168615431a704722cda4a8f016070869e093e2128cc71aa"
+  },
+  {
+    "id": "fagothic",
+    "version": "2.1.2",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.0",
+      "facore": "1.3.0",
+      "attributerenderinglibrary": "3.2.0"
+    },
+    "file": "FA-Gothic 2.1.2.zip",
+    "sha256": "498c3d0166345d1ea9d9afb8b548f08c282dd285ea08619f36cbfbf566c5d99c"
+  },
+  {
+    "id": "facore",
+    "version": "1.3.0",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.0"
+    },
+    "file": "FACore 1.3.0.zip",
+    "sha256": "d2552ac26f8eca7b160e71dcddf472e8d979bb3724eeee37c6c66585b6064691"
+  },
+  {
+    "id": "floralzonescaperegion",
+    "version": "1.0.38",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesCapeRegion-v1.0.38.zip",
+    "sha256": "ff46f6a6c24fc3a2401431d1e0dba57c4fbe02cfe84d037f4ffbed02b7f68aeb"
+  },
+  {
+    "id": "floralzonescaribbeanregion",
+    "version": "1.0.30",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesCaribbeanRegion-v1.0.30.zip",
+    "sha256": "ad30578b0bd348e341f4a5336a9e01fbd292e06cc2ad77840843afb83f7770dc"
+  },
+  {
+    "id": "floralzonescentralaustralianregion",
+    "version": "1.0.28",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesCentralAustralianRegion-v1.0.28.zip",
+    "sha256": "4d895c6ea906abbbebf1b0473656b06555986d5f1a89693b3abbf38052b8c435"
+  },
+  {
+    "id": "floralzonescircumborealregion",
+    "version": "1.0.4",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesCircumborealRegion-v1.0.4.zip",
+    "sha256": "318acf72bf1970f19c53c4bf7ec9c3abebda3482138492b41c66006fce848c7b"
+  },
+  {
+    "id": "floralzonescosmopolitanregion",
+    "version": "1.0.14",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesCosmopolitanRegion-v1.0.14.zip",
+    "sha256": "2b264ebb0e179152aada1767af23efbb72e1b3a3e07e944afc1454860f6360b3"
+  },
+  {
+    "id": "floralzoneseastasiaticregion",
+    "version": "1.0.25",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesEastAsiaticRegion-v1.0.25.zip",
+    "sha256": "a117f7b6fdb9f5c7199557ca91e3b3d1dd6145b4be779e988bce5aefd0f4c397"
+  },
+  {
+    "id": "floralzonesmediterraneanregion",
+    "version": "1.0.25",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesMediterraneanRegion-v1.0.25.zip",
+    "sha256": "28112d8284dfdbe5bfb29e59fe1efd3ee2033c869addbb141196c237a9971995"
+  },
+  {
+    "id": "floralzonesneozeylandicregion",
+    "version": "1.0.26",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "FloralZonesNeozeylandicRegion-v1.0.26.zip",
+    "sha256": "560c89cef124ecefc6fd65fb0f497d83c3630b89fead9929a1274c12593b6bc8"
+  },
+  {
+    "id": "newfiesanticheatclient",
+    "version": "1.1.28",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.7"
+    },
+    "file": "NewfiesAntiCheatClientV1.1.28.zip",
+    "sha256": "0ce3d9db0e1de32b34926c78c1454705126019f2428814bb166668d1c4c35042"
+  },
+  {
+    "id": "newfieschatguard",
+    "version": "2.1.4",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.7"
+    },
+    "file": "NewfiesChatGuardV2.1.4.zip",
+    "sha256": "e3df3303a1a0b929af02ecc15d8f5705b674024aa9169add920fa59c85780145"
+  },
+  {
+    "id": "newfiescommunitymotd",
+    "version": "2.1.6",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "NewfiesCommunityMOTDV2.1.6.zip",
+    "sha256": "d45d2dd16168c4006fd14f8986f16d7eba244bdfb8f63e16fd19e8d6d0b031f4"
+  },
+  {
+    "id": "newfiesplayerlist",
+    "version": "1.1.2",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.7"
+    },
+    "file": "NewfiesPlayerListV1.1.2.zip",
+    "sha256": "9a9797afeecdff468b02037499d8028614b21b34d8885e2acb0bd4865fe29a73"
+  },
+  {
+    "id": "newfiesserveressentialsdiscord",
+    "version": "1.0.13",
+    "side": "Server",
+    "dependencies": {
+      "game": "1.22.7"
+    },
+    "file": "NewfiesServerEssentialsDiscordV1.0.13.zip",
+    "sha256": "0760d3e754e75f66b1a405f45187ddf537c2524eb33fd51fe796215fc9f5b419"
+  },
+  {
+    "id": "xlibfork",
+    "version": "1.0.41",
+    "side": "Universal",
+    "dependencies": {
+      "game": ""
+    },
+    "file": "XLib Fork v1.0.41.zip",
+    "sha256": "ba7e06d25d9cb835e04dcb17269ec13367e35f933c68c1668237f11b13e97448"
+  },
+  {
+    "id": "draconis",
+    "version": "1.6.1",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.0",
+      "jaunt": "3.3.1",
+      "attributerenderinglibrary": "3.1.5"
+    },
+    "file": "draconis_1.6.1.zip",
+    "sha256": "037892555101d2b15457defd86130d264763f2acf725d924e1d2b6280fb27c63"
+  },
+  {
+    "id": "jaunt",
+    "version": "3.3.1",
+    "side": "Universal",
+    "dependencies": {
+      "game": "1.22.0"
+    },
+    "file": "jaunt_3.3.1.zip",
+    "sha256": "54c4d33e508ede71fa3eaacf34ff85363e48f3a069c67b70d250c5551f63e1af"
+  },
+  {
+    "id": "primitivesurvival",
+    "version": "5.1.4",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "primitivesurvival_5.1.4.zip",
+    "sha256": "9a107b107dada0f12e423533222c6541874fb646d0e263f75c211e37a28fa379"
+  },
+  {
+    "id": "vsimgui",
+    "version": "1.2.7",
+    "side": "Universal",
+    "dependencies": {},
+    "file": "vsimgui_1.2.7.zip",
+    "sha256": "27cb87de02034a97d154ea2052687aa2c015870bd1ed0bb7a01b813fa57558e3"
+  },
+  {
+    "id": "xskillsfork",
+    "version": "1.1.9",
+    "side": "Universal",
+    "dependencies": {
+      "xlibfork": "1.0.41",
+      "vsimgui": ""
+    },
+    "file": "xSkills Fork v1.1.9.zip",
+    "sha256": "a671e84d1f63573cc1b8247bd2b8432ba9439faa38d0f7718022bd1a7c2ad426"
+  }
+]

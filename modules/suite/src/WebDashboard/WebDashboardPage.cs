@@ -2527,6 +2527,7 @@ __NSS_RETENTION_HTML__
         </div>
         <div><h4>World generation and saves</h4>
           <label><input type="checkbox" id="nosWorldgenRequestReuse"> Allocation-free generation request lookup</label><br>
+          <label><input type="checkbox" id="nosAiTaskStartDispatch"> Allocation-free AI task-start vetoes</label>
           <label><input type="checkbox" id="nosSaveSnapshotRelease"> Release completed save snapshots</label>
           <p class="small">Keeps stock generation order and save transactions. Releases saved chunk references after successful background saves; failed saves keep their retry snapshot.</p>
         </div>
@@ -3323,6 +3324,7 @@ __NSS_RETENTION_HTML__
     <input id="modsFilter" class="modsSearch" placeholder="Filter mod id, name, version, file, marker…">
     <button id="modsRefresh">Refresh</button>
     <button id="modsCheckUpdates">Check Updates</button>
+    <label class="small" title="Opt in to releases tagged for earlier patches of the same game version (for example 1.22.0 on 1.22.7). This is broader than exact compatibility; review mod author notes."><input id="modsPatchCompatibility" type="checkbox"> Allow earlier same-version patches</label>
     <button id="modsProfile10" class="primary">Profile 10s</button>
     <button id="modsProfile30" class="primary">Profile 30s</button>
     <button id="modsCopy">Copy Mod List</button>
@@ -3452,6 +3454,7 @@ __NSS_RETENTION_HTML__
     <button id="profDisable">Disable Diagnostics</button>
     <button id="prof10" class="primary">Profile 10s</button>
     <button id="prof30" class="primary">Profile 30s</button>
+    <label class="small"><input id="profAutoCapture" type="checkbox"> Automatic 3s captures (adds overhead)</label>
     <button id="profCopy">Copy Diagnosis</button>
     <button id="profExport">Export Snapshot</button>
     <button id="profExportFull">Export Full Report</button>
@@ -8641,13 +8644,14 @@ function renderPerformanceQuickRead(d){
   const committed=Number(cur.gcCommittedMb||0),frag=Number(cur.gcFragmentedMb||0),fragPct=committed>0?(frag/committed*100):0;
   const memClass=fragPct>=30?'high':fragPct>=15?'watch':'info';
   const autoAttr=d.automaticModAttribution||{};
+  if($('profAutoCapture')){ $('profAutoCapture').checked=!!autoAttr.configured; $('profAutoCapture').disabled=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal; }
   const autoProfile=String(autoAttr.latestProfileKind||'').toLowerCase().includes('automatic');
   const autoMod=autoProfile
     ? (autoAttr.likelyModId?`${autoAttr.likelyModName||autoAttr.likelyModId} (${autoAttr.confidence||'Low'})`:'No strong mod match')
     : (autoAttr.enabled?'Armed':'Disabled');
   const autoSub=autoProfile
     ? (autoAttr.likelyModId?`${Number(autoAttr.tickSharePercent||0).toFixed(1)}% profiled tick share · max ${Number(autoAttr.maxSegmentMs||0).toFixed(1)} ms segment`:'The latest automatic burst completed without strong non-core mod attribution.')
-    : (autoAttr.enabled?`${Number(autoAttr.profileDurationSeconds||3)}s capture after unexplained 750ms+ stall · ${Number(autoAttr.cooldownSeconds||300)}s cooldown`:'Safe Diagnostics Mode or policy has disabled automatic bursts.');
+    : (autoAttr.enabled?`${Number(autoAttr.profileDurationSeconds||3)}s capture after unexplained 750ms+ stall · ${Number(autoAttr.cooldownSeconds||300)}s cooldown`:'Off by default to avoid extra work during lag. Enable explicitly in the Profiler toolbar; manual profiles remain available.');
 
   host.innerHTML=`
     <div class="card smartSignal ${overallClass}"><div class="signalMeta"><b>Current diagnosis</b>${score===null?'':`<span class="badge ${score<75?'medium':'low'}">${score}/100</span>`}</div><div class="signalTitle">${esc(primary)}</div><div class="small">${esc(primaryDetail)}</div></div>
@@ -9707,7 +9711,7 @@ $('bmExport').onclick=()=>{if(!bmOwner()||!bmState)return;const url=URL.createOb
 setInterval(()=>{if(currentSection==='blockMigration'&&!bmBusy&&(bmState?.loadedMigration?.active||['backing-up','activating'].includes(bmValue(bmState?.loadedMigration,'State'))||bmValue(bmState?.scan,'State')==='running'||bmValue(bmState?.mappingAdvice,'State')==='running'||bmValue(bmValue(bmState?.preview,'InventoryReport'),'State')==='running'||['queued','running'].includes(bmValue(bmValue(bmValue(bmState?.loadedMigration,'Plan'),'InventoryReport'),'State'))))loadBlockMigration();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;
@@ -11647,6 +11651,8 @@ async function loadMods(showLoading=true){
     const [d,u]=await Promise.all([api('/api/server/mods'),api('/api/mod-updates').catch(()=>({mods:[]}))]);
     loadedMods=d.mods||[];
     modUpdatesData=u||{mods:[]};
+    $('modsPatchCompatibility').checked=!!modUpdatesData.allowSameMinorGameUpdates;
+    $('modsPatchCompatibility').disabled=currentSessionRole==='ReadOnly';
     const checked=Number(modUpdatesData.checkedUnixMilliseconds||0);
     $('modsUpdateState').textContent=checked?`${Number(modUpdatesData.updateCount||0)} update(s) · checked ${new Date(checked).toLocaleString()}${modUpdatesData.restartRequired?' · RESTART REQUIRED':''}${modUpdatesData.lastWarning?' · '+modUpdatesData.lastWarning:''}`:'Updates not checked yet';
     loadedModsMeta=d||{};
@@ -11866,6 +11872,12 @@ $('modsFilter').addEventListener('input',renderMods);
 $('modsThirdParty').addEventListener('change',renderMods);
 $('modsMeasuredOnly').addEventListener('change',renderMods);
 $('modsRefresh').onclick=()=>loadMods(true);
+$('modsPatchCompatibility').onchange=async()=>{
+  const c=$('modsPatchCompatibility'),enabled=c.checked;c.disabled=true;
+  try{await api('/api/mod-updates/compatibility',{method:'POST',body:JSON.stringify({allowSameMinorGameUpdates:enabled})});await checkModUpdates();}
+  catch(error){c.checked=!enabled;toast(error.message,'error');}
+  finally{c.disabled=currentSessionRole==='ReadOnly';}
+};
 $('modsCheckUpdates').onclick=checkModUpdates;
 $('modsProfile10').onclick=async()=>{await startProfile(10);setTimeout(()=>loadMods(false),1200);};
 $('modsProfile30').onclick=async()=>{await startProfile(30);setTimeout(()=>loadMods(false),1200);};
@@ -12497,6 +12509,8 @@ async function loadProfiler(showLoading=true){
     const q=new URLSearchParams({window:String(profilerRangeSeconds),points:String(profilerPointsForRange())});
     const p=await api('/api/profiler?'+q);
     lastProfilerPayload=p;
+    $('profAutoCapture').checked=!!p.automaticIncidentProfilingConfigured;
+    $('profAutoCapture').disabled=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
     $('profState').textContent=p.profileRunning
       ? `Engine profile running · about ${p.profileRemainingSeconds}s remaining`
       : (p.enabled?`Diagnostics enabled · graph window ${Math.round(profilerRangeSeconds/60)}m`:'Diagnostics disabled');
@@ -12588,6 +12602,12 @@ async function startProfile(seconds){
   }catch(e){toast(e.message,'error');}
   finally{buttons.filter(Boolean).forEach(btn=>btn.disabled=false);}
 }
+$('profAutoCapture').onchange=async()=>{
+  const control=$('profAutoCapture');const enabled=control.checked;control.disabled=true;
+  try{const result=await api('/api/performance/automatic-profiling',{method:'POST',body:JSON.stringify({enabled})});toast(result.message);await loadProfiler(false);}
+  catch(error){control.checked=!enabled;toast(error.message,'error');}
+  finally{control.disabled=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;}
+};
 $('prof10').onclick=()=>startProfile(10);
 $('prof30').onclick=()=>startProfile(30);
 

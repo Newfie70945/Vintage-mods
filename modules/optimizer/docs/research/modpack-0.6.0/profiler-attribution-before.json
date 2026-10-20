@@ -1,0 +1,9 @@
+{
+  "paths": 104,
+  "tokens": 510,
+  "iterations": 20,
+  "resultSha256": "0BBD7E8B477F8991C30F8A4CA748D72882D50CC197948B092F43AE12180FD697",
+  "millisecondsPerPath": 0.5186361538461539,
+  "bytesPerPath": 319531.3846153846,
+  "scope": "Built Suite attribution matcher, synthetic catalog and marker paths. Reflection argument arrays preallocated. Normalization output checked against previous character semantics; not production capture overhead."
+}

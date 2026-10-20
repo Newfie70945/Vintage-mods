@@ -59,6 +59,7 @@
     "MinimumNearbyClients": 128,
     "AssetCompressionCache": true,
     "AssetCacheMaxMiB": 16,
+    "AiTaskStartDispatch": true,
     "AiFilterDispatch": true,
     "RepulseDelegateReuse": true,
     "WorldgenRequestReuse": true,

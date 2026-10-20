@@ -1,3 +1,12 @@
+# 0.6.0 engine-patch preview
+
+- Added independent AI task-start callback allocation reduction; stock transitions and all veto callbacks are preserved.
+- Added official-method differential, mutation, exception, changed-IL and foreign-owner tests.
+- Added a reproducible full-Suite/selected-modpack laboratory runner with real forced-active NPCs, generation, dirty saves, CPU, tick work, allocations, GC and memory, plus separate engine-profiler cost windows.
+- Added runtime enabled-mod assertions and explicit failure when the intended moving/AI workload is absent.
+- Suite 1.2.44 ModpackStability1 adds opt-in automatic engine captures, safe cancellation/timer ownership, case-tolerant ModDB package validation and an explicit earlier-game-patch compatibility option.
+- No production TPS, player-capacity or NOS-versus-Stratum claim. See [measurements and limits](performance-0.6.0.md).
+
 # 0.2.0 engine-patch preview
 
 - Added actual Harmony replacements for online player snapshots and eligible bulk FastMemoryStream reads.

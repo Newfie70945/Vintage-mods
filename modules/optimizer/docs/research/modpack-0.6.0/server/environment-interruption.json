@@ -1,0 +1,12 @@
+{
+  "completedTrialsRetained": [
+    1,
+    2,
+    3
+  ],
+  "trialRerunFromStoppedCopy": 4,
+  "reason": "The execution environment reconnected between completed trial 3 and trial 4, stopping the runner. The incomplete fourth directory is excluded; only the fourth trial is restarted from the same stopped world snapshot after input-hash validation.",
+  "cpuQuotaAfterReconnect": "200000 100000",
+  "memoryLimitAfterReconnect": "8589934592",
+  "limit": "Physical-host identity was not recorded before reconnect; do not infer small CPU/timing differences across this interruption as causal performance gains."
+}

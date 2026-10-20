@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.5.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.6.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -111,3 +111,16 @@ Low-compressibility or over-budget asset buffers use stock compression after the
 - `EngineOptimizations.SaveSnapshotRelease`: true by default. Clears the chunk snapshot only after successful background save completion, inside the existing save lock. Failure/retry inputs, dirty flags, formats and transactions are unchanged. Previously saved chunks can become collectible when they unload and have no other references.
 
 These modules work with profiling stopped. Disabling a module restores its stock method. Snapshot counters (`saveSnapshotReferencesReleased`, `saveSnapshotCompletions`) are cumulative for this server process, including across settings reloads; they count references, not memory bytes or disk writes. No forced garbage collection is performed. Chunk-generation algorithms, network batching, chunk I/O, incremental save scheduling and world-generation thread counts are not changed.
+
+### AI task starts
+
+`EngineOptimizations.AiTaskStartDispatch` defaults to true. Suite → Optimizations → Newfies Optimizer exposes its separate checkbox. It removes temporary callback-enumeration allocations in explicit `ExecuteTask` API requests only. Normal autonomous task selection uses a different stock loop; this module is not a blanket AI speedup. Disabling it unpatches the target; a conflict or unsupported official engine leaves stock execution active. No AI interval, range, priority, task or physics rule is changed.
+
+### Suite automatic profiling and updater compatibility
+
+These settings belong to the Suite's `NewfiesWebServer.json`, not `optimizer.json`:
+
+- `AutomaticIncidentProfilingEnabled`: false by default. Profiler → **Automatic 3s captures (adds overhead)** opts in. The lightweight health sampler and manual 10s/30s captures are independent. Safe Diagnostics Mode blocks automatic captures. Disabling this switch cancels a running automatic capture, while a manual capture continues.
+- `AllowSameMinorGameModUpdates`: false by default. Mods → **Allow earlier same-version patches** explicitly allows releases tagged for earlier stable patches of the same major/minor version (for example 1.22.0 on 1.22.7). This is broader than exact compatibility. Review the mod author's notes. ZIP identity, version, archive safety, dependency checks, backup and restart staging still apply; no newer/other major-minor game versions are queried and no downgrades are staged.
+
+Floral Zones uses PascalCase `ModID`/`Version`/`Dependencies`; the Suite now accepts these with the same casing tolerance as the game. Ambiguous duplicate fields are rejected. Some Forgotten Armory releases have earlier game-patch tags; their availability can depend on the explicit compatibility choice above.

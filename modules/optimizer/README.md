@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.5.0 preview
+# Newfie's Server Optimizer 0.6.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -82,3 +82,9 @@ Entity/AI hot paths run with profiling OFF. Suite 1.2.47 exposes independent `Ai
 ## World generation and save snapshot modules
 
 `WorldgenRequestReuse` removes per-lookup closure allocations from existing generation requests. `SaveSnapshotRelease` clears the stock chunk-reference snapshot after a successful background save, inside the stock save lock. Failed saves retain their snapshot for retry. Both default on, have independent Suite controls, and retain stock behavior on unsupported builds or patch conflicts. Generation order, terrain algorithms, save format and database transactions stay unchanged. See [validation](docs/performance-0.5.0.md).
+
+## 0.6.0 task-start callback allocation reduction
+
+`AiTaskStartDispatch` accelerates explicit `AiTaskManager.ExecuteTask` API requests (used by commands/mods), not the normal `StartNewTasks` selection loop. It removes the invocation-list array and LINQ enumerator from the official task-start veto loop. Every handler still runs in order, with the same task/previous-task arguments, veto aggregation, subscription snapshot and exception behavior. The stock transition code remains in place. Independent Suite control, exact-engine guards, changed-IL rejection, foreign-owner checks and stock fallback apply. It does no scheduling, distance throttling or task removal.
+
+See [modpack validation and measurements](docs/performance-0.6.0.md). All six Suite modules and the selected third-party pack are checked for enabled state by the laboratory runner; this does not establish authenticated-player capacity or exercise every feature of every loaded mod.

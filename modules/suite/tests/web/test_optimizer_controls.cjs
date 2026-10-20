@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),{chromium}=require('playwright'),html=require('./embedded_page.cjs')();
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];
- const optimizer={version:'0.5.0',settings:{enabled:true,safeMode:false,onlinePlayerSnapshots:true,aiFilterDispatch:true,repulseDelegateReuse:true,worldgenRequestReuse:true,saveSnapshotRelease:true,nearbyPlayerQueries:false,minimumNearbyClients:128,bulkStreamReads:true,assetCompressionCache:true,assetCacheMaxMiB:16},profiling:false,modules:[{name:'assetCompressionCache',status:'conflict',reason:'foreign <script>unsafe</script>'}],counters:{assetCacheHits:4,assetCacheBytes:1048576}};
+ const optimizer={version:'0.6.0',settings:{enabled:true,safeMode:false,onlinePlayerSnapshots:true,aiTaskStartDispatch:true,aiFilterDispatch:true,repulseDelegateReuse:true,worldgenRequestReuse:true,saveSnapshotRelease:true,nearbyPlayerQueries:false,minimumNearbyClients:128,bulkStreamReads:true,assetCompressionCache:true,assetCacheMaxMiB:16},profiling:false,modules:[{name:'assetCompressionCache',status:'conflict',reason:'foreign <script>unsafe</script>'}],counters:{assetCacheHits:4,assetCacheBytes:1048576}};
  let fail=false;
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',route=>{
@@ -16,9 +16,9 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
  await page.evaluate(()=>{showApp({username:'Fixture',role:'Owner',owner:true,safeDiagnosticsMode:false});setSection('optimizations',false);});await page.evaluate(()=>loadNos());
  assert.match(await page.textContent('#nosModules'),/conflict/);assert.equal(await page.locator('#nosModules script').count(),0);
  await page.fill('#nosMinimumNearbyClients','200');await page.evaluate(()=>loadNos());assert.equal(await page.inputValue('#nosMinimumNearbyClients'),'200','refresh preserves draft');
- await page.locator('label:has(#nosWorldgenRequestReuse)').click();await page.locator('label:has(#nosSaveSnapshotRelease)').click();
+ await page.locator('label:has(#nosAiTaskStartDispatch)').click();await page.locator('label:has(#nosWorldgenRequestReuse)').click();await page.locator('label:has(#nosSaveSnapshotRelease)').click();
  fail=true;await page.click('#nosApply');await page.waitForFunction(()=>!nosBusy);assert.equal(await page.inputValue('#nosMinimumNearbyClients'),'200','save failure preserves draft');
- fail=false;await page.click('#nosApply');await page.waitForFunction(()=>!nosBusy);assert.equal(writes.at(-1).settings.minimumNearbyClients,200);assert.equal(writes.at(-1).settings.worldgenRequestReuse,false);assert.equal(writes.at(-1).settings.saveSnapshotRelease,false);assert.equal(await page.evaluate(()=>nosDirty),false);
+ fail=false;await page.click('#nosApply');await page.waitForFunction(()=>!nosBusy);assert.equal(writes.at(-1).settings.minimumNearbyClients,200);assert.equal(writes.at(-1).settings.aiTaskStartDispatch,false);assert.equal(writes.at(-1).settings.worldgenRequestReuse,false);assert.equal(writes.at(-1).settings.saveSnapshotRelease,false);assert.equal(await page.evaluate(()=>nosDirty),false);
  await page.evaluate(()=>{safeDiagnosticsModeGlobal=true;renderNos({available:true,optimizer:nosSnapshot});});assert.equal(await page.locator('#nosApply').isDisabled(),true);const before=writes.length;await page.evaluate(()=>nosAction('set'));assert.equal(writes.length,before);
  await page.evaluate(()=>{safeDiagnosticsModeGlobal=false;currentSessionRole='ReadOnly';renderNos({available:true,optimizer:nosSnapshot});});assert.equal(await page.locator('#nosEnabled').isDisabled(),true);
  await page.evaluate(()=>{currentSessionRole='Owner';nosSnapshot.profiling=true;renderNos({available:true,optimizer:nosSnapshot});});assert.equal(await page.locator('#nosApply').isDisabled(),true);assert.equal(await page.locator('#nosProfileStop').isDisabled(),false);

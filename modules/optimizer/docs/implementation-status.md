@@ -1,11 +1,21 @@
-# Implementation status: 0.2.0
+# Implementation status: 0.6.0 preview
 
-Implemented real API patches: online player snapshot allocation reduction, bounded temporary-list reuse for nearby player queries and bulk FastMemoryStream reads. Each has its own switch, runtime state, conflict detection and fallback/disposal path. Profiler exports include module activation and replacement/fallback counters.
+NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 
-The optimizer remains a normal server-only mod for the official 1.22.7 runtime. It does not replace the server executable or permanently rewrite DLLs. No player-scaling, world-generation, AI-budget or whole-server throughput result is claimed from component microbenchmarks.
+Implemented independent engine modules:
 
-The previous 0.1.0 delivery contained profiling and testing tools only. Older research documents in this directory can describe that historical scope; this file and README describe the current release.
+- Online player snapshot allocation reduction.
+- Nearby-player temporary-list reuse, default off and population gated when enabled.
+- Bulk FastMemoryStream reads.
+- Bounded server-assets compression cache.
+- AI execution-filter delegate enumeration without invocation arrays.
+- AI task-start veto enumeration without invocation arrays or LINQ enumerators.
+- Weakly cached repulsion callbacks and removal of the verified always-true range predicate.
+- Allocation-free reuse of existing generation requests.
+- Release of completed save snapshots so unloaded chunks are not retained until the next save.
 
-Deferred: tracking spatial indexes, AI/pathfinding scheduling, repulsion changes, chunk backpressure, packet batching, world-generation replacement, incremental autosave and chunk I/O rewrites. These need representative official-server profiles and gameplay/equivalence scenarios before implementation.
+Each has a separate switch and runtime status, exact official-assembly guards, contract/conflict checks, disposal and stock fallback. Suite controls use the versioned event bridge. Profiling can remain off while engine modules operate.
 
-Original lost optimizer versions are not restored. This continues the reconstructed 0.1.0 project and validates recovered candidate code rather than assuming old working files were complete.
+[Current validation](performance-0.6.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
+
+Deferred: AI/pathfinding scheduling, activation ranges, chunk backpressure, network batching, incremental autosave, chunk I/O and terrain algorithm changes. These require representative profiles plus gameplay/equivalence validation before implementation.

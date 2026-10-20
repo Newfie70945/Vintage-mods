@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.5.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.6.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -44,7 +44,7 @@ public sealed class EngineOptimizations : IDisposable
         minimumNearbyClients = config.EngineOptimizations.MinimumNearbyClients;
         assetCacheBytes = config.EngineOptimizations.AssetCacheMaxMiB * 1048576;
         AssetCompressionOptimizations.Configure(false);
-        AiFilterOptimizations.Configure(false); RepulseDelegateOptimizations.Configure(false);
+        AiTaskStartOptimizations.Configure(false); AiFilterOptimizations.Configure(false); RepulseDelegateOptimizations.Configure(false);
         WorldgenRequestOptimizations.Configure(false); SaveSnapshotOptimizations.Configure(false);
         this.clientCount = clientCount ?? (() => api.World is ServerMain world ? world.Clients.Values.Count : 0);
         PlayerQueryOptimizations.MinimumNearbyClients = minimumNearbyClients;
@@ -61,6 +61,8 @@ public sealed class EngineOptimizations : IDisposable
         entries.Add(new("assetCompressionCache", options.AssetCompressionCache, () => AssetCompressionOptimizations.Target,
             () => AssetCompressionOptimizations.ConflictTargets, AssetCompressionOptimizations.PrefixMethod, AssetCompressionOptimizations.Configure)
             { Postfix = AssetCompressionOptimizations.PostfixMethod });
+        entries.Add(new("aiTaskStartDispatch",options.AiTaskStartDispatch,()=>AiTaskStartOptimizations.Target,
+            ()=>[AiTaskStartOptimizations.Target],null,AiTaskStartOptimizations.Configure) { Transpiler=AiTaskStartOptimizations.TranspilerMethod });
         entries.Add(new("aiFilterDispatch",options.AiFilterDispatch,()=>AiFilterOptimizations.Target,
             ()=>[AiFilterOptimizations.Target],null,AiFilterOptimizations.Configure) { Transpiler=AiFilterOptimizations.TranspilerMethod });
         entries.Add(new("repulseDelegateReuse",options.RepulseDelegateReuse,()=>RepulseDelegateOptimizations.Target,
@@ -78,7 +80,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -189,7 +191,7 @@ public sealed class EngineOptimizations : IDisposable
     private static long Failures(string name)
     {
         var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
+        return name switch { "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
             "nearbyPlayerQueries" => query.AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
