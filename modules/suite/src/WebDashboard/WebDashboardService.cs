@@ -1227,6 +1227,8 @@ public sealed partial class WebDashboardService : IDisposable
             path == "/api/optimizations/synergy/all")
             return true;
 
+        if (path == "/api/blocklogger/recording" && request.Method == "POST") return true;
+
         if (path == "/api/block-migration" && request.Method == "POST") return GetJsonString(request.Body,"operation","") is not ("cancel" or "loaded-disable" or "rules-clear" or "search" or "mapping-advice" or "check-destinations");
 
         if (path == "/api/optimizations/newfies" && request.Method == "POST")

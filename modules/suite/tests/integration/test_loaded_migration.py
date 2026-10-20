@@ -98,6 +98,10 @@ try:
     status,rejected=request('/api/blocklogger/recording',dict(logContainerSnapshots='yes'));assert status==400,rejected
     status,recording=request('/api/blocklogger/recording',original_recording);assert status==200,recording
     result['liveRecordingSettingsPersistAndRejectInvalidTypes']=True
+    status,_=request('/api/health/safe-mode',dict(enabled=True));assert status==200
+    status,safe_denial=request('/api/blocklogger/recording',dict(logContainerSnapshots=True));assert status==429 and safe_denial.get('safeDiagnosticsMode') is True and 'safe diagnostics' in safe_denial.get('error','').lower(),safe_denial
+    status,_=request('/api/health/safe-mode',dict(enabled=False));assert status==200
+    result['recordingWritesBlockedBySafeDiagnosticsMode']=True
     status,_=request('/api/block-migration',dict(operation='scan'));assert status==200
     scan,current=wait_field('scan');assert scan['state']=='complete' and scan['errors']==scan['unsupported']==0,scan
     ids={f['id']:f for f in scan['findings']};assert ids[999999]['count']==ids[999998]['count']==1

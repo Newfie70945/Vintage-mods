@@ -190,7 +190,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                 if(selectedPos==null||block==null||block.IsMissing||block.Code==null||api.World.BlockAccessor.GetBlockEntity(selectedPos) is not IBlockEntityContainer c||c.Inventory.Count is <1 or >4096)
                 {Reply(p,g,"--from-live needs an existing registered container with a readable inventory. Use Block ID Migration for an incompatible/missing container.",true);return;}
                 var slots=new List<RecoverySlot>();for(int n=0;n<c.Inventory.Count;n++){var item=c.Inventory[n]?.Itemstack;if(item?.Collectible?.Code!=null&&item.StackSize>0)slots.Add(new(n,item.Collectible.Code.ToShortString(),item.StackSize));}
-                live=new(center,block.Code.ToShortString(),c.Inventory.InventoryID,c.Inventory.Count,slots);to=DateTime.UtcNow;
+                live=new(center,block.Code.ToShortString(),c.Inventory.InventoryID,c.Inventory.Count,slots);var window=to-from;to=DateTime.UtcNow;from=to-window;
                 Reply(p,g,"Explicit current-inventory anchor: reverses recorded take/put only. Unlogged transfers can duplicate items; old attributes are unavailable. Review before executing.");
             }
             if(repairMissing&&missing==null){Reply(p,g,"--repair-missing only accepts a missing block definition. This registered block may have a missing texture/model; no ID repair will be forced.",true);return;}
@@ -289,7 +289,7 @@ public sealed class PlayerRollbackCommands : IDisposable
                                         Reply(p,g,$"History read: {history.Events.Count} event rows, {history.Events.Count(r=>r.Action is LogActionType.ContainerTake or LogActionType.ContainerPut)} take/put rows, {history.Snapshots.Count} container snapshots. See webpanel BlockLogger → Recording & recovery for live settings.");
                                         foreach(var prepared in list)
                                         {
-                                            var op=prepared.Operation;if(op.Evidence.Length>0)Reply(p,g,op.Evidence);Reply(p,g,$"Block: {op.After} → {op.Before} at {op.Cell.Key}.");
+                                            var op=prepared.Operation;if(op.Evidence.Length>0)Reply(p,g,op.Evidence);Reply(p,g,$"Block: {(op.MissingBlockId.HasValue?$"missing ID {op.MissingBlockId.Value}":op.After)} → {op.Before} at {op.Cell.Key}.");
                                             if(op.InventoryBefore!=null)
                                             {
                                                 var previous=(op.InventoryAfter??new()).ToDictionary(s=>s.Slot);var desired=op.InventoryBefore.ToDictionary(s=>s.Slot);

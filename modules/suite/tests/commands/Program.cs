@@ -87,11 +87,11 @@ static class Program {
  // No old snapshots: explicit live anchor and identity-matching take/put records.
  storage.History.Snapshots.Clear();container.Inventory[0].Itemstack!.StackSize=5;
  foreach(var row in storage.History.Events){row.StorageId+=10000;row.BlockCode="game:chest-east";row.Meta["inventoryId"]=container.Inventory.InventoryID;}
- Run("block 30m at 50 100 10 --from-live");token=Token();Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==10,"Explicit live-anchor take/put rollback failed without snapshots");
+ Run("block 7d at 50 100 10 --from-live");Check(storage.Queries.Last().To-storage.Queries.Last().From==TimeSpan.FromDays(7),"Live anchor exceeded the advertised maximum window");Run("block 30m at 50 100 10 --from-live");token=Token();Run("execute "+token);Check(container.Inventory[0].Itemstack!.StackSize==10,"Explicit live-anchor take/put rollback failed without snapshots");
  // A remapper placeholder has no break event; use identity evidence only for this missing cell.
  api.World.Blocks["game:missing-fixture"]=new(){BlockId=999999,Code=new("missing-fixture"),IsMissing=true};api.World.BlockAccessor.Blocks["0:60:100:10"]=999999;
  storage.History.Events.Clear();storage.History.Events.Add(new(){StorageId=99001,TimestampUtc=DateTime.UtcNow.AddMinutes(-10),PlayerUid="owner",Dimension="0",X=60,Y=100,Z=10,Action=LogActionType.BlockUse,BlockCode="game:stone"});
- Run("block 30m at 60 100 10 --repair-missing");token=Token();Run("execute "+token);Check(api.World.BlockAccessor.Blocks["0:60:100:10"]==1,"Missing block identity repair did not apply");
+ Run("block 30m at 60 100 10 --repair-missing");Check(admin.Messages.Any(m=>m.Contains("missing ID 999999 → game:stone")),"Missing-ID preview hid the actual source ID");token=Token();Run("execute "+token);Check(api.World.BlockAccessor.Blocks["0:60:100:10"]==1,"Missing block identity repair did not apply");
  Run("block 30m at 60 100 10 --repair-missing");Check(admin.Messages.Last().Contains("registered block"),"Healthy registered block was not protected from missing-ID repair");
  // Reconnect a compatible retained container using ExchangeBlock, keeping its inventory object.
  api.World.BlockAccessor.Blocks["0:70:100:10"]=999999;var retainedContainer=new ContainerEntity();retainedContainer.Slots.Slots=new[]{new ItemSlot{Itemstack=new(api.World.Items["game:ingot-copper"],7)}};api.World.BlockAccessor.Entities["0:70:100:10"]=retainedContainer;
