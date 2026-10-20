@@ -17,6 +17,8 @@ public sealed partial class BlockIdRepairService
     private bool liveMicroPrepared;
     private long liveSweepTick,liveSweepBlocks,liveSweepSkipped;
     private string liveSweepIssue="";
+    private readonly MigrationSkipHistory migrationSkips=new();
+    private void RecordMigrationSkip(BlockPos pos,int source,int target,string reason)=>migrationSkips.Record(pos.X,pos.Y,pos.Z,pos.dimension,source,target,reason);
     private void StartLoadedTerrainSweep()
     {
         StopLoadedTerrainSweep();
@@ -84,9 +86,9 @@ public sealed partial class BlockIdRepairService
                             try
                             {
                                 if(retained!=null&&TryReconnectLive(pos,source,target,retained)){liveSweepBlocks++;loadedInventoriesPreserved++;writes++;chunk.MarkModified();}
-                                else {liveSweepSkipped++;liveSweepIssue="Reconnect requires compatible surviving container metadata; reload for saved metadata, or use logged recovery if contents were lost.";}
+                                else {liveSweepSkipped++;liveSweepIssue="Reconnect requires compatible surviving container metadata; reload for saved metadata, or use logged recovery if contents were lost.";RecordMigrationSkip(pos,source,target,liveSweepIssue);}
                             }
-                            catch(Exception error){liveSweepSkipped++;loadedInventoryLastIssue=error.Message;}
+                            catch(Exception error){liveSweepSkipped++;loadedInventoryLastIssue=error.Message;RecordMigrationSkip(pos,source,target,error.Message);}
                             if(liveCell==32768)liveChunkKey=null;
                             continue;
                         }
@@ -95,7 +97,8 @@ public sealed partial class BlockIdRepairService
                             (retained!=null?!compatible:!string.IsNullOrEmpty(destination.EntityClass));
                         if(unsafeCell)
                         {
-                            liveSweepSkipped++;liveSweepIssue="Some loaded cells were left unchanged to protect container metadata or fluid layers. Historical inventory recovery runs on saved-chunk loading; incompatible metadata needs its original block/mod or a reviewed compatible rule.";
+                            liveSweepSkipped++;liveSweepIssue=loadedInventorySources.Contains(source)?"Historical recovery requires saved-chunk loading; loaded contents were left unchanged.":destination.ForFluidsLayer||chunk.UnpackAndReadBlock(index,BlockLayersAccess.Fluid)!=0?"Fluid layer conflict; choose a compatible solid replacement.":retained!=null?"Retained block entity is incompatible with this rule; choose its original identity or review reconnection.":"Replacement needs block-entity metadata that is not live; migration will not invent it.";
+                            RecordMigrationSkip(pos,source,target,liveSweepIssue);
                         }
                         else if(api.World.BlockAccessor.GetBlockId(pos)==source)
                         {

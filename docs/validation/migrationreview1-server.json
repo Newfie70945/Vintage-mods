@@ -1,0 +1,50 @@
+{
+  "suiteVersion": "1.2.44",
+  "buildSuffix": "ms11-migrationreview1",
+  "officialGameVersion": "1.22.7",
+  "authenticatedGameClients": 0,
+  "liveRecordingSettingsPersistAndRejectInvalidTypes": true,
+  "recordingWritesBlockedBySafeDiagnosticsMode": true,
+  "reviewedMappingAndBackupOptionsBound": true,
+  "activatedWithoutRestart": true,
+  "normalLoaderObservedDestinations": {
+    "firstId": 12698,
+    "firstCode": "game:rock-granite",
+    "secondId": 12701,
+    "secondCode": "game:rock-basalt"
+  },
+  "changedChunks": 1,
+  "changedReferences": 2,
+  "heldCommandIssuedDuringWholeWorldScan": true,
+  "heldPreviewAndSingleRepair": {
+    "readOnlyPreview": true,
+    "singlePlainRepair": true,
+    "sameIdNeighbourUnchanged": true,
+    "metadataRefused": true,
+    "singleConfirmationRejected": true
+  },
+  "heldRuleAutomaticallyActiveWithoutRestart": true,
+  "heldRuleDoesNotWaitForRunningScan": true,
+  "heldRulePreservesOtherRulesAndHeldStack": true,
+  "healthyLookedAtSourceRefused": true,
+  "heldNoBackupRequiresAcknowledgementAndCreatesNoBackup": true,
+  "alreadyLoadedBothMatchingBlocksMigratedWithoutReload": true,
+  "fixtureReloadedAfterNormalAutosave": true,
+  "heldRuleMigratesBothMatchingOccurrences": true,
+  "chiseledMaterials": {
+    "coordinateSelection": true,
+    "ambiguousRejected": true,
+    "liveMaterialMigrated": true,
+    "hostAndGeometryPreserved": true,
+    "healthyMaterialPreserved": true,
+    "savedMaterialOnlyHookPreservesOtherBytes": true,
+    "heldQuantity": 7,
+    "message": "Saved migration rule for ALL missing blocks/chiseled material references with ID 999996 \u2192 game:rock-granite (ID 12698). 4 rules retained; no world scan required. Automatic backup skipped by explicit acknowledgement; activation starts automatically. Safe already-loaded solid blocks are processed in a bounded background pass on the server thread; reconnect checks compatible containers; unverifiable cells remain unchanged. Your held stack was not consumed."
+  },
+  "disableImmediate": true,
+  "directRuleSaveAndResumeRetainManualBackupPolicy": true,
+  "disabledQueuedActivationCannotReactivate": true,
+  "normalSavePersistedAll32768CellsVerified": true,
+  "disabledStateSurvivesRestart": true,
+  "disabledModuleRecordingStatusRemainsReadable": true
+}

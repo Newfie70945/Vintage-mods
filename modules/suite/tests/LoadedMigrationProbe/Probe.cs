@@ -26,10 +26,26 @@ public sealed class LoadedMigrationProbe:ModSystem
             const string uid="held-migration-test-administrator";typeof(ServerWorldPlayerData).GetField("PlayerUID",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(data,uid);
             var pos=new BlockPos((int)a[0],(int)a[1],(int)a[2]);data.EntityPlayer=new EntityPlayer{BlockSelection=new(){Position=pos}};
             typeof(ServerPlayer).GetField("worlddata",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(player,data);
-            var inventory=new InventoryGeneric(11,"hotbar-"+uid,api);var block=api.World.GetBlock(new AssetLocation("game:rock-granite"));inventory[0].Itemstack=new ItemStack(block,7);
+            var inventory=new InventoryGeneric(11,"hotbar-"+uid,api);var block=api.World.GetBlock(new AssetLocation("game:rock-granite"))??throw new Exception("Fixture granite block missing");inventory[0].Itemstack=new ItemStack(block,7);
             var inventories=new Vintagestory.API.Datastructures.OrderedDictionary<string,InventoryBase>();inventories.Add("hotbar-"+uid,inventory);
             var manager=new ServerPlayerInventoryManager(inventories,player,(ServerMain)api.World);typeof(ServerPlayer).GetField("inventoryMgr",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(player,manager);
             int before=api.World.BlockAccessor.GetBlockId(pos);
+            var review=typeof(BlockIdRepairService).GetMethod("ReviewHeldReplacement",BindingFlags.NonPublic|BindingFlags.Instance)!;
+            string beforeReview=JsonSerializer.Serialize(JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration"));
+            string reviewText=(string)review.Invoke(repair,[player,"",true,false])!;
+            if(!reviewText.Contains("READ-ONLY")||api.World.BlockAccessor.GetBlockId(pos)!=before||beforeReview!=JsonSerializer.Serialize(JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration"))||inventory[0].StackSize!=7)throw new Exception("Read-only preview changed migration or terrain.");
+            bool singleConfirmationRejected=false;try{review.Invoke(repair,[player,"",false,true]);}catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("confirm-risk")==true){singleConfirmationRejected=true;}
+            if(!singleConfirmationRejected)throw new Exception("Single repair accepted without confirmation.");
+            var liveChunk=api.World.BlockAccessor.GetChunkAtBlockPos(pos)??throw new Exception("Fixture chunk unloaded");
+            bool metadataRefused=false;
+            liveChunk.BlockEntities[pos]=new BlockEntityMicroBlock{Pos=pos.Copy(),BlockIds=[before]};
+            try{review.Invoke(repair,[player,"confirm-risk manual-copy-confirmed",false,true]);}
+            catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("plain missing blocks only")==true){metadataRefused=true;}
+            finally{liveChunk.BlockEntities.Remove(pos);}
+            if(!metadataRefused||api.World.BlockAccessor.GetBlockId(pos)!=before)throw new Exception("Single repair failed to protect chiseled/retained metadata.");
+            string singleMessage=(string)review.Invoke(repair,[player,"confirm-risk manual-copy-confirmed",false,true])!;
+            if(api.World.BlockAccessor.GetBlockId(pos)!=block.Id||api.World.BlockAccessor.GetBlockId(pos.AddCopy(1,0,0))!=before||inventory[0].StackSize!=7||beforeReview!=JsonSerializer.Serialize(JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration")))throw new Exception("Single repair changed held items or rules, or failed to change its target.");
+            liveChunk.Unpack();liveChunk.Data.SetBlockUnsafe(((pos.Y&31)*32+(pos.Z&31))*32+(pos.X&31),before);liveChunk.MarkModified();
             var heldMethod=typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeldOptions",BindingFlags.NonPublic|BindingFlags.Instance)!;
             bool unacknowledgedRejected=false;
             try{heldMethod.Invoke(repair,[player,"no-backup"]);}catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("manual-copy-confirmed")==true){unacknowledgedRejected=true;}
@@ -46,7 +62,7 @@ public sealed class LoadedMigrationProbe:ModSystem
             try{typeof(BlockIdRepairService).GetMethod("ReplaceLookedAtHeld",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(repair,[player]);}
             catch(TargetInvocationException e)when(e.InnerException?.Message.Contains("protected")==true){healthyRejected=true;}
             if(!healthyRejected)throw new Exception("Healthy looked-at source was not protected.");
-            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,unacknowledgedRejected,noAutomaticBackup=true,message}));
+            api.Logger.Notification("{0}","NSE_HELD_MIGRATION_PROBE "+JsonSerializer.Serialize(new{sourceId=before,heldQuantity=inventory[0].StackSize,healthyRejected,rulesShown,unacknowledgedRejected,noAutomaticBackup=true,readOnlyPreview=true,singlePlainRepair=true,sameIdNeighbourUnchanged=true,metadataRefused,singleConfirmationRejected,message}));
             return TextCommandResult.Success("Held migration adapter checked using detached administrator fixture.");
         });
         api.ChatCommands.Create("nsechiselmigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>

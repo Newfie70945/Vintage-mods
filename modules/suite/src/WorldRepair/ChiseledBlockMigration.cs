@@ -42,10 +42,13 @@ public sealed partial class BlockIdRepairService
         var tokens=arguments.Split(' ',StringSplitOptions.RemoveEmptyEntries);
         if(tokens.Any(t=>!t.StartsWith("at=",StringComparison.Ordinal)&&!t.StartsWith("dimension=",StringComparison.Ordinal)))throw new ArgumentException("inspect options: at=X,Y,Z dimension=N.");
         var pos=MigrationTargetPosition(player,tokens);int id=api.World.BlockAccessor.GetBlockId(pos);
-        string info=$"Target {pos.X},{pos.Y},{pos.Z} dimension {pos.dimension}: solid ID {id}; missing={Missing(id)}.";
+        var map=Mapping();var rules=CopyConfiguredRules();var entity=api.World.BlockAccessor.GetBlockEntity(pos);
+        string DescribeRule(int source){var rule=rules.FirstOrDefault(r=>r.Source==source);return rule==null?"no saved rule":$"saved rule → {rule.TargetCode} (ID {rule.Target}); migration {loadedMigration.State}";}
+        string info=$"Target {pos.X},{pos.Y},{pos.Z} dimension {pos.dimension}: solid ID {id}; saved identity {Label(id,map)}; missing={Missing(id)}; {DescribeRule(id)}.";
+        info+=entity==null?" No live block entity. This does not establish whether saved metadata or historical inventory evidence survives.":$" Live block entity: {api.World.ClassRegistry.GetBlockEntityClass(entity.GetType())}. Its presence alone does not verify recoverable contents; inspect saved inventory evidence in the webpanel.";
         if(api.World.BlockAccessor.GetBlockEntity(pos) is BlockEntityMicroBlock micro)
-            info+=" Chiseled material IDs: "+string.Join(", ",(micro.BlockIds??[]).Distinct().Select(m=>$"{m}{(Missing(m)?" (missing)":" (registered)")}"))+". Use replaceheld source=ID when more than one is missing. Geometry is preserved.";
-        return info;
+            info+=" Chiseled material IDs: "+string.Join(", ",(micro.BlockIds??[]).Distinct().Select(m=>$"{m}{(Missing(m)?" (missing) ["+DescribeRule(m)+"]":" (registered)")}"))+". Use replaceheld source=ID when more than one is missing. Geometry is preserved.";
+        return info+" Hold a replacement and use /nseblockmigrate previewheld to check it without saving a rule.";
     }
     private bool ChiseledTargetAllowed(int id)=>id>0&&!Missing(id)&&!api.World.Blocks[id].ForFluidsLayer&&string.IsNullOrEmpty(api.World.Blocks[id].EntityClass);
     private byte[] RewriteSavedChiseledMaterials(byte[] original,out long changed)
