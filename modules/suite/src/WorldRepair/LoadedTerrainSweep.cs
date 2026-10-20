@@ -3,6 +3,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.Server;
+using Vintagestory.GameContent;
 
 namespace BlockLogger.WorldRepair;
 
@@ -12,6 +13,8 @@ public sealed partial class BlockIdRepairService
     private Queue<long> liveChunkKeys=new();
     private long? liveChunkKey;
     private int liveCell;
+    private Queue<BlockPos> liveMicroPositions=new();
+    private bool liveMicroPrepared;
     private long liveSweepTick,liveSweepBlocks,liveSweepSkipped;
     private string liveSweepIssue="";
     private void StartLoadedTerrainSweep()
@@ -23,7 +26,7 @@ public sealed partial class BlockIdRepairService
     private void StopLoadedTerrainSweep()
     {
         if(liveSweepTick!=0)api.Event.UnregisterGameTickListener(liveSweepTick);
-        liveSweepTick=0;liveChunkKeys.Clear();liveChunkKey=null;liveCell=0;
+        liveSweepTick=0;liveChunkKeys.Clear();liveChunkKey=null;liveCell=0;liveMicroPositions.Clear();liveMicroPrepared=false;
     }
     private void SweepLoadedTerrain()
     {
@@ -40,7 +43,7 @@ public sealed partial class BlockIdRepairService
                     if(!liveChunkKey.HasValue)
                     {
                         if(!liveChunkKeys.TryDequeue(out long key)){StopLoadedTerrainSweep();return;}
-                        liveChunkKey=key;liveCell=0;chunks++;
+                        liveChunkKey=key;liveCell=0;liveMicroPrepared=false;liveMicroPositions.Clear();chunks++;
                     }
                     if(cachedKey!=liveChunkKey)
                     {
@@ -49,6 +52,17 @@ public sealed partial class BlockIdRepairService
                         chunk=api.WorldManager.GetChunk(origin);cachedKey=liveChunkKey;
                     }
                     if(chunk==null||origin==null){liveChunkKey=null;continue;}
+                    if(!liveMicroPrepared)
+                    {
+                        liveMicroPositions=new(chunk.BlockEntities.Values.OfType<BlockEntityMicroBlock>().Select(e=>e.Pos.Copy()));liveMicroPrepared=true;
+                    }
+                    if(liveMicroPositions.TryDequeue(out var microPos))
+                    {
+                        reads++;
+                        if(api.World.BlockAccessor.GetBlockEntity(microPos) is BlockEntityMicroBlock micro)
+                        {long count=MigrateLiveChiseled(micro);if(count>0){migratedMaterialReferences+=count;chunk.MarkModified();writes++;}}
+                        continue;
+                    }
                     if(liveCell==0)
                     {
                         chunk.Unpack_ReadOnly();
@@ -65,6 +79,17 @@ public sealed partial class BlockIdRepairService
                             identity.EntityClass.Length>0&&api.World.ClassRegistry.GetBlockEntityClass(retained.GetType())==identity.EntityClass;
                         // Historical recovery needs the saved-byte processor and its
                         // receipts. Never replace contents or invent a live entity.
+                        if(loadedReconnectSources.Contains(source))
+                        {
+                            try
+                            {
+                                if(retained!=null&&TryReconnectLive(pos,source,target,retained)){liveSweepBlocks++;loadedInventoriesPreserved++;writes++;chunk.MarkModified();}
+                                else {liveSweepSkipped++;liveSweepIssue="Reconnect requires compatible surviving container metadata; reload for saved metadata, or use logged recovery if contents were lost.";}
+                            }
+                            catch(Exception error){liveSweepSkipped++;loadedInventoryLastIssue=error.Message;}
+                            if(liveCell==32768)liveChunkKey=null;
+                            continue;
+                        }
                         bool unsafeCell=loadedInventorySources.Contains(source)||destination.ForFluidsLayer||
                             chunk.UnpackAndReadBlock(index,BlockLayersAccess.Fluid)!=0||
                             (retained!=null?!compatible:!string.IsNullOrEmpty(destination.EntityClass));

@@ -21,6 +21,8 @@ public static class SavedBlockEntityInspector
     public sealed class EntitySummary
     {
         public string Class { get; set; } = "";
+        [System.Text.Json.Serialization.JsonIgnore] public int MaterialIdsOffset {get;set;}=-1;
+        [System.Text.Json.Serialization.JsonIgnore] public int[]? MaterialIds {get;set;}
         public string SavedBlockCode { get; set; } = "";
         public int? X { get; set; }
         public int? InternalY { get; set; }
@@ -139,7 +141,17 @@ public static class SavedBlockEntityInspector
                     case 16: Skip(Count()); break;
                     case 9: Skip(1); break;
                     case 10: int strings = Count(4096); for (int i = 0; i < strings; i++) Text(); break;
-                    case 11: case 12: Skip((long)Count() * 4); break;
+                    case 11:
+                        int ints=Count();
+                        if(depth==0&&key=="materials"&&result.Class=="MicroBlock")
+                        {
+                            if(ints>256)throw new InvalidDataException("Chiseled material palette exceeds 256 entries.");
+                            result.MaterialIdsOffset=checked((int)reader.BaseStream.Position);result.MaterialIds=new int[ints];
+                            for(int i=0;i<ints;i++)result.MaterialIds[i]=reader.ReadInt32();
+                        }
+                        else Skip((long)ints*4);
+                        break;
+                    case 12: Skip((long)Count() * 4); break;
                     case 13: case 15: Skip((long)Count() * 8); break;
                     case 14: int trees = Count(1024); for (int i = 0; i < trees; i++) Tree(current + "[" + i + "]", depth + 1); break;
                     default: throw new InvalidDataException("Unsupported/custom attribute type " + type + "; inspection is partial.");

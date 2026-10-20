@@ -23,9 +23,9 @@ public sealed partial class BlockIdRepairService
     {
         if(rules.Count==0)throw new ArgumentException("Configure at least one source ID, or clear the rules.");
         var first=rules[0];var plan=new Plan{Inventory=inventory,LoadedOnly=true,Mappings=rules,Source=first.Source,Target=first.Target,SourceCode=first.SourceCode,TargetCode=first.TargetCode,World=api.World.SavegameIdentifier,Registry=Fingerprint(Mapping()),ScanId="rules-"+Guid.NewGuid().ToString("N"),CreateBackup=createBackup,ManualBackupAcknowledged=manualCopy,AllowAir=allowAir||loadedMigration.Plan?.AllowAir==true,Message="Explicit ID rules saved without a world scan. Occurrence counts are unknown until chunks load."};
-        if(inventory.Mode!="preserve"){plan.InventoryRegistry=RestoreRegistry();plan.InventoryReport=new(){State="queued",Message="Rule saved. Optional inventory evidence preparation is queued separately; no world edits made."};}
+        if(inventory.RequiresPreparation){plan.InventoryRegistry=RestoreRegistry();plan.InventoryReport=new(){State="queued",Message="Rule saved. Optional inventory evidence preparation is queued separately; no world edits made."};}
         Validate(plan,false);SaveLoadedConfiguration(plan);preview=null;
-        if(inventory.Mode!="preserve")
+        if(inventory.RequiresPreparation)
         {
             void StartIfCurrent()
             {
@@ -79,7 +79,7 @@ public sealed partial class BlockIdRepairService
     {
         lock(gate)lock(loadedGate)
         {
-            CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
+            CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;loadedReconnectCatalog=null;loadedReconnectSources.Clear();loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
     }
 }

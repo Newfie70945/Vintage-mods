@@ -2,6 +2,11 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationContainers1: add explicit `replaceheld reconnect confirm-inventory-risk` and a matching webpanel mode for compatible retained containers. Reconnect changes their block identity while preserving current contents/attributes, including empty inventories; it requires no BlockLogger snapshot or world-wide preparation scan. Missing/incompatible metadata stays protected.
+- Improve bookshelf refusals with actionable reconnect and historical-recovery commands. Historical recovery remains a separate opt-in operation with evidence and replay protection.
+- Repair numeric missing materials inside vanilla chiseled blocks without replacing the host or voxel geometry. `inspect` lists material IDs; `source=ID` resolves multiple missing materials; `at=X,Y,Z dimension=N` targets loaded blocks that cannot be selected normally. Rules apply to both loaded and saved material palettes while protecting healthy materials.
+- Preserve unrelated chiseled bytes, geometry, name and rotation; refuse air/fluid/container material targets and unverifiable custom metadata. Show material progress/refusal diagnostics. Direct replacement searches now work for missing IDs without a whole-world scan.
+
 - MigrationLive1: `/nseblockmigrate replaceheld no-backup manual-copy-confirmed` saves and activates an ID-wide rule without creating an automatic world backup. Missing acknowledgement is refused; existing rules and the held stack are preserved.
 - Fixed migration refusing densely built chunks at the old 256 block-entity verification cap. The verifier supports up to one retained entity per chunk cell with bounded bytes; unrelated payloads remain byte-for-byte unchanged, and metadata at replacement cells stays protected.
 - Added a one-time bounded pass over already-loaded solid terrain after migration activates. Only configured missing IDs change; safe cells can migrate without unloading the base. Inventory recovery and unsupported layers still use the saved-chunk path. Disable/clear/reconfigure cancels the pass.

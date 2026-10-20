@@ -18,7 +18,7 @@ public sealed partial class BlockIdRepairService
     private static MigrationInventoryReport CopyReport(MigrationInventoryReport r)=>new(){State=r.State,Message=r.Message,Chunks=r.Chunks,Prepared=r.Prepared,Preserved=r.Preserved,Recovered=r.Recovered,Items=r.Items,Skipped=r.Skipped,Samples=r.Samples.Take(50).ToList()};
     private void ValidateInventory(Plan p,bool ready)
     {
-        p.Inventory.Validate();if(p.Inventory.Mode=="preserve")return;
+        p.Inventory.Validate();if(!p.Inventory.RequiresPreparation)return;
         if(p.InventoryRegistry!=RestoreRegistry())throw new InvalidOperationException("Item/block mapping changed; review inventory recovery again.");
         if(ready)
         {
@@ -30,7 +30,7 @@ public sealed partial class BlockIdRepairService
     }
     private void StartMigrationInventoryPreparation(Plan p)
     {
-        p.Inventory.Validate();if(p.Inventory.Mode=="preserve")return;
+        p.Inventory.Validate();if(!p.Inventory.RequiresPreparation)return;
         if(worker is{IsCompleted:false})throw new InvalidOperationException("Wait for the current scan to finish before preparing inventory recovery.");
         p.InventoryRegistry=RestoreRegistry();var catalog=CaptureRestoreCatalog();string worldPath=Database().DatabaseFilename,history=historyDatabasePath??"",manifest=InventoryManifest(p);
         var server=(ServerMain)api.World;var mappings=EffectiveMappings(p).ToDictionary(m=>m.Source);var report=new MigrationInventoryReport{State="running",Message="Checking saved container metadata and exact-location BlockLogger snapshots. No world changes are made."};p.InventoryReport=CopyReport(report);
@@ -113,7 +113,7 @@ public sealed partial class BlockIdRepairService
         int[]? usable=null;
         if(saved.Class=="Bookshelf"&&(saved.InventorySlotCount!=14||saved.Material.Length==0||target.UsableSlots==null||!target.UsableSlots.TryGetValue(saved.ShapeType,out usable)))throw new InvalidOperationException("Bookshelf shape/material or target slot layout is incompatible.");
         byte[]? slots=null;InventoryRestoreHistory.Source? snapshot=null;
-        if(p.Inventory.Mode=="replace"||saved.NonEmptyStacks==0)
+        if(p.Inventory.Mode=="replace"||(p.Inventory.Mode=="recover-empty"&&saved.NonEmptyStacks==0))
         {
             snapshot=InventoryRestoreHistory.LatestBefore(history,p.World,saved.X!.Value,saved.Y!.Value,saved.Z!.Value,saved.Dimension!.Value,cutoff);
             if(snapshot.Code!=Canonical(saved.SavedBlockCode)||snapshot.SlotCount!=saved.InventorySlotCount)throw new InvalidOperationException("The latest snapshot at the cutoff does not match this retained container's original identity/slot count.");

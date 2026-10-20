@@ -8,6 +8,7 @@ from pathlib import Path
 import http.cookiejar, json, os, secrets, shutil, sqlite3
 import subprocess, threading, time, urllib.error, urllib.request
 repo=Path(__file__).resolve().parents[4]
+game_port=int(os.environ.get('NSS_TEST_PORT','42598'));web_port=int(os.environ.get('NSS_TEST_WEB_PORT','42668'))
 root=repo/'artifacts/validation'/('loaded-migration-1.2.44-'+str(int(time.time())))
 data=root/'data';root.mkdir(parents=True)
 baseline=Path(os.environ['NSS_BATCH_TEST_BASELINE']).resolve()
@@ -15,9 +16,9 @@ shutil.copytree(baseline,data,ignore=shutil.ignore_patterns('Logs','Mods','Cache
 net=str(Path(os.environ['DOTNET_ROOT'])/'dotnet');game=Path(os.environ['VINTAGE_STORY']);env=os.environ.copy()
 helper=repo/'modules/suite/tests/BlockRepairChecks/bin/Release/net10.0/BlockRepairChecks.dll'
 config=json.loads((data/'serverconfig.json').read_text());save=Path(config['WorldConfig']['SaveFileLocation']).name
-config.update(Ip='127.0.0.1',Port=42598,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,PassTimeWhenEmpty=True,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save);(data/'serverconfig.json').write_text(json.dumps(config))
+config.update(Ip='127.0.0.1',Port=game_port,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,PassTimeWhenEmpty=True,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save);(data/'serverconfig.json').write_text(json.dumps(config))
 mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.44.zip',mods)
-configdir=data/'ModConfig/NewfiesServerEssentialsSuite';webfile=configdir/'NewfiesWebServer.json';web=json.loads(webfile.read_text());password=secrets.token_hex(20);web.update(Enabled=True,BindAddress='127.0.0.1',Port=42668,AdminUsername='fixtureowner',Password=password,PasswordSalt='',PasswordHash='',SafeDiagnosticsMode=False);webfile.write_text(json.dumps(web))
+configdir=data/'ModConfig/NewfiesServerEssentialsSuite';webfile=configdir/'NewfiesWebServer.json';web=json.loads(webfile.read_text());password=secrets.token_hex(20);web.update(Enabled=True,BindAddress='127.0.0.1',Port=web_port,AdminUsername='fixtureowner',Password=password,PasswordSalt='',PasswordHash='',SafeDiagnosticsMode=False);webfile.write_text(json.dumps(web))
 features=configdir/'NewfiesServerEssentialsFeatures.json';f=json.loads(features.read_text());f['WebDashboard']=True;features.write_text(json.dumps(f))
 world=data/'Saves'/save
 with sqlite3.connect(world) as db:key,blob=db.execute('SELECT position,data FROM chunk ORDER BY position DESC LIMIT 1').fetchone()
@@ -30,7 +31,7 @@ lines=[];process=None
 
 def launch():
     global process
-    process=subprocess.Popen([net,str(game/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port','42598'],cwd=game,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
+    process=subprocess.Popen([net,str(game/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port',str(game_port)],cwd=game,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
     def read(proc):
         with (root/'console.log').open('a') as log:
             for line in proc.stdout:lines.append(line);log.write(line);log.flush()
@@ -45,7 +46,7 @@ def ready(offset):
 def stop():
     process.stdin.write('/stop\n');process.stdin.flush();process.wait(timeout=60);assert process.returncode==0
 
-base='http://127.0.0.1:42668';client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));csrf=None
+base='http://127.0.0.1:'+str(web_port);client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));csrf=None
 
 def request(path,body=None):
     headers={'Origin':base,'Accept':'application/json'}
@@ -79,12 +80,12 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationlive1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationcontainers1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
     project=repo/'modules/suite/tests/LoadedMigrationProbe'
-    subprocess.run([net,'build',str(project/'LoadedMigrationProbe.csproj'),'-c','Release','--nologo'],env=env,check=True)
+    if os.environ.get('NSS_PROBE_PREBUILT')!='1':subprocess.run([net,'build',str(project/'LoadedMigrationProbe.csproj'),'-c','Release','--nologo'],env=env,check=True)
     with zipfile.ZipFile(mods/'LoadedMigrationProbe.zip','w',zipfile.ZIP_DEFLATED) as z:
         z.write(project/'bin/Release/net10.0/LoadedMigrationProbe.dll','LoadedMigrationProbe.dll')
         z.writestr('modinfo.json',json.dumps(dict(type='code',modid='nseloadedmigrationprobe',name='Disposable Loaded Migration Probe',version='1.0.0',side='server',requiredOnClient=False)))
@@ -168,6 +169,12 @@ try:
         time.sleep(.1)
     both=json.loads(next(line.split(marker,1)[1] for line in lines[offset:] if marker in line));assert both['firstCode']==both['secondCode']=='game:rock-granite',both
     active=state()['loadedMigration'];assert active['sessionBlocksChanged']+active['loadedSweepBlocksChanged']==4 and active['sessionChunksRefused']==0,active;result['heldRuleMigratesBothMatchingOccurrences']=True
+    offset=len(lines);process.stdin.write('/nsechiselmigrationprobe '+str(location['x']+8)+' '+str(location['y'])+' '+str(location['z'])+'\n');process.stdin.flush()
+    until=time.monotonic()+90;chiselmarker='NSE_CHISEL_MIGRATION_PROBE '
+    while not any(chiselmarker in line for line in lines[offset:]):
+        if process.poll() is not None or time.monotonic()>until:raise RuntimeError('Chisel migration probe timed out: '+str(root))
+        time.sleep(.1)
+    result['chiseledMaterials']=json.loads(next(line.split(chiselmarker,1)[1] for line in lines[offset:] if chiselmarker in line))
     status,disabled=request('/api/block-migration',dict(operation='loaded-disable'));assert status==200 and not disabled['active'] and not disabled['enabled'],disabled
     result['disableImmediate']=True
     # Direct web-editor save: no scan or automatic backup, then pause/resume
