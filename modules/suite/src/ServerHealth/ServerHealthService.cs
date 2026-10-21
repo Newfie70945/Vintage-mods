@@ -230,6 +230,36 @@ public sealed class ServerHealthService : IDisposable
         }
     }
 
+    // Uses already sampled leaf timings; never reads or enables the engine profiler here.
+    public ServerTickContributors GetTickContributors()
+    {
+        lock (sync)
+        {
+            double sampledMs = profileTickDurationsMs.Sum();
+            var rows = profileRunning
+                ? profileAccumulators.OrderByDescending(p => p.Value.TotalMs).Take(12).Select(p =>
+                {
+                    var owner = ResolveModAttribution(p.Key);
+                    return new ServerProfilerHotspot
+                    {
+                        Code = p.Key, TotalMs = p.Value.TotalMs, MaxSingleMs = p.Value.MaxSingleMs,
+                        Calls = p.Value.Calls, ModId = owner.ModId, ModName = owner.ModName,
+                        AttributionConfidence = owner.Confidence, IsCore = owner.IsCore,
+                        PercentOfProfileTickTime = sampledMs <= 0 ? 0 : p.Value.TotalMs / sampledMs * 100
+                    };
+                }).ToList()
+                : lastHotspots.Take(12).ToList();
+            return new ServerTickContributors
+            {
+                Running = profileRunning,
+                CaptureUnixMilliseconds = profileRunning ? new DateTimeOffset(profileStartedUtc).ToUnixTimeMilliseconds() : lastProfile.CompletedUnixMilliseconds,
+                SampledTicks = profileRunning ? profileTickDurationsMs.Count : lastProfile.TickCount,
+                RemainingSeconds = profileRunning ? GetRemainingSecondsUnsafe() : 0,
+                Rows = rows
+            };
+        }
+    }
+
     public int ClearModHotspots()
     {
         lock (sync)
@@ -3069,4 +3099,13 @@ public sealed class ServerProfileSummary
     public double UnattributedMs { get; set; }
     public string CaptureKind { get; set; } = "Manual";
     public long TriggerIncidentUnixMilliseconds { get; set; }
+}
+
+public sealed class ServerTickContributors
+{
+    public bool Running { get; set; }
+    public long CaptureUnixMilliseconds { get; set; }
+    public int SampledTicks { get; set; }
+    public int RemainingSeconds { get; set; }
+    public List<ServerProfilerHotspot> Rows { get; set; } = new();
 }
