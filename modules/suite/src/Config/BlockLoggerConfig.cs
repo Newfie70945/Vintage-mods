@@ -28,6 +28,8 @@ public sealed class BlockLoggerConfig
     // automatic schedule conservative by default and retain only a small safety set.
     // Set AutoDatabaseBackupIntervalHours to 0 to disable automatic backups; manual
     // backups remain available from the web dashboard.
+    // A full quick_check scans the whole database; opt in for startup, or use manual maintenance.
+    public bool FullDatabaseIntegrityCheckOnStartup { get; set; } = false;
     public int AutoDatabaseBackupIntervalHours { get; set; } = 72;
     public int DatabaseBackupRetentionCount { get; set; } = 2;
     public int SnapshotDebounceMs { get; set; } = 2000;
@@ -77,6 +79,7 @@ public sealed class BlockLoggerConfig
         MaxQueuedEvents = other.MaxQueuedEvents;
         EmergencyOverflowCapacity = other.EmergencyOverflowCapacity;
         RetentionDays = other.RetentionDays;
+        FullDatabaseIntegrityCheckOnStartup = other.FullDatabaseIntegrityCheckOnStartup;
         AutoDatabaseBackupIntervalHours = other.AutoDatabaseBackupIntervalHours;
         DatabaseBackupRetentionCount = other.DatabaseBackupRetentionCount;
         SnapshotDebounceMs = other.SnapshotDebounceMs;

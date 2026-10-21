@@ -21,8 +21,7 @@ internal static class SqlSeekChecks
             {
                 db.Open();
                 void Exec(string sql){using var c=db.CreateCommand();c.CommandText=sql;c.ExecuteNonQuery();}
-                foreach(string table in new[]{"events","snapshots"})Exec(Regex.Match(source,@"CREATE TABLE IF NOT EXISTS "+table+@" \(.*?\);",RegexOptions.Singleline).Value);
-                foreach(string index in new[]{"idx_events_world_dim_pos_time","idx_events_world_time","idx_events_player_uid_time","idx_events_player_name_time","idx_snapshots_world_dim_pos_time"})Exec(Regex.Match(source,@"CREATE INDEX IF NOT EXISTS "+index+@"\s.*?;",RegexOptions.Singleline).Value);
+                LoggerDatabaseSchema.Ensure(db);
                 Exec("INSERT INTO events(id,timestamp_ticks,timestamp_utc,action,player_uid,world_id,dimension,x,y,z,block_code,meta_json) VALUES(1,95,'',6,'owner','w','0',10,100,20,'game:chest','{}'),(2,120,'',5,'a','w','0',10,100,20,'game:chest','{}'),(3,140,'',5,'b','w','overworld',10,100,20,'game:chest','{}'),(4,350,'',2,'later','w','0',10,100,20,'game:chest','{}');");
                 Exec("INSERT INTO snapshots(id,timestamp_ticks,timestamp_utc,world_id,dimension,x,y,z,block_code,slots_json) VALUES(1,90,'','w','overworld',10,100,20,'game:chest','[]'),(2,150,'','w','0',10,100,20,'game:chest','[]'),(3,400,'','w','overworld',10,100,20,'game:chest','[]');");
                 using var transaction=db.BeginTransaction();using var insert=db.CreateCommand();insert.Transaction=transaction;

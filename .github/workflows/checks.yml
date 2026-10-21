@@ -26,6 +26,8 @@ jobs:
           python3 modules/suite/tests/test_recovery_sql_equivalence.py
           python3 modules/suite/tests/test_recovery_seek_cost.py
           dotnet run --project modules/suite/tests/recovery-performance/RecoveryPerformanceTests.csproj -c Release
+      - name: Check storage startup and failure preservation
+        run: dotnet run --project modules/suite/tests/StorageStartupChecks/StorageStartupChecks.csproj -c Release
       - name: Check packet budgets and conservative flood/reach confirmation
         run: dotnet run --project modules/suite/tests/packetguard/PacketIngressPolicyTests.csproj -c Release
       - name: Check Discord event formatting and storm transitions

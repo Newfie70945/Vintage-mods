@@ -3,6 +3,7 @@ from pathlib import Path
 import json,re,random,sqlite3
 root=Path(__file__).resolve().parent
 source=(root.parent/'src/Services/LogStorageService.cs').read_text()
+source += '\n'+(Path(__file__).resolve().parents[1]/'src/Services/LoggerDatabaseSchema.cs').read_text()
 section=source.split('QueryRollbackRecoveryAsync',1)[1].split('public Task<List<ContainerSnapshotRecord>>',1)[0]
 current={name:re.search(name+r'\.CommandText\s*=\s*@"(.*?)";',section,re.S).group(1) for name in ['cmd','snapshots']}
 baseline=json.loads((root/'recovery_sql_baseline.json').read_text())

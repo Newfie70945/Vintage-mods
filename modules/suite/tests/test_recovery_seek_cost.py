@@ -5,6 +5,7 @@ from pathlib import Path
 import argparse,json,re,sqlite3,time
 parser=argparse.ArgumentParser();parser.add_argument('--baseline',type=Path);parser.add_argument('--output',type=Path);args=parser.parse_args()
 source=(Path(__file__).resolve().parents[1]/'src/Services/LogStorageService.cs').read_text()
+source += '\n'+(Path(__file__).resolve().parents[1]/'src/Services/LoggerDatabaseSchema.cs').read_text()
 def queries(text):
  section=text.split('QueryRollbackRecoveryAsync',1)[1].split('public Task<List<ContainerSnapshotRecord>>',1)[0]
  return {name:re.search(name+r'\.CommandText\s*=\s*@"(.*?)";',section,re.S).group(1) for name in ['cmd','snapshots']}

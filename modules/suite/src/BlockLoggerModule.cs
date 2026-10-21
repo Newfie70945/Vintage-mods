@@ -105,6 +105,8 @@ public sealed class BlockLoggerModule : IDisposable
     public SuiteFeatureConfig FeatureSettings => featureSettings;
 
 
+    public string StorageStartupError {get;private set;}="";
+
     public void Start()
     {
         if (started) return;
@@ -133,49 +135,61 @@ public sealed class BlockLoggerModule : IDisposable
 
         if (features.BlockLogger)
         {
-            storage = new LogStorageService(
-                api,
-                config.MaxQueuedEvents,
-                config.EmergencyOverflowCapacity,
-                config.FlushIntervalMs,
-                config.AutoMigrateLegacyLogs,
-                config.AutoDatabaseBackupIntervalHours,
-                config.DatabaseBackupRetentionCount);
-
-            queries = new LogQueryService(storage);
-            var snapshots = new ContainerSnapshotQueryService(storage);
-            var time = new IngameTimeFormatter(api);
-
-            Action<int, int, int>? terrainDirtyMarker = null;
-            if (webMapDirtyJournal != null)
+            try
             {
-                // The Web Map master feature is available by default, but the actual map
-                // runtime defaults OFF. Do not journal terrain changes until an administrator
-                // explicitly enables the map service.
-                terrainDirtyMarker = (dimension, blockX, blockZ) =>
-                {
-                    if (webMapService?.IsEnabled == true)
-                        webMapDirtyJournal.MarkBlockDirty(dimension, blockX, blockZ);
-                };
+                storage = new LogStorageService(
+                    api,
+                    config.MaxQueuedEvents,
+                    config.EmergencyOverflowCapacity,
+                    config.FlushIntervalMs,
+                    config.AutoMigrateLegacyLogs,
+                    config.AutoDatabaseBackupIntervalHours,
+                    config.DatabaseBackupRetentionCount,
+                    config.FullDatabaseIntegrityCheckOnStartup);
             }
+            catch (Exception error)
+            {
+                StorageStartupError = error.GetType().Name + ": " + error.Message;
+                api.Logger.Error("[BlockLogger/Startup] Storage unavailable for this session; database files were not automatically moved or replaced. Other Suite services continue. {0}",StorageStartupError);
+            }
+            if (storage != null)
+            {
 
-            blockHooks = new BlockHooks(api, config, storage, time, terrainDirtyMarker);
-            containerHooks = new ContainerHooks(api, config, storage, storage, time);
-            entityHooks = new EntityHooks(api, config, storage, time);
+                queries = new LogQueryService(storage);
+                var snapshots = new ContainerSnapshotQueryService(storage);
+                var time = new IngameTimeFormatter(api);
 
-            blockHooks.Register();
-            containerHooks.Register();
-            entityHooks.Register();
+                Action<int, int, int>? terrainDirtyMarker = null;
+                if (webMapDirtyJournal != null)
+                {
+                    // The Web Map master feature is available by default, but the actual map
+                    // runtime defaults OFF. Do not journal terrain changes until an administrator
+                    // explicitly enables the map service.
+                    terrainDirtyMarker = (dimension, blockX, blockZ) =>
+                    {
+                        if (webMapService?.IsEnabled == true)
+                            webMapDirtyJournal.MarkBlockDirty(dimension, blockX, blockZ);
+                    };
+                }
 
-            new BlockLoggerCommands(api, () => config, reloadConfig, storage, queries, snapshots).Register();
-            rollbackCommands = new PlayerRollbackCommands(api, storage, terrainDirtyMarker);
-            rollbackCommands.Register();
-            pruneListenerId = api.Event.RegisterGameTickListener(_ => QueueRetention(), 3_600_000);
+                blockHooks = new BlockHooks(api, config, storage, time, terrainDirtyMarker);
+                containerHooks = new ContainerHooks(api, config, storage, storage, time);
+                entityHooks = new EntityHooks(api, config, storage, time);
 
-            api.Logger.Notification(
-                "[BlockLogger] Started. SQLite storage enabled. Pending={0}, RetentionDays={1}",
-                storage.PendingEvents,
-                config.RetentionDays);
+                blockHooks.Register();
+                containerHooks.Register();
+                entityHooks.Register();
+
+                new BlockLoggerCommands(api, () => config, reloadConfig, storage, queries, snapshots).Register();
+                rollbackCommands = new PlayerRollbackCommands(api, storage, terrainDirtyMarker);
+                rollbackCommands.Register();
+                pruneListenerId = api.Event.RegisterGameTickListener(_ => QueueRetention(), 3_600_000);
+
+                api.Logger.Notification(
+                    "[BlockLogger] Started. SQLite storage enabled. Pending={0}, RetentionDays={1}",
+                    storage.PendingEvents,
+                    config.RetentionDays);
+            }
         }
         else
         {

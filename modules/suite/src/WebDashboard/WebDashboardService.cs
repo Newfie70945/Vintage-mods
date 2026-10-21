@@ -9144,6 +9144,10 @@ public sealed partial class WebDashboardService : IDisposable
                     {
                         available = storage != null,
                         retentionDays = module.Config.RetentionDays,
+                        fullIntegrityCheckOnStartup = module.Config.FullDatabaseIntegrityCheckOnStartup,
+                        startupValidationMode = db?.StartupValidationMode??"Unavailable",
+                        startupMilliseconds = db?.StartupMilliseconds,
+                        startupError = module.StorageStartupError,
                         autoBackupIntervalHours = module.Config.AutoDatabaseBackupIntervalHours,
                         backupRetentionCount = module.Config.DatabaseBackupRetentionCount,
                         databaseBytes = db?.DatabaseBytes ?? 0,
@@ -9163,6 +9167,7 @@ public sealed partial class WebDashboardService : IDisposable
 
         if (request.Method == "POST" && path == "/api/blocklogger/maintenance/config")
         {
+            bool fullStartupCheck=GetJsonBool(request.Body,"fullIntegrityCheckOnStartup",module.Config.FullDatabaseIntegrityCheckOnStartup);
             int retentionDays = Math.Clamp(GetJsonInt(request.Body, "retentionDays", module.Config.RetentionDays), 0, 3650);
             int autoBackupIntervalHours = Math.Clamp(GetJsonInt(request.Body, "autoBackupIntervalHours", module.Config.AutoDatabaseBackupIntervalHours), 0, 24 * 365);
             int backupRetentionCount = Math.Clamp(GetJsonInt(request.Body, "backupRetentionCount", module.Config.DatabaseBackupRetentionCount), 1, 20);
@@ -9170,6 +9175,7 @@ public sealed partial class WebDashboardService : IDisposable
             var payload = await RunOnMainThreadAsync(
                 () =>
                 {
+                    module.Config.FullDatabaseIntegrityCheckOnStartup=fullStartupCheck;
                     module.Config.RetentionDays = retentionDays;
                     module.Config.AutoDatabaseBackupIntervalHours = autoBackupIntervalHours;
                     module.Config.DatabaseBackupRetentionCount = backupRetentionCount;

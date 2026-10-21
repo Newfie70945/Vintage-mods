@@ -2771,6 +2771,7 @@ __NSS_RETENTION_HTML__
       <div class="field"><label>Automatic history retention (days)</label><input id="blRetentionDaysWeb" type="number" min="0" max="3650" value="180"></div>
       <div class="field"><label>Automatic DB backup interval (hours)</label><input id="blBackupHours" type="number" min="0" max="8760" value="72"></div>
       <div class="field"><label>Healthy backup files to keep</label><input id="blBackupCount" type="number" min="1" max="20" value="2"></div>
+      <div class="field"><label><input id="blFullStartupCheck" type="checkbox"> Full integrity scan on startup</label><span class="small">Applies next start. Can delay large databases; lightweight startup probing is the default. Manual integrity checks remain available.</span></div>
       <button id="blMaintenanceSave" class="primary">Save Storage Policy</button>
     </div>
     <div class="small" style="margin-top:7px"><b>Backup policy:</b> 0 hours disables automatic full-database backups; manual backups remain available under Suite Health. The suite now defaults to a maximum of 2 healthy BlockLogger backups instead of 7.</div>
@@ -7047,7 +7048,8 @@ async function loadBlockLoggerMaintenance(){
     $('blRetentionDaysWeb').value=Number(d.retentionDays??180);
     $('blBackupHours').value=Number(d.autoBackupIntervalHours??72);
     $('blBackupCount').value=Number(d.backupRetentionCount??2);
-    out.innerHTML=d.available?`<b>Live DB:</b> ${formatFileBytes(Number(d.databaseBytes||0))} · <b>WAL:</b> ${formatFileBytes(Number(d.walBytes||0))} · <b>Backups:</b> ${Number(d.backupCount||0)} file(s), ${formatFileBytes(Number(d.backupBytes||0))}<br><span class="muted">${esc(d.note||'')}</span>`:'<span class="warn">BlockLogger storage is unavailable.</span>';
+    $('blFullStartupCheck').checked=!!d.fullIntegrityCheckOnStartup;
+    out.innerHTML=d.available?`<b>Live DB:</b> ${formatFileBytes(Number(d.databaseBytes||0))} · <b>WAL:</b> ${formatFileBytes(Number(d.walBytes||0))} · <b>Backups:</b> ${Number(d.backupCount||0)} file(s), ${formatFileBytes(Number(d.backupBytes||0))}<br><span class="muted">${esc(d.note||'')}</span><br><b>Startup validation:</b> ${esc(d.startupValidationMode||'not recorded')} · ${esc(Object.entries(d.startupMilliseconds||{}).map(([stage,ms])=>stage+': '+ms+'ms').join(' · '))}`:`<span class="warn">BlockLogger storage is unavailable. ${esc(d.startupError||'Check startup logs.')}</span>`;
   }catch(e){out.innerHTML=`<span class="bad">${esc(e.message)}</span>`}
 }
 
@@ -7056,6 +7058,7 @@ async function saveBlockLoggerMaintenance(){
   btn.disabled=true;
   try{
     const body={
+      fullIntegrityCheckOnStartup:$('blFullStartupCheck').checked,
       retentionDays:Number($('blRetentionDaysWeb').value||0),
       autoBackupIntervalHours:Number($('blBackupHours').value||0),
       backupRetentionCount:Number($('blBackupCount').value||2)
@@ -8175,6 +8178,7 @@ function renderSystemHealth(d){
     <p><b>Throughput:</b> ${Number(db.rowsPerMinute||0).toLocaleString()} rows/min · <b>Batches:</b> ${Number(db.batchCount||0).toLocaleString()} · <b>Query queues:</b> ${Number(db.queryQueueDepth||0)} events / ${Number(db.snapshotQueryQueueDepth||0)} snapshots</p>
     <p><b>Queries:</b> ${Number(db.queryCount||0).toLocaleString()} · avg ${Number(db.averageQueryMilliseconds||0).toFixed(1)}ms · P95 ${Number(db.p95QueryMilliseconds||0).toFixed(1)}ms · max ${Number(db.maxQueryMilliseconds||0)}ms · slow ≥100ms ${Number(db.slowQueryCount||0)} · last ${esc(db.lastQueryKind||'—')} ${Number(db.lastQueryMilliseconds||0)}ms</p>
     <p><b>SQLite busy/locked:</b> ${Number(db.busyOrLockedErrors||0).toLocaleString()} · <b>Last integrity check:</b> ${db.lastIntegrityCheckUnixMilliseconds?`${esc(new Date(Number(db.lastIntegrityCheckUnixMilliseconds)).toLocaleString())} / ${Number(db.lastIntegrityCheckMilliseconds||0)}ms`:'not run this session'}</p>
+    <p><b>Startup validation:</b> ${esc(db.startupValidationMode||'not recorded')} · ${db.integrityCheckInProgress?'full integrity scan running':'manual full scans available'}</p>
     <p><b>Backups:</b> ${Number(db.backupCount||0)} / ${Number(db.backupRetentionCount??2)} retained · ${formatFileBytes(Number(db.backupBytes||0))} · ${Number(db.autoBackupIntervalHours||0)>0?`auto every ${Number(db.autoBackupIntervalHours)}h`:'automatic backups disabled'} · ${db.backupInProgress?'<span class="warn">backup running</span>':(db.lastBackupUnixMilliseconds?`last ${esc(new Date(Number(db.lastBackupUnixMilliseconds)).toLocaleString())}`:'not recorded')}</p>
     <p><b>Last successful write:</b> ${db.lastSuccessfulWriteUnixMilliseconds?esc(new Date(Number(db.lastSuccessfulWriteUnixMilliseconds)).toLocaleString()):'not recorded yet'}</p>
     <p><b>Last storage error:</b> ${esc(db.lastError||'none')}</p>
