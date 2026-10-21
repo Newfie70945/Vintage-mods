@@ -53,6 +53,11 @@ public sealed partial class BlockIdRepairService : IDisposable
     private static T? Read<T>(string path){if(!File.Exists(path))return default;return JsonSerializer.Deserialize<T>(File.ReadAllText(path));}
     private static void Write<T>(string path,T value){string temp=path+".tmp";using(var fs=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None)){JsonSerializer.Serialize(fs,value,Json);fs.Flush(true);}File.Move(temp,path,true);}
     private GameDatabase Database(){if(api.World is not ServerMain server)throw new NotSupportedException("Official server required.");return (GameDatabase)AccessTools.Field(typeof(ChunkServerThread),"gameDatabase").GetValue(AccessTools.Field(typeof(ServerMain),"chunkThread").GetValue(server))!;}
+    private void RequestRepairFailureShutdown(string reason)
+    {
+        api.Logger.Error("[BlockRepair] {0}. Requesting graceful server shutdown.",reason);
+        api.Server.ShutDown();
+    }
     private void Guard()
     {
         if(disposed)throw new ObjectDisposedException(nameof(BlockIdRepairService));
