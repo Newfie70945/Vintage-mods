@@ -16,6 +16,7 @@ using Vintagestory.API.MathTools;
 // the official loader; no authenticated clients or movement packets are simulated.
 public sealed class LoadedMigrationProbe:ModSystem
 {
+    private TaskCompletionSource<bool>? heldBackup;
     public override void StartServerSide(ICoreServerAPI api)
     {
         var p=api.ChatCommands.Parsers;
@@ -115,6 +116,15 @@ public sealed class LoadedMigrationProbe:ModSystem
             },300);
             return TextCommandResult.Success("Queued activation cancelled before its server-thread callback.");
         });
+        api.ChatCommands.Create("nseholdbackupprobe").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>
+        {
+            var repair=(BlockIdRepairService)typeof(BlockLoggerModSystem).GetField("blockRepair",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(api.ModLoader.GetModSystem<BlockLoggerModSystem>())!;
+            heldBackup=new(TaskCreationOptions.RunContinuationsAsynchronously);
+            typeof(BlockIdRepairService).GetField("liveActivationWorker",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(repair,heldBackup.Task);
+            api.Logger.Notification("NSE_BACKUP_HELD");return TextCommandResult.Success("Disposable backup predecessor held.");
+        });
+        api.ChatCommands.Create("nsereleasebackupprobe").RequiresPrivilege(Privilege.controlserver).HandleWith(_=>
+        {heldBackup?.TrySetResult(true);api.Logger.Notification("NSE_BACKUP_RELEASED");return TextCommandResult.Success("Disposable backup predecessor released.");});
         api.ChatCommands.Create("nseunloadfixture").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("chunk X"),p.Int("chunk Z")).HandleWith(a=>
         {api.WorldManager.UnloadChunkColumn((int)a[0],(int)a[1]);api.Logger.Notification("NSE_FIXTURE_UNLOADED");return TextCommandResult.Success("Saved fixture column unloaded.");});
         api.ChatCommands.Create("nsemigrationprobe").RequiresPrivilege(Privilege.controlserver).WithArgs(p.Int("X"),p.Int("Y"),p.Int("Z")).HandleWith(a=>

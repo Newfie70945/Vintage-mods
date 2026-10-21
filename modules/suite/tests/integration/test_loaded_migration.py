@@ -80,7 +80,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationreview1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationbypass1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile
@@ -213,6 +213,30 @@ try:
     status,off_recording=request('/api/blocklogger/recording');assert status==200 and off_recording['featureEnabled'] is False and off_recording['recording'] is False,off_recording
     status,_=request('/api/blocklogger/recording',dict(enabled=True));assert status!=200,'disabled module accepted a recording write'
     result['disabledModuleRecordingStatusRemainsReadable']=True
+    # Hold the backup predecessor to reproduce an indefinitely queued backup.
+    offset=len(lines);process.stdin.write('/nseholdbackupprobe\n');process.stdin.flush();until=time.monotonic()+15
+    while not any('NSE_BACKUP_HELD' in line for line in lines[offset:]):
+        assert time.monotonic()<until,'Hold probe timed out';time.sleep(.1)
+    backups_before_bypass={p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}
+    status,queued=request('/api/block-migration',dict(operation='rule-set',sourceId=999997,destination='game:rock-granite',inventoryMode='preserve',createBackup=True));assert status==200,queued
+    queued=state()['loadedMigration'];assert queued['state']=='backing-up' and not queued['active'],queued
+    expected_rules=[(m['source'],m['target']) for m in queued['plan']['mappings']]
+    status,denied=request('/api/block-migration',dict(operation='loaded-enable-no-backup',manualBackupAcknowledged=False));assert status==400,denied
+    assert state()['loadedMigration']['plan']['createBackup'] is True
+    status,bypass=request('/api/block-migration',dict(operation='loaded-enable-no-backup',manualBackupAcknowledged=True));assert status==200,bypass
+    assert bypass['active'] and bypass['enabled'] and bypass['plan']['createBackup'] is False and bypass['plan']['manualBackupAcknowledged'] is True,bypass
+    assert [(m['source'],m['target']) for m in bypass['plan']['mappings']]==expected_rules
+    offset=len(lines);process.stdin.write('/nsereleasebackupprobe\n');process.stdin.flush();until=time.monotonic()+15
+    while not any('NSE_BACKUP_RELEASED' in line for line in lines[offset:]):
+        assert time.monotonic()<until,'Release probe timed out';time.sleep(.1)
+    time.sleep(.5);assert state()['loadedMigration']['active']
+    assert {p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}==backups_before_bypass
+    result['backupBypassRequiresAcknowledgementAndDoesNotWaitForOldWorker']=True;result['backupBypassPreservesEverySavedMapping']=True;result['staleBackupCompletionCannotRestoreBackupPolicy']=True
+    stop();offset=len(lines);launch();ready(offset);persisted=state()['loadedMigration']
+    assert persisted['active'] and persisted['enabled'] and persisted['plan']['createBackup'] is False and persisted['plan']['manualBackupAcknowledged'] is True,persisted
+    assert [(m['source'],m['target']) for m in persisted['plan']['mappings']]==expected_rules
+    assert {p.name for p in (data/'NewfiesBlockRepair').glob('world-before-loaded-*.vcdbs')}==backups_before_bypass
+    result['enabledManualBackupRulesSurviveRestartWithoutAnotherBackup']=True
     stop();(root/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));print('Validation output: '+str(root))
 finally:
     if process is not None and process.poll() is None:

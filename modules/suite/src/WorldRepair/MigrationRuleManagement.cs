@@ -75,6 +75,33 @@ public sealed partial class BlockIdRepairService
             ResumeLiveMigration();return LoadedMigrationSnapshot();
         }
     }
+    public object EnableConfiguredWithoutBackup(bool manualCopy)
+    {
+        Guard();lock(gate)
+        {
+            if(!manualCopy)throw new InvalidOperationException("Make a manual world copy and acknowledge it before bypassing automatic backup. Migration is experimental and can lose data.");
+            var plan=loadedMigration.Plan??throw new InvalidOperationException("No saved rules. Save a migration rule first.");
+            Validate(plan,false);
+            if(pending!=null||restorePending!=null||selectedPending!=null)throw new InvalidOperationException("Cancel other staged repairs before enabling migration.");
+            lock(loadedGate)
+            {
+                CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;
+                plan.CreateBackup=false;plan.ManualBackupAcknowledged=true;plan.Backup="";
+                loadedMigration.Enabled=true;loadedMigration.State="activating";
+                loadedMigration.Message="Saved rules enabled with acknowledged manual backup. Automatic world backup disabled for this saved rule set, including future restarts. Inventory compatibility/preparation checks remain required.";
+                Write(LoadedMigrationFile,loadedMigration);
+            }
+            // Do not queue behind a cancelled backup worker. Its generation is
+            // invalidated, so late completion cannot replace this saved policy.
+            if(plan.Inventory.RequiresPreparation&&plan.InventoryReport.State!="complete")ResumeLiveMigration();
+            else
+            {
+                ActivateLoadedMigration(false);
+                if(!loadedActive)throw new InvalidOperationException(loadedMigration.Message);
+            }
+            return LoadedMigrationSnapshot();
+        }
+    }
     public object ClearMigrationRules()
     {
         lock(gate)lock(loadedGate)
