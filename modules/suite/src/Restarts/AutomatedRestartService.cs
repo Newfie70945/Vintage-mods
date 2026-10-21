@@ -21,7 +21,10 @@ public sealed class AutomatedRestartConfig
     // Matches the familiar Th3Essentials model: one time plus an optional multi-time list.
     // RestartTimesUtc has priority when at least one valid entry exists.
     public string RestartTimeUtc { get; set; } = "00:00:00";
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<string> RestartTimesUtc { get; set; } = new();
+    // Saved arrays replace initializer defaults; Json.NET otherwise populates the existing list.
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<int> WarningMinutes { get; set; } = new() { 1, 2, 3, 4, 5, 10, 20, 30 };
     public bool AnnounceInGame { get; set; } = true;
     public bool AnnounceToDiscord { get; set; } = true;
