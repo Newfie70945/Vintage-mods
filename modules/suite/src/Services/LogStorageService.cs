@@ -873,7 +873,7 @@ LIMIT $limit;";
 
                 // Run bounded small transactions, releasing the writer gate between batches.
                 // The old four-pass ceiling could fall behind on busy long-lived servers;
-                // 24 quiet passes still remain bounded while allowing retention to catch up.
+                // Eight quiet passes still remain bounded while allowing retention to catch up.
                 // Live audit traffic always gets a chance to cut maintenance short.
                 for (int pass = 0; pass < 8 && !cts.IsCancellationRequested; pass++)
                 {
@@ -893,7 +893,7 @@ LIMIT $limit;";
                             {
                                 e.Transaction = tx;
                                 e.CommandText = @"DELETE FROM events WHERE id IN (
-                                    SELECT id FROM events WHERE timestamp_ticks < $cutoff ORDER BY id LIMIT 500
+                                    SELECT id FROM events WHERE timestamp_ticks < $cutoff ORDER BY timestamp_ticks LIMIT 500
                                 );";
                                 e.Parameters.AddWithValue("$cutoff", cutoff);
                                 removed += e.ExecuteNonQuery();
@@ -903,7 +903,7 @@ LIMIT $limit;";
                             {
                                 ss.Transaction = tx;
                                 ss.CommandText = @"DELETE FROM snapshots WHERE id IN (
-                                    SELECT id FROM snapshots WHERE timestamp_ticks < $cutoff ORDER BY id LIMIT 100
+                                    SELECT id FROM snapshots WHERE timestamp_ticks < $cutoff ORDER BY timestamp_ticks LIMIT 100
                                 );";
                                 ss.Parameters.AddWithValue("$cutoff", cutoff);
                                 removed += ss.ExecuteNonQuery();
@@ -913,7 +913,7 @@ LIMIT $limit;";
                             {
                                 ea.Transaction = tx;
                                 ea.CommandText = @"DELETE FROM entity_activity WHERE id IN (
-                                    SELECT id FROM entity_activity WHERE window_end_ticks < $cutoff ORDER BY id LIMIT 500
+                                    SELECT id FROM entity_activity WHERE window_end_ticks < $cutoff ORDER BY window_end_ticks LIMIT 500
                                 );";
                                 ea.Parameters.AddWithValue("$cutoff", cutoff);
                                 removed += ea.ExecuteNonQuery();
