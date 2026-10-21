@@ -170,7 +170,7 @@ public sealed partial class BlockIdRepairService
             writes=true;db.SetChunks([new DbChunk(ChunkPos.FromChunkIndex_saveGamev2(unchecked((ulong)long.Parse(p.ChunkKey,System.Globalization.CultureInfo.InvariantCulture))),output)]);
             p.Changed=true;p.State="complete";p.Message="One-location inventory restoration completed. "+p.Fidelity;api.Logger.Notification("[InventoryRestore] Completed {0}: {1} items at {2},{3},{4} dimension {5}; backup {6}.",p.Request.Mode,p.Items,p.Request.X,p.Request.Y,p.Request.Z,p.Request.Dimension,p.Backup);
         }catch(Exception e){p.State=writes?"failed-uncertain":"failed";p.Message=e.Message+(writes?" A write was attempted; inspect/restore your backup before continuing. The receipt prevents automatic replay.":" No terrain or inventory edits were made.");api.Logger.Error("[InventoryRestore] {0}",p.Message);
-            if(File.Exists(RestorePendingFile))File.Move(RestorePendingFile,Path.Combine(directory,"inventory-rejected-"+p.Id+".json"),true);restorePending=null;if(writes)((ServerMain)api.World).Stop("Inventory restoration failed; inspect backup and restore receipt",EnumExitMode.SoftExit);
+            if(File.Exists(RestorePendingFile))File.Move(RestorePendingFile,Path.Combine(directory,"inventory-rejected-"+p.Id+".json"),true);restorePending=null;if(writes)RequestRepairFailureShutdown("Inventory restoration failed; inspect backup and restore receipt");
         }finally{pool?.FreeAll();restoreLast=p;Write(RestoreHistoryFile,p);}
     }
 }

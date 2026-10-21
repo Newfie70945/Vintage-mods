@@ -85,7 +85,7 @@ public sealed partial class BlockIdRepairService
             output=Prepare();Quiescent();p.State="applying";Write(SelectedLastFile,p);File.Move(SelectedPendingFile,Path.Combine(directory,"selected-consumed-"+p.Id+".json"),true);selectedPending=null;
             writes=true;db.SetChunks([new DbChunk(ChunkPos.FromChunkIndex_saveGamev2(unchecked((ulong)long.Parse(p.ChunkKey,CultureInfo.InvariantCulture))),output)]);
             p.State="complete";p.Changed=true;p.Message="Selected block repaired; exactly one solid position changed. Refresh lighting/map caches if needed.";
-        }catch(Exception e){p.State=writes?"failed-uncertain":"failed";p.Message=e.Message+(writes?" Inspect and restore your backup before continuing.":" No edits were made.");api.Logger.Error("[SelectedBlockRepair] {0}",p.Message);if(File.Exists(SelectedPendingFile))File.Move(SelectedPendingFile,Path.Combine(directory,"selected-rejected-"+p.Id+".json"),true);selectedPending=null;if(writes)((ServerMain)api.World).Stop("Selected block repair failed; inspect backup",EnumExitMode.SoftExit);}
+        }catch(Exception e){p.State=writes?"failed-uncertain":"failed";p.Message=e.Message+(writes?" Inspect and restore your backup before continuing.":" No edits were made.");api.Logger.Error("[SelectedBlockRepair] {0}",p.Message);if(File.Exists(SelectedPendingFile))File.Move(SelectedPendingFile,Path.Combine(directory,"selected-rejected-"+p.Id+".json"),true);selectedPending=null;if(writes)RequestRepairFailureShutdown("Selected block repair failed; inspect backup");}
         finally{pool?.FreeAll();selectedLast=p;Write(SelectedLastFile,p);}
     }
     private SelectedFocus Focus(IServerPlayer player)

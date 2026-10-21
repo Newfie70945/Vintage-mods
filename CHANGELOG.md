@@ -2,6 +2,10 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationBuildFix1: replace two repair-failure shutdown calls that reference `EnumExitMode` with the public `IServerAPI.ShutDown()` API. Preserve logged failure reasons and the existing condition that shutdown is requested only after writes may have occurred.
+- Suite remains **1.2.44**, build `ms11-migrationbuildfix1`; includes the migration backup-bypass and earlier fixes.
+
+
 - MigrationBypass1: add **Enable saved rules without automatic backup** to Block ID Migration, with separate manual-world-copy acknowledgement. It changes the existing saved rule set's backup policy and persists enabled/manual-backup settings across restarts without re-entering mappings.
 - Cancel obsolete backup activation and enable compatible rules directly rather than queueing behind the old backup worker. Late backup completion cannot overwrite the new policy. Inventory preparation and block/metadata compatibility checks remain required.
 - Add `/nseblockmigrate enable-no-backup manual-copy-confirmed` for the same operation in-game/console. Missing acknowledgement is refused without modifying saved rules.
