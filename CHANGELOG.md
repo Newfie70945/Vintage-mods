@@ -2,10 +2,16 @@
 
 ## Server Essentials Suite 1.2.45
 
+- Tick Debugging now shows the top 12 sampled contributors during an engine capture, including likely owner/confidence, total time, maximum segment and call count. Retained results are clearly labelled after capture completion; viewing the page never starts continuous profiling.
+- Add a quick investigation guide and links between Performance, Profiler, Memory and Database Storage. Make the grouped diagnosis's recent five-minute window explicit.
+- Disable capture/native-action controls for read-only users so unavailable actions are clear before clicking.
+- Rename individual Player Commands switches and status filters to **Enable/Disable command** and **Command enabled/disabled**. External-provider/fallback explanations remain.
+- Current build `ms11-tick-ui1`, retaining the storage/save and Performance1 changes below. [Tick UI validation](docs/VALIDATION-TICK-UI-1.2.45.md).
+
 - Add a compact Database Storage guide with exact settings, example retention/debounce values, backup advice and inventory-recovery tradeoffs. Explain reusable free pages, WAL and optional compaction.
 - Make automatic retention use existing timestamp indexes to avoid walking retained history when expired records were imported later; retain the existing expiry policy and batch limits.
 - Correlate lag samples with measured world-save windows, including when Operations Center and Web Dashboard are disabled. Show save-overlap evidence, selected-range counts and save-correlated recent groups/smart findings. Counts alone never establish a cause.
-- Current build `ms11-storage-save1`; retains Performance1 improvements below. [Storage/save audit and tests](docs/VALIDATION-STORAGE-SAVES-1.2.45.md).
+- StorageSave1 foundation retained, including Performance1 improvements below. [Storage/save audit and tests](docs/VALIDATION-STORAGE-SAVES-1.2.45.md).
 
 - Faster BlockLogger startup: use a lightweight read-only database probe instead of scanning the entire logging database on every start.
 - Add an optional **Full integrity scan on startup** setting in BlockLogger maintenance. Manual full checks remain available in Suite Health.

@@ -45,6 +45,8 @@ const warps={available:true,enabled:true,defaultCooldownSeconds:91,defaultWarmup
     await page.evaluate(()=>{showApp({username:'Preview Owner',role:'Owner',owner:true,safeDiagnosticsMode:true});liveUpdates=false;setSection('playercommands');});
     await page.waitForFunction(()=>playerCommandsState?.available&&!playerCommandsLoading);
     assert.equal(await page.locator('.playerCommandEntry').count(),13);
+    assert.equal((await page.textContent('[data-player-command-toggle="spawn"]')).trim(),'Disable command');
+    assert.equal((await page.textContent('[data-player-command-toggle="reply"]')).trim(),'Enable command');
     assert.equal(gets.filter(x=>x==='/api/playercommands/permissions').length,0,'Permissions should load on demand');
     assert.equal(gets.filter(x=>x==='/api/warps').length,0,'Directory must not request warp definitions');
     assert.equal(await page.locator('.playerCommandEntry img').count(),0,'Descriptions must be escaped');

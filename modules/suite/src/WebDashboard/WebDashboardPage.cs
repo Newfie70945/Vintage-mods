@@ -3432,6 +3432,9 @@ __NSS_RETENTION_HTML__
   </div>
 
   <div id="tickDebugMetrics" class="tickDebugMetricStrip"></div>
+  <div class="quickActions" style="margin-bottom:12px"><button onclick="setSection('performance',true)">Performance overview</button><button onclick="setSection('profiler',true)">Full profiler</button><button onclick="setSection('memory',true)">Memory &amp; GC</button><button onclick="setSection('databaseStorage',true)">Database storage</button></div>
+  <div class="infoBox" style="margin-bottom:12px"><b>Quick investigation:</b> enable lightweight diagnostics, then use <b>Capture Incident + Profile</b> during a slowdown. Watch measured contributors below, then review recurring causes and the slowest ticks. The ON switch allows debugger actions; it does not enable continuous engine profiling.</div>
+
 
   <div class="grid" style="margin-bottom:12px">
     <div class="card">
@@ -3470,6 +3473,8 @@ __NSS_RETENTION_HTML__
       <div class="small">Detailed dumps are written by Vintage Story to its native debug log. Use them when the summary points to an unusually large handler family.</div>
     </div>
   </div>
+
+  <div id="tickDebugContributors" class="card" style="margin-bottom:12px"></div>
 
   <div class="grid" style="margin-bottom:12px">
     <div class="card">
@@ -4767,7 +4772,7 @@ __NSS_ROLE_HTML__
     <div class="cardHeader"><div><h3>Command Directory</h3><div class="small">See which mod owns each alias and which Suite fallback is available.</div></div></div>
     <div class="playerCommandFilters">
       <div class="field grow"><label for="playerCommandSearch">Find a command</label><input id="playerCommandSearch" type="search" placeholder="Command, description, privilege or provider"></div>
-      <div class="field"><label for="playerCommandFilter">Availability</label><select id="playerCommandFilter"><option value="all">All commands</option><option value="enabled">Suite enabled</option><option value="disabled">Suite disabled</option><option value="external">Other providers</option></select></div>
+      <div class="field"><label for="playerCommandFilter">Availability</label><select id="playerCommandFilter"><option value="all">All commands</option><option value="enabled">Command enabled</option><option value="disabled">Command disabled</option><option value="external">Other providers</option></select></div>
       <span id="playerCommandResultCount" class="small" role="status"></span>
     </div>
     <div id="playerCommandsRows" class="playerCommandDirectory"></div>
@@ -12445,7 +12450,7 @@ function renderSmartAnalysis(p){
       </div>`).join('')
     : 'No meaningful sustained upward memory/entity/queue trend is currently detected.';
 
-  $('incidentGroupCount').textContent=`${groups.length} grouped incident(s)`;
+  $('incidentGroupCount').textContent=`${groups.length} grouped incident(s) · recent five minutes`;
   if($('profClearLagGroups'))$('profClearLagGroups').disabled=!groups.length;
   $('incidentGroups').innerHTML=groups.length
     ? groups.map((x,i)=>`<tr class="clickableRow" data-incident-ts="${Number(x.startUnixMilliseconds||0)}" title="${esc(x.evidence)}">
@@ -12566,6 +12571,11 @@ function fmtBytesCompact(bytes){
 function tickDebugMetric(label,value,state='good',sub=''){
   return `<div class="metric ${state}"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div>${sub?`<div class="small">${esc(sub)}</div>`:''}</div>`;
 }
+function renderTickContributors(c){
+  const host=$('tickDebugContributors');if(!host)return;
+  const rows=Array.isArray(c.rows)?c.rows:[],running=!!c.running;
+  host.innerHTML=`<div class="cardHeader"><div><h3>${running?'Live':'Last capture'} top contributors</h3><div class="small">${running?`Updating with this page · ${Number(c.remainingSeconds||0)}s remaining`:(c.captureUnixMilliseconds?`Completed ${esc(new Date(Number(c.captureUnixMilliseconds)).toLocaleString())}`:'No engine capture yet')} · ${Number(c.sampledTicks||0)} sampled ticks</div></div><div class="spacer"></div><span class="badge">${running?'LIVE':'RETAINED'}</span></div><p class="small">Top 12 sampled leaf markers by accumulated time. Confidence describes marker ownership; engine/unknown work remains visible. These are sampled totals, not whole-server CPU percentages or proof of a mod defect.</p>${rows.length?`<div class="tableWrap dataScroll"><table><thead><tr><th>Measured work</th><th>Likely owner</th><th>Total</th><th>Max segment</th><th>Calls</th></tr></thead><tbody>${rows.map(x=>`<tr><td class="codeCell" title="${esc(x.code||'')}">${esc(x.code||'Unknown marker')}</td><td>${esc(x.modName||x.modId||'Engine / unknown')}<br>${confidenceBadge(x.attributionConfidence||'Low')}</td><td>${Number(x.totalMs||0).toFixed(1)}ms</td><td>${Number(x.maxSingleMs||0).toFixed(1)}ms</td><td>${Number(x.calls||0).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">${running?'Waiting for sampled ticks…':'Use Capture Incident + Profile to measure contributors. Native slow-tick logging alone does not collect this ranking.'}</div>`}`;
+}
 function renderTickDebug(d){
   tickDebugLastPayload=d||{};
   const enabled=d.enabled!==false;
@@ -12584,18 +12594,20 @@ function renderTickDebug(d){
     : 'No native slow-tick capture is running.';
   $('tickDebugState').textContent=state;
   const safeMode=!!d.safeDiagnosticsMode;
+  const readOnly=currentSessionRole==='ReadOnly';
   setNavStatus('tickDebug',enabled?'good':'neutral',enabled?'Tick Debugging enabled':'Tick Debugging disabled');
   if($('tickDebugNavState')){$('tickDebugNavState').textContent=enabled?'ON':'OFF';$('tickDebugNavState').className='navInlineState '+(enabled?'good':'neutral');}
   if($('tickDebugEnabledToggle')){$('tickDebugEnabledToggle').textContent=enabled?'Tick Debugging: ON':'Tick Debugging: OFF';$('tickDebugEnabledToggle').className=enabled?'primary':'warnButton';$('tickDebugEnabledToggle').disabled=currentSessionRole==='ReadOnly';}
-  $('tickDebugStart').disabled=!enabled||!!slow.running||safeMode;
-  $('tickDebugIncident').disabled=!enabled||!!slow.running||!!prof.running||!prof.enabled||safeMode;
+  $('tickDebugStart').disabled=!enabled||!!slow.running||safeMode||readOnly;
+  $('tickDebugIncident').disabled=!enabled||!!slow.running||!!prof.running||!prof.enabled||safeMode||readOnly;
   $('tickDebugEnableDiagnostics').style.display=prof.enabled?'none':'';
-  $('tickDebugEnableDiagnostics').disabled=!enabled;
-  $('tickDebugStop').disabled=!slow.running;
-  $('tickDebugDump').disabled=!enabled||safeMode;
-  $('tickDebugHandlers').disabled=!enabled;
-  $('tickDebugMainThread').disabled=!enabled;
+  $('tickDebugEnableDiagnostics').disabled=!enabled||readOnly;
+  $('tickDebugStop').disabled=!slow.running||readOnly;
+  $('tickDebugDump').disabled=!enabled||safeMode||readOnly;
+  $('tickDebugHandlers').disabled=!enabled||readOnly;
+  $('tickDebugMainThread').disabled=!enabled||readOnly;
   $('tickDebugProfileState').textContent=safeMode?'Safe Diagnostics Mode is enabled: heavy captures, automatic attribution bursts, and detailed dumps are locked.':(!prof.enabled?'Lightweight profiler diagnostics are disabled. Enable them before using Incident Capture.':(prof.running?`Engine profile running · ${Number(prof.remainingSeconds||0)}s remaining`:(d.lastIncidentSummary||'Engine profiler idle.')));
+  renderTickContributors(d.contributors||{});
   const attrHost=$('tickDebugModAttribution');
   if(attrHost){
     attrHost.innerHTML=attr.available

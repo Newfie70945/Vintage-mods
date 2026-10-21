@@ -9913,6 +9913,7 @@ public sealed partial class WebDashboardService : IDisposable
                 lastIncidentSummary = nativeTickDebugLastIncidentSummary,
                 profileSlowTicks = health?.ProfileSlowTicks,
                 profileSlowCauses = health?.ProfileSlowCauses,
+                contributors = module.ServerHealth?.GetTickContributors(),
                 modAttribution = new
                 {
                     available = topProfileMod != null && (health?.LastProfile.CompletedUnixMilliseconds ?? 0) > 0,
