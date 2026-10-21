@@ -8594,6 +8594,7 @@ public sealed partial class WebDashboardService : IDisposable
                         "loaded-stage"=>repair.StageLoadedMigration(GetJsonString(request.Body,"previewId",""),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),Inventory()),
                         "loaded-disable"=>repair.DisableLoadedMigration(),
                         "loaded-resume"=>repair.ResumeConfiguredMigration(),
+                        "loaded-enable-no-backup"=>repair.EnableConfiguredWithoutBackup(GetJsonBool(request.Body,"manualBackupAcknowledged",false)),
                         "rule-set"=>repair.ConfigureMigrationRule(GetJsonInt(request.Body,"sourceId",0),GetJsonString(request.Body,"destination",""),Inventory(),GetJsonBool(request.Body,"createBackup",true),GetJsonBool(request.Body,"manualBackupAcknowledged",false),GetJsonBool(request.Body,"allowAir",false)),
                         "rule-remove"=>repair.RemoveMigrationRule(GetJsonInt(request.Body,"sourceId",0)),
                         "rules-clear"=>repair.ClearMigrationRules(),

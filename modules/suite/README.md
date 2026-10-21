@@ -9,7 +9,7 @@ Current release and validation: see [release notes](../../CHANGELOG.md).
 
 Current build: [1.2.44 ModpackStability1 validation](../../docs/VALIDATION-MODPACK-STABILITY-1.2.44.md). [Packet-stability validation](../../docs/VALIDATION-PACKET-STABILITY-1.2.44.md) is retained. [Migration validation](../../docs/VALIDATION-BLOCK-MIGRATION-1.2.44.md) is retained. Historical [1.2.43 validation](../VALIDATION-1.2.43.md) is retained. Historical [1.2.41 audit repairs](../AUDIT-1.2.41.md) are retained. Retains [SharedLoadFix1 notes](../SHAREDLOADFIX1-NOTES.md) and [validation](../VALIDATION-SHAREDLOADFIX1.md), including [SqliteFix1 notes](../SQLITEFIX1-NOTES.md) and [validation](../VALIDATION-SQLITEFIX1.md), retaining [InteractionFix1](../INTERACTIONFIX1-NOTES.md), [AdminPanel2](../ADMINPANEL2-NOTES.md) and all preceding improvements.
 
-Build ID: `newfies-server-essentials-suite-1.2.44-ms11-restartwarnings1`
+Build ID: `newfies-server-essentials-suite-1.2.44-ms11-migrationbypass1`
 
 Ordinary Visual Studio / `dotnet build` and `dotnet publish` output now place native SQLite files beneath `native/runtimes/`. If zipping manually, zip the **contents** of the output directory so `modinfo.json` and managed DLLs are at the ZIP root. See [build/package instructions](../SQLITEFIX1-NOTES.md).
 
@@ -449,3 +449,9 @@ Look at a broken block and hold its intended replacement:
 - `/nseblockmigrate replaceheld no-backup manual-copy-confirmed` remains the command for saving an ID-wide rule. Container reconnection/history recovery and chiseled materials continue to use their existing reviewed rule modes.
 
 Webpanel → Block ID Migration → Diagnostics shows up to 32 recent skipped **loaded cells**, including coordinates, dimension, source/target and reason. Repeated attempts at the same failure are aggregated while retained in the bounded list. These samples exclude saved-chunk-wide refusals (shown separately), are session-only, and are not a complete audit or undo history. Correct the rule, then pause/resume to retry the loaded-terrain pass. Never assume that surviving metadata proves historical inventory contents are recoverable.
+
+### Enable rules stuck backing up
+
+In **Webpanel → Block ID Migration**, acknowledge your manual world copy in the **Stuck backing up?** box, then click **Enable saved rules without automatic backup**. This changes the backup policy of the entire saved rule set, preserves its mappings/inventory mode and saves the enabled state for future restarts. Inventory preparation still needs to finish when requested; block and metadata compatibility protections remain enforced.
+
+Command equivalent: `/nseblockmigrate enable-no-backup manual-copy-confirmed`. Make a manual world copy first. This action does not wait for a cancelled backup worker to finish before activating compatible rules. New rule edits still use the backup choice shown in the editor.

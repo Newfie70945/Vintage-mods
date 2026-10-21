@@ -2,6 +2,12 @@
 
 ## Server Essentials Suite 1.2.44
 
+- MigrationBypass1: add **Enable saved rules without automatic backup** to Block ID Migration, with separate manual-world-copy acknowledgement. It changes the existing saved rule set's backup policy and persists enabled/manual-backup settings across restarts without re-entering mappings.
+- Cancel obsolete backup activation and enable compatible rules directly rather than queueing behind the old backup worker. Late backup completion cannot overwrite the new policy. Inventory preparation and block/metadata compatibility checks remain required.
+- Add `/nseblockmigrate enable-no-backup manual-copy-confirmed` for the same operation in-game/console. Missing acknowledgement is refused without modifying saved rules.
+- Suite remains **1.2.44**, build `ms11-migrationbypass1`; companion versions are unchanged.
+
+
 - RestartWarnings1: fix saved restart warning arrays merging with initialized defaults on load. Custom lists such as `[1,5,10]` and explicitly empty arrays now survive reloads. The default list still applies when the setting is absent.
 - Treat saved restart schedule arrays as replacements too, preventing deleted entries from surviving JSON population. Existing clamping, UTC normalization and warning scheduling remain in place.
 - Suite remains **1.2.44**, build `ms11-restartwarnings1`; companion versions are unchanged. Existing files previously rewritten with defaults need their intended warning list saved once after updating.

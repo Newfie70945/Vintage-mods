@@ -3208,6 +3208,7 @@ __NSS_RETENTION_HTML__
   <div class="bmNotice"><strong>Experimental.</strong> Test on a world copy. Only missing IDs change; every occurrence of that ID is affected. The author is not responsible for data lost through misuse.</div>
   <div class="bmStatusBar"><div><span class="small">Migration</span><strong id="bmStateLabel">Loading…</strong></div><div><span class="small">Saved rules</span><strong id="bmRuleCount">—</strong></div><div><span class="small">Changed this session</span><strong id="bmChangedCount">—</strong></div><div><span class="small">Skipped chunk loads</span><strong id="bmSkippedCount">—</strong></div></div>
   <div class="bmStatusActions"><button id="bmRefresh">Refresh</button><button id="bmResume" disabled>Resume saved rules</button><button id="bmDisable" disabled>Pause migration</button><button id="bmCancel">Cancel pending work</button></div>
+  <div class="bmNotice small"><b>Stuck backing up?</b> You can change all saved rules to manual-backup mode and enable them. This choice persists after restart. It does not bypass inventory or block compatibility checks.<label><input id="bmBypassAck" type="checkbox"> I have made a manual world copy and accept the risk of skipping automatic backup.</label><button id="bmEnableNoBackup" disabled>Enable saved rules without automatic backup</button></div>
   <div id="bmLiveStatus" class="small bmLiveText" role="status"></div><pre hidden id="bmLiveMappings"></pre>
 
   <div class="card bmEditor" id="bmEditorCard" data-workspace-fixed="true"><div class="cardHeader"><h3 id="bmEditorTitle">Add a migration rule</h3><button id="bmNewRule" type="button">New rule</button></div>
@@ -9802,6 +9803,8 @@ function renderBlockMigration(data){
   if(['failed','preparation-failed'].includes(value(loaded,'State')))$('bmStateLabel').textContent='Needs attention';
   $('bmRuleCount').textContent=String(ruleList.length);$('bmChangedCount').textContent=String((loaded?.sessionBlocksChanged||0)+(loaded?.loadedSweepBlocksChanged||0))+' blocks'+(loaded?.chiseledMaterialReferencesChanged?' · '+loaded.chiseledMaterialReferencesChanged+' materials':'');$('bmSkippedCount').textContent=String(loaded?.sessionChunksRefused||0);
   $('bmResume').disabled=bmBusy||!bmCanEdit()||!ruleList.length||!!loaded?.active||['backing-up','activating','preparing-inventories'].includes(value(loaded,'State'));
+  $('bmEnableNoBackup').disabled=bmBusy||!bmCanEdit()||!ruleList.length||!$('bmBypassAck').checked;
+  $('bmBypassAck').disabled=bmBusy||!bmCanEdit();
   $('bmResume').textContent=['failed','preparation-failed'].includes(value(loaded,'State'))?'Retry saved rules':'Resume saved rules';
   $('bmResume').title='Uses the backup and inventory options stored with the saved rules, not unsaved editor changes.';
   $('bmScanStatus').textContent=scan?`${value(scan,'State')} · ${value(scan,'Chunks')} chunks · ${value(scan,'Errors')} errors · ${value(scan,'Unsupported')} unsupported. ${value(scan,'Message')||''}`:'Run a saved-map scan. No terrain is loaded, generated or changed by scanning.';
@@ -9858,6 +9861,7 @@ async function bmAction(operation){
     if(!body.createBackup&&!body.manualBackupAcknowledged){bmFeedback('Confirm your manual world copy or enable automatic backup.','error');return;}
     if(!bmInventoryReady()){bmFeedback('Acknowledge inventory recovery and overwrite risks before reviewing.','error');return;}
   }
+  if(operation==='loaded-enable-no-backup'){body.manualBackupAcknowledged=$('bmBypassAck').checked;if(!body.manualBackupAcknowledged){bmFeedback('Make and acknowledge your manual world copy first.','error');return;}}
   if(operation==='scan'){const source=$('bmSource').value.trim();if(source)body.sourceId=Number(source);}
   if(operation==='batch-preview')body.mappings=bmMappings();
   if(operation==='mapping-advice')body.sources=[...bmChoices.keys()];
@@ -9865,8 +9869,9 @@ async function bmAction(operation){
   bmBusy=true;bmError='';bmFeedback('Sending request…');if(bmState)renderBlockMigration(bmState);
   try{
     const result=await api('/api/block-migration',{method:'POST',body:JSON.stringify(body)});bmReviewedId=['batch-preview','automatic-preview'].includes(operation)?bmValue(result,'Id'):'';
-    if(['loaded-stage','loaded-resume','loaded-disable'].includes(operation)){bmDirty=false;bmFormPlanId='';bmState={...bmState,loadedMigration:result,preview:null};renderBlockMigration(bmState);}
-    if(await loadBlockMigration())bmFeedback(operation==='loaded-disable'?'Migration paused. Saved rules remain; previously changed blocks are not reverted.':operation==='loaded-resume'?'Saved rules resumed. Preparation or activation progress is shown above.':operation==='loaded-stage'?'Reviewed rules saved. Activation progress is shown above.':operation==='scan'?'Scan started. You can still save individual rules above.':operation==='cancel'?'Cancellation requested. Check the status above.':'Request completed. Review the results below.','success');
+    if(['loaded-stage','loaded-resume','loaded-disable','loaded-enable-no-backup'].includes(operation)){bmDirty=false;bmFormPlanId='';bmState={...bmState,loadedMigration:result,preview:null};renderBlockMigration(bmState);}
+    if(operation==='loaded-enable-no-backup')$('bmBypassAck').checked=false;
+    if(await loadBlockMigration())bmFeedback(operation==='loaded-enable-no-backup'?'Saved rules enabled with automatic backup disabled persistently. Inventory preparation, if required, still runs.':operation==='loaded-disable'?'Migration paused. Saved rules remain; previously changed blocks are not reverted.':operation==='loaded-resume'?'Saved rules resumed. Preparation or activation progress is shown above.':operation==='loaded-stage'?'Reviewed rules saved. Activation progress is shown above.':operation==='scan'?'Scan started. You can still save individual rules above.':operation==='cancel'?'Cancellation requested. Check the status above.':'Request completed. Review the results below.','success');
   }catch(e){bmError=e.message;bmFeedback(bmError,'error');}finally{bmBusy=false;if(bmState)renderBlockMigration(bmState);}
 }
 async function bmRuleAction(operation,sourceId){
@@ -9886,6 +9891,7 @@ async function bmRuleAction(operation,sourceId){
 }
 $('bmRuleForm').onsubmit=event=>{event.preventDefault();bmRuleAction('rule-set');};
 $('bmNewRule').onclick=bmNewRule;$('bmRuleSearch').onclick=bmFindRuleTarget;
+$('bmEnableNoBackup').onclick=()=>bmAction('loaded-enable-no-backup');$('bmBypassAck').onchange=()=>{if(bmState)renderBlockMigration(bmState);};
 $('bmRulesClear').onclick=()=>bmRuleAction('rules-clear');$('bmResume').onclick=()=>bmAction('loaded-resume');
 for(const id of ['bmRuleSource','bmRuleTarget'])$(id).addEventListener('input',()=>{bmDirty=true;$('bmRuleResults').replaceChildren();bmInvalidate();});
 async function bmSearchTargets(id,query){
