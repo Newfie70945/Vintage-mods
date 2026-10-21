@@ -30,7 +30,8 @@ public sealed class SaveCorrelationProbe : ModSystem
             var health = Health();
             var windows = (System.Collections.ICollection)typeof(ServerHealthService).GetField("worldSaveWindows", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(health)!;
             var snapshot = health.GetSnapshot();
-            return TextCommandResult.Success("SAVE_PROBE_REPORT " + JsonSerializer.Serialize(new { windows = windows.Count, incidents = snapshot.DiagnosticIncidents, smart = snapshot.SmartAnalysis }));
+            api.Logger.Notification("SAVE_PROBE_REPORT {0}", JsonSerializer.Serialize(new { windows = windows.Count, samples = snapshot.Samples.Count, incidents = snapshot.DiagnosticIncidents, smart = snapshot.SmartAnalysis }));
+            return TextCommandResult.Success("Probe report written.");
         });
     }
 }

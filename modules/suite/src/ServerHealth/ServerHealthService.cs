@@ -874,6 +874,7 @@ public sealed class ServerHealthService : IDisposable
                 });
 
                 CorrelateWorldSaveUnsafe(diagnosticIncidents.Last());
+                cachedSmartAnalysisUnixMilliseconds = 0;
                 while (diagnosticIncidents.Count > MaxDiagnosticIncidents)
                     diagnosticIncidents.Dequeue();
 

@@ -31,17 +31,20 @@ def command(cmd,marker):
  offset=len(lines);proc.stdin.write(cmd+'\n');proc.stdin.flush();return wait(marker,offset,30)
 try:
  wait('Dedicated Server now running on Port')
- # Build a normal >60-sample baseline and pass the 45-second startup suppression.
+ # Wait for actual samples, excluding the normal 45-second warmup.
  command('/nsssaveprobe','SAVE_PROBE_ARMED')
- deadline=time.monotonic()+65
- while time.monotonic()<deadline:
-  if proc.poll() is not None:raise RuntimeError('Test server exited')
-  time.sleep(.2)
+ deadline=time.monotonic()+180
+ while True:
+  report=command('/nsssaveprobereport','SAVE_PROBE_REPORT ')
+  baseline=json.loads(report.split('SAVE_PROBE_REPORT ',1)[1])
+  if baseline['samples']>=65:break
+  if time.monotonic()>deadline:raise RuntimeError('No stable baseline: '+str(root))
+  time.sleep(2)
  command('/autosavenow','World saved!')
  deadline=time.monotonic()+15;result=None
  while time.monotonic()<deadline:
   report=command('/nsssaveprobereport','SAVE_PROBE_REPORT ');result=json.loads(report.split('SAVE_PROBE_REPORT ',1)[1])
-  if any(i['WorldSaveWindowMs']>=150 for i in result['incidents']):break
+  if any(i['WorldSaveWindowMs']>=150 for i in result['incidents']) and any('World save' in g['PrimaryCategory'] for g in result['smart']['IncidentGroups']):break
   time.sleep(.3)
  assert result and result['windows']>0,result
  matches=[i for i in result['incidents'] if i['WorldSaveWindowMs']>=150];assert matches,result
