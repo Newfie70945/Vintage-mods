@@ -1,0 +1,23 @@
+{
+  "gameVersion": "1.22.7",
+  "build": "ms11-restartwarnings1",
+  "scheduledRestartsTriggered": 0,
+  "boots": [
+    {
+      "boot": 1,
+      "warningMinutes": [
+        1,
+        5,
+        10
+      ]
+    },
+    {
+      "boot": 2,
+      "warningMinutes": [
+        1,
+        5,
+        10
+      ]
+    }
+  ]
+}

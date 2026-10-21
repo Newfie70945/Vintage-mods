@@ -2,6 +2,11 @@
 
 ## Server Essentials Suite 1.2.44
 
+- RestartWarnings1: fix saved restart warning arrays merging with initialized defaults on load. Custom lists such as `[1,5,10]` and explicitly empty arrays now survive reloads. The default list still applies when the setting is absent.
+- Treat saved restart schedule arrays as replacements too, preventing deleted entries from surviving JSON population. Existing clamping, UTC normalization and warning scheduling remain in place.
+- Suite remains **1.2.44**, build `ms11-restartwarnings1`; companion versions are unchanged. Existing files previously rewritten with defaults need their intended warning list saved once after updating.
+
+
 - MigrationReview1: add read-only `/nseblockmigrate previewheld` using the same held-target/rule validation without changing terrain, rules or backups.
 - Add `/nseblockmigrate repairheld confirm-risk manual-copy-confirmed` for one plain missing block, without creating an ID-wide rule or automatic backup. Protect healthy blocks, fluids, retained metadata, containers and chiseled hosts; verify serialized live-chunk metadata before changing the cell. Held items are not consumed.
 - Improve `inspect` with saved identity, matching rule, migration state, live block-entity presence and per-material rules. Distinguish surviving metadata from historical inventory recovery evidence.
