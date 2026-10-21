@@ -8,7 +8,7 @@ p.add_argument('--port',type=int,default=42624);a=p.parse_args();repo=Path(__fil
 if a.output.exists():raise SystemExit('Output exists; refusing to overwrite')
 data=a.output/'data';shutil.copytree(a.snapshot,data,ignore=shutil.ignore_patterns('Mods','Logs','Cache','Backups','BackupSaves','NewfiesBlockRepair','NewfiesServerEssentialsWebMap'))
 config=json.loads((data/'serverconfig.json').read_text());config.update(Ip='127.0.0.1',Port=a.port,AdvertiseServer=False,Upnp=False,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/Path(config['WorldConfig']['SaveFileLocation']).name);(data/'serverconfig.json').write_text(json.dumps(config))
-(data/'Mods').mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.44.zip',data/'Mods')
+(data/'Mods').mkdir();shutil.copy2(repo/'artifacts'/('NewfiesServerEssentialsSuiteV'+next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')+'.zip'),data/'Mods')
 folder=data/'ModConfig/NewfiesServerEssentialsSuite';folder.mkdir(exist_ok=True,parents=True);path=folder/'NewfiesAutomatedRestarts.json';path.write_text(json.dumps(dict(Enabled=False,WarningMinutes=[1,5,10])))
 results=[]
 for boot in range(2):

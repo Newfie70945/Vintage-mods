@@ -17,7 +17,7 @@ net=str(Path(os.environ['DOTNET_ROOT'])/'dotnet');game=Path(os.environ['VINTAGE_
 helper=repo/'modules/suite/tests/BlockRepairChecks/bin/Release/net10.0/BlockRepairChecks.dll'
 config=json.loads((data/'serverconfig.json').read_text());save=Path(config['WorldConfig']['SaveFileLocation']).name
 config.update(Ip='127.0.0.1',Port=game_port,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,PassTimeWhenEmpty=True,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save);(data/'serverconfig.json').write_text(json.dumps(config))
-mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.44.zip',mods)
+mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts'/('NewfiesServerEssentialsSuiteV'+next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')+'.zip'),mods)
 configdir=data/'ModConfig/NewfiesServerEssentialsSuite';webfile=configdir/'NewfiesWebServer.json';web=json.loads(webfile.read_text());password=secrets.token_hex(20);web.update(Enabled=True,BindAddress='127.0.0.1',Port=web_port,AdminUsername='fixtureowner',Password=password,PasswordSalt='',PasswordHash='',SafeDiagnosticsMode=False);webfile.write_text(json.dumps(web))
 features=configdir/'NewfiesServerEssentialsFeatures.json';f=json.loads(features.read_text());f['WebDashboard']=True;features.write_text(json.dumps(f))
 world=data/'Saves'/save
@@ -80,7 +80,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.44','buildSuffix':'ms11-migrationbypass1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':'1.2.45','buildSuffix':'ms11-performance1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile

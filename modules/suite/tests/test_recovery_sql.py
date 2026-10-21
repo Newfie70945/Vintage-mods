@@ -1,6 +1,7 @@
 from pathlib import Path
 import sqlite3,re,json
 s=(Path(__file__).resolve().parents[1]/'src/Services/LogStorageService.cs').read_text()
+s += '\n'+(Path(__file__).resolve().parents[1]/'src/Services/LoggerDatabaseSchema.cs').read_text()
 section=s.split('QueryRollbackRecoveryAsync',1)[1].split('public Task<List<ContainerSnapshotRecord>>',1)[0]
 sql={name:re.search(name+r'\.CommandText\s*=\s*@"(.*?)";',section,re.S).group(1) for name in ['resolve','cmd','snapshots']}
 c=sqlite3.connect(':memory:')

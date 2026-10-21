@@ -14,7 +14,7 @@ for index,mode in enumerate(['standalone','suite']):
     config=json.loads((data/'serverconfig.json').read_text());config.update(Ip='127.0.0.1',Port=a.port+index,AdvertiseServer=False,Upnp=False,ModPaths=['Mods',str(data/'Mods')])
     config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/Path(config['WorldConfig']['SaveFileLocation']).name)
     (data/'serverconfig.json').write_text(json.dumps(config,indent=2));(data/'Mods').mkdir()
-    names=['NewfiesServerEssentialsDiscordV1.0.14.zip']+(['NewfiesServerEssentialsSuiteV1.2.44.zip'] if mode=='suite' else [])
+    names=['NewfiesServerEssentialsDiscordV1.0.14.zip']+(['NewfiesServerEssentialsSuiteV'+next(m['version'] for m in json.loads((root/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')+'.zip'] if mode=='suite' else [])
     for name in names:shutil.copy2(root/'artifacts'/name,data/'Mods'/name)
     with zipfile.ZipFile(data/'Mods'/'DiscordEventProbe.zip','w') as z:
         z.write(Path(__file__).parent/'bin/Release/net10.0/DiscordEventProbe.dll','DiscordEventProbe.dll')

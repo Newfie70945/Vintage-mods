@@ -60,6 +60,9 @@ public sealed class WebRoutePolicyInfo
 
 public sealed class DatabaseHealthSnapshot
 {
+    public bool IntegrityCheckInProgress {get;set;}
+    public string StartupValidationMode {get;set;}="";
+    public IReadOnlyDictionary<string,long> StartupMilliseconds {get;set;}=new Dictionary<string,long>();
     public bool Available { get; set; }
     public bool Ready { get; set; }
     public string Path { get; set; } = "";

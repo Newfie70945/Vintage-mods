@@ -1,0 +1,127 @@
+{
+  "build": "newfies-server-essentials-suite-1.2.45-ms11-performance1",
+  "componentBenchmark": {
+    "rows": 100000,
+    "databaseBytes": 430690304,
+    "synthetic": true,
+    "claimScope": "Component startup probe only; no production startup/TPS claim",
+    "samples": [
+      {
+        "iteration": 0,
+        "mode": "full",
+        "elapsedMs": 260.845,
+        "cpuMs": 267.898,
+        "managedAllocatedBytes": 10200,
+        "result": "ok"
+      },
+      {
+        "iteration": 0,
+        "mode": "lightweight",
+        "elapsedMs": 0.5274,
+        "cpuMs": 0.53,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 1,
+        "mode": "lightweight",
+        "elapsedMs": 0.718,
+        "cpuMs": 0.721,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 1,
+        "mode": "full",
+        "elapsedMs": 226.2419,
+        "cpuMs": 250.644,
+        "managedAllocatedBytes": 6256,
+        "result": "ok"
+      },
+      {
+        "iteration": 2,
+        "mode": "full",
+        "elapsedMs": 222.671,
+        "cpuMs": 224.663,
+        "managedAllocatedBytes": 6256,
+        "result": "ok"
+      },
+      {
+        "iteration": 2,
+        "mode": "lightweight",
+        "elapsedMs": 0.5799,
+        "cpuMs": 1.141,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 3,
+        "mode": "lightweight",
+        "elapsedMs": 0.3758,
+        "cpuMs": 0.829,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 3,
+        "mode": "full",
+        "elapsedMs": 217.9596,
+        "cpuMs": 234.176,
+        "managedAllocatedBytes": 6256,
+        "result": "ok"
+      },
+      {
+        "iteration": 4,
+        "mode": "full",
+        "elapsedMs": 216.7061,
+        "cpuMs": 238.409,
+        "managedAllocatedBytes": 6256,
+        "result": "ok"
+      },
+      {
+        "iteration": 4,
+        "mode": "lightweight",
+        "elapsedMs": 0.8086,
+        "cpuMs": 1.182,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 5,
+        "mode": "lightweight",
+        "elapsedMs": 0.4469,
+        "cpuMs": 0.45,
+        "managedAllocatedBytes": 5728,
+        "result": "Lightweight startup probe passed; full integrity not scanned. Use manual integrity maintenance for a complete check."
+      },
+      {
+        "iteration": 5,
+        "mode": "full",
+        "elapsedMs": 238.0433,
+        "cpuMs": 255.887,
+        "managedAllocatedBytes": 6256,
+        "result": "ok"
+      }
+    ]
+  },
+  "officialServer": {
+    "gameVersion": "1.22.7",
+    "authenticatedGameClients": 0,
+    "databasePreserved": true,
+    "otherSuiteServicesAvailable": true,
+    "lightweightStartupMilliseconds": {
+      "database validation": 5,
+      "legacy database location": 0,
+      "schema and indexes": 3,
+      "backup retention": 0
+    },
+    "fullStartupMilliseconds": {
+      "database validation": 5,
+      "legacy database location": 0,
+      "schema and indexes": 2,
+      "backup retention": 0
+    },
+    "manualIntegrity": "ok",
+    "failureReason": "SqliteException: SQLite Error 26: 'file is not a database'."
+  }
+}

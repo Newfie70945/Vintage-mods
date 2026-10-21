@@ -1,5 +1,16 @@
 # Current release changes
 
+## Server Essentials Suite 1.2.45
+
+- Faster BlockLogger startup: use a lightweight read-only database probe instead of scanning the entire logging database on every start.
+- Add an optional **Full integrity scan on startup** setting in BlockLogger maintenance. Manual full checks remain available in Suite Health.
+- Show separate startup timings for database validation, legacy migration, schema/index work and backup retention.
+- Defer automatic logger backups until the server is running and storage has warmed up for two minutes; existing quiet-server checks still apply.
+- Apply logger schema/index updates in one transaction and prevent overlapping manual integrity scans. Interrupt scans on shutdown or their work deadline.
+- Preserve database files on startup errors instead of automatically replacing them from an older backup. Report unavailable logger storage while allowing other Suite services to start.
+- Preserve previously quarantined database originals for manual review; healthy backup rotation continues normally.
+- Build `ms11-performance1`. Companion versions are unchanged. [Audit, tests and measurement limits](docs/VALIDATION-PERFORMANCE-1.2.45.md).
+
 ## Server Essentials Suite 1.2.44
 
 - MigrationBuildFix1: replace two repair-failure shutdown calls that reference `EnumExitMode` with the public `IServerAPI.ShutDown()` API. Preserve logged failure reasons and the existing condition that shutdown is requested only after writes may have occurred.

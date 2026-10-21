@@ -47,7 +47,6 @@ public sealed class LogStorageService : IDisposable
     private readonly RecoveryQueryRunner recoveryQueries = new();
     private volatile int autoBackupIntervalHours;
     private volatile int backupRetentionCount;
-    private const int CorruptBackupRetentionCount = 2;
     private readonly ConcurrentQueue<QueuedEventPayload> criticalEventQueue = new();
     private readonly ConcurrentQueue<QueuedEntityEventPayload> criticalEntityQueue = new();
     private readonly ConcurrentQueue<QueuedEntityEventPayload> bulkEntityQueue = new();
@@ -125,7 +124,8 @@ public sealed class LogStorageService : IDisposable
         int flushIntervalMs = 750,
         bool autoMigrateLegacyLogs = false,
         int autoBackupIntervalHours = 72,
-        int backupRetentionCount = 2)
+        int backupRetentionCount = 2,
+        bool fullIntegrityCheckOnStartup = false)
     {
         this.api = api;
         this.maxQueue = Math.Max(100, maxQueue);
@@ -144,12 +144,14 @@ public sealed class LogStorageService : IDisposable
         backupsPath = Path.Combine(root, "backups");
         Directory.CreateDirectory(backupsPath);
         dbPath = Path.Combine(root, "blocklogger.db");
-        RecoverBlockLoggerDatabaseIfNeeded();
-        MigrateLegacyDatabaseIfNeeded(Path.Combine(legacyRoot, "blocklogger.db"), dbPath);
-
-        InitializeDatabase();
-        TrimDatabaseBackups();
-        MaybeScheduleDatabaseBackup(force: false);
+        StartupValidationMode=fullIntegrityCheckOnStartup?"Full integrity scan":"Lightweight read-only probe";
+        MeasureStartup("database validation",()=>ProbeStartupDatabase(fullIntegrityCheckOnStartup));
+        MeasureStartup("legacy database location",()=>MigrateLegacyDatabaseIfNeeded(Path.Combine(legacyRoot,"blocklogger.db"),dbPath));
+        MeasureStartup("schema and indexes",InitializeDatabase);
+        MeasureStartup("backup retention",TrimDatabaseBackups);
+        StartupMilliseconds = new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(startupMilliseconds);
+        storageStarted = Stopwatch.GetTimestamp();
+        api.Logger.Notification("[BlockLogger/Startup] Validation={0}. Automatic backups wait until RunGame and at least two minutes after storage initialization; existing quiet-workload checks also apply.",StartupValidationMode);
 
         migrationTask = autoMigrateLegacyLogs
             ? StartDedicatedWorker(() => MigrateLegacyJsonlSafe(cts.Token), cts.Token)
@@ -344,54 +346,56 @@ public sealed class LogStorageService : IDisposable
             LastErrorUnixMilliseconds = LastStorageErrorUnixMilliseconds,
             RetentionDays = retentionDays,
             Integrity = Volatile.Read(ref lastIntegrityResult) ?? "Not run",
+            IntegrityCheckInProgress = Volatile.Read(ref integrityCheckRunning)!=0,
+            StartupValidationMode=StartupValidationMode,
+            StartupMilliseconds=StartupMilliseconds,
             Message = IsReady
                 ? "SQLite writer/query services are initialized."
                 : "SQLite is still completing legacy migration/index work."
         };
     }
 
-    public Task<BlockLogger.WebDashboard.DatabaseHealthSnapshot>
-        CheckDatabaseIntegrityAsync(int retentionDays)
+    public async Task<BlockLogger.WebDashboard.DatabaseHealthSnapshot> CheckDatabaseIntegrityAsync(int retentionDays)
     {
-        return Task.Run(() =>
+        var health = GetDatabaseHealth(retentionDays);
+        if (Interlocked.CompareExchange(ref integrityCheckRunning, 1, 0) != 0)
         {
-            var health = GetDatabaseHealth(retentionDays);
-
-            try
-            {
-                var sw = Stopwatch.StartNew();
-                using var conn = OpenConnection();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "PRAGMA quick_check;";
-                string result =
-                    Convert.ToString(cmd.ExecuteScalar()) ?? "unknown";
-                sw.Stop();
-                Interlocked.Exchange(ref lastIntegrityCheckMilliseconds, sw.ElapsedMilliseconds);
-                Interlocked.Exchange(ref lastIntegrityCheckUnixMilliseconds, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                health.LastIntegrityCheckMilliseconds = sw.ElapsedMilliseconds;
-                health.LastIntegrityCheckUnixMilliseconds = Interlocked.Read(ref lastIntegrityCheckUnixMilliseconds);
-
-                Volatile.Write(ref lastIntegrityResult, result);
-                health.Integrity = result;
-                health.Message =
-                    string.Equals(
-                        result,
-                        "ok",
-                        StringComparison.OrdinalIgnoreCase)
-                        ? "SQLite quick_check returned OK."
-                        : $"SQLite quick_check returned: {result}";
-            }
-            catch (Exception ex)
-            {
-                MarkStorageError(ex);
-                Volatile.Write(ref lastIntegrityResult, "Failed");
-                health.Integrity = "Failed";
-                health.Message =
-                    $"{ex.GetType().Name}: {ex.Message}";
-            }
-
+            health.IntegrityCheckInProgress = true;
+            health.Message = "An integrity scan is already running; no additional scan started.";
             return health;
-        });
+        }
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            string result = await integrityQueries.RunAsync(OpenReadOnlyConnection, (conn, token) =>
+            {
+                using var command = conn.CreateCommand();
+                command.CommandText = "PRAGMA quick_check(1);";
+                return Convert.ToString(command.ExecuteScalar()) ?? "unknown";
+            }, cts.Token, CancellationToken.None, TimeSpan.FromMinutes(10)).ConfigureAwait(false);
+            Volatile.Write(ref lastIntegrityResult, result);
+            health.Integrity = result;
+            health.Message = result.Equals("ok", StringComparison.OrdinalIgnoreCase)
+                ? "Full SQLite quick_check returned OK."
+                : "SQLite quick_check returned: " + result;
+        }
+        catch (Exception error)
+        {
+            MarkStorageError(error);
+            Volatile.Write(ref lastIntegrityResult, "Failed");
+            health.Integrity = "Failed";
+            health.Message = error.GetType().Name + ": " + error.Message;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref lastIntegrityCheckMilliseconds, watch.ElapsedMilliseconds);
+            Interlocked.Exchange(ref lastIntegrityCheckUnixMilliseconds, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Interlocked.Exchange(ref integrityCheckRunning, 0);
+        }
+        health.LastIntegrityCheckMilliseconds = Interlocked.Read(ref lastIntegrityCheckMilliseconds);
+        health.LastIntegrityCheckUnixMilliseconds = Interlocked.Read(ref lastIntegrityCheckUnixMilliseconds);
+        health.IntegrityCheckInProgress = false;
+        return health;
     }
 
     public void UpdateRuntimeSettings(
@@ -1156,49 +1160,31 @@ LIMIT $limit;";
         catch { return 0; }
     }
 
-    private void RecoverBlockLoggerDatabaseIfNeeded()
+    private void ProbeStartupDatabase(bool fullCheck)
     {
-        if (!File.Exists(dbPath)) return;
-        try
-        {
-            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadWrite;Pooling=False");
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "PRAGMA quick_check;";
-            var result = Convert.ToString(cmd.ExecuteScalar()) ?? "unknown";
-            if (string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase)) return;
-            throw new InvalidDataException("SQLite quick_check returned: " + result);
-        }
-        catch (Exception ex)
-        {
-            api.Logger.Error("[BlockLogger/Storage] blocklogger.db failed startup integrity check: {0}", ex.Message);
-            var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-            try
-            {
-                File.Move(dbPath, Path.Combine(backupsPath, $"blocklogger-corrupt-{stamp}.db"), overwrite: true);
-                TryMoveDatabaseSidecar(dbPath + "-wal", Path.Combine(backupsPath, $"blocklogger-corrupt-{stamp}.db-wal"));
-                TryMoveDatabaseSidecar(dbPath + "-shm", Path.Combine(backupsPath, $"blocklogger-corrupt-{stamp}.db-shm"));
-                var backup = Directory.EnumerateFiles(backupsPath, "blocklogger-*.db")
-                    .Where(x => !Path.GetFileName(x).Contains("corrupt", StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
-                if (backup != null)
-                {
-                    File.Copy(backup, dbPath, overwrite: true);
-                    api.Logger.Warning("[BlockLogger/Storage] Restored blocklogger.db from backup {0}", Path.GetFileName(backup));
-                }
-                else api.Logger.Warning("[BlockLogger/Storage] No healthy backup was available. Corrupt database was preserved and a new database will be created.");
-            }
-            catch (Exception recoveryEx)
-            {
-                api.Logger.Error("[BlockLogger/Storage] Database recovery failed: {0}", recoveryEx);
-            }
-        }
+        if(!File.Exists(dbPath))return;
+        var result=LoggerDatabaseStartup.Probe(dbPath,fullCheck);
+        Volatile.Write(ref lastIntegrityResult,result);
     }
 
-    private static void TryMoveDatabaseSidecar(string source, string destination)
+    private void MeasureStartup(string stage,Action work)
     {
-        try { if (File.Exists(source)) File.Move(source, destination, overwrite: true); } catch { }
+        api.Logger.Notification("[BlockLogger/Startup] {0} starting.",stage);
+        var watch=Stopwatch.StartNew();bool complete=false;
+        try{work();complete=true;}
+        finally
+        {
+            startupMilliseconds[stage]=watch.ElapsedMilliseconds;
+            SuiteTimingRegistry.Record("BlockLogger startup: "+stage,watch.Elapsed.TotalMilliseconds);
+            api.Logger.Notification("[BlockLogger/Startup] {0} {1} in {2}ms.",stage,complete?"completed":"failed",watch.ElapsedMilliseconds);
+        }
     }
+    public IReadOnlyDictionary<string, long> StartupMilliseconds { get; }
+    public string StartupValidationMode {get;}
+    private readonly Dictionary<string,long> startupMilliseconds=new(StringComparer.Ordinal);
+    private readonly long storageStarted;
+    private readonly RecoveryQueryRunner integrityQueries=new();
+    private int integrityCheckRunning;
 
     private void MigrateLegacyDatabaseIfNeeded(string legacyDbPath, string newDbPath)
     {
@@ -1340,15 +1326,8 @@ LIMIT $limit;";
                 try { File.Delete(file); } catch { }
             }
 
-            var corrupt = Directory.EnumerateFiles(backupsPath, "blocklogger-corrupt-*.db")
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .ToList();
-            foreach (string file in corrupt.Skip(CorruptBackupRetentionCount))
-            {
-                try { File.Delete(file); } catch { }
-                try { File.Delete(file + "-wal"); } catch { }
-                try { File.Delete(file + "-shm"); } catch { }
-            }
+            // Quarantined originals are evidence, not ordinary rotation backups.
+            // Retain them for explicit administrator review/removal.
         }
         catch (Exception ex)
         {
@@ -1360,6 +1339,7 @@ LIMIT $limit;";
     {
         try
         {
+            if(!force&&LoggerDatabaseStartup.DeferAutomaticBackup(api.Server.CurrentRunPhase==Vintagestory.API.Server.EnumServerRunPhase.RunGame,Stopwatch.GetElapsedTime(storageStarted)))return;
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (!force && now - Interlocked.Read(ref lastAutoBackupCheckUnixMilliseconds) < 60L * 60 * 1000) return;
             Interlocked.Exchange(ref lastAutoBackupCheckUnixMilliseconds, now);
@@ -1368,8 +1348,8 @@ LIMIT $limit;";
             if (Volatile.Read(ref backupInProgress) != 0 || cts.IsCancellationRequested) return;
             if (!force && (PendingEvents > 0 || PendingSnapshots > 0 || PendingEntityAggregates > 0)) return;
             // BackupDatabase is not incremental in Microsoft.Data.Sqlite. Avoid starting an
-            // automatic full copy during active audit traffic; startup is still eligible because
-            // no successful live write has occurred yet.
+            // automatic full copy during active audit traffic; startup/warmup is excluded
+            // separately before updating the eligibility check timestamp.
             long lastWrite = Interlocked.Read(ref lastSuccessfulWriteUnixMilliseconds);
             if (!force && lastWrite > 0 && now - lastWrite < 10L * 60 * 1000) return;
 
@@ -1430,125 +1410,7 @@ LIMIT $limit;";
             bytes / 1048576d);
     }
 
-    private void InitializeDatabase()
-    {
-        WithConnection(conn =>
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-CREATE TABLE IF NOT EXISTS meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_ticks INTEGER NOT NULL,
-    timestamp_utc TEXT NOT NULL,
-    ingame_date TEXT,
-    action INTEGER NOT NULL,
-    player_uid TEXT,
-    player_name TEXT,
-    world_id TEXT,
-    dimension TEXT,
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    z INTEGER NOT NULL,
-    block_code TEXT,
-    meta_json TEXT,
-    legacy_key TEXT
-);
-
-DROP INDEX IF EXISTS idx_events_pos_time;
-CREATE INDEX IF NOT EXISTS idx_events_world_dim_pos_time ON events(world_id, dimension, x, y, z, timestamp_ticks DESC);
-CREATE INDEX IF NOT EXISTS idx_events_time ON events(timestamp_ticks DESC);
-CREATE INDEX IF NOT EXISTS idx_events_world_time ON events(world_id, timestamp_ticks DESC);
--- Player history only indexes player-attributed events. System/entity telemetry with an
--- empty player UID does not pay the write cost.
-DROP INDEX IF EXISTS idx_events_player_time;
-CREATE INDEX IF NOT EXISTS idx_events_player_name_time
-ON events(world_id, player_name COLLATE NOCASE, timestamp_ticks DESC)
-WHERE player_uid <> '';
-CREATE INDEX IF NOT EXISTS idx_events_player_uid_time
-ON events(world_id, player_uid, timestamp_ticks DESC)
-WHERE player_uid <> '';
-DROP INDEX IF EXISTS idx_events_action_time;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_events_legacy_key ON events(legacy_key);
-
-CREATE TABLE IF NOT EXISTS snapshots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_ticks INTEGER NOT NULL,
-    timestamp_utc TEXT NOT NULL,
-    ingame_date TEXT,
-    world_id TEXT,
-    dimension TEXT,
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    z INTEGER NOT NULL,
-    block_code TEXT,
-    player_uid TEXT,
-    player_name TEXT,
-    inventory_id TEXT,
-    reason TEXT,
-    changed_slot_id INTEGER,
-    slot_count INTEGER,
-    non_empty_slot_count INTEGER,
-    total_item_count INTEGER,
-    slots_json TEXT
-);
-
-DROP INDEX IF EXISTS idx_snapshots_pos_time;
-CREATE INDEX IF NOT EXISTS idx_snapshots_world_dim_pos_time ON snapshots(world_id, dimension, x, y, z, timestamp_ticks DESC);
-CREATE INDEX IF NOT EXISTS idx_snapshots_time ON snapshots(timestamp_ticks DESC);
-CREATE INDEX IF NOT EXISTS idx_snapshots_world_time ON snapshots(world_id, timestamp_ticks DESC);
-DROP INDEX IF EXISTS idx_snapshots_inventory_time;
-
-CREATE TABLE IF NOT EXISTS entity_activity (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    window_start_ticks INTEGER NOT NULL,
-    window_end_ticks INTEGER NOT NULL,
-    action INTEGER NOT NULL,
-    entity_type_id INTEGER NOT NULL,
-    entity_code TEXT NOT NULL,
-    entity_class TEXT,
-    event_count INTEGER NOT NULL,
-    world_id TEXT,
-    dimension TEXT,
-    sample_x INTEGER NOT NULL,
-    sample_y INTEGER NOT NULL,
-    sample_z INTEGER NOT NULL,
-    region_x INTEGER NOT NULL DEFAULT 0,
-    region_z INTEGER NOT NULL DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_entity_activity_time ON entity_activity(window_end_ticks DESC);
-DROP INDEX IF EXISTS idx_entity_activity_code_time;
-";
-            cmd.ExecuteNonQuery();
-            EnsureColumn(conn, "entity_activity", "region_x", "INTEGER NOT NULL DEFAULT 0");
-            EnsureColumn(conn, "entity_activity", "region_z", "INTEGER NOT NULL DEFAULT 0");
-            using (var regionIndex = conn.CreateCommand())
-            {
-                regionIndex.CommandText = @"
-DROP INDEX IF EXISTS idx_entity_activity_region_time;
-CREATE INDEX IF NOT EXISTS idx_entity_activity_world_dim_pos_time
-ON entity_activity(world_id, dimension, sample_x, sample_y, sample_z, window_end_ticks DESC);";
-                regionIndex.ExecuteNonQuery();
-            }
-            return 0;
-        });
-    }
-
-    private static void EnsureColumn(SqliteConnection conn, string table, string column, string definition)
-    {
-        using var check = conn.CreateCommand();
-        check.CommandText = $"PRAGMA table_info({table});";
-        using var reader = check.ExecuteReader();
-        while (reader.Read()) if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return;
-        reader.Close();
-        using var alter = conn.CreateCommand();
-        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
-        alter.ExecuteNonQuery();
-    }
+    private void InitializeDatabase()=>WithConnection(conn=>{LoggerDatabaseSchema.Ensure(conn);return 0;});
 
     private bool WriteMixedBatchWithRetry(
         SqliteConnection conn,
