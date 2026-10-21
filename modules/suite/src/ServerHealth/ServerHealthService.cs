@@ -42,6 +42,7 @@ public sealed class ServerHealthService : IDisposable
     private readonly Queue<ServerSlowSpike> slowSpikes = new();
     private readonly Queue<ServerDiagnosticIncident> diagnosticIncidents = new();
     private ServerHealthSample? latestSample;
+    private readonly Queue<WorldSaveLagWindow> worldSaveWindows = new();
 
     private long sampleListenerId = -1;
     private long lastSampleTimestamp;
@@ -120,6 +121,7 @@ public sealed class ServerHealthService : IDisposable
         {
             if (started) return;
             started = true;
+            api.Event.GameWorldSave += OnWorldSave;
             enabled = false;
 
             if (startEnabled)
@@ -132,6 +134,38 @@ public sealed class ServerHealthService : IDisposable
                     "[ServerHealth] profiler/diagnostics are disabled. Enable them from the Profiler GUI when needed.");
             }
         }
+    }
+
+    private void OnWorldSave()
+    {
+        lock (sync) { if (!started || !enabled) return; }
+        long startUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long startClock = Stopwatch.GetTimestamp();
+        api.Event.RegisterCallback(_ =>
+        {
+            var window = new WorldSaveLagWindow(startUnix, Stopwatch.GetElapsedTime(startClock).TotalMilliseconds);
+            lock (sync)
+            {
+                if (!started || !enabled) return;
+                worldSaveWindows.Enqueue(window);
+                while (worldSaveWindows.Count > 128) worldSaveWindows.Dequeue();
+                // Callback ordering varies: the sampler can run before this callback.
+                // Revisit bounded retained incidents so that either ordering works.
+                foreach (var incident in diagnosticIncidents) CorrelateWorldSaveUnsafe(incident);
+                cachedSmartAnalysisUnixMilliseconds = 0;
+            }
+        }, 1);
+    }
+
+    private void CorrelateWorldSaveUnsafe(ServerDiagnosticIncident incident)
+    {
+        var match = WorldSaveLagCorrelation.Match(worldSaveWindows, incident.UnixMilliseconds, incident.DelayMs);
+        if (match == null || incident.WorldSaveWindowMs >= match.ObservedMilliseconds) return;
+        bool first = incident.WorldSaveWindowMs <= 0;
+        incident.WorldSaveWindowMs = match.ObservedMilliseconds;
+        incident.WorldSaveStartedUnixMilliseconds = match.StartUnixMilliseconds;
+        if (first)
+            incident.Evidence = $"World save overlapped this sampling interval (observed main-thread window {match.ObservedMilliseconds:0}ms; correlation, not proven cause). " + incident.Evidence;
     }
 
     public bool Enabled
@@ -839,6 +873,8 @@ public sealed class ServerHealthService : IDisposable
                         : string.Join(" | ", evidence.Take(6))
                 });
 
+                CorrelateWorldSaveUnsafe(diagnosticIncidents.Last());
+                cachedSmartAnalysisUnixMilliseconds = 0;
                 while (diagnosticIncidents.Count > MaxDiagnosticIncidents)
                     diagnosticIncidents.Dequeue();
 
@@ -1049,6 +1085,17 @@ public sealed class ServerHealthService : IDisposable
             ? 0
             : Math.Max(0, recent[^1].BlockLoggerDropped - recent[0].BlockLoggerDropped);
 
+        int saveIncidentCount = recentIncidents.Count(x => x.WorldSaveWindowMs > 0);
+        if (saveIncidentCount > 0)
+        {
+            signals.Add(new ServerSmartSignal
+            {
+                Category = "WorldSave", Severity = "Watch", Confidence = "Medium", Score = 76,
+                Title = "World-save windows overlap recorded lag",
+                Evidence = $"{saveIncidentCount} lag sample(s) overlap measured save windows. Matching counts alone were not used.",
+                NextAction = "Compare event timestamps and repeated save/non-save periods. Observed save windows include main-thread callback scheduling; they do not prove a disk bottleneck or identify a responsible mod."
+            });
+        }
         int gcIncidentCount = recentIncidents.Count(x => x.Gen2Delta > 0);
         int storageIncidentCount = recentIncidents.Count(x =>
             x.BlockLoggerWriterMs >= 100 ||
@@ -1572,6 +1619,14 @@ public sealed class ServerHealthService : IDisposable
                     "Chunk/world activity" => "Check exploration/worldgen/chunk loading and profile tick phases.",
                     _ => "Run a manual engine profile during a repeat of this incident."
                 };
+            }
+
+            double saveWindowMs = current.Max(x => x.WorldSaveWindowMs);
+            if (saveWindowMs > 0)
+            {
+                category = category == "Main-thread / unknown" ? "World save (correlated)" : "World save + " + category + " (correlated)";
+                confidence = "Medium";
+                action = $"A measured world-save window ({saveWindowMs:0}ms) overlapped this sampling interval. Compare repeated save/non-save periods and disk latency; the window includes callback scheduling and does not prove disk I/O or a specific mod caused the stall.";
             }
 
             var modAttribution = ResolveIncidentModAttributionUnsafe(start, end);
@@ -2632,6 +2687,8 @@ public sealed class ServerHealthService : IDisposable
         {
             if (!started) return;
             started = false;
+            api.Event.GameWorldSave -= OnWorldSave;
+            worldSaveWindows.Clear();
 
             enabled = false;
             StopSamplingUnsafe();
@@ -2781,6 +2838,8 @@ public sealed class ServerSlowSpike
 
 public sealed class ServerDiagnosticIncident
 {
+    public double WorldSaveWindowMs { get; set; }
+    public long WorldSaveStartedUnixMilliseconds { get; set; }
     public long UnixMilliseconds { get; set; }
     public string Severity { get; set; } = "Watch";
     public double DelayMs { get; set; }

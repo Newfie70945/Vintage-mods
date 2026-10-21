@@ -2,6 +2,11 @@
 
 ## Server Essentials Suite 1.2.45
 
+- Add a compact Database Storage guide with exact settings, example retention/debounce values, backup advice and inventory-recovery tradeoffs. Explain reusable free pages, WAL and optional compaction.
+- Make automatic retention use existing timestamp indexes to avoid walking retained history when expired records were imported later; retain the existing expiry policy and batch limits.
+- Correlate lag samples with measured world-save windows, including when Operations Center and Web Dashboard are disabled. Show save-overlap evidence, selected-range counts and save-correlated recent groups/smart findings. Counts alone never establish a cause.
+- Current build `ms11-storage-save1`; retains Performance1 improvements below. [Storage/save audit and tests](docs/VALIDATION-STORAGE-SAVES-1.2.45.md).
+
 - Faster BlockLogger startup: use a lightweight read-only database probe instead of scanning the entire logging database on every start.
 - Add an optional **Full integrity scan on startup** setting in BlockLogger maintenance. Manual full checks remain available in Suite Health.
 - Show separate startup timings for database validation, legacy migration, schema/index work and backup retention.
@@ -9,7 +14,7 @@
 - Apply logger schema/index updates in one transaction and prevent overlapping manual integrity scans. Interrupt scans on shutdown or their work deadline.
 - Preserve database files on startup errors instead of automatically replacing them from an older backup. Report unavailable logger storage while allowing other Suite services to start.
 - Preserve previously quarantined database originals for manual review; healthy backup rotation continues normally.
-- Build `ms11-performance1`. Companion versions are unchanged. [Audit, tests and measurement limits](docs/VALIDATION-PERFORMANCE-1.2.45.md).
+- Performance1 foundation retained. Companion versions are unchanged. [Audit, tests and measurement limits](docs/VALIDATION-PERFORMANCE-1.2.45.md).
 
 ## Server Essentials Suite 1.2.44
 

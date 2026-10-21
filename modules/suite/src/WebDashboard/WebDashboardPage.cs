@@ -4489,6 +4489,19 @@ __NSS_ROLE_HTML__
       <button onclick="setSection('health')">Open Database Health</button>
     </div>
     <div class="infoBox" style="margin-top:10px"><b>Storage rule:</b> large indexes are not automatically waste—they are what keep BlockLogger/player-history queries fast. Prefer retention, logging scope, snapshot policy, and backup retention before considering compaction. Never delete active SQLite <code>-wal</code>/<code>-shm</code> files by hand.</div>
+    <details class="infoBox" id="databaseStorageGuide" style="margin-top:10px">
+      <summary><b>How to reduce storage — settings and recovery tradeoffs</b></summary>
+      <p>Start with <b>Analyze Storage</b> and find the largest table, WAL or backup area. A 25 GB file alone does not identify the cause. Detailed analysis is manual and can be partial on large databases.</p>
+      <div class="tableWrap"><table><thead><tr><th>Largest area</th><th>What to change</th><th>What you give up / what to expect</th></tr></thead><tbody>
+        <tr><td>Interaction events</td><td>Block Logging → Recording: review <code>LogBlockUse</code>, entity spawn/despawn logs and ignored code prefixes. Keep block break/place and take/put history if needed for investigations.</td><td>Disabling a category stops future records; it does not remove old rows. Missing history cannot be recreated.</td></tr>
+        <tr><td>Container snapshots</td><td>Review <code>LogContainerSnapshots</code>, <code>SnapshotOnSlotChange</code> and <code>SnapshotDebounceMs</code> in Recording. For example, increasing debounce from 2000 to 5000 ms can reduce repeated snapshots.</td><td>Keep snapshots enabled when inventory restoration matters. Take/put logs alone may not reconstruct an inventory; longer debounce loses intermediate states.</td></tr>
+        <tr><td>Entity activity</td><td>Recording → Entity logging: consider <code>AggregateEntitySpawnDespawn</code> and <code>AdaptiveEntityAggregation</code>. A longer <code>EntityAggregateWindowMs</code> (for example 10000 → 30000) groups more activity.</td><td>Aggregation reduces individual spawn/despawn detail. Disabling noisy categories is a stronger tradeoff; it removes future evidence.</td></tr>
+        <tr><td>Old history</td><td>Maintenance: choose <code>RetentionDays</code>, for example 30–60 instead of the default 180 if that meets your investigation needs. <b>0 disables automatic expiry.</b></td><td>Expired history is permanently deleted in small hourly batches. Large backlogs can take time; use a reviewed category purge for a major one-off reduction.</td></tr>
+        <tr><td>Backup copies</td><td>Maintenance: review <code>DatabaseBackupRetentionCount</code> (default 2) and <code>AutoDatabaseBackupIntervalHours</code> (default 72). A longer interval reduces copy frequency; fewer retained copies reduce steady disk usage.</td><td>Setting the interval to 0 stops automatic logger backups; it does not remove existing copies. Previously quarantined originals and world/migration backups require separate review. Keep a known-good recovery copy elsewhere.</td></tr>
+        <tr><td>Free pages / indexes / WAL</td><td>After a reviewed purge, consider optional compaction during maintenance. Free pages are normally reused; indexes keep queries fast. Persistent large WAL can indicate long-running readers or delayed checkpoints.</td><td>Deleting rows usually does not shrink the DB file immediately. VACUUM is I/O-heavy and needs spare disk space. Never delete live WAL/SHM files or required indexes manually.</td></tr>
+      </tbody></table></div>
+      <p><b>Recommended order:</b> measure → adjust future recording → choose retention → review and purge old categories if needed → compact only when physical disk reclamation is necessary. Export or manually copy history you need before purging. None of these recommendations changes your settings automatically.</p>
+    </details>
     <div id="adminDatabaseStorageSummary" class="dbStorageSummary"></div>
     <div class="dbStorageGraphPanel">
       <div class="dbStorageGraphHeader"><div><h3 style="margin:0 0 3px">Live SQLite + WAL</h3><div class="small">Database / WAL / SHM / Backups</div></div><div class="spacer"></div><span id="adminDatabaseStorageGraphState" class="small"></span></div>
@@ -12736,7 +12749,8 @@ async function loadProfiler(showLoading=true){
     if($('profClearTicks'))$('profClearTicks').disabled=!(p.profileSlowTicks||[]).length;
 
     const incidents=p.diagnosticIncidents||[];
-    $('incidentCount').textContent=`${incidents.length} event(s) in selected range`;
+    // World-save overlap evidence is supplied by the server's actual save observer, not inferred from event counts.
+    $('incidentCount').textContent=`${incidents.length} event(s) in selected range · ${incidents.filter(x=>Number(x.worldSaveWindowMs||0)>0).length} save-correlated (overlap, not proof of cause)`;
     if($('profClearLagSamples'))$('profClearLagSamples').disabled=!incidents.length;
     $('profIncidents').innerHTML=incidents.length
       ? incidents.slice(0,40).map(x=>{
