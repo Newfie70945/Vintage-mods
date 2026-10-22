@@ -11,9 +11,11 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
    {unixMilliseconds:20000,endUnixMilliseconds:21000,path:'/unrelated'}]}};
   const rendered=incidentWebEvidenceHtml(incident);lagIncidentDrawerPayload={incident};
   const summary=lagIncidentTextSummary();
-  return {routes,players:$('globalPlayers').textContent,health:$('globalHealth').textContent,title:$('globalHealth').title,rendered,summary,empty:incidentWebEvidenceHtml({})};
+  let copied='';operationsData={};copyText=async text=>{copied=text;};await copyQuickReport();
+  const reportRoute=routes.pop();
+  return {routes,reportRoute,copied,players:$('globalPlayers').textContent,health:$('globalHealth').textContent,title:$('globalHealth').title,rendered,summary,empty:incidentWebEvidenceHtml({})};
  });
- assert.deepEqual(result.routes,['/api/header']);assert.equal(result.players,'28');assert.equal(result.health,'85/100');assert.match(result.title,/Last calculated/);
+ assert.deepEqual(result.routes,['/api/header']);assert.equal(result.reportRoute,'/api/dashboard');assert.match(result.copied,/Players: 28/);assert.equal(result.players,'28');assert.equal(result.health,'85/100');assert.match(result.title,/Last calculated/);
  assert.match(result.rendered,/Cached bytes reused/);assert.match(result.rendered,/GC 100.0ms/);assert.match(result.rendered,/dashboard&lt;script&gt;/);assert(!result.rendered.includes('/unrelated'));assert.match(result.summary,/JSON 1.3ms, bytes reused true/);assert.match(result.empty,/No matching completed request/);assert.deepEqual(errors,[]);
  console.log('PASS lightweight header request, counters, cached score freshness, interval-filtered evidence, escaped paths, JSON/cache diagnostics and copied summary.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

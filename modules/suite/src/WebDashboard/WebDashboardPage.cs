@@ -6362,11 +6362,12 @@ function severityLabelClass(sev){
 
 async function copyQuickReport(){
   try{
-    if(!globalStatusData)await refreshGlobalStatus(true);
+    // Detailed fields are fetched only when the user requests a report.
+    const reportData=await api('/api/dashboard');
     if(!operationsData){
       try{operationsData=await api('/api/operations/overview');updateNotifications(operationsData)}catch{}
     }
-    const d=globalStatusData||{},p=d.profiler||{},pc=p.current||{},smart=p.smart||{},b=d.blockLogger||{},ops=d.operations||{};
+    const d=reportData||{},p=d.profiler||{},pc=p.current||{},smart=p.smart||{},b=d.blockLogger||{},ops=d.operations||{};
     const lines=[
       "Newfies Server Essentials Suite",
       `Version: __NSS_VERSION__`,
