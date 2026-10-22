@@ -37,6 +37,9 @@ public sealed class ServerHealthService : IDisposable
     private readonly System.Func<LogStorageService?> storageAccessor;
     private readonly Process process;
     private readonly object sync = new();
+    private readonly NetworkHandlerTimings networkTimings = new();
+    public string NetworkHandlerTimingStatus => networkTimings.Status;
+    public List<SlowNetworkHandler> GetNetworkHandlerEvidence(long start, long end, double delay) => networkTimings.Match(start, end, delay);
 
     private readonly Queue<ServerHealthSample> samples = new();
     private readonly Queue<ServerSlowSpike> slowSpikes = new();
@@ -341,6 +344,7 @@ public sealed class ServerHealthService : IDisposable
         if (enabled && sampleListenerId >= 0) return;
 
         enabled = true;
+        networkTimings.Start();
         long warmupNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         incidentSuppressionUntilUnixMilliseconds = warmupNow +
             (firstSamplingEnable ? StartupWarmupMilliseconds : ReenableWarmupMilliseconds);
@@ -364,6 +368,7 @@ public sealed class ServerHealthService : IDisposable
 
     private void StopSamplingUnsafe()
     {
+        networkTimings.Stop();
         if (sampleListenerId >= 0)
         {
             api.Event.UnregisterGameTickListener(sampleListenerId);
@@ -2720,6 +2725,7 @@ public sealed class ServerHealthService : IDisposable
             enabled = false;
             StopSamplingUnsafe();
             StopManualProfileUnsafe();
+            networkTimings.Dispose();
             process.Dispose();
         }
     }

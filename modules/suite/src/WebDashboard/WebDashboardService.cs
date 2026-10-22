@@ -11445,6 +11445,7 @@ public sealed partial class WebDashboardService : IDisposable
                     EndUnixMilliseconds = group.EndUnixMilliseconds,
                     CapturedUnixMilliseconds = now,
                     DurationSeconds = group.DurationSeconds,
+                    NetworkHandlerTimingStatus = healthService.NetworkHandlerTimingStatus,
                     Severity = group.Severity,
                     PrimaryCategory = group.PrimaryCategory,
                     Confidence = group.Confidence,
@@ -11493,6 +11494,16 @@ public sealed partial class WebDashboardService : IDisposable
         // archive write can precede profile finalization; do not freeze that gap.
         foreach (var archived in performanceCenterStore.Incidents)
         {
+            var incomingNetwork = healthService.GetNetworkHandlerEvidence(archived.StartUnixMilliseconds, archived.EndUnixMilliseconds, archived.WorstDelayMs);
+            archived.NetworkHandlers ??= new();
+            var mergedNetwork = archived.NetworkHandlers.Concat(incomingNetwork)
+                .DistinctBy(x => (x.Sequence, x.EndUnixMilliseconds)).OrderByDescending(x => x.WallMs).Take(8).ToList();
+            if (!archived.NetworkHandlers.Select(x => (x.Sequence, x.EndUnixMilliseconds)).SequenceEqual(mergedNetwork.Select(x => (x.Sequence, x.EndUnixMilliseconds))))
+            {
+                archived.NetworkHandlers = mergedNetwork;
+                archived.AttributionVersion = Math.Min(archived.AttributionVersion, 3);
+                changed = true;
+            }
             var incoming = healthService.GetIncidentProfilerEvidence(archived.StartUnixMilliseconds, archived.EndUnixMilliseconds, archived.WorstDelayMs);
             if (RefreshArchivedIncidentEvidence(archived, incoming)) changed = true;
         }
@@ -11566,7 +11577,7 @@ public sealed partial class WebDashboardService : IDisposable
         bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
             incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
             (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
-        if (archived.AttributionVersion >= 3 && !betterProfile) return false;
+        if (archived.AttributionVersion >= 4 && !betterProfile) return false;
         if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
         if (betterProfile) archived.ProfileEvidence = incoming;
         var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
@@ -11584,9 +11595,9 @@ public sealed partial class WebDashboardService : IDisposable
             MaxEntityDelta = archived.MaxEntityDelta,
             MaxChunkDelta = archived.MaxChunkDelta
         };
-        archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database);
+        archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database, archived.NetworkHandlers);
         ApplyIncidentVerdict(archived);
-        archived.AttributionVersion = 3;
+        archived.AttributionVersion = 4;
         return true;
     }
 
@@ -14049,10 +14060,20 @@ public sealed partial class WebDashboardService : IDisposable
         ServerLagIncidentGroup group,
         IReadOnlyList<ServerHealthSample> during,
         WebServerDiagnosticsSnapshot web,
-        DatabaseHealthSnapshot database)
+        DatabaseHealthSnapshot database, IReadOnlyList<SlowNetworkHandler>? network = null)
     {
         var result = new List<IncidentCauseScore>();
 
+        if (network is { Count: > 0 })
+        {
+            var handler = network.OrderByDescending(x => Math.Max(0, x.WallMs - x.GcPauseMs)).First();
+            double outsideGc = Math.Max(0, handler.WallMs - handler.GcPauseMs);
+            result.Add(new IncidentCauseScore {
+                Category = "Network handler: " + handler.Channel + " / " + handler.MessageType,
+                EvidenceKind = "Measured work", Score = IncidentProfilerMatcher.WorkScore(outsideGc, group.WorstDelayMs, 92), Confidence = "Medium",
+                Evidence = $"{handler.WallMs:0.0}ms wall time, {handler.GcPauseMs:0.0}ms coincident process GC pause; {outsideGc:0.0}ms wall time outside that pause (not CPU time). Handler {handler.Handler}, assembly {handler.Assembly}, message ID {handler.MessageId}. Includes deserialization, handler work, waits and other dispatcher patches; ownership alone does not establish a defect."
+            });
+        }
         var profile = group.ProfileEvidence;
         if (profile.HasMeasuredTicks)
         {
@@ -14149,7 +14170,8 @@ public sealed partial class WebDashboardService : IDisposable
         var measured = incident.CauseScores.Where(x => x.Score >= 40 && (x.EvidenceKind == "Measured work" || x.EvidenceKind == "Measured pause")).ToList();
         incident.AssessmentStatus = measured.Count > 1 ? "Multiple measured contributors" : measured.Count == 1 ? "Measured contributor" : best?.Category == "Insufficient evidence" ? "Insufficient evidence" : "Correlation only";
         incident.EvidenceGaps = new();
-        if (!incident.ProfileEvidence.HasMeasuredTicks) incident.EvidenceGaps.Add("No overlapping engine tick was captured; executing code cannot be reconstructed.");
+        if (incident.NetworkHandlers.Count == 0) incident.EvidenceGaps.Add("No retained custom-packet handler interval >=25ms overlaps this incident. Collection may have been disabled, unsupported or bounded history evicted; this does not rule out network work.");
+        if (!incident.ProfileEvidence.HasMeasuredTicks) incident.EvidenceGaps.Add(incident.NetworkHandlers.Count > 0 ? "No overlapping engine tick breakdown was captured; network timings cover only dispatcher intervals, not the whole tick." : "No overlapping engine tick was captured; executing code cannot be reconstructed.");
         if (!incident.GcPauseTimingAvailable) incident.EvidenceGaps.Add("GC pause timing was not recorded in this historical incident.");
         if (incident.ProfileEvidence.Ticks.Any(t => t.InstrumentedLeafMs <= 0 || t.InstrumentedLeafMs < t.TickMs * .5))
             incident.EvidenceGaps.Add("At least one captured tick lacks leaf markers covering half its duration; uninstrumented work or waits remain.");
@@ -14160,6 +14182,7 @@ public sealed partial class WebDashboardService : IDisposable
             : "No overlapping engine tick was retained. Use Incident + Profile during a repeat; after-spike captures only describe subsequent work.";
         if (measured.Count > 1) incident.NextAction = "Multiple measured contributors overlap: " + string.Join("; ", measured.Select(x => x.Category)) + ". Compare their intervals; do not add overlapping timings or assume a single culprit.";
         else if (best?.Category == "GC pause evidence") incident.NextAction = "Inspect Memory & GC around this interval and compare recurring allocation patterns. A measured pause does not identify the code allocating objects.";
+        else if (best?.Category.StartsWith("Network handler: ", StringComparison.Ordinal) == true) incident.NextAction = "Inspect the channel, message type, handler assembly and coincident GC pause below. A slow handler interval may include waits, deserialization or pauses; isolate that path before blaming or disabling a mod.";
         else if (best?.Category == "Web dashboard") incident.NextAction = "Inspect the overlapping request's main-thread work and endpoint. Queue and main-thread waits may be consequences of the stall.";
         var owned = incident.ProfileEvidence.Ticks.Where(t => !t.IsCore && !string.IsNullOrWhiteSpace(t.ModId) && t.Confidence != "Low" && IncidentProfilerMatcher.WorkScore(t.LeadingWorkMs, incident.WorstDelayMs) >= 40)
             .OrderByDescending(t => t.LeadingWorkMs).FirstOrDefault();
