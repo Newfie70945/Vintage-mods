@@ -72,4 +72,4 @@ Install **both inner mod ZIPs** from the paired download into the game server's 
 
 Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.
 
-Current Suite build: **1.2.46 · ms11-performance-center1**. See [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
+Current Suite build: **1.2.46 · ms11-evidence-quality2**. See [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.

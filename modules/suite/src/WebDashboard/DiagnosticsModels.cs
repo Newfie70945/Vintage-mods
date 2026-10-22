@@ -64,6 +64,7 @@ public sealed class WebRequestDiagnostic
 
 public sealed class IncidentCauseScore
 {
+    public string EvidenceKind { get; set; } = "Context";
     public string Category { get; set; } = "";
     public int Score { get; set; }
     public string Confidence { get; set; } = "Low";

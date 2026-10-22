@@ -61,6 +61,13 @@ internal static class IncidentProfilerMatcher
         return result;
     }
 
+    internal static int WorkScore(double workMs, double delayMs, int strong = 98)
+    {
+        if (!double.IsFinite(workMs) || workMs <= 0 || !double.IsFinite(delayMs) || delayMs < 0) return 0;
+        if (workMs >= Math.Max(50, delayMs * .25)) return strong;
+        return workMs >= Math.Max(20, delayMs * .10) ? 55 : 20;
+    }
+
     internal static int GcScore(double pauseMs, int collections, double delayMs = 0)
     {
         if (delayMs > 0 && pauseMs < Math.Max(50, delayMs * .25)) return collections > 0 || pauseMs > 0 ? 15 : 0;

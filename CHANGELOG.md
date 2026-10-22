@@ -2,10 +2,16 @@
 
 ## Server Essentials Suite 1.2.46
 
+- EvidenceQuality2: distinguish measured contributors, multiple measured contributors, correlation-only assessments and insufficient evidence in clicked spikes.
+- Label each ranked explanation by evidence type. Queue growth, event drops, entity/chunk counts, CPU and save overlap no longer rank as direct measurements of the blocking code.
+- Scale captured and web main-thread work against stall duration, so a small measured segment does not dominate a much larger unexplained stall. Suppress weak owner candidates.
+- Show explicit evidence gaps and repeated marker counts/maxima across retained ticks. Give specific guidance for measured GC, web work and multiple contributors; copied summaries include assessment/gaps.
+- Reassess archived verdicts once from retained data. Current build: `ms11-evidence-quality2`; retains all prior 1.2.46 improvements, companion versions unchanged.
+
 - Filter Performance Center spikes by severity and whether matching tick evidence was captured. Show evidence coverage and the three most frequent retained assessments; patterns do not prove a common cause.
 - Navigate directly to older/newer retained spikes from the detail drawer. Prevent late responses from overwriting a newer selection or a closed drawer.
 - Include capture state, measured GC pause and structured contributor timings/call counts in copied spike summaries.
-- Correct release identity to 1.2.46 because 1.2.45 is public. Current build: `ms11-performance-center1`; companion versions unchanged.
+- Correct release identity to 1.2.46 because 1.2.45 is public. PerformanceCenter1 foundation retained; companion versions unchanged.
 
 - SpikeDetails2: clicking a spike now shows a **What explains this spike?** summary with supporting evidence, scheduler delay, GC pause timing and world-save overlap.
 - Retain up to six structured contributors for each captured slow tick, including full marker paths, milliseconds, call counts and owner candidates. Show leaf-marker coverage and uninstrumented time separately; overlapping measurements are not added into a causal percentage.
