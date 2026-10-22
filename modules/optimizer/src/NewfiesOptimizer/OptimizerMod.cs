@@ -38,6 +38,11 @@ public sealed partial class OptimizerMod : ModSystem
         var profile = root.BeginSubCommand("profile").WithDescription("Start/stop a bounded profiler capture.");
         profile.BeginSubCommand("start").HandleWith(_ => TextCommandResult.Success(profiler.Start())).EndSubCommand();
         profile.BeginSubCommand("stop").HandleWith(_ => TextCommandResult.Success(profiler.Stop())).EndSubCommand();
+        profile.BeginSubCommand("clear").HandleWith(_ =>
+        {
+            var result = profiler.ClearCapture();
+            return result.Success ? TextCommandResult.Success(result.Message) : TextCommandResult.Error(result.Message);
+        }).EndSubCommand();
         profile.EndSubCommand();
         foreach (string command in new[] { "report", "hotspots", "entities", "chunks", "network", "gc", "benchmark", "export" })
         {
@@ -48,7 +53,7 @@ public sealed partial class OptimizerMod : ModSystem
         {
             if (config.Enabled && config.Profiling.AutoStart) api.Logger.Notification("[NewfiesOptimizer] " + profiler.Start());
         });
-        api.Logger.Notification("[NewfiesOptimizer] 0.6.0 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
+        api.Logger.Notification("[NewfiesOptimizer] 0.7.0 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
     }
 
     private string Status() => (profiler?.Status() ?? "Profiler unavailable") + "\n" + (optimizations?.Status() ?? "Engine modules unavailable");
@@ -67,7 +72,7 @@ public sealed partial class OptimizerMod : ModSystem
         {
             "report" => $"Capture {report.DurationSeconds:F1}s, completed ticks={report.Tick.Count}; effective TPS={N(report.Tick.EffectiveTps)}, average={N(report.Tick.AverageMs, "ms")}, median={N(report.Tick.MedianMs, "ms")}, P95={N(report.Tick.P95Ms, "ms")}, P99={N(report.Tick.P99Ms, "ms")}, worst={N(report.Tick.WorstMs, "ms")}. Main-thread work={N(report.Tick.MainThreadWorkPercent, "%")}. Historical samples={report.Samples.Length}, overwritten={report.SamplesOverwritten}. /optimizer export writes JSON/CSV.",
             "hotspots" => report.Hotspots.Length == 0 ? "No timed systems. Set Compatibility.SafeMode=false and enable optional Profiling.SystemTimings / PhaseTimings / CallbackTimings, then restart to collect sampled inclusive timings. Individual AI/worker/I/O costs are not inferred." : string.Join("\n", report.Hotspots.Take(12).Select(h => $"{h.Name}: {h.SampledCalls}/{h.Calls} sampled calls, average={N(h.AverageMs,"ms")}, P95={N(h.P95Ms,"ms")}, worst={N(h.WorstMs,"ms")} (inclusive)")),
-            "entities" => $"Playing clients={latest?.Players?.ToString() ?? "unavailable"}; loaded entities={latest?.LoadedEntities?.ToString() ?? "unavailable"}. Entity-loop timings are opt-in; loaded does not imply active. AI scheduling unchanged.",
+            "entities" => $"Playing clients={latest?.Players?.ToString() ?? "unavailable"}; loaded entities={latest?.LoadedEntities?.ToString() ?? "unavailable"}. Entity-loop timings are opt-in; loaded does not imply active. AI tick cadence unchanged; inspect the optional main-thread path assistance module for scheduling changes.",
             "chunks" => $"Loaded chunks={latest?.LoadedChunks?.ToString() ?? "unavailable"}; generating queued columns={latest?.GeneratingChunkColumns?.ToString() ?? "unavailable"}. Counts never clone terrain collections. Worker generation/loading/serialization and full save latency unavailable; no world I/O changes.",
             "network" => $"Last sample engine payload delta: outbound={latest?.NetworkSentBytesDelta?.ToString() ?? "unavailable"} bytes; inbound={latest?.NetworkReceivedBytesDelta?.ToString() ?? "unavailable"} bytes. TCP+UDP aggregate, not NIC traffic or per-player bandwidth. Ordering/reliability unchanged.",
             "gc" => $"Managed estimate={B(latest?.ManagedHeapBytes)}; committed={B(latest?.GcCommittedBytes)}; fragmentation={B(latest?.GcFragmentedBytes)}; private={B(latest?.PrivateMemoryBytes)}; working set={B(latest?.WorkingSetBytes)}. Last interval collections Gen0/1/2={latest?.Gc0Delta}/{latest?.Gc1Delta}/{latest?.Gc2Delta}; GC pause delta={N(latest?.GcPauseMsDelta,"ms")}. No forced GC.",

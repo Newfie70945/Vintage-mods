@@ -1,0 +1,111 @@
+{
+  "success": true,
+  "suiteVersion": "1.2.46",
+  "optimizerVersion": "0.7.0",
+  "checks": [
+    "new optimizer defaults visible through authenticated Suite bridge",
+    "nearest search switch independently applied",
+    "invalid path budget refused",
+    "running capture cannot be discarded",
+    "stopped capture released through Suite",
+    "stock dequeue-before-limit behavior reproduced on real terrain",
+    "worker leaves capped request queued",
+    "101 of 101 actual A* requests complete",
+    "real main-thread assistance respects search count",
+    "assisted path equals direct official A* for this terrain case",
+    "probe restores original optimizer settings"
+  ],
+  "modules": [
+    {
+      "name": "onlinePlayerSnapshots",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "nearbyPlayerQueries",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "bulkStreamReads",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "assetCompressionCache",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathQueueLimitFix",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathMainThreadBudget",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nearestEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "interactableEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiTaskStartDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiFilterDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "repulseDelegateReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "worldgenRequestReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "saveSnapshotRelease",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "counters": {
+    "pathWorkerLimitStops": 1,
+    "pathMainSearches": 1,
+    "pathDeferredTicks": 0,
+    "nearestEntitySearchCalls": 4,
+    "interactableEntitySearchCalls": 0,
+    "entitySearchContextsCreated": 1,
+    "saveSnapshotReferencesReleased": 0,
+    "saveSnapshotCompletions": 0,
+    "onlineSnapshotCalls": 499,
+    "nearbyQueryCalls": 0,
+    "snapshotFallbacks": 0,
+    "nearbyFallbacks": 0,
+    "snapshotFailures": 0,
+    "nearbyFailures": 0,
+    "assetCacheHits": 0,
+    "assetCacheMisses": 0,
+    "assetCacheBytes": 0,
+    "assetCacheFailures": 0,
+    "bulkReadCalls": 0,
+    "bulkReadBytes": 0,
+    "bulkReadFallbacks": 0,
+    "bulkReadFailures": 0
+  },
+  "packZipCount": 25,
+  "scope": "Copied official server, real terrain and actual A*; no clients or production TPS claims."
+}

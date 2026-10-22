@@ -1,3 +1,12 @@
+# 0.7.0 preview
+
+- Reduce entity-search garbage through independently controlled nearest/interactable search state reuse.
+- Fix worker path requests discarded at the queue processing limit.
+- Add optional bounded main-thread pathfinding assistance with a configurable observed-head wait, count cap and soft time budget. Off by default.
+- Add stopped-capture reference release through `/optimizer profile clear` and Suite controls; preserve exported reports and refuse active-capture removal.
+- Add Suite settings, actual module states and search/path counters. Stock entity tick cadence, AI decisions and A* are retained; no forced GC or global GC-mode changes.
+- See performance-0.7.0.md for validation scope. Preview improvements require testing on representative player workloads.
+
 # 0.6.0 engine-patch preview
 
 - Added independent AI task-start callback allocation reduction; stock transitions and all veto callbacks are preserved.

@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -77,6 +77,17 @@ static class Checks
   Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"dispose removes own patches");
   foreign.Patch(StreamCopyOptimizations.ReadConflictTargets[1],prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().Single(x=>x.Name=="bulkStreamReads").Status=="conflict","dependent accessor conflict blocks copy");
+  foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(EntitySearchOptimizations.WalkTarget,prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+  {
+   Assert(module.Modules().Single(x=>x.Name=="nearestEntitySearch").Status=="conflict","foreign partition walker blocks nearest replacement");
+   Assert(module.Modules().Single(x=>x.Name=="interactableEntitySearch").Status=="conflict","foreign partition walker blocks interactable replacement");
+  }
+  foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(PathQueueOptimizations.WorkerTarget,prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   Assert(module.Modules().Single(x=>x.Name=="pathQueueLimitFix").Status=="conflict","foreign path queue patch blocks queue replacement");
   foreign.UnpatchAll(foreign.Id);
   foreign.Patch(AiTaskStartOptimizations.Target,prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))

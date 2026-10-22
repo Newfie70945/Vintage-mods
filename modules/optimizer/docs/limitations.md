@@ -10,3 +10,9 @@
 - Component fixture and byte-copy microbenchmarks establish narrow method behavior and costs. They do not simulate authenticated players, sockets, chunk delivery, AI, inventories, block edits or a modded production workload.
 - Headless save/load checks do not establish graphical client correctness or modpack-wide compatibility. A staging rollout and matched workload are still needed.
 - The supplied external Stratum capture is one run on different hardware/runtime. Its sample counts are not method invocation counts and cannot establish NOS-versus-Stratum performance.
+
+## 0.7.0 scope
+
+The optional main-thread path assistance module changes path scheduling. It is off by default. Its grace period starts when the same queue head is first observed; it is not a per-task enqueue age. A single A* search is non-preemptible and may exceed the soft budget. Different creature types are passed to stock A*. It does not implement walkability memoization, closed-region path caching, food-search jitter, shared shape hydration, entity sleeping or reduced AI tick cadence.
+
+GC pressure is addressed through allocation reduction and explicit stopped-report reference release. NOS does not force collections, compact the heap, change GC latency modes, impose heap limits or guarantee immediate RSS reduction. Component allocation savings and real-terrain correctness are not multiplayer performance claims.

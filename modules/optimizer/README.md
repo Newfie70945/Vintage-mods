@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.6.0 preview
+# Newfie's Server Optimizer 0.7.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -6,6 +6,10 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 
 | Module | Change | Correctness boundary |
 | --- | --- | --- |
+| Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
+| Interactable-entity search reuse | Reuses composed search/filter state | Same interactability and caller-filter order; independently switchable |
+| Path worker limit fix | Checks the request cap before dequeuing | Prevents dropping one request at the cap; stock A* unchanged |
+| Main-thread path assistance (opt-in) | Defers help until an observed head wait, then limits searches and elapsed work | Changes scheduling; a single search cannot be interrupted and may exceed the soft budget |
 | Generation request reuse | Removes per-lookup closures from indexed generation requests | Original queue order, pass escalation and priority retained |
 | Completed save snapshot release | Releases saved chunk references after successful background saves | Existing save lock, retry inputs and transactions retained |
 | AI filter dispatch | Removes invocation-list arrays while preserving every veto callback and its order | No AI decision, priority, task or tick-frequency change |
@@ -15,14 +19,15 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 | Bulk stream reads | Uses a bulk byte copy for eligible reads of 256 bytes or more | Invalid ranges, aliased buffers, derived streams and unusual layouts run the original method |
 | Server-assets compression cache | Reuses compressed output for unchanged server-assets bytes | Independent send buffers, source/compressor checks and bounded memory; stock compression handles other packets |
 
-Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. These modules do not change simulation ranges, AI schedules, physics rules, packet ordering, terrain algorithms or save scheduling.
+Temporary player-query lists retain no player references between calls and have a 4,096-client capacity ceiling. Larger calls use the stock implementation. The allocation modules do not change simulation ranges, AI tick cadence, physics rules, packet ordering, terrain algorithms or save scheduling. The separately enabled path-assistance module changes which thread handles waiting paths and when; it is off by default.
 
 ## Install and controls
 
 1. Back up, then install the single optimizer ZIP on a staging server. Clients do not need it.
 2. Start the server and run `/optimizer modules` to verify which modules actually activated.
 3. Open Suite → Optimizations → Newfies Server Optimizer to save/apply switches immediately. Manual optimizer.json edits require a server restart.
-4. Capture a representative workload with `/optimizer profile start`, `/optimizer profile stop` and `/optimizer export`.
+4. Use `/optimizer profile clear` or **Release Stopped Capture** to release a stopped report without deleting exports or forcing GC.
+5. Capture a representative workload with `/optimizer profile start`, `/optimizer profile stop` and `/optimizer export`.
 
 ```json
 {
@@ -88,3 +93,5 @@ Entity/AI hot paths run with profiling OFF. Suite 1.2.47 exposes independent `Ai
 `AiTaskStartDispatch` accelerates explicit `AiTaskManager.ExecuteTask` API requests (used by commands/mods), not the normal `StartNewTasks` selection loop. It removes the invocation-list array and LINQ enumerator from the official task-start veto loop. Every handler still runs in order, with the same task/previous-task arguments, veto aggregation, subscription snapshot and exception behavior. The stock transition code remains in place. Independent Suite control, exact-engine guards, changed-IL rejection, foreign-owner checks and stock fallback apply. It does no scheduling, distance throttling or task removal.
 
 See [modpack validation and measurements](docs/performance-0.6.0.md). All six Suite modules and the selected third-party pack are checked for enabled state by the laboratory runner; this does not establish authenticated-player capacity or exercise every feature of every loaded mod.
+
+See [0.7.0 validation and limits](docs/performance-0.7.0.md) for component measurements, real-terrain tests and the Opttage Path review.

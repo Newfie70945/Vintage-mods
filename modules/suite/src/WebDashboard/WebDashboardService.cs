@@ -8624,7 +8624,7 @@ public sealed partial class WebDashboardService : IDisposable
         if (path == "/api/optimizations/newfies" && (request.Method == "GET" || request.Method == "POST"))
         {
             string operation = request.Method == "GET" ? "get" : GetJsonString(request.Body, "operation", "set");
-            if (operation is not ("get" or "set" or "profile-start" or "profile-stop" or "export"))
+            if (operation is not ("get" or "set" or "profile-start" or "profile-stop" or "export" or "capture-clear"))
             {
                 await WriteJsonAsync(stream, 400, new { error = "Unsupported optimizer operation." }, cancellationToken).ConfigureAwait(false);
                 return;

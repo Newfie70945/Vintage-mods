@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.6.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.7.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -11,6 +11,7 @@ All commands require `controlserver`; console commands use `/optimizer ...`.
 | `/optimizer status` | State, errors, conflicts, evidence problems and latest export |
 | `/optimizer profile start` | Begin a new bounded capture; refuses to discard a running one |
 | `/optimizer profile stop` | Freeze capture, remove profiling hooks and optionally export |
+| `/optimizer profile clear` | Release a stopped report and lookup references; exported files remain, no forced GC |
 | `/optimizer report` | Tick summary and sample-retention information |
 | `/optimizer hotspots` | Top 12 sampled inclusive methods, when detailed timing was explicitly enabled |
 | `/optimizer entities` | Actual Playing-session and loaded-entity counts |
@@ -51,7 +52,7 @@ Captures remain in memory after stop for inspection. Starting another capture re
 | `Benchmarking.PresenceIntervalSeconds` | `10` | Heartbeat interval, clamped 5–60, limited to 200 Playing sessions per pass |
 | `Benchmarking.RunId` | empty | Optional test correlation string, limited to 128 characters |
 
-`EntityOptimization`, `ChunkOptimization`, `BlockEntities`, `MemoryManagement`, `Networking`, and `Scheduling` each have `Enabled=false`. These sections reserve the requested configuration structure for future measured research. **They do not implement an optimization**, and setting true reports `notImplemented` instead of changing gameplay. `Dashboard.Enabled` is similarly reserved: the dashboard is a separate local tool reading exported files; the mod creates no HTTP listener.
+The legacy `EntityOptimization`, `ChunkOptimization`, `BlockEntities`, `MemoryManagement`, `Networking`, and `Scheduling` sections reserve broad research flags; their `Enabled` values do not enable engine patches. Use the explicit `EngineOptimizations` switches and actual module states. Entity, memory and scheduling summaries now explain the limited implemented scope. `Dashboard.Enabled` remains reserved; the mod creates no HTTP listener.
 
 ## Measurement semantics
 
@@ -124,3 +125,19 @@ These settings belong to the Suite's `NewfiesWebServer.json`, not `optimizer.jso
 - `AllowSameMinorGameModUpdates`: false by default. Mods → **Allow earlier same-version patches** explicitly allows releases tagged for earlier stable patches of the same major/minor version (for example 1.22.0 on 1.22.7). This is broader than exact compatibility. Review the mod author's notes. ZIP identity, version, archive safety, dependency checks, backup and restart staging still apply; no newer/other major-minor game versions are queried and no downgrades are staged.
 
 Floral Zones uses PascalCase `ModID`/`Version`/`Dependencies`; the Suite now accepts these with the same casing tolerance as the game. Ambiguous duplicate fields are rejected. Some Forgotten Armory releases have earlier game-patch tags; their availability can depend on the explicit compatibility choice above.
+
+## Entity allocation and path queue controls (0.7.0)
+
+| EngineOptimizations setting | Default | Scope |
+| --- | --- | --- |
+| NearestEntitySearch | true | Reuse search state; stock server partition traversal retained |
+| InteractableEntitySearch | true | Reuse interactable/filter search state independently |
+| PathQueueLimitFix | true | Prevent dequeueing an extra worker request at its cap |
+| PathMainThreadBudget | false | Experimental bounded main-thread assistance; worker remains active |
+| PathMainThreadBudgetMs | 2 | Soft elapsed-work limit, 1–10 ms; one search may exceed it |
+| PathMainThreadMaxSearches | 1 | Maximum searches per assistance callback, 1–8 |
+| PathMainThreadGraceMs | 300 | Same queue head must have been observed for this long, 0–5000 ms |
+
+The grace period measures how long the same head has been observed, not its original enqueue timestamp. A worker advancing the queue can reset it. This conservative policy can delay paths; compare behavior under your actual animal workload before enabling. The helper passes each request's creature type to official A*.
+
+Search scratch state is checked out per thread and cleared in finally, including errors. Nested searches use a separate temporary context; only one idle context per thread is retained. No entity, position or filter references remain in idle state. Disable/reapply invalidates scratch generations. Completed report release removes references; the GC decides when memory is collected or returned to the OS. NOS does not call GC.Collect, compact the heap or alter process-wide GC modes.

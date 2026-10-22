@@ -1,4 +1,4 @@
-# Implementation status: 0.6.0 preview
+# Implementation status: 0.7.0 preview
 
 NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 

@@ -54,7 +54,7 @@ def main() -> int:
     tests_run: list[str] = []
     if not args.skip_tests:
         for test in sorted((ROOT / "tests").glob("**/*.csproj")):
-            if test.parent.name in {"SuiteIntegrationProbe", "StorageBenchmarkProbe", "ModpackBenchmarkProbe"}: continue
+            if test.parent.name in {"SuiteIntegrationProbe", "StorageBenchmarkProbe", "ModpackBenchmarkProbe", "EntitySuiteProbe"}: continue
             run([args.dotnet, "run", "--project", str(test), "-c", "Release"], env)
             tests_run.append(str(test.relative_to(ROOT)))
         # Discovery is deliberately scoped: the independently runnable tools own their test suites.
@@ -76,7 +76,7 @@ def main() -> int:
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
-        for name in ("README.md", "docs/configuration.md", "docs/limitations.md"):
+        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.7.0.md"):
             path = ROOT / name
             if path.is_file():
                 archive.write(path, "guides/" + path.name)

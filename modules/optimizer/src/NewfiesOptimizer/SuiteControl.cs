@@ -11,13 +11,22 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.6.0", success = true,
+        available = true, protocol = 1, version = "0.7.0", success = true,
         profiling = profiler?.IsRunning ?? false,
+        captureAvailable = profiler?.Session != null,
+        capabilities = new[] { "capture-clear", "entity-search-reuse" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
             worldgenRequestReuse = currentConfig.EngineOptimizations.WorldgenRequestReuse,
             saveSnapshotRelease = currentConfig.EngineOptimizations.SaveSnapshotRelease,
+            pathQueueLimitFix = currentConfig.EngineOptimizations.PathQueueLimitFix,
+            pathMainThreadBudget = currentConfig.EngineOptimizations.PathMainThreadBudget,
+            pathMainThreadBudgetMs = currentConfig.EngineOptimizations.PathMainThreadBudgetMs,
+            pathMainThreadMaxSearches = currentConfig.EngineOptimizations.PathMainThreadMaxSearches,
+            pathMainThreadGraceMs = currentConfig.EngineOptimizations.PathMainThreadGraceMs,
+            nearestEntitySearch = currentConfig.EngineOptimizations.NearestEntitySearch,
+            interactableEntitySearch = currentConfig.EngineOptimizations.InteractableEntitySearch,
             aiTaskStartDispatch = currentConfig.EngineOptimizations.AiTaskStartDispatch,
             aiFilterDispatch = currentConfig.EngineOptimizations.AiFilterDispatch,
             repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
@@ -42,6 +51,9 @@ public sealed partial class OptimizerMod
                 case "profile-start": message=profiler?.Start() ?? "Profiler unavailable."; success=profiler?.IsRunning==true; break;
                 case "profile-stop": message=profiler?.Stop() ?? "Profiler unavailable."; break;
                 case "export": message=profiler?.QueueExport() ?? "Profiler unavailable."; break;
+                case "capture-clear":
+                    var cleared = profiler?.ClearCapture() ?? (Success: false, Message: "Profiler unavailable.");
+                    success = cleared.Success; message = cleared.Message; break;
                 default: throw new ArgumentException("Unsupported optimizer operation.");
             }
         }
@@ -67,6 +79,13 @@ public sealed partial class OptimizerMod
                 case "safeMode": candidate.Compatibility.SafeMode=B(); break;
                 case "worldgenRequestReuse": candidate.EngineOptimizations.WorldgenRequestReuse=B(); break;
                 case "saveSnapshotRelease": candidate.EngineOptimizations.SaveSnapshotRelease=B(); break;
+                case "pathQueueLimitFix": candidate.EngineOptimizations.PathQueueLimitFix=B(); break;
+                case "pathMainThreadBudget": candidate.EngineOptimizations.PathMainThreadBudget=B(); break;
+                case "pathMainThreadBudgetMs": candidate.EngineOptimizations.PathMainThreadBudgetMs=N(1,10); break;
+                case "pathMainThreadMaxSearches": candidate.EngineOptimizations.PathMainThreadMaxSearches=N(1,8); break;
+                case "pathMainThreadGraceMs": candidate.EngineOptimizations.PathMainThreadGraceMs=N(0,5000); break;
+                case "nearestEntitySearch": candidate.EngineOptimizations.NearestEntitySearch=B(); break;
+                case "interactableEntitySearch": candidate.EngineOptimizations.InteractableEntitySearch=B(); break;
                 case "aiTaskStartDispatch": candidate.EngineOptimizations.AiTaskStartDispatch=B(); break;
                 case "aiFilterDispatch": candidate.EngineOptimizations.AiFilterDispatch=B(); break;
                 case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
