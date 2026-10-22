@@ -79,3 +79,56 @@ cache.Clear();
 counts = System.Text.Json.JsonSerializer.SerializeToElement(cache.GetDiagnostics());
 Check(counts.GetProperty("entries").GetInt32() == 0 && counts.GetProperty("clears").GetInt64() == 1, "cleanup counters distinguish lifetime activity from retained entries");
 Console.WriteLine("PASS: cache diagnostics report coalesced reads, failed refreshes and cleared retained entries.");
+
+var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+var counted = new CountingPayload();
+var serialized = new SerializedSnapshot(counted);
+var concurrentBytes = await Task.WhenAll(Enumerable.Range(0, 64).Select(index => Task.Run(() => serialized.GetBytes(options, out _))));
+Check(counted.Reads == 1 && concurrentBytes.All(x => ReferenceEquals(x, concurrentBytes[0])), "concurrent snapshot readers must share one serialized body");
+counted.Value = "changed";
+Check(ReferenceEquals(serialized.GetBytes(options, out bool reused), concurrentBytes[0]) && reused, "existing snapshot must retain its byte identity");
+var replacement = new SerializedSnapshot(counted).GetBytes(options, out bool firstReuse);
+Check(!firstReuse && System.Text.Encoding.UTF8.GetString(replacement).Contains("changed"), "new snapshot must serialize independently after invalidation");
+var huge = new SerializedSnapshot(new { text = new string('x', SerializedSnapshot.MaxRetainedBytes + 1) });
+var huge1 = huge.GetBytes(options, out _);
+var huge2 = huge.GetBytes(options, out var hugeReused);
+Check(!hugeReused && !ReferenceEquals(huge1, huge2), "oversized responses must bypass byte retention");
+var flakyPayload = new CountingPayload { Throw = true };
+var flaky = new SerializedSnapshot(flakyPayload);
+try { flaky.GetBytes(options, out _); throw new Exception("expected serialization failure"); } catch (InvalidOperationException) { }
+flakyPayload.Throw = false;
+Check(flaky.GetBytes(options, out _).Length > 0, "failed serialization must release lock and allow retry");
+var benchPayload = new { text = new string('x', 25000) };
+var bench = new SerializedSnapshot(benchPayload);
+bench.GetBytes(options, out _);
+long allocated = GC.GetAllocatedBytesForCurrentThread();
+for (int i = 0; i < 1000; i++) bench.GetBytes(options, out _);
+long cachedAllocation = GC.GetAllocatedBytesForCurrentThread() - allocated;
+allocated = GC.GetAllocatedBytesForCurrentThread();
+for (int i = 0; i < 1000; i++) System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(benchPayload, options);
+long uncachedAllocation = GC.GetAllocatedBytesForCurrentThread() - allocated;
+Check(cachedAllocation < uncachedAllocation / 10, "snapshot byte reuse must materially reduce repeated serialization allocations");
+Console.WriteLine($"PASS: shared serialization, refreshed identity, bounded bytes, failure retry; 1000 warm reads allocated {cachedAllocation:N0} B vs {uncachedAllocation:N0} B uncached.");
+
+WebRequestDiagnostic Request(long start, long end, double wall, double gc = 0) => new()
+{
+    UnixMilliseconds = start, EndUnixMilliseconds = end,
+    WorkWindows = new() { new() { StartUnixMilliseconds = start, EndUnixMilliseconds = end, WallMilliseconds = wall, GcPauseMilliseconds = gc } }
+};
+var overlapping = Request(9500, 10300, 800, 600);
+Check(WebIncidentEvidence.WorkMilliseconds(overlapping, 10000, 11000, 500) == 200, "coincident GC must be discounted from callback evidence");
+Check(WebIncidentEvidence.WorkMilliseconds(Request(20000, 21000, 1000), 10000, 11000, 500) == 0, "unrelated callback must not be blamed");
+Check(WebIncidentEvidence.WorkMilliseconds(new() { MainThreadWorkMilliseconds = 10000 }, 10000, 11000, 500) == 0, "old aggregate-only work must remain correlation, not measured overlap");
+var spanning = new WebRequestDiagnostic { UnixMilliseconds = 100, EndUnixMilliseconds = 11000, QueueWaitMilliseconds = 10900 };
+Check(WebIncidentEvidence.Select(new[] { spanning }, 10000, 11000, 500).Count == 1, "long-running request must match by interval, not start proximity");
+Check(WebIncidentEvidence.WorkMilliseconds(spanning, 10000, 11000, 500) == 0, "queue wait must not be executing work");
+Check(WebIncidentEvidence.Select(Enumerable.Range(0, 30).Select(i => new WebRequestDiagnostic { RequestId = i, UnixMilliseconds = 10000, EndUnixMilliseconds = 11000 }), 10000, 11000, 500).Count == 8, "incident web evidence must be bounded");
+Console.WriteLine("PASS: interval matching, GC discount, legacy evidence, wait-only requests and retained evidence bounds.");
+
+sealed class CountingPayload
+{
+    public int Reads;
+    public bool Throw;
+    public string Value = "original";
+    public string Text { get { Interlocked.Increment(ref Reads); if (Throw) throw new InvalidOperationException("expected"); return Value; } }
+}

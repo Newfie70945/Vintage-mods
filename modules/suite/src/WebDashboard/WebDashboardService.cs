@@ -403,6 +403,8 @@ public sealed partial class WebDashboardService : IDisposable
     private readonly Dictionary<string, WebEndpointMetricsState> webEndpointMetrics =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<WebRequestDiagnostic> recentWebRequests = new();
+    private long webRequestSequence;
+    private long archivedWebRequestCount;
     private long webTotalRequests;
     private long webErrorResponses;
     private long webUnauthorizedResponses;
@@ -3799,7 +3801,7 @@ public sealed partial class WebDashboardService : IDisposable
         path is not ("/api/login" or "/api/logout" or "/api/auth/login" or "/api/auth/logout");
 
     internal static bool CacheAffectedByMutation(string key, string path) =>
-        key is "live" or "dashboard" ||
+        key is "live" or "dashboard" or "header" ||
         (key.StartsWith("anticheat", StringComparison.Ordinal) && path.StartsWith("/api/anticheat", StringComparison.Ordinal)) ||
         (key == "discord-status" && path.StartsWith("/api/discord", StringComparison.Ordinal)) ||
         (key.StartsWith("performance-", StringComparison.Ordinal) &&
@@ -4636,7 +4638,7 @@ public sealed partial class WebDashboardService : IDisposable
             var payload = await GetCachedMainThreadReadAsync(
                 "server-status-" + days, 15000,
                 () => BuildServerStatusSnapshot(days),
-                "web-server-status").ConfigureAwait(false);
+                "web-server-status", serializeOnce: true).ConfigureAwait(false);
             await WriteJsonAsync(stream, 200, payload, cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -6355,6 +6357,14 @@ public sealed partial class WebDashboardService : IDisposable
                 new { success = true },
                 cancellationToken,
                 clearCookie: true).ConfigureAwait(false);
+            return;
+        }
+
+        if (request.Method == "GET" && path == "/api/header")
+        {
+            var payload = await GetCachedMainThreadReadAsync("header", 2000, BuildHeaderSnapshot,
+                "web-header-status", serializeOnce: true).ConfigureAwait(false);
+            await WriteJsonAsync(stream, 200, payload, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -10569,10 +10579,10 @@ public sealed partial class WebDashboardService : IDisposable
             return Task.FromResult(BuildTerrainExportDashboardFallback());
         }
         return GetCachedMainThreadReadAsync("dashboard", config.DashboardSnapshotMaxAgeMs,
-            BuildDashboardSnapshot, "web-dashboard-status");
+            BuildDashboardSnapshot, "web-dashboard-status", serializeOnce: true);
     }
 
-    private Task<object> GetCachedMainThreadReadAsync(string key, int maxAgeMs, Func<object> builder, string taskCode)
+    private Task<object> GetCachedMainThreadReadAsync(string key, int maxAgeMs, Func<object> builder, string taskCode, bool serializeOnce = false)
     {
         var task = snapshotCache.GetAsync(key, maxAgeMs, async () =>
         {
@@ -10583,7 +10593,7 @@ public sealed partial class WebDashboardService : IDisposable
                 return builder();
             }, taskCode, skipIfTimedOut: true).ConfigureAwait(false);
             Interlocked.Increment(ref webSnapshotRefreshes);
-            return payload;
+            return serializeOnce ? new SerializedSnapshot(payload) : payload;
         }, out bool servedCached,
         ex => api.Logger.Debug("[WebDashboard] cached read refresh {0} skipped: {1}: {2}",
             key, ex.GetType().Name, ex.Message),
@@ -10599,6 +10609,25 @@ public sealed partial class WebDashboardService : IDisposable
         // builders from publishing a fresh result after a mutation. Refresh only
         // requested pages; a write need not schedule unrelated diagnostic work.
         snapshotCache.Invalidate();
+    }
+
+    private object BuildHeaderSnapshot()
+    {
+        var storage = module.Storage;
+        int activeAlerts;
+        lock (operationsLock)
+            activeAlerts = operationsCenterStore.Alerts.Count(x => x.Status is "Active" or "Investigating");
+        return new
+        {
+            playersOnline = api.World.AllOnlinePlayers?.Length ?? 0,
+            profiler = module.ServerHealth?.GetHeaderState(),
+            blockLogger = storage == null ? null : new
+            {
+                pending = storage.PendingEvents, dropped = storage.DroppedEvents,
+                overflowRejected = storage.OverflowRejectedEvents, writerMs = storage.LastBatchElapsedMs
+            },
+            operations = new { activeAlerts }
+        };
     }
 
     private object BuildDashboardSnapshot()
@@ -11500,8 +11529,31 @@ public sealed partial class WebDashboardService : IDisposable
 
         // Enrich archived incidents after a relevant capture completes. The first
         // archive write can precede profile finalization; do not freeze that gap.
+        List<WebRequestDiagnostic>? incomingWeb = null;
+        lock (webMetricsLock)
+        {
+            if (archivedWebRequestCount != webTotalRequests)
+            {
+                incomingWeb = recentWebRequests.ToList();
+                archivedWebRequestCount = webTotalRequests;
+            }
+        }
         foreach (var archived in performanceCenterStore.Incidents)
         {
+            archived.WebServer ??= new();
+            archived.WebServer.RecentSlowRequests ??= new();
+            if (incomingWeb != null && now - archived.EndUnixMilliseconds <= 600_000)
+            {
+                var merged = WebIncidentEvidence.Select(archived.WebServer.RecentSlowRequests.Concat(incomingWeb),
+                    archived.StartUnixMilliseconds, archived.EndUnixMilliseconds, archived.WorstDelayMs);
+                if (!archived.WebServer.RecentSlowRequests.Select(x => (x.RequestId, x.UnixMilliseconds, x.EndUnixMilliseconds))
+                    .SequenceEqual(merged.Select(x => (x.RequestId, x.UnixMilliseconds, x.EndUnixMilliseconds))))
+                {
+                    archived.WebServer.RecentSlowRequests = merged;
+                    archived.AttributionVersion = Math.Min(archived.AttributionVersion, 4);
+                    changed = true;
+                }
+            }
             var incomingNetwork = healthService.GetNetworkHandlerEvidence(archived.StartUnixMilliseconds, archived.EndUnixMilliseconds, archived.WorstDelayMs);
             archived.NetworkHandlers ??= new();
             var mergedNetwork = archived.NetworkHandlers.Concat(incomingNetwork)
@@ -11585,7 +11637,7 @@ public sealed partial class WebDashboardService : IDisposable
         bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
             incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
             (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
-        if (archived.AttributionVersion >= 4 && !betterProfile) return false;
+        if (archived.AttributionVersion >= 5 && !betterProfile) return false;
         if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
         if (betterProfile) archived.ProfileEvidence = incoming;
         var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
@@ -11605,7 +11657,7 @@ public sealed partial class WebDashboardService : IDisposable
         };
         archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database, archived.NetworkHandlers);
         ApplyIncidentVerdict(archived);
-        archived.AttributionVersion = 4;
+        archived.AttributionVersion = 5;
         return true;
     }
 
@@ -13891,6 +13943,9 @@ public sealed partial class WebDashboardService : IDisposable
         double queueWait;
         double mainWait;
         double mainWork;
+        double serialization;
+        bool serializedReused;
+        List<WebMainThreadWorkDiagnostic> workWindows;
         lock (metric.Sync)
         {
             status = metric.StatusCode;
@@ -13898,6 +13953,9 @@ public sealed partial class WebDashboardService : IDisposable
             queueWait = metric.QueueWaitMilliseconds;
             mainWait = metric.MainThreadWaitMilliseconds;
             mainWork = metric.MainThreadWorkMilliseconds;
+            serialization = metric.SerializationMilliseconds;
+            serializedReused = metric.SerializedSnapshotReused;
+            workWindows = metric.WorkWindows.ToList();
         }
 
         if (status <= 0)
@@ -13910,11 +13968,16 @@ public sealed partial class WebDashboardService : IDisposable
 
         var row = new WebRequestDiagnostic
         {
+            RequestId = Interlocked.Increment(ref webRequestSequence),
             UnixMilliseconds = metric.UnixMilliseconds,
             Method = metric.Method,
             Path = metric.Path,
             StatusCode = status,
             ResponseBytes = responseBytes,
+            EndUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            SerializationMilliseconds = serialization,
+            SerializedSnapshotReused = serializedReused,
+            WorkWindows = workWindows,
             TotalMilliseconds = totalMs,
             QueueWaitMilliseconds = queueWait,
             MainThreadWaitMilliseconds = mainWait,
@@ -14114,10 +14177,10 @@ public sealed partial class WebDashboardService : IDisposable
                 : $"Queue max {group.MaxBlockLoggerQueue:N0}; writer max {group.MaxBlockLoggerWriterMs:N0}ms; query P95 {database.P95QueryMilliseconds:0.0}ms; dropped {group.BlockLoggerDropped:N0}."
         });
 
-        var nearbyWeb = web.RecentSlowRequests
-            .Where(x => x.UnixMilliseconds >= group.StartUnixMilliseconds - 1000L - (long)group.WorstDelayMs && x.UnixMilliseconds <= group.EndUnixMilliseconds)
-            .ToList();
-        double webMainWork = nearbyWeb.Count == 0 ? 0 : nearbyWeb.Max(x => x.MainThreadWorkMilliseconds);
+        var nearbyWeb = WebIncidentEvidence.Select(web.RecentSlowRequests,
+            group.StartUnixMilliseconds, group.EndUnixMilliseconds, group.WorstDelayMs);
+        double webMainWork = nearbyWeb.Select(x => WebIncidentEvidence.WorkMilliseconds(x,
+            group.StartUnixMilliseconds, group.EndUnixMilliseconds, group.WorstDelayMs)).DefaultIfEmpty().Max();
         double webMainWait = nearbyWeb.Count == 0 ? 0 : nearbyWeb.Max(x => x.MainThreadWaitMilliseconds);
         double webQueueWait = nearbyWeb.Count == 0 ? 0 : nearbyWeb.Max(x => x.QueueWaitMilliseconds);
         int webScore = webMainWork >= 20 ? IncidentProfilerMatcher.WorkScore(webMainWork, group.WorstDelayMs, 80) : webQueueWait >= 500 ? 25 : nearbyWeb.Any(x => x.TotalMilliseconds >= 500) ? 20 : 5;
@@ -14129,7 +14192,7 @@ public sealed partial class WebDashboardService : IDisposable
             Confidence = nearbyWeb.Count > 0 ? "Medium" : "Low",
             Evidence = nearbyWeb.Count == 0
                 ? "No slow/error web request was recorded near this incident."
-                : $"{nearbyWeb.Count} slow/error web request(s) nearby; max worker-queue wait {webQueueWait:0.0}ms, max main-thread work {webMainWork:0.0}ms, max main-thread wait {webMainWait:0.0}ms."
+                : $"{nearbyWeb.Count} completed web request(s) overlap the sampling window; max worker-queue wait {webQueueWait:0.0}ms, max overlapping callback wall time excluding coincident GC {webMainWork:0.0}ms, max main-thread wait {webMainWait:0.0}ms."
         });
 
         int gcScore = IncidentProfilerMatcher.GcScore(group.GcPauseMs, group.Gen2Collections, group.WorstDelayMs);
@@ -14304,34 +14367,51 @@ public sealed partial class WebDashboardService : IDisposable
                     }
                 }
 
+                long workUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                TimeSpan gcPauseStarted = GC.GetTotalPauseDuration();
                 var workStopwatch = Stopwatch.StartNew();
+                T result = default!;
+                Exception? workError = null;
                 try
                 {
                     if (disposed) throw new ObjectDisposedException(nameof(WebDashboardService));
-                    T result = action();
+                    result = action();
                     // A timed-out write can still finish. Refresh affected views when it does,
                     // while the route lease continues to protect the real operation lifetime.
                     if (Volatile.Read(ref responseTimedOut) != 0 && requestMetric is { Method: not "GET" } &&
                         !Equals(result?.GetType().GetProperty("Success", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(result), false))
                         snapshotCache.Invalidate(key => CacheAffectedByMutation(key, requestMetric.Path));
-                    tcs.TrySetResult(result);
                 }
                 catch (Exception ex)
                 {
-                    tcs.TrySetException(ex);
+                    workError = ex;
                 }
                 finally
                 {
                     workStopwatch.Stop();
+                    long workEndedUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    double workGcPause = Math.Max(0, (GC.GetTotalPauseDuration() - gcPauseStarted).TotalMilliseconds);
                     workLease?.Dispose();
                     if (requestMetric != null)
                     {
                         lock (requestMetric.Sync)
                         {
                             requestMetric.MainThreadWorkMilliseconds += workStopwatch.Elapsed.TotalMilliseconds;
+                            if (requestMetric.WorkWindows.Count < 8)
+                                requestMetric.WorkWindows.Add(new WebMainThreadWorkDiagnostic
+                                {
+                                    StartUnixMilliseconds = workUnix,
+                                    EndUnixMilliseconds = workEndedUnix,
+                                    WallMilliseconds = workStopwatch.Elapsed.TotalMilliseconds,
+                                    GcPauseMilliseconds = workGcPause
+                                });
                         }
                     }
                 }
+                // Publish only after timing is complete: HTTP continuations can
+                // otherwise finish before finally records this callback's work.
+                if (workError != null) tcs.TrySetException(workError);
+                else tcs.TrySetResult(result);
             },
             taskCode);
         }
@@ -14895,8 +14975,20 @@ public sealed partial class WebDashboardService : IDisposable
         string? setCookie = null,
         bool clearCookie = false)
     {
-        byte[] body = JsonSerializer.SerializeToUtf8Bytes(value, jsonOptions);
+        long serializationStarted = Stopwatch.GetTimestamp();
+        bool reused = false;
+        byte[] body = value is SerializedSnapshot serialized
+            ? serialized.GetBytes(jsonOptions, out reused)
+            : JsonSerializer.SerializeToUtf8Bytes(value, jsonOptions);
         var metric = requestMetricContext.Value;
+        if (metric != null)
+        {
+            lock (metric.Sync)
+            {
+                metric.SerializationMilliseconds += Stopwatch.GetElapsedTime(serializationStarted).TotalMilliseconds;
+                metric.SerializedSnapshotReused |= reused;
+            }
+        }
         if (metric != null && metric.Method != "GET")
         {
             using var response = JsonDocument.Parse(body);
@@ -15105,6 +15197,9 @@ public sealed partial class WebDashboardService : IDisposable
         public long ResponseBytes { get; set; }
         public double MainThreadWaitMilliseconds { get; set; }
         public double MainThreadWorkMilliseconds { get; set; }
+        public double SerializationMilliseconds { get; set; }
+        public bool SerializedSnapshotReused { get; set; }
+        public List<WebMainThreadWorkDiagnostic> WorkWindows { get; } = new();
     }
 
     private sealed record QueuedWebClient(TcpClient Client, long AcceptedTimestamp);

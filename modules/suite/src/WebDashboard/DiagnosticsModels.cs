@@ -48,9 +48,22 @@ public sealed class WebEndpointDiagnostic
     public double AverageQueueWaitMilliseconds { get; set; }
 }
 
+public sealed class WebMainThreadWorkDiagnostic
+{
+    public long StartUnixMilliseconds { get; set; }
+    public long EndUnixMilliseconds { get; set; }
+    public double WallMilliseconds { get; set; }
+    public double GcPauseMilliseconds { get; set; }
+}
+
 public sealed class WebRequestDiagnostic
 {
+    public long RequestId { get; set; }
     public long UnixMilliseconds { get; set; }
+    public long EndUnixMilliseconds { get; set; }
+    public double? SerializationMilliseconds { get; set; }
+    public bool SerializedSnapshotReused { get; set; }
+    public List<WebMainThreadWorkDiagnostic> WorkWindows { get; set; } = new();
     public string Method { get; set; } = "";
     public string Path { get; set; } = "";
     public int StatusCode { get; set; }

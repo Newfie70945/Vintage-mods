@@ -1,0 +1,21 @@
+{
+  "gameVersion": "1.22.7",
+  "suiteVersion": "1.2.46",
+  "build": "ms11-web-request2",
+  "checks": [
+    "unauthenticated header rejected",
+    "owner login",
+    "compact header JSON",
+    "dashboard JSON preserved",
+    "32 header requests / 16 workers",
+    "server status JSON preserved",
+    "tick status only flag",
+    "cache sharing"
+  ],
+  "headerBytes": 657,
+  "dashboardBytes": 2586,
+  "serverStatusBytes": 7090,
+  "headerRequestMaxMs": 6.36,
+  "snapshotCacheHits": 32,
+  "note": "Empty disposable server HTTP integration; no production TPS or player-scaling claim."
+}

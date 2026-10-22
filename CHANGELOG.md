@@ -2,10 +2,17 @@
 
 ## Server Essentials Suite 1.2.46
 
+- WebRequest2: the global header now reads a compact cached endpoint without copying health history or running Smart Diagnosis. The health score shows when it was last calculated.
+- Reuse serialized JSON for unchanged Dashboard, header and Server Status snapshots. Preparation stays on HTTP workers; byte retention is capped at 256 KiB per snapshot and larger bodies bypass it.
+- Spike details and copied summaries show overlapping web routes, status, response bytes, JSON preparation time/cache reuse, worker queue, main-thread wait and measured callback intervals with coincident GC pauses.
+- Match completed requests by interval and enrich recent incidents after requests finish. Queue waits and older aggregate-only timings remain correlation; overlapping callbacks are discounted for coincident GC. Existing archived assessments are refreshed from available evidence.
+- Current build: `ms11-web-request2`; retains WebRequest1 and earlier 1.2.46 changes. Production improvements require measurement under the same player workload.
+
+
 - WebRequest1: stagger background navigation checks after login instead of requesting nine pages concurrently; overlapping badge refreshes share one run, and logout stops remaining checks.
 - Navigation reads a lightweight Tick Debugging status flag instead of building its full profiler/log snapshot.
 - Cache and coalesce Server Status reads for 15 seconds, serving the last successful snapshot while refreshing. Different requested history windows keep separate bounded cache entries.
-- Current build: `ms11-web-request1`; retains previous 1.2.46 fixes. These changes reduce request pressure; production stall improvements still require measurement.
+- Previous build: `ms11-web-request1`; retains previous 1.2.46 fixes. These changes reduce request pressure; production stall improvements still require measurement.
 
 
 - NetworkEvidence1: identify slow custom-packet dispatcher intervals by channel, message type/ID, actual handler method and owning assembly. Show wall time, coincident GC pause, payload byte count and exception type in clicked spikes and copied summaries.
