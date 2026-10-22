@@ -74,7 +74,7 @@ This compiles the mod, runs C# and tooling tests, verifies official dependency h
 
 ## Suite controls (0.3.0)
 
-With Suite 1.2.46 installed, use its Optimizations page to configure the independent API modules and see actual runtime activation. Settings persist to optimizer.json and apply immediately; stop a running NOS capture first. The Suite bridge uses an in-process, versioned event rather than an extra network listener or a shared assembly dependency.
+With Suite 1.2.47 installed, use its Optimizations page to configure the independent API modules and see actual runtime activation. Settings persist to optimizer.json and apply immediately; stop a running NOS capture first. The Suite bridge uses an in-process, versioned event rather than an extra network listener or a shared assembly dependency.
 
 `EngineOptimizations.AssetCompressionCache` enables a single-entry cache for the official server-assets buffer only. Source contents are compared before reuse; each packet gets an independent output array. `AssetCacheMaxMiB` bounds the combined retained source snapshot and compressed result (default 16, range 1–32). Payloads outside the budget and non-asset packets use stock compression. Disabling the module releases its cached arrays.
 

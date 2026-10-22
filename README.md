@@ -4,7 +4,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 
 | Module | Version | Source |
 | --- | --- | --- |
-| Server Essentials Suite | 1.2.46 | [modules/suite](modules/suite) |
+| Server Essentials Suite | 1.2.47 | [modules/suite](modules/suite) |
 | Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
@@ -72,4 +72,4 @@ Install **both inner mod ZIPs** from the paired download into the game server's 
 
 Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.
 
-Current Suite build: **1.2.46 · ms11-optimizer-entity1**. See [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
+Current Suite build: **1.2.47 · ms11-optimizer-entity1**. See [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.

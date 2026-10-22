@@ -1,4 +1,6 @@
-# NOS 0.7.0 preview + Suite 1.2.46 OptimizerEntity1
+# NOS 0.7.0 preview + Suite 1.2.47 OptimizerEntity1
+
+The retained integration capture used the initial 1.2.46-labelled candidate. The release identity is corrected to 1.2.47; optimizer behavior is unchanged.
 
 ## Implemented changes
 

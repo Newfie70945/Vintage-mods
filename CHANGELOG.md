@@ -1,11 +1,12 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.46
+## Server Essentials Suite 1.2.47
 
 - OptimizerEntity1: add NOS 0.7.0 entity-search and path-queue switches, observed-head wait/count/soft-budget settings, actual module states and work counters to Optimizations.
 - Add Release Stopped Capture with active-capture/read-only/safe-mode/older-NOS guards. Exported reports remain; no forced collection occurs.
-- Group AI allocation controls together and explain scheduling and GC limits. Suite remains 1.2.46; build `ms11-optimizer-entity1`, retaining WebRequest2 and all earlier fixes.
+- Group AI allocation controls together and explain scheduling and GC limits. Suite advances to 1.2.47; build `ms11-optimizer-entity1`, retaining WebRequest2 and all earlier fixes.
 
+## Server Essentials Suite 1.2.46
 
 - WebRequest2: the global header now reads a compact cached endpoint without copying health history or running Smart Diagnosis. The health score shows when it was last calculated.
 - Reuse serialized JSON for unchanged Dashboard, header and Server Status snapshots. Preparation stays on HTTP workers; byte retention is capped at 256 KiB per snapshot and larger bodies bypass it.
