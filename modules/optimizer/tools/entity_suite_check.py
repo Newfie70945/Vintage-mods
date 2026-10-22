@@ -65,6 +65,8 @@ try:
     wait('Dedicated Server now running on Port')
     status,auth=request('/api/login',dict(username='fixtureowner',password=password));assert status==200;csrf=auth['csrfToken']
     status,state=request('/api/optimizations/newfies');assert status==200 and state['available'];nos=state['optimizer'];assert nos['version']=='0.7.0'
+    status,catalog=request('/api/server/mods');assert status==200
+    loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
     checks.append('new optimizer defaults visible through authenticated Suite bridge')
     status,off=control('set',dict(nearestEntitySearch=False));assert status==200 and off['success']
@@ -81,7 +83,7 @@ try:
     checks.extend(terrain['checks'])
     state=request('/api/optimizations/newfies')[1]['optimizer']
     assert not state['settings']['pathMainThreadBudget'];checks.append('probe restores original optimizer settings')
-    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion='1.2.46',optimizerVersion='0.7.0',checks=checks,modules=state['modules'],counters=state['counters'],packZipCount=len(list(mods.glob('*.zip'))),scope='Copied official server, real terrain and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
+    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion='1.2.46',optimizerVersion='0.7.0',checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),scope='Copied official server, real terrain and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
     print('PASS '+str(len(checks))+' official server/Suite/real-terrain integration checks; '+str(root/'result.json'),flush=True)
 finally:
     if process.poll() is None:
