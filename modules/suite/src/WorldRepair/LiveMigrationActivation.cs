@@ -87,7 +87,7 @@ public sealed partial class BlockIdRepairService
             var plan=loadedMigration.Plan;
             if(plan.Inventory.RequiresPreparation&&plan.InventoryReport.State!="complete")
             {
-                try{Guard();Validate(plan,false);StartMigrationInventoryPreparation(plan);}
+                try{Guard();Validate(plan,false);StartOrQueueMigrationInventoryPreparation(plan);}
                 catch(Exception error){lock(loadedGate){loadedMigration.State="preparation-failed";loadedMigration.Message=error.Message;Write(LoadedMigrationFile,loadedMigration);}}
             }
             else QueueLiveActivation();

@@ -112,7 +112,14 @@ public sealed class LoadedMigrationProbe:ModSystem
             {
                 var snapshot=JsonSerializer.SerializeToElement(repair.Snapshot());var loaded=snapshot.GetProperty("loadedMigration");
                 if(loaded.GetProperty("active").GetBoolean()||loaded.GetProperty("Enabled").GetBoolean())throw new Exception("Stale activation re-enabled disabled migration.");
-                api.Logger.Notification("{0}","NSE_LIVE_CANCEL_PROBE "+JsonSerializer.Serialize(new{disabled=true,queuedActivationCouldNotReactivate=true}));
+                foreach(string field in new[]{"loadedPool","loadedCodec","loadedReconnectCatalog"})
+                    if(typeof(BlockIdRepairService).GetField(field,BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(repair)!=null)throw new Exception("Paused migration retained runtime cache: "+field);
+                long checkedBefore=loaded.GetProperty("sessionChunksChecked").GetInt64();
+                var prefix=typeof(BlockIdRepairService).GetMethod("BeforeLoadedChunk",BindingFlags.NonPublic|BindingFlags.Static)!;
+                for(int i=0;i<1000;i++){byte[] original=[255];object?[] args=[original,api.World,null];prefix.Invoke(null,args);if(args[2]!=null||!ReferenceEquals(args[0],original))throw new Exception("Paused migration processed chunk data.");}
+                var after=JsonSerializer.SerializeToElement(repair.Snapshot()).GetProperty("loadedMigration");
+                if(after.GetProperty("sessionChunksChecked").GetInt64()!=checkedBefore||after.GetProperty("loadedSweepPending").GetInt32()!=0)throw new Exception("Paused migration continued inspecting terrain.");
+                api.Logger.Notification("{0}","NSE_LIVE_CANCEL_PROBE "+JsonSerializer.Serialize(new{disabled=true,queuedActivationCouldNotReactivate=true,pausedHooksSkipped=1000,runtimeCachesReleased=true}));
             },300);
             return TextCommandResult.Success("Queued activation cancelled before its server-thread callback.");
         });

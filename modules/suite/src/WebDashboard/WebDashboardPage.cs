@@ -9092,6 +9092,18 @@ async function loadPerformanceTimeline(showLoading=true,preloaded=null){
 }
 
 let performanceIncidentHitAreas=[];
+// Health samples normally arrive each second. A long stalled interval has no
+// observations; do not draw a diagonal and imply a measured gradual decline.
+function performanceTimelineSegments(samples,key,xFor,yFor){
+  const result=[];let segment=[],previous=null;
+  for(const row of samples){
+    const time=Number(row.unixMilliseconds),value=Number(row[key]||0),point=[xFor(time),yFor(value)];
+    if(previous&&time-previous.time>2500){if(segment.length)result.push(segment);segment=[];}
+    else if(previous&&key==='players')segment.push([point[0],previous.y]);
+    segment.push(point);previous={time,y:point[1]};
+  }
+  if(segment.length)result.push(segment);return result;
+}
 function renderPerformanceTimeline(){
   const canvas=$('perfTimelineCanvas');
   if(!canvas||!performanceTimelineData)return;
@@ -9136,8 +9148,8 @@ function renderPerformanceTimeline(){
     ctx.strokeStyle='rgba(84,105,121,.22)';ctx.beginPath();ctx.moveTo(pad.l,bottom);ctx.lineTo(w-pad.r,bottom);ctx.stroke();
     ctx.fillStyle='#91a0ae';ctx.fillText(band.label,8,top+14);
     ctx.fillStyle='#708392';ctx.fillText(`${Math.round(max).toLocaleString()}${band.suffix}`,8,top+28);
-    const bandPoints=samples.map(row=>{const x=xFor(row.unixMilliseconds);const v=Number(row[band.key]||0);const y=bottom-((v-min)/(max-min))*(bh-20);return[x,y];});
-    chartAreaFill(ctx,bandPoints,bottom,'rgba(93,155,208,.055)');chartLine(ctx,bandPoints,'#75afe0',1.8);
+    const segments=performanceTimelineSegments(samples,band.key,xFor,v=>bottom-((v-min)/(max-min))*(bh-20));
+    for(const points of segments){chartAreaFill(ctx,points,bottom,'rgba(93,155,208,.055)');chartLine(ctx,points,'#75afe0',1.8);}
   });
 
   (data.incidents||[]).forEach(x=>{
@@ -9163,7 +9175,7 @@ function renderPerformanceTimeline(){
     ctx.fillText(label,Math.max(pad.l,Math.min(w-80,px-25)),h-7);
   });
 
-  $('perfTimelineState').textContent=`${performanceWindowLabel()} · ${samples.length} sample points · orange/red=lag (click for incident drawer) · purple=mod change · green=entity scan`;
+  $('perfTimelineState').textContent=`${performanceWindowLabel()} · ${samples.length} sample points · gaps=no sample for >2.5s · orange/red=lag (click for incident drawer) · purple=mod change · green=entity scan`;
 }
 
 if($('perfTimelineCanvas')){
@@ -9851,7 +9863,7 @@ function renderBlockMigration(data){
   if(bmScanId!==scanId){bmScanId=scanId;bmChoices.clear();bmSearch.clear();bmReviewedId='';bmPage=0;}
   const clean=value(scan,'State')==='complete'&&!value(scan,'Errors')&&!value(scan,'Unsupported'),loaded=data.loadedMigration,enabled=!!value(loaded,'Enabled');
   $('bmDiagnosticsStatus').textContent=(loaded?`${value(loaded,'State')} · ${value(loaded,'Message')||''} This session: ${loaded.sessionChunksChanged||0} chunks / ${loaded.sessionBlocksChanged||0} references migrated; ${loaded.sessionChunksRefused||0} chunk-load attempts skipped (may repeat the same chunk). ${loaded.sessionInventoriesRecovered||0} inventories / ${loaded.sessionInventoryItemsRecovered||0} items recovered; ${loaded.sessionInventoryRecoveriesSkipped||0} inventory recoveries skipped.${loaded.lastInventoryIssue?' Last inventory issue: '+loaded.lastInventoryIssue:''}${loaded.lastIssue?' Last issue: '+loaded.lastIssue:''} Loaded terrain: ${loaded.loadedSweepBlocksChanged||0} blocks changed; ${loaded.loadedSweepPending||0} chunks pending; ${loaded.loadedSweepBlocksSkipped||0} cells skipped. ${loaded.lastLoadedSweepIssue||''} Chiseled materials: ${loaded.chiseledMaterialReferencesChanged||0} references migrated, ${loaded.chiseledMaterialReferencesSkipped||0} skipped (choose a solid non-container material); ${loaded.chiseledEntitiesRefused||0} unverifiable chiseled entities left unchanged. ${loaded.lastChiseledIssue||''}`:'Migration disabled.');
-  $('bmLiveStatus').textContent=(value(loaded,'Message')||'Save a rule to get started.')+(loaded?.lastIssue?' Last issue: '+loaded.lastIssue:'')+(loaded?.lastInventoryIssue?' Inventory issue: '+loaded.lastInventoryIssue:'')+(loaded?.lastLoadedSweepIssue?' Loaded terrain: '+loaded.lastLoadedSweepIssue:'')+(loaded?.loadedSweepPending?' Loaded-terrain pass: '+loaded.loadedSweepPending+' chunks pending.':'');
+  $('bmLiveStatus').textContent=(value(loaded,'Message')||'Save a rule to get started.')+(loaded?.lastIssue?' Last issue: '+loaded.lastIssue:'')+(loaded?.lastInventoryIssue?' Inventory issue: '+loaded.lastInventoryIssue:'')+(loaded?.lastLoadedSweepIssue?' Loaded terrain: '+loaded.lastLoadedSweepIssue:'')+(loaded?.loadedSweepPending?' Loaded-terrain pass: '+loaded.loadedSweepPending+' chunks pending.':'')+(!enabled?(loaded?.inventoryPreparationRunning||loaded?.activationWorkerRunning?' Cancellation requested; the current background operation is stopping.':' Paused: no migration workers are running.'):'');
   $('bmRefresh').disabled=bmBusy;
   const configured=value(loaded,'Plan'),configuredRules=value(configured,'Mappings')||[];bmSyncForm(configured);
   $('bmLiveMappings').textContent=configured?(configuredRules.length?configuredRules:[configured]).map(m=>`Missing ID ${value(m,'Source')} → ${value(m,'TargetCode')} (ID ${value(m,'Target')})`).join('\n'):'';
