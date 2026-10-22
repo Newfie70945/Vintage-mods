@@ -2,11 +2,17 @@
 
 ## Server Essentials Suite 1.2.46
 
+- MigrationPause1: pausing now cancels migration-owned inventory preparation as well as backup activation, stops the loaded-terrain sweep, detaches the chunk hook's owner and releases runtime codecs, pools, maps and reconnection catalogs. Paused chunk hooks return before world access, decoding or the migration lock.
+- Preserve saved rules, completed recovery manifests, migration receipts and previously changed blocks. Independent administrator scans are not cancelled by pausing migration. Resume waits safely for a cancelling worker; stale continuations cannot restart paused rules.
+- Add cancellation checks to preparation page reads, integrity verification and manifest hashing. Status distinguishes a background operation still stopping from fully idle migration.
+- Timeline gaps longer than 2.5 seconds are shown as gaps, rather than diagonal interpolation across a stall; player counts use steps. The bottom timeline band is heap.
+- Current build: `ms11-migration-pause1`; retains all earlier 1.2.46 changes, companion versions unchanged.
+
 - EvidenceQuality2: distinguish measured contributors, multiple measured contributors, correlation-only assessments and insufficient evidence in clicked spikes.
 - Label each ranked explanation by evidence type. Queue growth, event drops, entity/chunk counts, CPU and save overlap no longer rank as direct measurements of the blocking code.
 - Scale captured and web main-thread work against stall duration, so a small measured segment does not dominate a much larger unexplained stall. Suppress weak owner candidates.
 - Show explicit evidence gaps and repeated marker counts/maxima across retained ticks. Give specific guidance for measured GC, web work and multiple contributors; copied summaries include assessment/gaps.
-- Reassess archived verdicts once from retained data. Current build: `ms11-evidence-quality2`; retains all prior 1.2.46 improvements, companion versions unchanged.
+- Reassess archived verdicts once from retained data. EvidenceQuality2 foundation retained, including all prior 1.2.46 improvements; companion versions unchanged.
 
 - Filter Performance Center spikes by severity and whether matching tick evidence was captured. Show evidence coverage and the three most frequent retained assessments; patterns do not prove a common cause.
 - Navigate directly to older/newer retained spikes from the detail drawer. Prevent late responses from overwriting a newer selection or a closed drawer.

@@ -5,11 +5,12 @@ The baseline is copied; all edits and credentials stay under ignored artifacts/.
 Run tools/build.py --module suite and BlockRepairChecks before this script.
 """
 from pathlib import Path
-import http.cookiejar, json, os, secrets, shutil, sqlite3
+import http.cookiejar, json, os, re, secrets, shutil, sqlite3
 import subprocess, threading, time, urllib.error, urllib.request
 repo=Path(__file__).resolve().parents[4]
 game_port=int(os.environ.get('NSS_TEST_PORT','42598'));web_port=int(os.environ.get('NSS_TEST_WEB_PORT','42668'))
-root=repo/'artifacts/validation'/('loaded-migration-1.2.44-'+str(int(time.time())))
+suite_version=next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')
+root=repo/'artifacts/validation'/('loaded-migration-'+suite_version+'-'+str(int(time.time())))
 data=root/'data';root.mkdir(parents=True)
 baseline=Path(os.environ['NSS_BATCH_TEST_BASELINE']).resolve()
 shutil.copytree(baseline,data,ignore=shutil.ignore_patterns('Logs','Mods','Cache','NewfiesBlockRepair','NewfiesOptimizer'))
@@ -80,7 +81,7 @@ def wait_active():
         if loaded['state']=='failed' or time.monotonic()>until:raise RuntimeError('Live activation failed: '+str(loaded))
         time.sleep(.1)
 
-result={'suiteVersion':'1.2.45','buildSuffix':'ms11-performance1','officialGameVersion':'1.22.7','authenticatedGameClients':0}
+result={'suiteVersion':suite_version,'buildSuffix':re.search(r'BuildSuffix = "([^"]+)"',(repo/'modules/suite/src/SuiteRelease.cs').read_text()).group(1),'officialGameVersion':'1.22.7','authenticatedGameClients':0}
 try:
     # Compile and package only the disposable test probe, never a production ZIP.
     import zipfile

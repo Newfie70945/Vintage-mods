@@ -34,7 +34,7 @@ public sealed partial class BlockIdRepairService
         if(worker is{IsCompleted:false})throw new InvalidOperationException("Wait for the current scan to finish before preparing inventory recovery.");
         p.InventoryRegistry=RestoreRegistry();var catalog=CaptureRestoreCatalog();string worldPath=Database().DatabaseFilename,history=historyDatabasePath??"",manifest=InventoryManifest(p);
         var server=(ServerMain)api.World;var mappings=EffectiveMappings(p).ToDictionary(m=>m.Source);var report=new MigrationInventoryReport{State="running",Message="Checking saved container metadata and exact-location BlockLogger snapshots. No world changes are made."};p.InventoryReport=CopyReport(report);
-        cancel?.Dispose();cancel=new();var token=cancel.Token;DateTime cutoff=p.Inventory.BeforeUtc??DateTime.UtcNow;
+        cancel?.Dispose();cancel=new();var preparationCancel=cancel;migrationInventoryCancel=preparationCancel;var token=preparationCancel.Token;DateTime cutoff=p.Inventory.BeforeUtc??DateTime.UtcNow;
         foreach(string old in Directory.EnumerateFiles(directory,"migration-inventories-*.db").Take(1024))
             if(old!=manifest&&old!=loadedManifest&&(loadedMigration.Plan==null||old!=InventoryManifest(loadedMigration.Plan)))File.Delete(old);
         MigrationInventoryStore.EnsureReceipts(InventoryReceipts);worker=Task.Run(()=>
@@ -45,7 +45,7 @@ public sealed partial class BlockIdRepairService
                 foreach(string suffix in new[]{"","-journal","-wal","-shm"})if(File.Exists(manifest+suffix))File.Delete(manifest+suffix);MigrationInventoryStore.Create(manifest,ManifestIdentity(p));using var output=MigrationInventoryStore.Connect(manifest,false);using var receipts=MigrationInventoryStore.Connect(InventoryReceipts,true);
                 while(true)
                 {
-                    token.ThrowIfCancellationRequested();var page=Page(worldPath,cursor);if(page.Count==0)break;
+                    token.ThrowIfCancellationRequested();var page=Page(worldPath,cursor,token);if(page.Count==0)break;
                     using var tx=output.BeginTransaction();
                     foreach(var row in page)
                     {
@@ -83,16 +83,21 @@ public sealed partial class BlockIdRepairService
                     }
                     tx.Commit();lock(gate)p.InventoryReport=CopyReport(report);Thread.Sleep(2);
                 }
-                using(var check=output.CreateCommand()){check.CommandText="PRAGMA quick_check";if(Convert.ToString(check.ExecuteScalar())!="ok")throw new InvalidDataException("Inventory preparation failed integrity verification.");}
-                using(var file=File.OpenRead(manifest))p.InventoryManifestHash=Convert.ToHexString(SHA256.HashData(file));
+                token.ThrowIfCancellationRequested();
+                using(var check=output.CreateCommand()){using var registration=token.Register(check.Cancel);check.CommandText="PRAGMA quick_check";if(Convert.ToString(check.ExecuteScalar())!="ok")throw new InvalidDataException("Inventory preparation failed integrity verification.");}
+                token.ThrowIfCancellationRequested();
+                using(var file=File.OpenRead(manifest))p.InventoryManifestHash=Convert.ToHexString(SHA256.HashDataAsync(file,token).GetAwaiter().GetResult());
+                token.ThrowIfCancellationRequested();
                 report.State="complete";report.Message=$"Reviewed {report.Prepared} compatible container(s): {report.Recovered} inventory snapshot recoveries ({report.Items} items), {report.Preserved} retained inventories preserved, {report.Skipped} skipped candidates. Snapshots restore logged codes/quantities with default attributes; written text, durability and custom contents were not logged. Unprepared or changed container positions will be skipped; compatible neighbors can still migrate.";
             }
             catch(OperationCanceledException){report.State="cancelled";report.Message="Inventory preparation cancelled; no terrain or inventories changed.";}
+            catch(Exception)when(token.IsCancellationRequested){report.State="cancelled";report.Message="Inventory preparation cancelled; no terrain or inventories changed.";}
             catch(Exception e){report.State="failed";report.Message="Inventory preparation failed: "+e.Message;}
             finally
             {
                 pool.FreeAll();lock(gate)
                 {
+                    if(ReferenceEquals(migrationInventoryCancel,preparationCancel))migrationInventoryCancel=null;
                     p.InventoryReport=CopyReport(report);
                     if(loadedMigration.Enabled&&loadedMigration.Plan?.Id==p.Id)lock(loadedGate)
                     {

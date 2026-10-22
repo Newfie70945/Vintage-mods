@@ -5,6 +5,10 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
  await page.route('**/*',route=>route.fulfill({contentType:route.request().url().endsWith('/')?'text/html':'application/json',body:route.request().url().endsWith('/')?html:'{}'}));
  await page.goto('http://performance.invalid/');
  const result=await page.evaluate(()=>{
+  const gap=performanceTimelineSegments([{unixMilliseconds:1000,managedHeapMb:100},{unixMilliseconds:2000,managedHeapMb:110},{unixMilliseconds:8000,managedHeapMb:50}],'managedHeapMb',x=>x,y=>y);
+  if(gap.length!==2||gap[0].length!==2||gap[1].length!==1)throw new Error('Stall gap was interpolated');
+  const steps=performanceTimelineSegments([{unixMilliseconds:1000,players:10},{unixMilliseconds:2000,players:5}],'players',x=>x,y=>y);
+  if(JSON.stringify(steps)!==JSON.stringify([[[1000,10],[2000,10],[2000,5]]]))throw new Error('Player counts rendered as gradual slopes');
   const ranges=Array.from($('perfWindow').options,x=>Number(x.value));
   const initial=performanceWindowSeconds();
   const labels=[];const original=CanvasRenderingContext2D.prototype.fillText;

@@ -89,10 +89,10 @@ public sealed partial class BlockIdRepairService : IDisposable
             worker=Task.Run(()=>ScanSaved(current,path,map,missing,unresolved,placeholders,available,identities,codes,classes,server,token));return new{success=true,scanId=current.Id};}
     }
     private static SqliteConnection Open(string path){var connection=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=path,Mode=SqliteOpenMode.ReadOnly,Pooling=false,DefaultTimeout=1}.ToString());connection.Open();return connection;}
-    private static List<(long Key,byte[] Data)> Page(string path,long? after)
+    private static List<(long Key,byte[] Data)> Page(string path,long? after,CancellationToken token=default)
     {
-        using var connection=Open(path);using var cmd=connection.CreateCommand();cmd.CommandTimeout=2;cmd.CommandText=after.HasValue?"SELECT position,data FROM chunk WHERE position>$after ORDER BY position LIMIT 16":"SELECT position,data FROM chunk ORDER BY position LIMIT 16";if(after.HasValue)cmd.Parameters.AddWithValue("$after",after.Value);
-        using var reader=cmd.ExecuteReader();var rows=new List<(long,byte[])>();long pageBytes=0;while(reader.Read()){long length=reader.GetBytes(1,0,null,0,0);if(length>64*1024*1024)throw new InvalidDataException("Oversized saved chunk.");if(rows.Count>0&&pageBytes+length>8*1024*1024)break;pageBytes+=length;rows.Add((reader.GetInt64(0),(byte[])reader[1]));}return rows;
+        token.ThrowIfCancellationRequested();using var connection=Open(path);using var cmd=connection.CreateCommand();using var registration=token.Register(cmd.Cancel);cmd.CommandTimeout=2;cmd.CommandText=after.HasValue?"SELECT position,data FROM chunk WHERE position>$after ORDER BY position LIMIT 16":"SELECT position,data FROM chunk ORDER BY position LIMIT 16";if(after.HasValue)cmd.Parameters.AddWithValue("$after",after.Value);
+        using var reader=cmd.ExecuteReader();var rows=new List<(long,byte[])>();long pageBytes=0;while(reader.Read()){token.ThrowIfCancellationRequested();long length=reader.GetBytes(1,0,null,0,0);if(length>64*1024*1024)throw new InvalidDataException("Oversized saved chunk.");if(rows.Count>0&&pageBytes+length>8*1024*1024)break;pageBytes+=length;rows.Add((reader.GetInt64(0),(byte[])reader[1]));}return rows;
     }
     private void ScanSaved(Scan current,string path,Dictionary<int,string> map,bool[] missing,bool[] unresolved,bool[] placeholders,Dictionary<int,int> available,Dictionary<int,BlockIdChunkCodec.Identity> identities,string[] codes,string[] classes,ServerMain server,CancellationToken token)
     {
@@ -199,5 +199,5 @@ public sealed partial class BlockIdRepairService : IDisposable
         if(pending!=null||restorePending!=null||selectedPending!=null)api.Logger.Warning("[BlockMigration] Old block-repair jobs retired without world edits. Review new migration rules in the webpanel.");
         pending=null;restorePending=null;selectedPending=null;
     }
-    public void Dispose(){lock(gate){disposed=true;cancel?.Cancel();CancelLiveActivation();}DisposeLoadedMigration();try{worker?.Wait(3000);liveActivationWorker?.Wait(3000);}catch{}if(worker?.IsCompleted!=false)cancel?.Dispose();}
+    public void Dispose(){lock(gate){disposed=true;cancel?.Cancel();CancelLiveActivation();CancelMigrationInventoryPreparation();}DisposeLoadedMigration();try{worker?.Wait(3000);liveActivationWorker?.Wait(3000);}catch{}if(worker?.IsCompleted!=false)cancel?.Dispose();}
 }

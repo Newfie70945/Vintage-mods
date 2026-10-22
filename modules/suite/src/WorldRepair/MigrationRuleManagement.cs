@@ -27,16 +27,8 @@ public sealed partial class BlockIdRepairService
         Validate(plan,false);SaveLoadedConfiguration(plan);preview=null;
         if(inventory.RequiresPreparation)
         {
-            void StartIfCurrent()
-            {
-                lock(gate)
-                {
-                    if(disposed||!loadedMigration.Enabled||loadedMigration.Plan?.Id!=plan.Id)return;
-                    try{StartMigrationInventoryPreparation(plan);}
-                    catch(Exception e){plan.InventoryReport=new(){State="failed",Message=e.Message};loadedMigration.State="preparation-failed";loadedMigration.Message="Rules remain saved; inventory preparation failed. "+e.Message;Write(LoadedMigrationFile,loadedMigration);}
-                }
-            }
-            if(worker is{IsCompleted:false})_ =worker.ContinueWith(_=>{if(!disposed)api.Event.EnqueueMainThreadTask(StartIfCurrent,"migration-inventory-preparation");});else StartIfCurrent();
+            try{StartOrQueueMigrationInventoryPreparation(plan);}
+            catch(Exception e){plan.InventoryReport=new(){State="failed",Message=e.Message};loadedMigration.State="preparation-failed";loadedMigration.Message="Rules remain saved; inventory preparation failed. "+e.Message;Write(LoadedMigrationFile,loadedMigration);}
         }
         return plan;
     }
@@ -106,7 +98,7 @@ public sealed partial class BlockIdRepairService
     {
         lock(gate)lock(loadedGate)
         {
-            CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;loadedReconnectCatalog=null;loadedReconnectSources.Clear();loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
+            CancelLiveActivation();CancelMigrationInventoryPreparation();StopMigrationRuntime();loadedMigration=new(){State="disabled",Message="Migration disabled and configured rules cleared. Saved terrain was not reverted."};Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
     }
 }

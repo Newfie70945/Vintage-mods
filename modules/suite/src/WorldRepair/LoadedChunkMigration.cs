@@ -18,7 +18,7 @@ public sealed partial class BlockIdRepairService
     private static BlockIdRepairService? loadedOwner;
     private ChunkDataPool? loadedPool;private BlockIdChunkCodec? loadedCodec;
     private Dictionary<int,int> loadedReplacements=[];private Dictionary<int,BlockIdChunkCodec.Identity> loadedIdentities=[];
-    private Dictionary<int,bool> loadedFluids=[];private bool loadedActive;
+    private Dictionary<int,bool> loadedFluids=[];private volatile bool loadedActive;
     private long loadedChecked,loadedChanged,loadedBlocks,loadedRefused;private string loadedLastIssue="";
     private void LoadLoadedMigration()
     {
@@ -28,7 +28,7 @@ public sealed partial class BlockIdRepairService
     private bool LoadedConfigured()=>loadedMigration.Enabled;
     private object LoadedMigrationSnapshot(bool includeInventoryDetails=true)
     {
-        lock(loadedGate)return new{loadedMigration.Enabled,loadedMigration.State,loadedMigration.Message,Plan=includeInventoryDetails?(object?)loadedMigration.Plan:loadedMigration.Plan==null?null:new{loadedMigration.Plan.Id,loadedMigration.Plan.Mappings,loadedMigration.Plan.Source,loadedMigration.Plan.Target,loadedMigration.Plan.SourceCode,loadedMigration.Plan.TargetCode,loadedMigration.Plan.Inventory},active=loadedActive,sessionChunksChecked=loadedChecked,sessionChunksChanged=loadedChanged,sessionBlocksChanged=loadedBlocks,sessionChunksRefused=loadedRefused,sessionInventoriesRecovered=loadedInventoriesRecovered,sessionInventoryItemsRecovered=loadedInventoryItems,sessionInventoriesPreserved=loadedInventoriesPreserved,sessionInventoryRecoveriesSkipped=loadedInventorySkipped,lastInventoryIssue=loadedInventoryLastIssue,loadedSweepPending=liveChunkKeys.Count+(liveChunkKey.HasValue?1:0),loadedSweepBlocksChanged=liveSweepBlocks,loadedSweepBlocksSkipped=liveSweepSkipped,lastLoadedSweepIssue=liveSweepIssue,chiseledMaterialReferencesChanged=migratedMaterialReferences,chiseledMaterialReferencesSkipped=skippedMaterialReferences,chiseledEntitiesRefused=refusedChiseledEntities,lastChiseledIssue,lastIssue=loadedLastIssue,recentSkippedCells=migrationSkips.Snapshot()};
+        lock(loadedGate)return new{loadedMigration.Enabled,loadedMigration.State,loadedMigration.Message,Plan=includeInventoryDetails?(object?)loadedMigration.Plan:loadedMigration.Plan==null?null:new{loadedMigration.Plan.Id,loadedMigration.Plan.Mappings,loadedMigration.Plan.Source,loadedMigration.Plan.Target,loadedMigration.Plan.SourceCode,loadedMigration.Plan.TargetCode,loadedMigration.Plan.Inventory},active=loadedActive,inventoryPreparationRunning=migrationInventoryCancel!=null&&worker is{IsCompleted:false},activationWorkerRunning=liveActivationWorker is{IsCompleted:false},sessionChunksChecked=loadedChecked,sessionChunksChanged=loadedChanged,sessionBlocksChanged=loadedBlocks,sessionChunksRefused=loadedRefused,sessionInventoriesRecovered=loadedInventoriesRecovered,sessionInventoryItemsRecovered=loadedInventoryItems,sessionInventoriesPreserved=loadedInventoriesPreserved,sessionInventoryRecoveriesSkipped=loadedInventorySkipped,lastInventoryIssue=loadedInventoryLastIssue,loadedSweepPending=liveChunkKeys.Count+(liveChunkKey.HasValue?1:0),loadedSweepBlocksChanged=liveSweepBlocks,loadedSweepBlocksSkipped=liveSweepSkipped,lastLoadedSweepIssue=liveSweepIssue,chiseledMaterialReferencesChanged=migratedMaterialReferences,chiseledMaterialReferencesSkipped=skippedMaterialReferences,chiseledEntitiesRefused=refusedChiseledEntities,lastChiseledIssue,lastIssue=loadedLastIssue,recentSkippedCells=migrationSkips.Snapshot()};
     }
     public object StageLoadedMigration(string previewId,bool createBackup,bool manualBackupAcknowledged,MigrationInventoryOptions? inventory=null)
     {
@@ -47,7 +47,7 @@ public sealed partial class BlockIdRepairService
         lock(loadedGate)
         {
             var settings=new LoadedMigration{Enabled=true,State=plan.Inventory.RequiresPreparation&&plan.InventoryReport.State!="complete"?"preparing-inventories":"activating",Plan=plan,Message="Rule saved. Backup/preparation runs automatically, then migration enables without a restart. Safe already-loaded solid blocks are processed in bounded batches after activation; inventory recovery and other layers require reloading. Normal saves persist changes."};
-            CancelLiveActivation();StopLoadedTerrainSweep();Write(LoadedMigrationFile,settings);loadedActive=false;loadedMigration=settings;
+            CancelLiveActivation();CancelMigrationInventoryPreparation();StopMigrationRuntime();Write(LoadedMigrationFile,settings);loadedMigration=settings;
         }
         if(!plan.Inventory.RequiresPreparation||plan.InventoryReport.State=="complete")QueueLiveActivation();
     }
@@ -55,8 +55,8 @@ public sealed partial class BlockIdRepairService
     {
         lock(gate)lock(loadedGate)
         {
-            CancelLiveActivation();StopLoadedTerrainSweep();loadedActive=false;loadedReconnectCatalog=null;loadedReconnectSources.Clear();loadedMigration.Enabled=false;loadedMigration.State="disabled";
-            loadedMigration.Message="Further chunk migrations disabled. Previously migrated blocks are not reverted.";
+            CancelLiveActivation();CancelMigrationInventoryPreparation();StopMigrationRuntime();loadedMigration.Enabled=false;loadedMigration.State="disabled";
+            loadedMigration.Message="Migration paused. Chunk processing and the loaded-terrain sweep are stopped; backup and inventory preparation cancellation requested. Saved rules and already migrated blocks are retained.";
             Write(LoadedMigrationFile,loadedMigration);return LoadedMigrationSnapshot();
         }
     }
@@ -104,7 +104,7 @@ public sealed partial class BlockIdRepairService
             }
             loadedPlainReplacements=loadedReplacements.Where(m=>!loadedInventorySources.Contains(m.Key)&&!loadedReconnectSources.Contains(m.Key)).ToDictionary(m=>m.Key,m=>m.Value);
             loadedPool??=new ChunkDataPool(32,(ServerMain)api.World){CacheSize=32};loadedCodec??=new(loadedPool);
-            loadedHarmony??=new Harmony("newfies.suite.loaded-block-migration");loadedOwner=this;
+            loadedHarmony??=new Harmony("newfies.suite.loaded-block-migration");Volatile.Write(ref loadedOwner,this);
             if(Harmony.GetPatchInfo(method)?.Owners.Contains("newfies.suite.loaded-block-migration")!=true)loadedHarmony.Patch(method,prefix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(BeforeLoadedChunk)),postfix:new HarmonyMethod(typeof(BlockIdRepairService),nameof(AfterLoadedChunk)));
             loadedMigration.State="active";loadedMigration.Message="Configured missing IDs are migrated before each saved chunk is deserialized. Only successful loads are marked for normal saving. Safe already-loaded solid blocks are processed in bounded batches. Incompatible cells/chunks are skipped and reported; inventory recovery requires saved-chunk loading. No missing inventory data is invented.";
             Write(LoadedMigrationFile,loadedMigration);loadedActive=true;StartLoadedTerrainSweep();
@@ -121,7 +121,7 @@ public sealed partial class BlockIdRepairService
     private sealed record LoadedChange(long Blocks,long Recovered,long Preserved,long Items,long Materials=0);
     private static void BeforeLoadedChunk(ref byte[] __0,IWorldAccessor __2,out LoadedChange? __state)
     {
-        __state=null;var owner=loadedOwner;if(owner==null||!ReferenceEquals(owner.api.World,__2))return;
+        __state=null;var owner=Volatile.Read(ref loadedOwner);if(owner==null||!owner.loadedActive||!ReferenceEquals(owner.api.World,__2))return;
         lock(owner.loadedGate)
         {
             if(!owner.loadedActive||owner.loadedCodec==null)return;
