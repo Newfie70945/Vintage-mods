@@ -41,7 +41,7 @@ static class Checks
   var tick=PathQueueOptimizations.MainTarget.CreateDelegate<Action<PathfindingAsync,float>>();
   PathQueueOptimizations.SetBudget(2,1,5000);PathQueueOptimizations.ConfigureBudget(true);var waiting=Seed(3);tick(owner,.02f);Assert(waiting.All(x=>!x.Finished)&&owner.PathfinderTasks.Count==3,"main thread defers while head grace is unexpired");
   PathQueueOptimizations.SetBudget(2,1,0);tick(owner,.02f);Assert(waiting.Count(x=>x.Finished)==1&&owner.PathfinderTasks.Count==2,"main assistance count bounded");Assert(seen==(int)waiting[0].CreatureType,"main assistance preserves creature type");
-  fail=true;tick(owner,.02f);fail=false;Assert(waiting.Count(x=>x.Finished)==2,"failed path is completed once without losing next request");
+  fail=true;tick(owner,.02f);fail=false;Assert(waiting.Count(x=>x.Finished)==2,"failed path is completed once without losing next request");Assert(PathQueueOptimizations.MainFailures==1,"failed assistance trips a visible failure counter");
   AccessTools.Field(typeof(PathfindingAsync),"isShuttingDown").SetValue(owner,true);tick(owner,.02f);Assert(owner.PathfinderTasks.Count==1,"shutdown does not begin extra work");
   PathQueueOptimizations.ConfigureBudget(false);PathQueueOptimizations.ConfigureLimit(false);harmony.UnpatchAll(harmony.Id);
   Console.WriteLine($"PASS {checks} path queue limit, completion, grace, bounded assistance, failure and shutdown checks. Search solver stubbed; no terrain performance claim.");

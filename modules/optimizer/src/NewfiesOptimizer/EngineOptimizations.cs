@@ -202,7 +202,7 @@ public sealed class EngineOptimizations : IDisposable
     private static long Failures(string name)
     {
         var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "pathQueueLimitFix" or "pathMainThreadBudget" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
+        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
             "nearbyPlayerQueries" => query.AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
@@ -222,7 +222,7 @@ public sealed class EngineOptimizations : IDisposable
         var saves = SaveSnapshotOptimizations.Counters;
         var entitySearch = EntitySearchOptimizations.Counters;
         var paths = PathQueueOptimizations.Counters;
-        return new Dictionary<string,long> { ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
+        return new Dictionary<string,long> { ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
             ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,

@@ -14,7 +14,8 @@ public static class PathQueueOptimizations
     private static volatile bool limitEnabled, budgetEnabled;
     private static int budgetMs = 2, maxSearches = 1, graceMs = 300;
     private static ConditionalWeakTable<PathfindingAsync, HeadAge> ages = new();
-    private static long workerLimitStops, mainSearches, deferredTicks;
+    private static long workerLimitStops, mainSearches, deferredTicks, mainFailures;
+    public static long MainFailures => Interlocked.Read(ref mainFailures);
     public static MethodInfo WorkerTarget => AccessTools.Method(typeof(PathfindingAsync), "ProcessQueue");
     public static MethodInfo MainTarget => AccessTools.Method(typeof(PathfindingAsync), "OnMainThreadTick");
     public static MethodInfo NextTarget => AccessTools.Method(typeof(PathfindingAsync), "Next");
@@ -73,7 +74,7 @@ public static class PathQueueOptimizations
         profile.Enter("nos-pathfinding-help");
         try
         {
-            while (processed < maxSearches && !___isShuttingDown &&
+            while (budgetEnabled && processed < maxSearches && !___isShuttingDown &&
                    Stopwatch.GetElapsedTime(started).TotalMilliseconds < budgetMs &&
                    __instance.PathfinderTasks.TryDequeue(out var task))
             {
@@ -86,7 +87,9 @@ public static class PathQueueOptimizations
                 catch (Exception error)
                 {
                     task.waypoints = null;
-                    ___api.World.Logger.Error("[NewfiesOptimizer] Path request failed ({0}); request completed with no path.", error.GetType().Name);
+                    budgetEnabled = false;
+                    Interlocked.Increment(ref mainFailures);
+                    ___api.World.Logger.Error("[NewfiesOptimizer] Path request failed ({0}); request completed with no path; assistance disabled until settings are reapplied.", error.GetType().Name);
                 }
                 finally { task.Finished = true; processed++; Interlocked.Increment(ref mainSearches); }
             }
