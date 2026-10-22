@@ -1,0 +1,20 @@
+using BlockLogger.ServerHealth;
+int n=0;void Check(bool ok,string why){if(!ok)throw new Exception(why);n++;}
+ServerProfileSlowTick Tick(long at,double ms,string marker="game:save")=>new(){UnixMilliseconds=at,TickMs=ms,LeadingMarker=marker,LeadingWorkMs=ms/2};
+IncidentProfilerEvidence Match(params ServerProfileSlowTick[] ticks)=>IncidentProfilerMatcher.Match(ticks,10_000,10_000,500,15_000,"Manual",0);
+Check(Match(Tick(9_900,400)).HasMeasuredTicks,"Actual overlap lost");
+Check(!Match(Tick(12_000,200)).HasMeasuredTicks,"After-spike work blamed");
+Check(!Match(Tick(7_000,200)).HasMeasuredTicks,"Unrelated old tick blamed");
+Check(Match(Tick(10_100,300)).HasMeasuredTicks,"Tick straddling event endpoint lost");
+Check(!Match(Tick(10_000,20)).HasMeasuredTicks,"Healthy tick used as slow work");
+Check(!Match(Tick(10_000,double.NaN)).HasMeasuredTicks,"Invalid duration accepted");
+Check(!Match(Tick(10_000,60_000)).HasMeasuredTicks,"Unbounded tick accepted");
+Check(Match(Enumerable.Range(0,20).Select(i=>Tick(9_900,100+i)).ToArray()).Ticks.Count==8,"Evidence payload not bounded");
+var after=IncidentProfilerMatcher.Match(new[]{Tick(12_000,200)},10_000,10_000,500,15_000,"Automatic lag incident",10_000);
+Check(after.State=="After-spike capture"&&!after.HasMeasuredTicks,"Automatic trigger treated as original cause");
+Check(IncidentProfilerMatcher.Match(new[]{Tick(12_000,200)},10_000,10_000,500,15_000,"Automatic lag incident",30_000).State=="Not captured","Other incident's automatic profile attached");
+Check(IncidentProfilerMatcher.GcScore(0,25)==15,"Collection count gets strong cause weight");
+Check(IncidentProfilerMatcher.GcScore(250,0)>IncidentProfilerMatcher.GcScore(0,25),"Actual pauses should outrank collection counters");
+Check(IncidentProfilerMatcher.GcScore(0,0)==0,"Absent GC fabricated");
+Check(IncidentProfilerMatcher.GcScore(100,1,5000)<40,"Minor pause blamed for a much larger stall");
+Console.WriteLine($"PASS {n} tick overlap, follow-up capture, bounded payload and GC-evidence checks");

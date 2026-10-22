@@ -698,6 +698,7 @@ public sealed class ServerHealthService : IDisposable
             GcCommittedMb = gcCommittedMb,
             GcFragmentedMb = gcFragmentedMb,
             EstimatedNativeMb = estimatedNativeMb,
+            GcPauseTotalMs = GC.GetTotalPauseDuration().TotalMilliseconds,
             Gen0Collections = GC.CollectionCount(0),
             Gen1Collections = GC.CollectionCount(1),
             Gen2Collections = GC.CollectionCount(2),
@@ -728,6 +729,7 @@ public sealed class ServerHealthService : IDisposable
             int gen0Delta = previous == null ? 0 : Math.Max(0, sample.Gen0Collections - previous.Gen0Collections);
             int gen1Delta = previous == null ? 0 : Math.Max(0, sample.Gen1Collections - previous.Gen1Collections);
             int gen2Delta = previous == null ? 0 : Math.Max(0, sample.Gen2Collections - previous.Gen2Collections);
+            double gcPauseDelta = previous == null ? 0 : Math.Max(0, sample.GcPauseTotalMs - previous.GcPauseTotalMs);
             int entityDelta = previous == null ? 0 : sample.LoadedEntities - previous.LoadedEntities;
             int chunkDelta = previous == null || previous.LoadedChunks <= 0
                 ? 0
@@ -795,7 +797,7 @@ public sealed class ServerHealthService : IDisposable
             if (gen2Delta > 0)
             {
                 severity = Math.Max(severity, sample.MainThreadDelayMs >= 50 ? 2 : 1);
-                evidence.Add($"Gen2 GC +{gen2Delta}");
+                evidence.Add($"Gen2 GC +{gen2Delta}; measured GC pause {gcPauseDelta:0.0}ms (count alone is not a cause)");
             }
             else if (gen1Delta >= 2 || gen0Delta >= 10)
             {
@@ -861,7 +863,7 @@ public sealed class ServerHealthService : IDisposable
 
             bool correlatedPressure =
                 sample.CpuPercent >= 90 ||
-                gen2Delta > 0 ||
+                gcPauseDelta >= Math.Max(50, sample.MainThreadDelayMs * .25) ||
                 sample.BlockLoggerWriterMs >= 100 ||
                 sample.BlockLoggerQueue >= 1000 ||
                 Math.Abs(entityDelta) >= 500 ||
@@ -898,6 +900,7 @@ public sealed class ServerHealthService : IDisposable
                     Gen0Delta = gen0Delta,
                     Gen1Delta = gen1Delta,
                     Gen2Delta = gen2Delta,
+                    GcPauseDeltaMs = gcPauseDelta,
                     Evidence = evidence.Count == 0
                         ? "Scheduler/health anomaly recorded."
                         : string.Join(" | ", evidence.Take(6))
@@ -915,7 +918,7 @@ public sealed class ServerHealthService : IDisposable
                     droppedDelta > 0 ||
                     sample.BlockLoggerWriterMs >= 100 ||
                     sample.BlockLoggerQueue >= 1000 ||
-                    gen2Delta > 0 ||
+                    gcPauseDelta >= Math.Max(100, sample.MainThreadDelayMs * .25) ||
                     Math.Abs(entityDelta) >= 500 ||
                     Math.Abs(chunkDelta) >= 300;
 
@@ -1089,6 +1092,12 @@ public sealed class ServerHealthService : IDisposable
 
         var groups = BuildIncidentGroupsUnsafe(recentIncidents);
 
+        var measuredGroup = groups.Where(g => g.ProfileEvidence.HasMeasuredTicks).OrderByDescending(g => g.EndUnixMilliseconds).FirstOrDefault();
+        if (measuredGroup != null)
+            signals.Add(new ServerSmartSignal { Category = "TickProfiler", Severity = "Watch", Confidence = "Medium", Score = 98,
+                Title = "Tick profiler captured contributors during lag",
+                Evidence = measuredGroup.PrimaryCategory + ". " + measuredGroup.ProfileEvidence.Note,
+                NextAction = "Open the incident's tick-profiler evidence and compare measured markers with save/GC/resource context." });
         int severeGroups = groups.Count(x => x.Severity == "Critical");
         int highGroups = groups.Count(x => x.Severity == "High");
 
@@ -1126,7 +1135,7 @@ public sealed class ServerHealthService : IDisposable
                 NextAction = "Compare event timestamps and repeated save/non-save periods. Observed save windows include main-thread callback scheduling; they do not prove a disk bottleneck or identify a responsible mod."
             });
         }
-        int gcIncidentCount = recentIncidents.Count(x => x.Gen2Delta > 0);
+        int gcIncidentCount = recentIncidents.Count(x => x.GcPauseDeltaMs >= Math.Max(100, x.DelayMs * .25));
         int storageIncidentCount = recentIncidents.Count(x =>
             x.BlockLoggerWriterMs >= 100 ||
             x.BlockLoggerQueue >= 1000 ||
@@ -1178,11 +1187,11 @@ public sealed class ServerHealthService : IDisposable
             {
                 Category = "GC",
                 Severity = gcIncidentCount >= 4 ? "High" : "Watch",
-                Confidence = gcIncidentCount > 0 ? "High" : "Medium",
+                Confidence = "Medium",
                 Score = Math.Min(88, 52 + gcIncidentCount * 15 + gen2Increase * 4),
-                Title = "Garbage collection is correlated with slow periods",
+                Title = "Measured GC pause activity overlaps slow sampling intervals",
                 Evidence =
-                    $"{gcIncidentCount} lag event(s) coincided with Gen2 GC; Gen2 collections increased by {gen2Increase} in the recent window.",
+                    $"{gcIncidentCount} lag sample(s) included at least 100ms of measured GC pause activity. Collection counts alone were not used as a cause.",
                 NextAction =
                     "Look for allocation-heavy mods or systems. Compare managed-heap growth before the event and use a manual profile to identify code active around the slow ticks."
             });
@@ -1499,69 +1508,24 @@ public sealed class ServerHealthService : IDisposable
         };
     }
 
+    public IncidentProfilerEvidence GetIncidentProfilerEvidence(long start, long end, double delayMs)
+    {
+        lock (sync)
+            return IncidentProfilerMatcher.Match(lastProfileSlowTicks, start, end, delayMs,
+                lastProfile.CompletedUnixMilliseconds, lastProfile.CaptureKind, lastProfile.TriggerIncidentUnixMilliseconds);
+    }
+
     private IncidentModAttribution ResolveIncidentModAttributionUnsafe(long incidentStart, long incidentEnd)
     {
-        if (lastProfile.CompletedUnixMilliseconds <= 0 || lastModHotspots.Count == 0)
-            return IncidentModAttribution.None;
-
-        long profileStart = lastProfile.CompletedUnixMilliseconds - Math.Max(1, lastProfile.DurationSeconds) * 1000L;
-        bool overlapsIncidentWindow =
-            profileStart <= incidentEnd + 15_000L &&
-            lastProfile.CompletedUnixMilliseconds >= incidentStart - 5_000L;
-
-        if (!overlapsIncidentWindow)
-            return IncidentModAttribution.None;
-
-        // Automatic profiles are started after a specific severe stall. Bind the
-        // attribution back to that exact incident instead of merely accepting a
-        // nearby profile, which avoids blaming an unrelated mod from later work.
-        if (string.Equals(lastProfile.CaptureKind, "Automatic lag incident", StringComparison.OrdinalIgnoreCase))
-        {
-            long trigger = lastProfile.TriggerIncidentUnixMilliseconds;
-            if (trigger <= 0 || trigger < incidentStart - 1_000L || trigger > incidentEnd + 1_000L)
-                return IncidentModAttribution.None;
-        }
-
-        var candidates = lastModHotspots
-            .Where(x =>
-                !x.IsCore &&
-                !string.IsNullOrWhiteSpace(x.ModId) &&
-                x.ModId != "<unattributed>" &&
-                x.Confidence != "Low")
-            .OrderByDescending(x => x.TotalMs)
-            .ToList();
-
-        if (candidates.Count == 0)
-            return IncidentModAttribution.None;
-
-        var top = candidates[0];
-        var second = candidates.Count > 1 ? candidates[1] : null;
-        bool dominant = second == null || second.TotalMs <= 0 || top.TotalMs >= second.TotalMs * 1.35;
-        bool high =
-            top.Confidence == "High" &&
-            dominant &&
-            (top.PercentOfProfileTickTime >= 25 || top.MaxSingleMs >= 75 || top.SlowSegments >= 2);
-        bool medium =
-            top.Confidence != "Low" &&
-            (top.PercentOfProfileTickTime >= 10 || top.MaxSingleMs >= 30 || top.SlowSegments >= 1);
-
-        if (!high && !medium)
-            return IncidentModAttribution.None;
-
-        string confidence = high ? "High" : "Medium";
-        string evidence =
-            $"{top.ModId} held {top.PercentOfProfileTickTime:0.0}% of profiled tick time; " +
-            $"max segment {top.MaxSingleMs:0.0}ms; {top.SlowSegments} segment(s) >=10ms; " +
-            $"top marker {ShortCode(top.TopMarker, 110)}.";
-
-        return new IncidentModAttribution(
-            top.ModId,
-            string.IsNullOrWhiteSpace(top.ModName) ? top.ModId : top.ModName,
-            confidence,
-            evidence,
-            lastProfile.CaptureKind,
-            lastProfile.CompletedUnixMilliseconds,
-            true);
+        double delay = diagnosticIncidents.Where(i => i.UnixMilliseconds >= incidentStart && i.UnixMilliseconds <= incidentEnd)
+            .Select(i => i.DelayMs).DefaultIfEmpty(0).Max();
+        var evidence = GetIncidentProfilerEvidence(incidentStart, incidentEnd, delay);
+        var tick = evidence.Ticks.Where(t => !t.IsCore && !string.IsNullOrEmpty(t.ModId) && t.Confidence != "Low" && t.LeadingWorkMs >= 10)
+            .OrderByDescending(t => t.LeadingWorkMs).FirstOrDefault();
+        if (tick == null) return IncidentModAttribution.None;
+        return new IncidentModAttribution(tick.ModId, tick.ModName, tick.Confidence,
+            $"Overlapping sampled tick {tick.TickMs:0.0}ms; leading marker {ShortCode(tick.LeadingMarker, 110)} measured {tick.LeadingWorkMs:0.0}ms. Ownership confidence is not proof of sole causation.",
+            evidence.CaptureKind, evidence.CompletedUnixMilliseconds, true);
     }
 
     private List<ServerLagIncidentGroup> BuildIncidentGroupsUnsafe(
@@ -1588,6 +1552,7 @@ public sealed class ServerHealthService : IDisposable
             long maxWriter = current.Max(x => x.BlockLoggerWriterMs);
             long drops = current.Sum(x => x.BlockLoggerDroppedDelta);
             int gen2 = current.Sum(x => x.Gen2Delta);
+            double gcPauseMs = current.Sum(x => x.GcPauseDeltaMs);
             int maxEntityDelta = current
                 .OrderByDescending(x => Math.Abs(x.EntityDelta))
                 .Select(x => x.EntityDelta)
@@ -1601,7 +1566,8 @@ public sealed class ServerHealthService : IDisposable
                 (maxWriter >= 100 ? 2 : 0) +
                 (maxQueue >= 1000 ? 2 : 0) +
                 (drops > 0 ? 4 : 0);
-            int gcScore = gen2 > 0 ? 3 + Math.Min(3, gen2) : 0;
+            int gcWeight = IncidentProfilerMatcher.GcScore(gcPauseMs, gen2, worstDelay);
+            int gcScore = gcWeight >= 75 ? 5 : gcWeight >= 40 ? 3 : 0;
             int cpuScore = maxCpu >= 95 ? 4 : maxCpu >= 90 ? 3 : 0;
             int entityScore = Math.Abs(maxEntityDelta) >= 1000 ? 4 :
                 Math.Abs(maxEntityDelta) >= 500 ? 3 : 0;
@@ -1659,6 +1625,15 @@ public sealed class ServerHealthService : IDisposable
                 action = $"A measured world-save window ({saveWindowMs:0}ms) overlapped this sampling interval. Compare repeated save/non-save periods and disk latency; the window includes callback scheduling and does not prove disk I/O or a specific mod caused the stall.";
             }
 
+            var profileEvidence = GetIncidentProfilerEvidence(start, end, worstDelay);
+            if (profileEvidence.HasMeasuredTicks)
+            {
+                var tick = profileEvidence.Ticks.OrderByDescending(t => t.LeadingWorkMs).First();
+                string owner = !string.IsNullOrWhiteSpace(tick.ModName) ? tick.ModName : ShortCode(tick.LeadingMarker, 100);
+                category = "Profiled contributor: " + (string.IsNullOrWhiteSpace(owner) ? "engine / unattributed work" : owner);
+                confidence = tick.Confidence;
+                action = profileEvidence.Note + (saveWindowMs > 0 ? " A world-save window also overlapped; compare both signals." : "");
+            }
             var modAttribution = ResolveIncidentModAttributionUnsafe(start, end);
             if (modAttribution.IsAttributed &&
                 modAttribution.Confidence == "High" &&
@@ -1687,6 +1662,9 @@ public sealed class ServerHealthService : IDisposable
                 WorstDelayMs = worstDelay,
                 MaxCpuPercent = maxCpu,
                 Gen2Collections = gen2,
+                GcPauseMs = gcPauseMs,
+                WorldSaveWindowMs = saveWindowMs,
+                ProfileEvidence = profileEvidence,
                 MaxBlockLoggerQueue = maxQueue,
                 MaxBlockLoggerWriterMs = maxWriter,
                 BlockLoggerDropped = drops,
@@ -1968,6 +1946,8 @@ public sealed class ServerHealthService : IDisposable
                 {
                     UnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     TickMs = tickMs,
+                    LeadingMarker = leading.Path ?? "",
+                    LeadingWorkMs = leading.ElapsedMs,
                     TopCauseSummary = causes.Count == 0
                         ? "No leaf profiler markers were exposed for this tick."
                         : string.Join(" | ", causes)
@@ -2656,6 +2636,13 @@ public sealed class ServerHealthService : IDisposable
                 return new ServerProfileSlowCause { Marker = c.Marker, Count = c.Count, WorstTickMs = c.WorstTickMs,
                     ModId = owner.IsAttributed ? owner.ModId : "", Confidence = owner.Confidence };
             }).OrderByDescending(c => c.Count).ThenByDescending(c => c.WorstTickMs).ToList();
+            foreach (var tick in capturedSlowProfileTicks)
+            {
+                var owner = ResolveModAttribution(tick.LeadingMarker);
+                tick.ModId = owner.IsAttributed ? owner.ModId : "";
+                tick.ModName = owner.IsAttributed ? owner.ModName : "";
+                tick.Confidence = owner.Confidence; tick.IsCore = owner.IsCore;
+            }
             lastProfileSlowTicks = capturedSlowProfileTicks
                 .OrderByDescending(x => x.TickMs)
                 .Take(60)
@@ -2828,6 +2815,7 @@ public sealed class ServerHealthSnapshot
 
 public sealed class ServerHealthSample
 {
+    public double GcPauseTotalMs { get; set; }
     public long UnixMilliseconds { get; set; }
     public double MainThreadDelayMs { get; set; }
     public double CpuPercent { get; set; }
@@ -2868,6 +2856,7 @@ public sealed class ServerSlowSpike
 
 public sealed class ServerDiagnosticIncident
 {
+    public double GcPauseDeltaMs { get; set; }
     public double WorldSaveWindowMs { get; set; }
     public long WorldSaveStartedUnixMilliseconds { get; set; }
     public long UnixMilliseconds { get; set; }
@@ -2977,6 +2966,9 @@ public sealed class ServerHealthTrend
 
 public sealed class ServerLagIncidentGroup
 {
+    public double GcPauseMs { get; set; }
+    public double WorldSaveWindowMs { get; set; }
+    public IncidentProfilerEvidence ProfileEvidence { get; set; } = new();
     public long StartUnixMilliseconds { get; set; }
     public long EndUnixMilliseconds { get; set; }
     public double DurationSeconds { get; set; }
@@ -3067,13 +3059,6 @@ public sealed class ServerProfileSlowCause
     public double WorstTickMs { get; set; }
     public string ModId { get; set; } = "";
     public string Confidence { get; set; } = "Low";
-}
-
-public sealed class ServerProfileSlowTick
-{
-    public long UnixMilliseconds { get; set; }
-    public double TickMs { get; set; }
-    public string TopCauseSummary { get; set; } = "";
 }
 
 public sealed class ServerProfilerOffThreadReport

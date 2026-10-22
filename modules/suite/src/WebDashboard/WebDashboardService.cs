@@ -11456,6 +11456,14 @@ public sealed partial class WebDashboardService : IDisposable
                     ModEvidence = group.ModEvidence,
                     ModAttributionSource = group.ModAttributionSource,
                     ModProfileCompletedUnixMilliseconds = group.ModProfileCompletedUnixMilliseconds,
+                    MaxEntityDelta = group.MaxEntityDelta,
+                    MaxChunkDelta = group.MaxChunkDelta,
+                    BlockLoggerDropped = group.BlockLoggerDropped,
+                    Gen2Collections = group.Gen2Collections,
+                    GcPauseTimingAvailable = true,
+                    GcPauseMs = group.GcPauseMs,
+                    WorldSaveWindowMs = group.WorldSaveWindowMs,
+                    ProfileEvidence = group.ProfileEvidence,
                     WorstDelayMs = group.WorstDelayMs,
                     MaxCpuPercent = group.MaxCpuPercent,
                     Before = source
@@ -11479,6 +11487,14 @@ public sealed partial class WebDashboardService : IDisposable
                         databaseSnapshot)
                 });
             changed = true;
+        }
+
+        // Enrich archived incidents after a relevant capture completes. The first
+        // archive write can precede profile finalization; do not freeze that gap.
+        foreach (var archived in performanceCenterStore.Incidents)
+        {
+            var incoming = healthService.GetIncidentProfilerEvidence(archived.StartUnixMilliseconds, archived.EndUnixMilliseconds, archived.WorstDelayMs);
+            if (RefreshArchivedIncidentEvidence(archived, incoming)) changed = true;
         }
 
         var environment = CaptureEnvironmentSnapshot(snapshot);
@@ -11540,6 +11556,38 @@ public sealed partial class WebDashboardService : IDisposable
 
         if (changed)
             SavePerformanceCenterStore();
+    }
+
+    private bool RefreshArchivedIncidentEvidence(PerformanceIncidentArchive archived, IncidentProfilerEvidence incoming)
+    {
+        archived.ProfileEvidence ??= new();
+        archived.Before ??= new(); archived.During ??= new(); archived.After ??= new();
+        archived.WebServer ??= new(); archived.Database ??= new();
+        bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
+            incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
+            (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
+        if (archived.AttributionVersion >= 1 && !betterProfile) return false;
+        if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
+        if (betterProfile) archived.ProfileEvidence = incoming;
+        var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
+        if (archived.Gen2Collections == 0 && retained.Count > 1)
+            archived.Gen2Collections = Math.Max(0, retained[^1].Gen2Collections - retained[0].Gen2Collections);
+        var group = new ServerLagIncidentGroup
+        {
+            StartUnixMilliseconds = archived.StartUnixMilliseconds, EndUnixMilliseconds = archived.EndUnixMilliseconds,
+            WorstDelayMs = archived.WorstDelayMs, MaxCpuPercent = archived.MaxCpuPercent,
+            Gen2Collections = archived.Gen2Collections, GcPauseMs = archived.GcPauseMs,
+            WorldSaveWindowMs = archived.WorldSaveWindowMs, ProfileEvidence = archived.ProfileEvidence,
+            MaxBlockLoggerQueue = archived.During.Select(x => x.BlockLoggerQueue).DefaultIfEmpty().Max(),
+            MaxBlockLoggerWriterMs = archived.During.Select(x => x.BlockLoggerWriterMs).DefaultIfEmpty().Max(),
+            BlockLoggerDropped = Math.Max(archived.BlockLoggerDropped, retained.Count > 1 ? Math.Max(0, retained[^1].BlockLoggerDropped - retained[0].BlockLoggerDropped) : 0),
+            MaxEntityDelta = archived.MaxEntityDelta,
+            MaxChunkDelta = archived.MaxChunkDelta
+        };
+        archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database);
+        ApplyIncidentVerdict(archived);
+        archived.AttributionVersion = 1;
+        return true;
     }
 
     private PerformanceEnvironmentSnapshot CaptureEnvironmentSnapshot(
@@ -11830,6 +11878,7 @@ public sealed partial class WebDashboardService : IDisposable
         return new
         {
             found = true,
+            profileCaptureRunning = module.ServerHealth?.GetLiveState().ProfileRunning ?? false,
             incident,
             beforeSummary = Summary(incident.Before),
             duringSummary = Summary(incident.During),
@@ -14004,37 +14053,39 @@ public sealed partial class WebDashboardService : IDisposable
     {
         var result = new List<IncidentCauseScore>();
 
-        if (!string.IsNullOrWhiteSpace(group.LikelyModId))
+        var profile = group.ProfileEvidence;
+        if (profile.HasMeasuredTicks)
         {
-            int modScore = string.Equals(group.ModConfidence, "High", StringComparison.OrdinalIgnoreCase) ? 92 : 58;
+            var tick = profile.Ticks.OrderByDescending(t => t.LeadingWorkMs).First();
             result.Add(new IncidentCauseScore
             {
-                Category = $"Profiler attribution: {group.LikelyModId}",
-                Score = modScore,
-                Confidence = group.ModConfidence,
-                Evidence = string.IsNullOrWhiteSpace(group.ModEvidence)
-                    ? $"A profile overlapping this incident attributed significant tick work to {group.LikelyModId}."
-                    : group.ModEvidence
+                Category = "Measured tick work: " + (!string.IsNullOrWhiteSpace(tick.ModName) ? tick.ModName : "engine / unattributed"),
+                Score = 98, Confidence = "Medium",
+                Evidence = $"{profile.Ticks.Count} retained slow tick(s) overlap the sampling interval; leading marker {tick.LeadingMarker} measured {tick.LeadingWorkMs:0.0}ms in a {tick.TickMs:0.0}ms tick. Marker ownership: {tick.Confidence}. " + profile.Note
             });
         }
+        if (group.WorldSaveWindowMs > 0)
+            result.Add(new IncidentCauseScore { Category = "World save overlap", Score = 65, Confidence = "Medium", Evidence = $"Observed save/callback window {group.WorldSaveWindowMs:0.0}ms overlapped the lag sampling interval; this is not pure disk-write time or proof of sole causation." });
+        if (group.MaxCpuPercent >= 90)
+            result.Add(new IncidentCauseScore { Category = "CPU pressure", Score = 45, Confidence = "Medium", Evidence = $"Process CPU reached {group.MaxCpuPercent:0.0}% during the interval. This does not identify executing code." });
 
         int storageScore = 5;
         if (group.BlockLoggerDropped > 0) storageScore = 95;
-        else if (group.MaxBlockLoggerQueue >= 1000 || group.MaxBlockLoggerWriterMs >= 250 || database.P95QueryMilliseconds >= 500) storageScore = 75;
-        else if (group.MaxBlockLoggerQueue >= 250 || group.MaxBlockLoggerWriterMs >= 100 || database.P95QueryMilliseconds >= 200) storageScore = 45;
-        else if (group.MaxBlockLoggerQueue >= 50 || group.MaxBlockLoggerWriterMs >= 40 || database.P95QueryMilliseconds >= 100) storageScore = 20;
+        else if (group.MaxBlockLoggerQueue >= 1000 || group.MaxBlockLoggerWriterMs >= 250) storageScore = 75;
+        else if (group.MaxBlockLoggerQueue >= 250 || group.MaxBlockLoggerWriterMs >= 100) storageScore = 45;
+        else if (group.MaxBlockLoggerQueue >= 50 || group.MaxBlockLoggerWriterMs >= 40) storageScore = 20;
         result.Add(new IncidentCauseScore
         {
             Category = "BlockLogger storage",
             Score = storageScore,
-            Confidence = during.Count >= 3 ? "High" : "Medium",
+            Confidence = storageScore > 10 ? "Medium" : "Low",
             Evidence = storageScore <= 10
                 ? $"Queue stayed at or below {group.MaxBlockLoggerQueue:N0}; writer max {group.MaxBlockLoggerWriterMs:N0}ms; query P95 {database.P95QueryMilliseconds:0.0}ms; no event drops. BlockLogger storage is unlikely to be the cause."
                 : $"Queue max {group.MaxBlockLoggerQueue:N0}; writer max {group.MaxBlockLoggerWriterMs:N0}ms; query P95 {database.P95QueryMilliseconds:0.0}ms; dropped {group.BlockLoggerDropped:N0}."
         });
 
         var nearbyWeb = web.RecentSlowRequests
-            .Where(x => x.UnixMilliseconds >= group.StartUnixMilliseconds - 15_000L && x.UnixMilliseconds <= group.EndUnixMilliseconds + 15_000L)
+            .Where(x => x.UnixMilliseconds >= group.StartUnixMilliseconds - 1000L - (long)group.WorstDelayMs && x.UnixMilliseconds <= group.EndUnixMilliseconds)
             .ToList();
         double webMainWork = nearbyWeb.Count == 0 ? 0 : nearbyWeb.Max(x => x.MainThreadWorkMilliseconds);
         double webMainWait = nearbyWeb.Count == 0 ? 0 : nearbyWeb.Max(x => x.MainThreadWaitMilliseconds);
@@ -14050,15 +14101,13 @@ public sealed partial class WebDashboardService : IDisposable
                 : $"{nearbyWeb.Count} slow/error web request(s) nearby; max worker-queue wait {webQueueWait:0.0}ms, max main-thread work {webMainWork:0.0}ms, max main-thread wait {webMainWait:0.0}ms."
         });
 
-        int gcScore = group.Gen2Collections > 0 ? Math.Min(90, 45 + group.Gen2Collections * 15) : 5;
+        int gcScore = IncidentProfilerMatcher.GcScore(group.GcPauseMs, group.Gen2Collections, group.WorstDelayMs);
         result.Add(new IncidentCauseScore
         {
-            Category = "Garbage collection",
+            Category = "GC pause evidence",
             Score = gcScore,
-            Confidence = during.Count >= 2 ? "High" : "Medium",
-            Evidence = group.Gen2Collections > 0
-                ? $"Gen2 collections increased by {group.Gen2Collections} during the grouped incident."
-                : "No Gen2 collection was correlated with this incident."
+            Confidence = group.GcPauseMs >= 50 ? "Medium" : "Low",
+            Evidence = $"{group.GcPauseMs:0.0}ms of measured cumulative GC pause activity in the sampled interval; Gen2 +{group.Gen2Collections}. A collection count alone does not prove a stop-the-world pause caused this spike. Old archives may not have pause timing."
         });
 
         int entityScore = Math.Abs(group.MaxEntityDelta) >= 500 ? 75 : Math.Abs(group.MaxEntityDelta) >= 200 ? 45 : Math.Abs(group.MaxEntityDelta) >= 75 ? 20 : 5;
@@ -14081,7 +14130,27 @@ public sealed partial class WebDashboardService : IDisposable
             Evidence = $"Largest sampled loaded-chunk change was {group.MaxChunkDelta:+#;-#;0}; chunk count is intentionally refreshed only about every 30 seconds."
         });
 
+        if (!result.Any(x => x.Score >= 40))
+            result.Add(new IncidentCauseScore { Category = "Insufficient evidence", Score = 30, Confidence = "Low",
+                Evidence = profile.Note + " Normal collection counts or a large heap are not enough to name a cause. Use a bounded Incident + Profile capture while the slowdown is occurring." });
         return result.OrderByDescending(x => x.Score).ToList();
+    }
+
+    private static void ApplyIncidentVerdict(PerformanceIncidentArchive incident)
+    {
+        var best = incident.CauseScores.OrderByDescending(x => x.Score).FirstOrDefault();
+        incident.PrimaryCategory = best?.Category ?? "Insufficient evidence";
+        incident.Confidence = best?.Confidence ?? "Low";
+        incident.NextAction = incident.ProfileEvidence.HasMeasuredTicks
+            ? "Inspect the overlapping tick markers below alongside save, GC pause and resource evidence. Measured contributors are not automatic proof of a mod defect."
+            : "No overlapping engine tick was retained. Use Incident + Profile during a repeat; after-spike captures only describe subsequent work.";
+        var owned = incident.ProfileEvidence.Ticks.Where(t => !t.IsCore && !string.IsNullOrWhiteSpace(t.ModId) && t.Confidence != "Low")
+            .OrderByDescending(t => t.LeadingWorkMs).FirstOrDefault();
+        incident.LikelyModId = owned?.ModId ?? ""; incident.LikelyModName = owned?.ModName ?? "";
+        incident.ModConfidence = owned?.Confidence ?? "Low";
+        incident.ModEvidence = owned == null ? "" : $"Measured leading marker {owned.LeadingMarker}: {owned.LeadingWorkMs:0.0}ms; ownership confidence {owned.Confidence}.";
+        incident.ModAttributionSource = incident.ProfileEvidence.CaptureKind;
+        incident.ModProfileCompletedUnixMilliseconds = incident.ProfileEvidence.CompletedUnixMilliseconds;
     }
 
     private sealed record WebConsoleCommandResult(bool Success, string Status, string Message);
