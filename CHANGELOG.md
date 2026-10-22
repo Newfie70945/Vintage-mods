@@ -2,11 +2,17 @@
 
 ## Server Essentials Suite 1.2.46
 
+- WebRequest1: stagger background navigation checks after login instead of requesting nine pages concurrently; overlapping badge refreshes share one run, and logout stops remaining checks.
+- Navigation reads a lightweight Tick Debugging status flag instead of building its full profiler/log snapshot.
+- Cache and coalesce Server Status reads for 15 seconds, serving the last successful snapshot while refreshing. Different requested history windows keep separate bounded cache entries.
+- Current build: `ms11-web-request1`; retains previous 1.2.46 fixes. These changes reduce request pressure; production stall improvements still require measurement.
+
+
 - NetworkEvidence1: identify slow custom-packet dispatcher intervals by channel, message type/ID, actual handler method and owning assembly. Show wall time, coincident GC pause, payload byte count and exception type in clicked spikes and copied summaries.
 - Resolve the engine deserialization wrapper to its registered mod delegate, avoiding attribution by ambiguous handlecustom1/handlecustom4 markers alone. Rank wall time outside coincident GC conservatively; it is not CPU time or proof of a mod defect.
 - Collect only while existing Performance/Profiler diagnostics are enabled. Retain intervals >=25ms, bounded to 256 records / 120 seconds, 512 cached identities and eight records per incident. No packet contents or player identities are stored; no additional sampling timer or forced GC is added.
 - Preserve packet behavior and original handler exceptions. Unavailable hooks fail open and report status; disabling diagnostics clears live records and identity references. Existing archives preserve attached evidence.
-- Current build: `ms11-network-evidence1`; retains all prior 1.2.46 changes, companion versions unchanged.
+- Previous build: `ms11-network-evidence1`; retains all prior 1.2.46 changes, companion versions unchanged.
 
 - MigrationPause1: pausing now cancels migration-owned inventory preparation as well as backup activation, stops the loaded-terrain sweep, detaches the chunk hook's owner and releases runtime codecs, pools, maps and reconnection catalogs. Paused chunk hooks return before world access, decoding or the migration lock.
 - Preserve saved rules, completed recovery manifests, migration receipts and previously changed blocks. Independent administrator scans are not cancelled by pausing migration. Resume waits safely for a cancelling worker; stale continuations cannot restart paused rules.

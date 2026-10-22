@@ -4633,7 +4633,8 @@ public sealed partial class WebDashboardService : IDisposable
         if (request.Method == "GET" && path == "/api/server-status")
         {
             int days = Math.Clamp(GetQueryInt(request, "days", 30), 7, 365);
-            var payload = await RunOnMainThreadAsync(
+            var payload = await GetCachedMainThreadReadAsync(
+                "server-status-" + days, 15000,
                 () => BuildServerStatusSnapshot(days),
                 "web-server-status").ConfigureAwait(false);
             await WriteJsonAsync(stream, 200, payload, cancellationToken).ConfigureAwait(false);
@@ -9545,6 +9546,13 @@ public sealed partial class WebDashboardService : IDisposable
                 "web-loginprotection-status").ConfigureAwait(false);
 
             await WriteJsonAsync(stream, 200, payload, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Navigation needs one flag, not profiler trees or retained log captures.
+        if (request.Method == "GET" && path == "/api/tick-debug/status")
+        {
+            await WriteJsonAsync(stream, 200, new { enabled = config.TickDebuggingEnabled }, cancellationToken).ConfigureAwait(false);
             return;
         }
 
