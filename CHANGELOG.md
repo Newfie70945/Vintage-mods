@@ -2,11 +2,15 @@
 
 ## Server Essentials Suite 1.2.45
 
+- MigrationPosFix1: remove a direct Entity.Pos field dependency from migration targeting that could throw MissingFieldException even for looked-at blocks on a different game API build. Use the existing runtime-compatible position resolver for the coordinate fallback, honor explicit dimensions first, and refuse ambiguous targets when the player's dimension cannot be read.
+- Inventory acknowledgement errors now name the exact `confirm-inventory-risk` / `confirm-overwrite` flags instead of leaving the required command option unclear.
+- Current build `ms11-migrationposfix1`; retains TickUI1, StorageSave1 and Performance1. Companion versions remain unchanged.
+
 - Tick Debugging now shows the top 12 sampled contributors during an engine capture, including likely owner/confidence, total time, maximum segment and call count. Retained results are clearly labelled after capture completion; viewing the page never starts continuous profiling.
 - Add a quick investigation guide and links between Performance, Profiler, Memory and Database Storage. Make the grouped diagnosis's recent five-minute window explicit.
 - Disable capture/native-action controls for read-only users so unavailable actions are clear before clicking.
 - Rename individual Player Commands switches and status filters to **Enable/Disable command** and **Command enabled/disabled**. External-provider/fallback explanations remain.
-- Current build `ms11-tick-ui1`, retaining the storage/save and Performance1 changes below. [Tick UI validation](docs/VALIDATION-TICK-UI-1.2.45.md).
+- TickUI1 retained, including the storage/save and Performance1 changes below. [Tick UI validation](docs/VALIDATION-TICK-UI-1.2.45.md).
 
 - Add a compact Database Storage guide with exact settings, example retention/debounce values, backup advice and inventory-recovery tradeoffs. Explain reusable free pages, WAL and optional compaction.
 - Make automatic retention use existing timestamp indexes to avoid walking retained history when expired records were imported later; retain the existing expiry policy and batch limits.
