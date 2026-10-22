@@ -1,6 +1,11 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.45
+## Server Essentials Suite 1.2.46
+
+- Filter Performance Center spikes by severity and whether matching tick evidence was captured. Show evidence coverage and the three most frequent retained assessments; patterns do not prove a common cause.
+- Navigate directly to older/newer retained spikes from the detail drawer. Prevent late responses from overwriting a newer selection or a closed drawer.
+- Include capture state, measured GC pause and structured contributor timings/call counts in copied spike summaries.
+- Correct release identity to 1.2.46 because 1.2.45 is public. Current build: `ms11-performance-center1`; companion versions unchanged.
 
 - SpikeDetails2: clicking a spike now shows a **What explains this spike?** summary with supporting evidence, scheduler delay, GC pause timing and world-save overlap.
 - Retain up to six structured contributors for each captured slow tick, including full marker paths, milliseconds, call counts and owner candidates. Show leaf-marker coverage and uninstrumented time separately; overlapping measurements are not added into a causal percentage.
@@ -13,6 +18,8 @@
 - Stop treating rolling database latency and web requests waiting for the main thread as proof of a spike's cause. Show insufficient evidence when attribution is unavailable.
 - Incidental Gen2 collections no longer suppress the existing optional automatic incident capture. Profiling remains opt-in with existing bounds and cooldowns.
 - Fix the stale Block ID Migration version badge. Current build: `ms11-incident-evidence1`; all earlier 1.2.45 fixes retained, companion versions unchanged. [Validation and limits](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.45.md).
+
+## Server Essentials Suite 1.2.45
 
 - MigrationPosFix1: remove a direct Entity.Pos field dependency from migration targeting that could throw MissingFieldException even for looked-at blocks on a different game API build. Use the existing runtime-compatible position resolver for the coordinate fallback, honor explicit dimensions first, and refuse ambiguous targets when the player's dimension cannot be read.
 - Inventory acknowledgement errors now name the exact `confirm-inventory-risk` / `confirm-overwrite` flags instead of leaving the required command option unclear.
