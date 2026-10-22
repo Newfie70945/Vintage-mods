@@ -17,4 +17,7 @@ Check(IncidentProfilerMatcher.GcScore(0,25)==15,"Collection count gets strong ca
 Check(IncidentProfilerMatcher.GcScore(250,0)>IncidentProfilerMatcher.GcScore(0,25),"Actual pauses should outrank collection counters");
 Check(IncidentProfilerMatcher.GcScore(0,0)==0,"Absent GC fabricated");
 Check(IncidentProfilerMatcher.GcScore(100,1,5000)<40,"Minor pause blamed for a much larger stall");
+Check(IncidentProfilerMatcher.WorkScore(20,5000)<40,"Small marker given strong weight against a long stall");
+Check(IncidentProfilerMatcher.WorkScore(500,1000)>IncidentProfilerMatcher.WorkScore(20,1000),"Work ranking ignores size relative to stall");
+Check(IncidentProfilerMatcher.WorkScore(double.NaN,1000)==0,"Invalid work duration ranked as measured");
 Console.WriteLine($"PASS {n} tick overlap, follow-up capture, bounded payload and GC-evidence checks");

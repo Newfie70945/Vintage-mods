@@ -56,6 +56,8 @@ public sealed class PerformanceCenterStore
 
 public sealed class PerformanceIncidentArchive
 {
+    public string AssessmentStatus { get; set; } = "Insufficient evidence";
+    public List<string> EvidenceGaps { get; set; } = new();
     public int MaxEntityDelta { get; set; }
     public int MaxChunkDelta { get; set; }
     public long BlockLoggerDropped { get; set; }
