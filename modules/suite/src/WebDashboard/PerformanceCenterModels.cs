@@ -56,6 +56,16 @@ public sealed class PerformanceCenterStore
 
 public sealed class PerformanceIncidentArchive
 {
+    public int MaxEntityDelta { get; set; }
+    public int MaxChunkDelta { get; set; }
+    public long BlockLoggerDropped { get; set; }
+    public int AttributionVersion { get; set; }
+    public string OriginalPrimaryCategory { get; set; } = "";
+    public int Gen2Collections { get; set; }
+    public bool GcPauseTimingAvailable { get; set; }
+    public double GcPauseMs { get; set; }
+    public double WorldSaveWindowMs { get; set; }
+    public BlockLogger.ServerHealth.IncidentProfilerEvidence ProfileEvidence { get; set; } = new();
     public string Id { get; set; } = "";
     public long StartUnixMilliseconds { get; set; }
     public long EndUnixMilliseconds { get; set; }

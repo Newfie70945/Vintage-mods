@@ -2,9 +2,16 @@
 
 ## Server Essentials Suite 1.2.45
 
+- IncidentEvidence1: Performance Center now compares measured GC pause time with each stall; collection counts and heap drops alone no longer produce a strong GC diagnosis.
+- Attach overlapping slow-tick profiler contributors to lag incidents, with marker timings and likely ownership. Clearly distinguish after-spike captures from measurements of the original stall.
+- Refresh archived incidents when a matching capture finishes. Reassess older unsupported labels while retaining their previous assessment; missing historical timing cannot be recreated.
+- Stop treating rolling database latency and web requests waiting for the main thread as proof of a spike's cause. Show insufficient evidence when attribution is unavailable.
+- Incidental Gen2 collections no longer suppress the existing optional automatic incident capture. Profiling remains opt-in with existing bounds and cooldowns.
+- Fix the stale Block ID Migration version badge. Current build: `ms11-incident-evidence1`; all earlier 1.2.45 fixes retained, companion versions unchanged. [Validation and limits](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.45.md).
+
 - MigrationPosFix1: remove a direct Entity.Pos field dependency from migration targeting that could throw MissingFieldException even for looked-at blocks on a different game API build. Use the existing runtime-compatible position resolver for the coordinate fallback, honor explicit dimensions first, and refuse ambiguous targets when the player's dimension cannot be read.
 - Inventory acknowledgement errors now name the exact `confirm-inventory-risk` / `confirm-overwrite` flags instead of leaving the required command option unclear.
-- Current build `ms11-migrationposfix1`; retains TickUI1, StorageSave1 and Performance1. Companion versions remain unchanged.
+- MigrationPosFix1 retained; includes TickUI1, StorageSave1 and Performance1. Companion versions remain unchanged.
 
 - Tick Debugging now shows the top 12 sampled contributors during an engine capture, including likely owner/confidence, total time, maximum segment and call count. Retained results are clearly labelled after capture completion; viewing the page never starts continuous profiling.
 - Add a quick investigation guide and links between Performance, Profiler, Memory and Database Storage. Make the grouped diagnosis's recent five-minute window explicit.

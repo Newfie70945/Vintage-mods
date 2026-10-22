@@ -71,3 +71,5 @@ No live configuration, credentials, world saves or proprietary game binaries bel
 Install **both inner mod ZIPs** from the paired download into the game server's Mods folder; do not install the outer download ZIP as a mod. Requires the inspected official Vintage Story 1.22.7 build. Open **Suite → Optimizations → Newfies Server Optimizer** to configure NOS, inspect module activation/conflicts, and start or stop its bounded profiler. Stop the NOS capture before editing settings. Read-only panel accounts cannot edit; Suite Safe Diagnostics Mode blocks module changes and capture starts, while still allowing a running capture to stop.
 
 Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.
+
+Current Suite build: **1.2.45 · ms11-incident-evidence1**. See [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.45.md) for measured GC pauses, matching tick profiles and evidence limits.
