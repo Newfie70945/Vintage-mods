@@ -21,6 +21,9 @@ public sealed class OptimizerConfig
         Profiling ??= new(); EngineOptimizations ??= new(); EntityOptimization ??= new(); ChunkOptimization ??= new(); BlockEntities ??= new();
         MemoryManagement ??= new(); Networking ??= new(); Scheduling ??= new(); Logging ??= new();
         Dashboard ??= new(); Compatibility ??= new(); Benchmarking ??= new();
+        EngineOptimizations.PathMainThreadBudgetMs = Math.Clamp(EngineOptimizations.PathMainThreadBudgetMs, 1, 10);
+        EngineOptimizations.PathMainThreadMaxSearches = Math.Clamp(EngineOptimizations.PathMainThreadMaxSearches, 1, 8);
+        EngineOptimizations.PathMainThreadGraceMs = Math.Clamp(EngineOptimizations.PathMainThreadGraceMs, 0, 5000);
         EngineOptimizations.AssetCacheMaxMiB = Math.Clamp(EngineOptimizations.AssetCacheMaxMiB, 1, 32);
         EngineOptimizations.MinimumNearbyClients = Math.Clamp(EngineOptimizations.MinimumNearbyClients, 0, 4096);
         Profiling.SampleIntervalSeconds = Math.Clamp(Profiling.SampleIntervalSeconds, 1, 60);
@@ -81,6 +84,13 @@ public sealed class EngineOptimizationOptions
 {
     public bool WorldgenRequestReuse { get; set; } = true;
     public bool SaveSnapshotRelease { get; set; } = true;
+    public bool PathQueueLimitFix { get; set; } = true;
+    public bool PathMainThreadBudget { get; set; }
+    public int PathMainThreadBudgetMs { get; set; } = 2;
+    public int PathMainThreadMaxSearches { get; set; } = 1;
+    public int PathMainThreadGraceMs { get; set; } = 300;
+    public bool NearestEntitySearch { get; set; } = true;
+    public bool InteractableEntitySearch { get; set; } = true;
     public bool AiTaskStartDispatch { get; set; } = true;
     public bool AiFilterDispatch { get; set; } = true;
     public bool RepulseDelegateReuse { get; set; } = true;

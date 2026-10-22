@@ -1,9 +1,13 @@
-# Implementation status: 0.6.0 preview
+# Implementation status: 0.7.0 preview
 
 NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 
 Implemented independent engine modules:
 
+- Nearest/interactable entity query state reuse without per-query closures.
+- Worker path-queue cap repair, retaining requests that previously went missing.
+- Optional bounded main-thread path assistance, off by default.
+- Explicit release of stopped capture references without forced GC.
 - Online player snapshot allocation reduction.
 - Nearby-player temporary-list reuse, default off and population gated when enabled.
 - Bulk FastMemoryStream reads.
@@ -16,6 +20,6 @@ Implemented independent engine modules:
 
 Each has a separate switch and runtime status, exact official-assembly guards, contract/conflict checks, disposal and stock fallback. Suite controls use the versioned event bridge. Profiling can remain off while engine modules operate.
 
-[Current validation](performance-0.6.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
+[Current validation](performance-0.7.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
 
-Deferred: AI/pathfinding scheduling, activation ranges, chunk backpressure, network batching, incremental autosave, chunk I/O and terrain algorithm changes. These require representative profiles plus gameplay/equivalence validation before implementation.
+Deferred: AI tick scheduling, broad pathfinder algorithm/cache replacements, activation ranges, chunk backpressure, network batching, incremental autosave, chunk I/O and terrain algorithm changes. These require representative profiles plus gameplay/equivalence validation before implementation.

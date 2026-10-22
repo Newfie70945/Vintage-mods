@@ -39,6 +39,17 @@ Check("ring retention order and caller-owned snapshots", () =>
     var a = ring.Snapshot(); Assert(a.SequenceEqual(new[] { 5, 6, 7 }) && ring.Overwritten == 5);
     a[0] = -1; Assert(ring.Snapshot()[0] == 5); ring.Add(8); Assert(ring.Snapshot().SequenceEqual(new[] { 6, 7, 8 }));
 });
+Check("new entity/path defaults and assistance bounds are conservative", () =>
+{
+    var config = new OptimizerConfig();
+    Assert(config.EngineOptimizations.NearestEntitySearch && config.EngineOptimizations.InteractableEntitySearch && config.EngineOptimizations.PathQueueLimitFix);
+    Assert(!config.EngineOptimizations.PathMainThreadBudget && config.EngineOptimizations.PathMainThreadBudgetMs == 2 && config.EngineOptimizations.PathMainThreadMaxSearches == 1 && config.EngineOptimizations.PathMainThreadGraceMs == 300);
+    config.EngineOptimizations.PathMainThreadBudgetMs = int.MinValue;
+    config.EngineOptimizations.PathMainThreadMaxSearches = int.MaxValue;
+    config.EngineOptimizations.PathMainThreadGraceMs = int.MinValue;
+    config.Normalize();
+    Assert(config.EngineOptimizations.PathMainThreadBudgetMs == 1 && config.EngineOptimizations.PathMainThreadMaxSearches == 8 && config.EngineOptimizations.PathMainThreadGraceMs == 0);
+});
 Check("config clamps all memory/work bounds and survives omitted/null sections", () =>
 {
     var config = new OptimizerConfig { Profiling = new() { MaxSamples = int.MaxValue, SampleIntervalSeconds = -1, MaxHotspots = 0, SystemSampleEvery = -9, AutoStopSeconds = int.MaxValue }, Benchmarking = new() { MaxEvidenceBytes = int.MaxValue, PresenceIntervalSeconds = 0, RunId = new string('x', 200) }, Logging = null! };

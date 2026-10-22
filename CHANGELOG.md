@@ -2,11 +2,16 @@
 
 ## Server Essentials Suite 1.2.46
 
+- OptimizerEntity1: add NOS 0.7.0 entity-search and path-queue switches, observed-head wait/count/soft-budget settings, actual module states and work counters to Optimizations.
+- Add Release Stopped Capture with active-capture/read-only/safe-mode/older-NOS guards. Exported reports remain; no forced collection occurs.
+- Group AI allocation controls together and explain scheduling and GC limits. Suite remains 1.2.46; build `ms11-optimizer-entity1`, retaining WebRequest2 and all earlier fixes.
+
+
 - WebRequest2: the global header now reads a compact cached endpoint without copying health history or running Smart Diagnosis. The health score shows when it was last calculated.
 - Reuse serialized JSON for unchanged Dashboard, header and Server Status snapshots. Preparation stays on HTTP workers; byte retention is capped at 256 KiB per snapshot and larger bodies bypass it.
 - Spike details and copied summaries show overlapping web routes, status, response bytes, JSON preparation time/cache reuse, worker queue, main-thread wait and measured callback intervals with coincident GC pauses.
 - Match completed requests by interval and enrich recent incidents after requests finish. Queue waits and older aggregate-only timings remain correlation; overlapping callbacks are discounted for coincident GC. Existing archived assessments are refreshed from available evidence.
-- Current build: `ms11-web-request2`; retains WebRequest1 and earlier 1.2.46 changes. Production improvements require measurement under the same player workload.
+- Previous build: `ms11-web-request2`; retains WebRequest1 and earlier 1.2.46 changes. Production improvements require measurement under the same player workload.
 
 
 - WebRequest1: stagger background navigation checks after login instead of requesting nine pages concurrently; overlapping badge refreshes share one run, and logout stops remaining checks.
@@ -179,3 +184,9 @@
 - Retained and selected repairs revalidate world, registry and saved data on restart, verify automatic world backups by default and consume staged jobs before writing. Disabling backup requires manual-copy acknowledgement. Only one selected/global/inventory repair may be staged.
 - Fixed rollback chat markup and oversized replies, including raw help placeholders and diagnostic values. Failed private sends cannot leave recovery stuck. History recommendations recognize the legacy overworld dimension alias.
 - Block ID Repair remains experimental and restricted to the inspected official Vintage Story 1.22.7 saved format. Unsupported metadata and destructive generic container replacements are refused. NOS and companion mod versions are unchanged.
+
+## Newfies Server Optimizer 0.7.0 preview
+
+- Independently controlled nearest/interactable entity search state reuse reduces temporary closures/delegates without changing the stock walker or predicate order. Recursion, exceptions and thread isolation are tested; idle state holds no input references.
+- Fix worker dequeue-before-limit request loss. Add optional bounded main-thread assistance using official A*, creature types and an observed-head grace period. The soft budget cannot interrupt a single search; scheduling changes default off.
+- Add stopped-capture release without forced GC or deleting exported files, Suite configuration and execution counters. Preserve strict engine hashes, foreign-patch detection and independent disable controls.

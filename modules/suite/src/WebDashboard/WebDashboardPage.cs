@@ -2569,6 +2569,9 @@ __NSS_RETENTION_HTML__
         <div><h4>API and allocation modules</h4>
           <label><input type="checkbox" id="nosOnlinePlayerSnapshots"> Online-player snapshots</label><br>
           <label><input type="checkbox" id="nosAiFilterDispatch"> Allocation-free AI filter dispatch</label><br>
+          <label><input type="checkbox" id="nosAiTaskStartDispatch"> Allocation-free AI task-start vetoes</label><br>
+          <label><input type="checkbox" id="nosNearestEntitySearch"> Reuse nearest-entity search state</label><br>
+          <label><input type="checkbox" id="nosInteractableEntitySearch"> Reuse interactable-entity search state</label><br>
           <label><input type="checkbox" id="nosRepulseDelegateReuse"> Repulsion callback reuse</label><br>
           <label><input type="checkbox" id="nosBulkStreamReads"> Bulk stream reads</label><br>
           <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
@@ -2576,9 +2579,16 @@ __NSS_RETENTION_HTML__
         </div>
         <div><h4>World generation and saves</h4>
           <label><input type="checkbox" id="nosWorldgenRequestReuse"> Allocation-free generation request lookup</label><br>
-          <label><input type="checkbox" id="nosAiTaskStartDispatch"> Allocation-free AI task-start vetoes</label>
           <label><input type="checkbox" id="nosSaveSnapshotRelease"> Release completed save snapshots</label>
           <p class="small">Keeps stock generation order and save transactions. Releases saved chunk references after successful background saves; failed saves keep their retry snapshot.</p>
+        </div>
+        <div><h4>Pathfinding queue</h4>
+          <label><input type="checkbox" id="nosPathQueueLimitFix"> Preserve queued requests at the worker limit</label><br>
+          <label><input type="checkbox" id="nosPathMainThreadBudget"> Limit main-thread pathfinding assistance (experimental)</label><br>
+          <label class="small">Soft budget <input id="nosPathMainThreadBudgetMs" type="number" min="1" max="10" value="2" style="width:70px"> ms</label><br>
+          <label class="small">Maximum searches <input id="nosPathMainThreadMaxSearches" type="number" min="1" max="8" value="1" style="width:70px"> per help tick</label><br>
+          <label class="small">Observed head wait <input id="nosPathMainThreadGraceMs" type="number" min="0" max="5000" value="300" style="width:80px"> ms</label>
+          <p class="small">Budgeting is off by default. The worker keeps running. One search cannot be interrupted and may exceed the soft budget; waiting paths may complete later. Test under actual animal workloads.</p>
         </div>
         <div><h4>Optional population scaling</h4>
           <label><input type="checkbox" id="nosNearbyPlayerQueries"> Nearby-player queries</label><br>
@@ -2586,7 +2596,8 @@ __NSS_RETENTION_HTML__
           <p class="small">Off by default: allocation savings can trade against CPU time. Uses population hysteresis. Test against your actual player workload.</p>
         </div>
       </div>
-      <div class="quickActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button></div>
+      <div class="quickActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button><button id="nosClearCapture">Release Stopped Capture</button></div>
+      <p class="small">Entity search reuse reduces temporary objects without skipping AI ticks or changing activation ranges. Search inputs are cleared after every call. Release Stopped Capture releases retained NOS report references; exported files remain. These controls do not force GC or change process-wide GC settings.</p>
       <div id="nosEditState" class="small"></div>
       <div class="tableWrap dataScroll" style="margin-top:12px"><table><thead><tr><th>Module</th><th>Actual state</th><th>Compatibility / fallback reason</th></tr></thead><tbody id="nosModules"></tbody></table></div>
       <div id="nosCounters" class="small" style="margin-top:10px"></div>
@@ -10012,7 +10023,7 @@ $('bmExport').onclick=()=>{if(!bmOwner()||!bmState)return;const url=URL.createOb
 setInterval(()=>{if(currentSection==='blockMigration'&&!bmBusy&&(bmState?.loadedMigration?.active||['backing-up','activating'].includes(bmValue(bmState?.loadedMigration,'State'))||bmValue(bmState?.scan,'State')==='running'||bmValue(bmState?.mappingAdvice,'State')==='running'||bmValue(bmValue(bmState?.preview,'InventoryReport'),'State')==='running'||['queued','running'].includes(bmValue(bmValue(bmValue(bmState?.loadedMigration,'Plan'),'InventoryReport'),'State'))))loadBlockMigration();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={pathQueueLimitFix:'PathQueueLimitFix',pathMainThreadBudget:'PathMainThreadBudget',pathMainThreadBudgetMs:'PathMainThreadBudgetMs',pathMainThreadMaxSearches:'PathMainThreadMaxSearches',pathMainThreadGraceMs:'PathMainThreadGraceMs',nearestEntitySearch:'NearestEntitySearch',interactableEntitySearch:'InteractableEntitySearch',aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;
@@ -10026,10 +10037,11 @@ function renderNos(result){
   $('nosProfileStart').disabled=nosBusy||locked||!!state.profiling||!state.settings.enabled;
   $('nosProfileStop').disabled=nosBusy||currentSessionRole==='ReadOnly'||!state.profiling;
   $('nosExport').disabled=nosBusy||locked;
+  $('nosClearCapture').disabled=nosBusy||locked||!!state.profiling||!state.captureAvailable||!(state.capabilities||[]).includes('capture-clear');
   $('nosEditState').textContent=locked?'Read-only or Suite Safe Diagnostics Mode: module changes and capture starts are locked.':state.profiling?'Stop the NOS capture to edit settings.':nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
   $('nosModules').innerHTML=(state.modules||[]).map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.status)}</td><td>${esc(m.reason)}</td></tr>`).join('');
   const c=state.counters||{};
-  $('nosCounters').textContent=`Executed: ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Counters are cumulative for this server process; hits are not a TPS measurement.`;
+  $('nosCounters').textContent=`Executed: ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Counters are cumulative for this server process; hits are not a TPS measurement.`;
 }
 async function loadNos(){try{renderNos(await api('/api/optimizations/newfies'));}catch(e){$('nosState').textContent=e.message;}}
 async function nosAction(operation){
@@ -10053,6 +10065,7 @@ $('nosDiscard').onclick=()=>{nosDirty=false;loadNos();};
 $('nosProfileStart').onclick=()=>nosAction('profile-start');
 $('nosProfileStop').onclick=()=>nosAction('profile-stop');
 $('nosExport').onclick=()=>nosAction('export');
+$('nosClearCapture').onclick=()=>nosAction('capture-clear');
 
 async function loadOptimizations(){
   await Promise.allSettled([loadNos(),loadTungsten(),loadSynergy()]);

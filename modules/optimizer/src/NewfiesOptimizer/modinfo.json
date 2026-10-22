@@ -5,8 +5,8 @@
   "authors": [
     "Newfie's Community"
   ],
-  "description": "Server performance patches for entity repulsion, AI filter dispatch, player queries, bulk stream reads and assets compression. Independent module switches and strict official-engine compatibility guards.",
-  "version": "0.6.0",
+  "description": "Guarded official-server performance patches: entity search allocation reduction, AI/repulsion delegate reuse, path queue limit fix, optional bounded main-thread path assistance, player queries, stream reads and asset compression. Independent Suite controls and compatibility checks.",
+  "version": "0.7.0",
   "side": "Server",
   "requiredOnClient": false,
   "requiredOnServer": true,

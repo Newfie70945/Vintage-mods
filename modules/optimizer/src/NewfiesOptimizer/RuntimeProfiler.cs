@@ -12,7 +12,7 @@ namespace NewfiesOptimizer;
 
 public sealed class RuntimeProfiler : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.6.0";
+    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.7.0";
     private static RuntimeProfiler? active;
     public Func<ModuleStatus[]>? ExternalModules { get; set; }
     public Func<IReadOnlyDictionary<string,long>>? ExternalCounters { get; set; }
@@ -57,9 +57,13 @@ public sealed class RuntimeProfiler : IDisposable
                 chunkCount = () => dictionary.Count;
         }
         foreach (string area in new[] { "entityOptimization", "chunkOptimization", "blockEntities", "memoryManagement", "networking", "scheduling" })
-            modules[area] = area == "entityOptimization"
-                ? new(area, "scopeLimited", "AI filter dispatch and repulsion hot paths are separate engine modules. Entity activation and AI scheduling remain unchanged.")
-                : new(area, "notImplemented", "This gameplay area is not modified by the implemented engine modules.");
+            modules[area] = area switch
+            {
+                "entityOptimization" => new(area, "scopeLimited", "Entity search, AI delegate and repulsion allocation reductions are separate engine modules. Entity activation and AI tick cadence are unchanged."),
+                "memoryManagement" => new(area, "scopeLimited", "Enabled allocation modules reduce temporary objects. Stopped captures can be released explicitly. No forced GC, heap compaction or global latency-mode changes."),
+                "scheduling" => new(area, "scopeLimited", "Optional bounded main-thread pathfinding assistance is a separate module. Off by default; changes path scheduling, not the A* algorithm."),
+                _ => new(area, "notImplemented", "This gameplay area is not modified by the implemented engine modules.")
+            };
         SetModule("tickMetrics", config.Profiling.TickMetrics ? "idle" : "disabled", "No hook while profiling is stopped.");
         SetModule("systemTimings", config.Profiling.SystemTimings ? "idle" : "disabled", "Optional sampled inclusive engine-system timing.");
         SetModule("phaseTimings", config.Profiling.PhaseTimings ? "idle" : "disabled", "Optional inspected main-thread phases only.");
@@ -114,6 +118,14 @@ public sealed class RuntimeProfiler : IDisposable
         return "Capture stopped. Data retained. " + exportResult;
     }
 
+    public (bool Success, string Message) ClearCapture()
+    {
+        if (IsRunning) return (false, "Stop the NOS capture before clearing it.");
+        Session = null;
+        timingCounters.Clear(); blockedHookGroups.Clear();
+        return (true, "Stopped capture released. Existing exported files are unchanged; any export in progress owns its report snapshot. No forced collection was requested.");
+    }
+
     public string QueueExport()
     {
         if (Session is null) return "No capture to export. Run /optimizer profile start first.";
@@ -135,7 +147,7 @@ public sealed class RuntimeProfiler : IDisposable
 
     public string Status()
     {
-        string summary = "Newfie's Server Optimizer 0.6.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
+        string summary = "Newfie's Server Optimizer 0.7.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
         if (Session is not null) summary += $" Capture {Session.ElapsedSeconds:F1}s, {Session.TickCount} completed ticks.";
         if (LastExport is not null) summary += " Last export: " + LastExport + ".";
         if (ExportFailure is not null) summary += " Export failed: " + ExportFailure + ".";

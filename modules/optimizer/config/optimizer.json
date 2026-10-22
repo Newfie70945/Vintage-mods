@@ -63,6 +63,13 @@
     "AiFilterDispatch": true,
     "RepulseDelegateReuse": true,
     "WorldgenRequestReuse": true,
-    "SaveSnapshotRelease": true
+    "SaveSnapshotRelease": true,
+    "NearestEntitySearch": true,
+    "InteractableEntitySearch": true,
+    "PathQueueLimitFix": true,
+    "PathMainThreadBudget": false,
+    "PathMainThreadBudgetMs": 2,
+    "PathMainThreadMaxSearches": 1,
+    "PathMainThreadGraceMs": 300
   }
 }

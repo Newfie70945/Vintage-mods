@@ -66,7 +66,7 @@ public sealed class ProfileSession
                 Hotspots = hotspots.Values.Select(x => x.Snapshot()).OrderByDescending(x => x.TotalMs).ToArray(),
                 Capabilities = capabilities, Modules = modules, SamplesOverwritten = samples.Overwritten,
                 HotspotLookupsOmitted = omitted, Overhead = new(HookCalls, HookWorkMs, SampleCalls, SampleWorkMs),
-                Notes = ["Engine-patch preview. Module activation is recorded separately; gameplay scheduling remains unchanged.",
+                Notes = ["Engine-patch preview. Module activation is recorded separately; AI tick cadence is unchanged. Optional main-thread path assistance changes path scheduling only.",
                     "Process CPU is percent of one logical core and may exceed 100%. Main-thread work utilization is wall-time processing, not CPU utilization.",
                     "System/phase/callback timings are opt-in inclusive samples. Totals cover sampled calls only and are not extrapolated.",
                     "GC committed and fragmentation describe the most recent GC; managedHeapBytes is the current approximate live allocation estimate, not a retained-object census.",

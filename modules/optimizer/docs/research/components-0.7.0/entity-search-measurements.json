@@ -1,0 +1,142 @@
+{
+  "scope": "Official 1.22.7 methods and stock partition walker with API proxy fixture, 16 entities; five alternating trials, .NET 10 tiered compilation disabled. Not production TPS.",
+  "trials": [
+    {
+      "trial": 0,
+      "stock": {
+        "nearest": {
+          "Nanoseconds": 306.587,
+          "Bytes": 400.00032
+        },
+        "interactable": {
+          "Nanoseconds": 313.274,
+          "Bytes": 488.00032
+        }
+      },
+      "optimized": {
+        "nearest": {
+          "Nanoseconds": 298.376,
+          "Bytes": 288.00032
+        },
+        "interactable": {
+          "Nanoseconds": 301.952,
+          "Bytes": 288.00032
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "nearest": {
+          "Nanoseconds": 310.373,
+          "Bytes": 400.00032
+        },
+        "interactable": {
+          "Nanoseconds": 322.466,
+          "Bytes": 488.00032
+        }
+      },
+      "optimized": {
+        "nearest": {
+          "Nanoseconds": 299.265,
+          "Bytes": 288.00032
+        },
+        "interactable": {
+          "Nanoseconds": 305.536,
+          "Bytes": 288.00032
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "nearest": {
+          "Nanoseconds": 317.936,
+          "Bytes": 400.00032
+        },
+        "interactable": {
+          "Nanoseconds": 324.484,
+          "Bytes": 488.00032
+        }
+      },
+      "optimized": {
+        "nearest": {
+          "Nanoseconds": 293.581,
+          "Bytes": 288.00032
+        },
+        "interactable": {
+          "Nanoseconds": 295.927,
+          "Bytes": 288.00032
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "nearest": {
+          "Nanoseconds": 323.238,
+          "Bytes": 400.00032
+        },
+        "interactable": {
+          "Nanoseconds": 372.822,
+          "Bytes": 488.00032
+        }
+      },
+      "optimized": {
+        "nearest": {
+          "Nanoseconds": 307.992,
+          "Bytes": 288.00032
+        },
+        "interactable": {
+          "Nanoseconds": 313.542,
+          "Bytes": 288.00032
+        }
+      }
+    },
+    {
+      "trial": 4,
+      "stock": {
+        "nearest": {
+          "Nanoseconds": 306.26,
+          "Bytes": 400.00032
+        },
+        "interactable": {
+          "Nanoseconds": 318.017,
+          "Bytes": 488.00032
+        }
+      },
+      "optimized": {
+        "nearest": {
+          "Nanoseconds": 284.429,
+          "Bytes": 288.00032
+        },
+        "interactable": {
+          "Nanoseconds": 299.43,
+          "Bytes": 288.00032
+        }
+      }
+    }
+  ],
+  "median": {
+    "nearest": {
+      "stock": {
+        "Nanoseconds": 310.373,
+        "Bytes": 400.00032
+      },
+      "optimized": {
+        "Nanoseconds": 298.376,
+        "Bytes": 288.00032
+      }
+    },
+    "interactable": {
+      "stock": {
+        "Nanoseconds": 322.466,
+        "Bytes": 488.00032
+      },
+      "optimized": {
+        "Nanoseconds": 301.952,
+        "Bytes": 288.00032
+      }
+    }
+  }
+}
