@@ -19,8 +19,8 @@ public sealed record MigrationInventoryOptions(string Mode="preserve",DateTime? 
     {
         if(Mode is not ("preserve" or "reconnect" or "recover-empty" or "replace"))throw new ArgumentException("Choose preserve, reconnect, recover-empty or replace inventory mode.");
         if(BeforeUtc.HasValue&&(BeforeUtc.Value.Kind!=DateTimeKind.Utc||BeforeUtc.Value>DateTime.UtcNow))throw new ArgumentException("Inventory cutoff must be UTC and cannot be in the future.");
-        if(Mode!="preserve"&&!RiskAcknowledged)throw new InvalidOperationException(Mode=="reconnect"?"Acknowledge compatible container reconnection; incompatible or missing metadata will remain unchanged.":"Acknowledge historical inventory recovery risks: snapshots may lack attributes and unlogged transfers can duplicate items.");
-        if(Mode=="replace"&&!OverwriteAcknowledged)throw new InvalidOperationException("Explicitly acknowledge replacing existing container contents before using Replace mode.");
+        if(Mode!="preserve"&&!RiskAcknowledged)throw new InvalidOperationException(Mode=="reconnect"?"Add confirm-inventory-risk to this command to acknowledge container reconnection. Example: /nseblockmigrate replaceheld reconnect confirm-inventory-risk. Incompatible or missing metadata will remain unchanged.":"Add confirm-inventory-risk to this command. Example: /nseblockmigrate replaceheld recover-empty confirm-inventory-risk. Historical snapshots may lack item attributes, and unlogged transfers can duplicate items.");
+        if(Mode=="replace"&&!OverwriteAcknowledged)throw new InvalidOperationException("Replace mode also requires confirm-overwrite because it replaces existing container contents.");
     }
 }
 public sealed class MigrationInventoryReport

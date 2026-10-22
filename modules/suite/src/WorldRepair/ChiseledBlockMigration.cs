@@ -1,3 +1,4 @@
+using BlockLogger.Services;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -18,9 +19,16 @@ public sealed partial class BlockIdRepairService
         var parts=at[3..].Split(',');
         if(parts.Length!=3||!int.TryParse(parts[0],out int x)||!int.TryParse(parts[1],out int y)||!int.TryParse(parts[2],out int z)||x<0||y<0||y>=32768||z<0)
             throw new ArgumentException("Use at=X,Y,Z with valid non-negative block coordinates and local Y below 32768.");
-        int dimension=selected?.dimension??player.Entity.Pos.Dimension;
+        int dimension;
         string? dim=tokens.FirstOrDefault(t=>t.StartsWith("dimension=",StringComparison.Ordinal));
-        if(dim!=null&&(!int.TryParse(dim[10..],out dimension)||dimension<0||dimension>511))throw new ArgumentException("Use dimension=N between 0 and 511.");
+        if(dim!=null)
+        {
+            if(!int.TryParse(dim[10..],out dimension)||dimension<0||dimension>511)
+                throw new ArgumentException("Use dimension=N between 0 and 511.");
+        }
+        else if(selected!=null) dimension=selected.dimension;
+        else if(!EntityPositionResolver.TryGetCoordinates(player.Entity,out _,out _,out _,out dimension))
+            throw new InvalidOperationException("Player dimension is unavailable. Specify at=X,Y,Z dimension=N explicitly; no blocks were changed.");
         var pos=new BlockPos(x,y,z,dimension);
         if(api.World.BlockAccessor.GetChunkAtBlockPos(pos)==null)throw new InvalidOperationException("Target terrain must already be loaded; this command does not load terrain.");
         return pos;
