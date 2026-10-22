@@ -10,7 +10,7 @@ shutil.copytree(Path(os.environ['NSS_BATCH_TEST_BASELINE']).resolve(),data,ignor
 game=Path(os.environ['VINTAGE_STORY']);net=str(Path(os.environ['DOTNET_ROOT'])/'dotnet');port=42600
 config=json.loads((data/'serverconfig.json').read_text());save=Path(config['WorldConfig']['SaveFileLocation']).name
 config.update(Ip='127.0.0.1',Port=port,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,PassTimeWhenEmpty=True,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save);(data/'serverconfig.json').write_text(json.dumps(config))
-mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.45.zip',mods)
+mods=data/'Mods';mods.mkdir();shutil.copy2(repo/'artifacts/NewfiesServerEssentialsSuiteV1.2.46.zip',mods)
 with zipfile.ZipFile(mods/'SaveCorrelationProbe.zip','w',zipfile.ZIP_DEFLATED) as z:
  z.write(repo/'modules/suite/tests/SaveCorrelationProbe/bin/Release/net10.0/SaveCorrelationProbe.dll','SaveCorrelationProbe.dll');z.writestr('modinfo.json',json.dumps(dict(type='code',modid='nsssavecorrelationprobe',name='Disposable Save Correlation Probe',version='1.0.0',side='server',requiredOnClient=False)))
 cdir=data/'ModConfig/NewfiesServerEssentialsSuite'

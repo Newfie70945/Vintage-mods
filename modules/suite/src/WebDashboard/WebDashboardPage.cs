@@ -2334,6 +2334,8 @@ __NSS_INTERFACE_STYLE__
       <button id="perfClearLagHistory" class="miniClear" title="Clear retained Performance/Profiler lag incident history">Clear</button>
     </div>
     <p class="small">Built from the lightweight rolling diagnostics. Archived incidents retain approximately 30 seconds before, the incident itself, and 15 seconds after. Click a row for drill-down or select two incidents to compare recurring patterns.</p>
+    <div id="perfIncidentPatterns" class="small" style="margin-bottom:8px"></div>
+    <div class="cardHeader"><label class="small">Evidence <select id="perfEvidenceFilter"><option value="all">All spikes</option><option value="measured">Captured tick evidence</option><option value="missing">Needs a tick capture</option></select></label><label class="small">Severity <select id="perfSeverityFilter"><option value="all">All severities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Watch">Watch</option></select></label></div>
     <div class="tableWrap">
       <table>
         <thead><tr><th>Compare</th><th>Start</th><th>Duration</th><th>Severity</th><th>Likely area</th><th>Likely mod</th><th>Confidence</th><th>Worst delay</th><th>CPU</th><th>Evidence</th><th>Next action</th></tr></thead>
@@ -3503,6 +3505,8 @@ __NSS_RETENTION_HTML__
     <div class="cardHeader">
       <div><h3 id="lagIncidentTitle">Lag Spike Investigation</h3><div id="lagIncidentSubtitle" class="small">Click a yellow/orange or red lag marker to inspect the archived black-box evidence.</div></div>
       <div class="spacer"></div>
+      <button id="lagIncidentPrevious">Older spike</button>
+      <button id="lagIncidentNext">Newer spike</button>
       <button id="lagIncidentCopy">Copy Summary</button>
       <button id="lagIncidentOpenTick">Tick Debugger</button>
       <button id="lagIncidentClose">Close</button>
@@ -6944,7 +6948,7 @@ async function loadDashboard(showError=true){
     $('dashboardIncidents').className=groups.length?'tableWrap':'empty';
     $('dashboardIncidents').innerHTML=groups.length
       ? `<table><thead><tr><th>Start</th><th>Severity</th><th>Likely area</th><th>Likely mod</th><th>Confidence</th><th>Worst delay</th><th>Next action</th></tr></thead><tbody>${groups.map(x=>
-          `<tr class="clickableRow" data-dashboard-incident="${Number(x.startUnixMilliseconds||0)}"><td>${esc(new Date(Number(x.startUnixMilliseconds||0)).toLocaleTimeString())}</td><td class="${severityClass(x.severity)}">${incidentDot(x.severity)}<b>${esc(x.severity)}</b></td><td><b>${esc(x.primaryCategory)}</b></td><td>${x.likelyModId?`<b>${esc(x.likelyModName||x.likelyModId)}</b><br><span class="small"><code>${esc(x.likelyModId)}</code> · ${esc(x.modConfidence||'Low')}</span>`:'<span class="muted">Not attributed</span>'}</td><td>${confidenceBadge(x.confidence)}</td><td>${Number(x.worstDelayMs||0).toFixed(0)}ms</td><td class="codeCell" title="${esc(x.nextAction)}">${esc(x.nextAction)}</td></tr>`
+          `<tr class="clickableRow" data-dashboard-incident="${Number(x.startUnixMilliseconds||0)}"><td>${esc(new Date(Number(x.startUnixMilliseconds||0)).toLocaleTimeString())}</td><td class="${severityClass(x.severity)}">${incidentDot(x.severity)}<b>${esc(x.severity)}</b></td><td><b>${esc(x.primaryCategory)}</b><div class="small">${x.profileEvidence?.ticks?.length?'Captured tick evidence':esc(x.profileEvidence?.state||'Needs a tick capture')}</div></td><td>${x.likelyModId?`<b>${esc(x.likelyModName||x.likelyModId)}</b><br><span class="small"><code>${esc(x.likelyModId)}</code> · ${esc(x.modConfidence||'Low')}</span>`:'<span class="muted">Not attributed</span>'}</td><td>${confidenceBadge(x.confidence)}</td><td>${Number(x.worstDelayMs||0).toFixed(0)}ms</td><td class="codeCell" title="${esc(x.nextAction)}">${esc(x.nextAction)}</td></tr>`
         ).join('')}</tbody></table>`
       : `<div class="emptyAction"><b>${p.enabled?'No recent grouped lag incidents.':'Diagnostics are off.'}</b><br>${p.enabled?'That is a good sign. Keep diagnostics on during the workload you want to study.':'Enable lightweight diagnostics to build automatic incident evidence.'}${p.enabled?'':`<div style="margin-top:8px"><button id="dashboardEnableDiagnostics">Enable Diagnostics</button></div>`}</div>`;
 
@@ -8683,8 +8687,15 @@ function renderPerformanceOverview(d){
       </tr>`).join('')
     : '<tr><td colspan="8" class="muted">No suite timing samples yet.</td></tr>';
 
-  const incidents=d.incidents||[];
-  $('perfIncidentCount').textContent=`${incidents.length} grouped incident(s)`;
+  const allIncidents=d.incidents||[];
+  performanceIncidentRows=allIncidents;
+  const evidence=$('perfEvidenceFilter')?.value||'all',severity=$('perfSeverityFilter')?.value||'all';
+  const incidents=allIncidents.filter(x=>(severity==='all'||x.severity===severity)&&(evidence==='all'||(evidence==='measured')===!!x.profileEvidence?.ticks?.length));
+  $('perfIncidentCount').textContent=`${incidents.length} / ${allIncidents.length} grouped incident(s)`;
+  const captured=allIncidents.filter(x=>x.profileEvidence?.ticks?.length).length,patterns=new Map();
+  allIncidents.forEach(x=>{const key=x.primaryCategory||'Insufficient evidence';patterns.set(key,(patterns.get(key)||0)+1);});
+  if($('perfIncidentPatterns'))$('perfIncidentPatterns').textContent=`Tick evidence: ${captured}/${allIncidents.length}. Frequent assessments: ${[...patterns].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>`${k} (${n})`).join(' · ')||'No incidents'}. Repeated assessments are patterns, not proof of a shared cause.`;
+  for(const id of ['perfEvidenceFilter','perfSeverityFilter'])if($(id))$(id).onchange=()=>renderPerformanceOverview(d);
   if($('perfClearLagHistory'))$('perfClearLagHistory').disabled=!incidents.length;
   $('perfIncidents').innerHTML=incidents.length
     ? incidents.map(x=>{
@@ -8703,7 +8714,7 @@ function renderPerformanceOverview(d){
           <td class="codeCell" title="${esc(x.nextAction)}">${esc(x.nextAction)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="11" class="muted">${enabled?'No grouped lag incident is currently retained in the rolling window.':'Enable diagnostics to collect automatic lag incidents.'}</td></tr>`;
+    : `<tr><td colspan="11" class="muted">${allIncidents.length?'No spikes match these filters.':enabled?'No grouped lag incident is currently retained in the rolling window.':'Enable diagnostics to collect automatic lag incidents.'}</td></tr>`;
 
   document.querySelectorAll('[data-perf-incident]').forEach(row=>{
     row.onclick=e=>{
@@ -8836,6 +8847,13 @@ function compareSelectedIncidents(){
 
 $('perfCompareBtn').onclick=compareSelectedIncidents;
 
+let performanceIncidentRows=[];
+let lagIncidentRequestSequence=0;
+function adjacentLagIncident(direction){
+  const rows=performanceIncidentRows.slice().sort((a,b)=>Number(a.startUnixMilliseconds)-Number(b.startUnixMilliseconds));
+  return direction<0?rows.filter(x=>Number(x.startUnixMilliseconds)<lagIncidentDrawerTimestamp).pop():rows.find(x=>Number(x.startUnixMilliseconds)>lagIncidentDrawerTimestamp);
+}
+function navigateLagIncident(direction){const row=adjacentLagIncident(direction);if(row)openLagIncidentDrawer(row.startUnixMilliseconds);}
 let lagIncidentDrawerTimestamp=0;
 let lagIncidentDrawerPayload=null;
 
@@ -8877,6 +8895,7 @@ function lagPhaseCard(title,s){
 }
 
 function closeLagIncidentDrawer(){
+  lagIncidentRequestSequence++;
   const drawer=$('lagIncidentDrawer'),backdrop=$('lagIncidentBackdrop');
   if(drawer){drawer.classList.remove('open');drawer.style.display='none';drawer.setAttribute('aria-hidden','true');}
   if(backdrop){backdrop.classList.remove('open');backdrop.setAttribute('aria-hidden','true');}
@@ -8955,8 +8974,11 @@ function renderLagDiagnosticFallback(sample){
 }
 
 async function openLagIncidentDrawer(ts){
+  const sequence=++lagIncidentRequestSequence;
   lagIncidentDrawerTimestamp=Number(ts||0);
   lagIncidentDrawerPayload=null;
+  if($('lagIncidentPrevious'))$('lagIncidentPrevious').disabled=!adjacentLagIncident(-1);
+  if($('lagIncidentNext'))$('lagIncidentNext').disabled=!adjacentLagIncident(1);
   const drawer=$('lagIncidentDrawer'),backdrop=$('lagIncidentBackdrop'),host=$('lagIncidentDrawerBody');
   if(!drawer||!backdrop||!host)return;
   drawer.style.display='block';drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');
@@ -8964,20 +8986,23 @@ async function openLagIncidentDrawer(ts){
   $('lagIncidentTitle').textContent='Lag Spike Investigation';$('lagIncidentSubtitle').textContent=`Loading archived evidence near ${new Date(lagIncidentDrawerTimestamp).toLocaleString()}…`;host.innerHTML='<div class="empty">Loading every retained data source for this lag spike…</div>';
   try{
     const d=await api(`/api/performance/incident?start=${encodeURIComponent(lagIncidentDrawerTimestamp)}`);
+    if(sequence!==lagIncidentRequestSequence)return;
     if(!d.found){
       const live=((lastProfilerPayload||{}).diagnosticIncidents||[]).slice().sort((a,b)=>Math.abs(Number(a.unixMilliseconds||0)-lagIncidentDrawerTimestamp)-Math.abs(Number(b.unixMilliseconds||0)-lagIncidentDrawerTimestamp))[0];
       if(live&&Math.abs(Number(live.unixMilliseconds||0)-lagIncidentDrawerTimestamp)<=5000){renderLagDiagnosticFallback(live);return;}
       host.innerHTML=`<div class="warning">${esc(d.message||'No archived black-box incident matched this marker.')}</div>`;return;
     }
     lagIncidentDrawerPayload=d;renderLagIncidentDrawer(d);
-  }catch(e){host.innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;}
+  }catch(e){if(sequence===lagIncidentRequestSequence)host.innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;}
 }
 
 function lagIncidentTextSummary(){
   const d=lagIncidentDrawerPayload||{},x=d.incident||{};
-  return [`${x.severity||'Lag'} incident — ${new Date(Number(x.startUnixMilliseconds||lagIncidentDrawerTimestamp)).toLocaleString()}`,`Worst delay: ${Number(x.worstDelayMs||0).toFixed(1)} ms`,`Duration: ${Number(x.durationSeconds||0).toFixed(0)} s`,`Max CPU: ${Number(x.maxCpuPercent||0).toFixed(1)}%`,`Primary category: ${x.primaryCategory||'Unknown'}`,`Confidence: ${x.confidence||'Low'}`,x.likelyModId?`Likely mod: ${x.likelyModName||x.likelyModId} (${x.modConfidence||'Low'} confidence)`:null,`Evidence: ${x.evidence||''}`,`Next action: ${x.nextAction||''}`].filter(Boolean).join('\n');
+  return [`${x.severity||'Lag'} incident — ${new Date(Number(x.startUnixMilliseconds||lagIncidentDrawerTimestamp)).toLocaleString()}`,`Worst delay: ${Number(x.worstDelayMs||0).toFixed(1)} ms`,`Duration: ${Number(x.durationSeconds||0).toFixed(0)} s`,`Max CPU: ${Number(x.maxCpuPercent||0).toFixed(1)}%`,`Primary category: ${x.primaryCategory||'Unknown'}`,`Confidence: ${x.confidence||'Low'}`,x.likelyModId?`Likely mod: ${x.likelyModName||x.likelyModId} (${x.modConfidence||'Low'} confidence)`:null,`Evidence: ${x.evidence||''}`,`Next action: ${x.nextAction||''}`,`Profile coverage: ${x.profileEvidence?.state||'Not captured'}`,`GC pause: ${x.gcPauseTimingAvailable?Number(x.gcPauseMs||0).toFixed(1)+' ms':'not recorded'}`, ...(x.profileEvidence?.ticks||[]).slice(0,8).flatMap(t=>[`Tick: ${Number(t.tickMs||0).toFixed(1)} ms`,...(t.contributors||[]).slice(0,6).map(c=>`  ${c.marker}: ${Number(c.workMs||0).toFixed(1)} ms, ${Number(c.calls||0)} calls; owner ${c.modName||c.modId||'unattributed'} (${c.confidence||'Low'})`)])].filter(Boolean).join('\n');
 }
 
+if($('lagIncidentPrevious'))$('lagIncidentPrevious').onclick=()=>navigateLagIncident(-1);
+if($('lagIncidentNext'))$('lagIncidentNext').onclick=()=>navigateLagIncident(1);
 if($('lagIncidentClose'))$('lagIncidentClose').onclick=closeLagIncidentDrawer;
 if($('lagIncidentBackdrop'))$('lagIncidentBackdrop').onclick=closeLagIncidentDrawer;
 if($('lagIncidentCopy'))$('lagIncidentCopy').onclick=async()=>{try{await navigator.clipboard.writeText(lagIncidentTextSummary());toast('Lag-spike summary copied.','success');}catch(e){toast('Could not copy summary.','error');}};
