@@ -81,6 +81,32 @@ queued[3](); if (work != 2) throw new Exception("Direct GET executed after timeo
 queued[4](); if (work != 3 || gate.CurrentCount != 1) throw new Exception("Write/gate did not finish at actual operation completion");
 Console.WriteLine("PASS: direct timed-out GET skipped; queued mutation executes once; exclusive gate survives HTTP timeout until game work finishes.");
 
+// Block metric finalization after the action returns. The HTTP task must not be
+// published while its callback interval is still waiting to be recorded.
+object finalMetric = Activator.CreateInstance(metricType, true)!;
+metricType.GetProperty("Method")!.SetValue(finalMetric, "GET");
+metricSlot.GetType().GetProperty("Value")!.SetValue(metricSlot, finalMetric);
+using var entered = new ManualResetEventSlim();
+using var releaseAction = new ManualResetEventSlim();
+var ordered = (Task<int>)run.Invoke(service, new object[] { (Func<int>)(() => { entered.Set(); releaseAction.Wait(); return 99; }), "ordering", true })!;
+metricSlot.GetType().GetProperty("Value")!.SetValue(metricSlot, null);
+var callback = Task.Run(queued[^1]);
+if (!entered.Wait(TimeSpan.FromSeconds(2))) throw new Exception("Fixture callback did not enter");
+object metricSync = metricType.GetProperty("Sync")!.GetValue(finalMetric)!;
+Monitor.Enter(metricSync);
+bool completedBeforeTiming;
+try { releaseAction.Set(); Thread.Sleep(100); completedBeforeTiming = ordered.IsCompleted; }
+finally { Monitor.Exit(metricSync); }
+await callback;
+if (completedBeforeTiming || await ordered != 99) throw new Exception("HTTP task completed before callback timing finalized");
+var windows = (System.Collections.IList)metricType.GetProperty("WorkWindows")!.GetValue(finalMetric)!;
+if (windows.Count != 1) throw new Exception("Completed response lacks its measured callback interval");
+var thrown = (Task<int>)run.Invoke(service, new object[] { (Func<int>)(() => throw new InvalidOperationException("fixture failure")), "exception", true })!;
+queued[^1]();
+try { await thrown; throw new Exception("Callback exception lost"); }
+catch (InvalidOperationException error) when (error.Message == "fixture failure") { }
+Console.WriteLine("PASS: response completion waits for callback timing; original callback exceptions preserved.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> invoke)
 {
     object result = DispatchProxy.Create(type, typeof(FakeProxy));

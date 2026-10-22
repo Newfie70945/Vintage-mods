@@ -15,7 +15,7 @@
   "headerBytes": 657,
   "dashboardBytes": 2586,
   "serverStatusBytes": 7090,
-  "headerRequestMaxMs": 14.25,
+  "headerRequestMaxMs": 6.36,
   "snapshotCacheHits": 32,
   "note": "Empty disposable server HTTP integration; no production TPS or player-scaling claim."
 }

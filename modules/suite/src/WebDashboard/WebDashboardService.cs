@@ -14370,24 +14370,27 @@ public sealed partial class WebDashboardService : IDisposable
                 long workUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 TimeSpan gcPauseStarted = GC.GetTotalPauseDuration();
                 var workStopwatch = Stopwatch.StartNew();
+                T result = default!;
+                Exception? workError = null;
                 try
                 {
                     if (disposed) throw new ObjectDisposedException(nameof(WebDashboardService));
-                    T result = action();
+                    result = action();
                     // A timed-out write can still finish. Refresh affected views when it does,
                     // while the route lease continues to protect the real operation lifetime.
                     if (Volatile.Read(ref responseTimedOut) != 0 && requestMetric is { Method: not "GET" } &&
                         !Equals(result?.GetType().GetProperty("Success", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(result), false))
                         snapshotCache.Invalidate(key => CacheAffectedByMutation(key, requestMetric.Path));
-                    tcs.TrySetResult(result);
                 }
                 catch (Exception ex)
                 {
-                    tcs.TrySetException(ex);
+                    workError = ex;
                 }
                 finally
                 {
                     workStopwatch.Stop();
+                    long workEndedUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    double workGcPause = Math.Max(0, (GC.GetTotalPauseDuration() - gcPauseStarted).TotalMilliseconds);
                     workLease?.Dispose();
                     if (requestMetric != null)
                     {
@@ -14398,13 +14401,17 @@ public sealed partial class WebDashboardService : IDisposable
                                 requestMetric.WorkWindows.Add(new WebMainThreadWorkDiagnostic
                                 {
                                     StartUnixMilliseconds = workUnix,
-                                    EndUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                                    EndUnixMilliseconds = workEndedUnix,
                                     WallMilliseconds = workStopwatch.Elapsed.TotalMilliseconds,
-                                    GcPauseMilliseconds = Math.Max(0, (GC.GetTotalPauseDuration() - gcPauseStarted).TotalMilliseconds)
+                                    GcPauseMilliseconds = workGcPause
                                 });
                         }
                     }
                 }
+                // Publish only after timing is complete: HTTP continuations can
+                // otherwise finish before finally records this callback's work.
+                if (workError != null) tcs.TrySetException(workError);
+                else tcs.TrySetResult(result);
             },
             taskCode);
         }
