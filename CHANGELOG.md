@@ -2,11 +2,17 @@
 
 ## Server Essentials Suite 1.2.46
 
+- NetworkEvidence1: identify slow custom-packet dispatcher intervals by channel, message type/ID, actual handler method and owning assembly. Show wall time, coincident GC pause, payload byte count and exception type in clicked spikes and copied summaries.
+- Resolve the engine deserialization wrapper to its registered mod delegate, avoiding attribution by ambiguous handlecustom1/handlecustom4 markers alone. Rank wall time outside coincident GC conservatively; it is not CPU time or proof of a mod defect.
+- Collect only while existing Performance/Profiler diagnostics are enabled. Retain intervals >=25ms, bounded to 256 records / 120 seconds, 512 cached identities and eight records per incident. No packet contents or player identities are stored; no additional sampling timer or forced GC is added.
+- Preserve packet behavior and original handler exceptions. Unavailable hooks fail open and report status; disabling diagnostics clears live records and identity references. Existing archives preserve attached evidence.
+- Current build: `ms11-network-evidence1`; retains all prior 1.2.46 changes, companion versions unchanged.
+
 - MigrationPause1: pausing now cancels migration-owned inventory preparation as well as backup activation, stops the loaded-terrain sweep, detaches the chunk hook's owner and releases runtime codecs, pools, maps and reconnection catalogs. Paused chunk hooks return before world access, decoding or the migration lock.
 - Preserve saved rules, completed recovery manifests, migration receipts and previously changed blocks. Independent administrator scans are not cancelled by pausing migration. Resume waits safely for a cancelling worker; stale continuations cannot restart paused rules.
 - Add cancellation checks to preparation page reads, integrity verification and manifest hashing. Status distinguishes a background operation still stopping from fully idle migration.
 - Timeline gaps longer than 2.5 seconds are shown as gaps, rather than diagonal interpolation across a stall; player counts use steps. The bottom timeline band is heap.
-- Current build: `ms11-migration-pause1`; retains all earlier 1.2.46 changes, companion versions unchanged.
+- MigrationPause1 foundation retained, including all earlier 1.2.46 changes; companion versions unchanged.
 
 - EvidenceQuality2: distinguish measured contributors, multiple measured contributors, correlation-only assessments and insufficient evidence in clicked spikes.
 - Label each ranked explanation by evidence type. Queue growth, event drops, entity/chunk counts, CPU and save overlap no longer rank as direct measurements of the blocking code.
