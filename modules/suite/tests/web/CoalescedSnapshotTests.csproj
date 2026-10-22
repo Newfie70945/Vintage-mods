@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
-  <ItemGroup><Compile Include="../../src/WebDashboard/CoalescedSnapshotCache.cs" Link="CoalescedSnapshotCache.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/WebDashboard/CoalescedSnapshotCache.cs" Link="CoalescedSnapshotCache.cs" /><Compile Include="../../src/WebDashboard/SerializedSnapshot.cs" Link="SerializedSnapshot.cs" /><Compile Include="../../src/WebDashboard/DiagnosticsModels.cs" Link="DiagnosticsModels.cs" /><Compile Include="../../src/WebDashboard/WebIncidentEvidence.cs" Link="WebIncidentEvidence.cs" /></ItemGroup>
 </Project>

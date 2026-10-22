@@ -233,6 +233,25 @@ public sealed class ServerHealthService : IDisposable
         }
     }
 
+    // Header reads must not clone history, run diagnosis, or touch engine profiling.
+    public object GetHeaderState()
+    {
+        lock (sync)
+        {
+            return new
+            {
+                enabled,
+                current = latestSample ?? new ServerHealthSample(),
+                smart = new
+                {
+                    available = cachedSmartAnalysisUnixMilliseconds > 0 && cachedSmartAnalysis.Available,
+                    healthScore = cachedSmartAnalysis.HealthScore,
+                    capturedUnixMilliseconds = cachedSmartAnalysisUnixMilliseconds
+                }
+            };
+        }
+    }
+
     // Uses already sampled leaf timings; never reads or enables the engine profiler here.
     public ServerTickContributors GetTickContributors()
     {

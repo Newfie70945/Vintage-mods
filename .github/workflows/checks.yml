@@ -26,6 +26,10 @@ jobs:
           python3 modules/suite/tests/test_recovery_sql_equivalence.py
           python3 modules/suite/tests/test_recovery_seek_cost.py
           dotnet run --project modules/suite/tests/recovery-performance/RecoveryPerformanceTests.csproj -c Release
+      - name: Check coalesced snapshots, serialized responses and web incident matching
+        run: |
+          dotnet run --project modules/suite/tests/web/CoalescedSnapshotTests.csproj -c Release
+          node modules/suite/tests/web/test_nav_request_pressure.cjs
       - name: Check incident profiler matching and GC evidence
         run: dotnet run --project modules/suite/tests/IncidentEvidenceChecks/IncidentEvidenceChecks.csproj -c Release
       - name: Check save correlation and retention query work
