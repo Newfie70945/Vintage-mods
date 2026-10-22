@@ -16,6 +16,8 @@ The graph bands are Delay, CPU, Players, Entities and Heap. Heap is the bottom b
 
 ## Validation
 
-Official 1.22.7/.NET 10 build and shipping-method checks cover pause-owned cancellation, unrelated scans, persisted disabled state and retained rules, removed sweep listeners/queues, released maps, fast chunk hooks under a held migration lock, invalidated resume callbacks and cancelled storage reads. Browser regressions cover migration controls, timeline gaps and stepped player counts. Disposable official-server integration is recorded separately with its output.
+Official 1.22.7/.NET 10 build and shipping-method checks cover pause-owned cancellation, unrelated scans, persisted disabled state and retained rules, removed sweep listeners/queues, released maps, fast chunk hooks under a held migration lock, invalidated resume callbacks and cancelled storage reads. Browser regressions cover migration controls, timeline gaps and stepped player counts. Disposable official-server integration passed: live/saved migration, chiseled geometry/material preservation, immediate pause, disabled-state restart, resume/manual-backup policy, backup bypass and stale activation. The paused server hook skipped 1,000 invocations without modifying bytes or incrementing inspection counters, and runtime caches were released. Normal saves preserved the verified 32,768-cell fixture. No authenticated game clients were used. [Sanitized integration results](validation/migration-pause-1.2.46.json).
+
+The shipping-assembly pause harness passed 17 checks; migration UI and timeline Chromium checks also passed. The official Suite build completed with zero warnings/errors.
 
 These are lifecycle and correctness checks, not a production latency benchmark or proof that migration caused a reported stall. Paused preparation could previously add allocations/I/O, but no affected-server trace was collected.
