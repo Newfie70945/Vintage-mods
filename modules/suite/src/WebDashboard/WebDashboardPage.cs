@@ -5887,19 +5887,23 @@ function setCompatibilityNavState(data){
   setNavBadge('compatibility',total,critical>0?'critical':'attention',detail);
 }
 
+let navIndicatorRefreshInFlight=false;
 async function refreshNavIndicators(includeStatic=true){
+  if(navIndicatorRefreshInFlight)return;
+  navIndicatorRefreshInFlight=true;
+  try{
   lastNavIndicatorRefresh=Date.now();
   const jobs=[
-    api('/api/reports?status=all&limit=1').then(d=>setReportsNavState(d.openCount,d.investigatingCount)),
-    api('/api/mod-updates').then(d=>setModUpdatesNavState(d)),
-    api('/api/anticheat/status').then(d=>setAntiCheatNavState(d)),
-    api('/api/chatguard').then(d=>{
+    ()=>api('/api/reports?status=all&limit=1').then(d=>setReportsNavState(d.openCount,d.investigatingCount)),
+    ()=>api('/api/mod-updates').then(d=>setModUpdatesNavState(d)),
+    ()=>api('/api/anticheat/status').then(d=>setAntiCheatNavState(d)),
+    ()=>api('/api/chatguard').then(d=>{
       const available=!!d?.available;
       const state=!available?'neutral':(!d.enabled?'neutral':(String(d.mode||'').toLowerCase()==='logonly'?'warn':'good'));
       const detail=!available?'Standalone ChatGuard not installed':`${d.enabled?'Enabled':'Disabled'} · ${d.mode||'—'}`;
       setNavStatus('chatguard',state,detail);
     }),
-    api('/api/discord').then(d=>{
+    ()=>api('/api/discord').then(d=>{
       const available=!!(d.transportAvailable||d.linkAvailable);
       const state=!available?'neutral':(d.transportConnected?'good':(d.transportEnabled?'warn':'neutral'));
       const detail=!available?'Discord module not installed':(d.transportConnected?'Discord bot connected':(d.transportEnabled?'Discord enabled but bot disconnected':'Discord integration disabled'));
@@ -5907,16 +5911,23 @@ async function refreshNavIndicators(includeStatic=true){
     })
   ];
   if(includeStatic){
-    jobs.push(api('/api/compatibility').then(d=>setCompatibilityNavState(d)));
-    jobs.push(api('/api/webmap').then(d=>setNavStatus('webmap',d.running?'good':(d.enabled?'bad':'neutral'),d.running?'Web Map listener running':(d.enabled?'Web Map enabled but listener stopped':'Web Map disabled'))));
-    jobs.push(api('/api/loginprotection/config').then(d=>setNavStatus('loginProtection',!d.available?'bad':(d.config?.enabled?'good':'neutral'),!d.available?'Login Protection unavailable':(d.config?.enabled?'Login Protection enabled':'Login Protection disabled'))));
-    jobs.push(api('/api/tick-debug').then(d=>{
+    jobs.push(()=>api('/api/compatibility').then(d=>setCompatibilityNavState(d)));
+    jobs.push(()=>api('/api/webmap').then(d=>setNavStatus('webmap',d.running?'good':(d.enabled?'bad':'neutral'),d.running?'Web Map listener running':(d.enabled?'Web Map enabled but listener stopped':'Web Map disabled'))));
+    jobs.push(()=>api('/api/loginprotection/config').then(d=>setNavStatus('loginProtection',!d.available?'bad':(d.config?.enabled?'good':'neutral'),!d.available?'Login Protection unavailable':(d.config?.enabled?'Login Protection enabled':'Login Protection disabled'))));
+    jobs.push(()=>api('/api/tick-debug/status').then(d=>{
       const enabled=d.enabled!==false;
       setNavStatus('tickDebug',enabled?'good':'neutral',enabled?'Tick Debugging enabled':'Tick Debugging disabled');
       if($('tickDebugNavState')){$('tickDebugNavState').textContent=enabled?'ON':'OFF';$('tickDebugNavState').className='navInlineState '+(enabled?'good':'neutral');}
     }));
   }
-  await Promise.allSettled(jobs);
+  // Badges must not fan out full page snapshots immediately after login.
+  // One background request at a time also bounds pressure across slow ticks.
+  for(const job of jobs){
+    if($('app').style.display==='none')break;
+    try{await job();}catch{}
+    await new Promise(resolve=>setTimeout(resolve,250));
+  }
+  }finally{navIndicatorRefreshInFlight=false;}
 }
 
 function syncNavGroups(){
