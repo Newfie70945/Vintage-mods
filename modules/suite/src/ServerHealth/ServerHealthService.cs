@@ -1938,7 +1938,8 @@ public sealed class ServerHealthService : IDisposable
                     capturedSlowCauses[marker] = cause = new ServerProfileSlowCause { Marker = marker };
                 cause.Count++;
                 cause.WorstTickMs = Math.Max(cause.WorstTickMs, tickMs);
-                var causes = TopProfileLeaves(profileLeafBuffer, 4)
+                var contributors = TopProfileLeaves(profileLeafBuffer, 6);
+                var causes = contributors
                     .Select(x => $"{ShortCode(x.Path, 72)} ({x.ElapsedMs:0.0}ms)")
                     .ToList();
 
@@ -1946,6 +1947,8 @@ public sealed class ServerHealthService : IDisposable
                 {
                     UnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     TickMs = tickMs,
+                    InstrumentedLeafMs = profileLeafBuffer.Sum(x => Math.Max(0, x.ElapsedMs)),
+                    Contributors = contributors.Select(x => new IncidentTickContributor { Marker = x.Path, WorkMs = x.ElapsedMs, Calls = x.Calls }).ToList(),
                     LeadingMarker = leading.Path ?? "",
                     LeadingWorkMs = leading.ElapsedMs,
                     TopCauseSummary = causes.Count == 0
@@ -2642,6 +2645,13 @@ public sealed class ServerHealthService : IDisposable
                 tick.ModId = owner.IsAttributed ? owner.ModId : "";
                 tick.ModName = owner.IsAttributed ? owner.ModName : "";
                 tick.Confidence = owner.Confidence; tick.IsCore = owner.IsCore;
+                foreach (var contributor in tick.Contributors)
+                {
+                    var attribution = ResolveModAttribution(contributor.Marker);
+                    contributor.ModId = attribution.IsAttributed ? attribution.ModId : "";
+                    contributor.ModName = attribution.IsAttributed ? attribution.ModName : "";
+                    contributor.Confidence = attribution.Confidence;
+                }
             }
             lastProfileSlowTicks = capturedSlowProfileTicks
                 .OrderByDescending(x => x.TickMs)

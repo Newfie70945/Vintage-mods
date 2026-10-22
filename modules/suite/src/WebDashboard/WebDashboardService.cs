@@ -11566,7 +11566,7 @@ public sealed partial class WebDashboardService : IDisposable
         bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
             incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
             (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
-        if (archived.AttributionVersion >= 1 && !betterProfile) return false;
+        if (archived.AttributionVersion >= 2 && !betterProfile) return false;
         if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
         if (betterProfile) archived.ProfileEvidence = incoming;
         var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
@@ -11586,7 +11586,7 @@ public sealed partial class WebDashboardService : IDisposable
         };
         archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database);
         ApplyIncidentVerdict(archived);
-        archived.AttributionVersion = 1;
+        archived.AttributionVersion = 2;
         return true;
     }
 
@@ -14060,7 +14060,7 @@ public sealed partial class WebDashboardService : IDisposable
             result.Add(new IncidentCauseScore
             {
                 Category = "Measured tick work: " + (!string.IsNullOrWhiteSpace(tick.ModName) ? tick.ModName : "engine / unattributed"),
-                Score = 98, Confidence = "Medium",
+                Score = tick.LeadingWorkMs >= Math.Max(50, group.WorstDelayMs * .25) ? 98 : tick.LeadingWorkMs >= 10 ? 55 : 20, Confidence = "Medium",
                 Evidence = $"{profile.Ticks.Count} retained slow tick(s) overlap the sampling interval; leading marker {tick.LeadingMarker} measured {tick.LeadingWorkMs:0.0}ms in a {tick.TickMs:0.0}ms tick. Marker ownership: {tick.Confidence}. " + profile.Note
             });
         }

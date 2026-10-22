@@ -1,9 +1,21 @@
 namespace BlockLogger.ServerHealth;
 
+public sealed class IncidentTickContributor
+{
+    public string Marker { get; set; } = "";
+    public double WorkMs { get; set; }
+    public int Calls { get; set; }
+    public string ModId { get; set; } = "";
+    public string ModName { get; set; } = "";
+    public string Confidence { get; set; } = "Low";
+}
+
 public sealed class ServerProfileSlowTick
 {
     public long UnixMilliseconds { get; set; }
     public double TickMs { get; set; }
+    public double InstrumentedLeafMs { get; set; }
+    public List<IncidentTickContributor> Contributors { get; set; } = new();
     public string TopCauseSummary { get; set; } = "";
     public string LeadingMarker { get; set; } = "";
     public double LeadingWorkMs { get; set; }
