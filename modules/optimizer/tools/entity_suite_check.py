@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Opt-in integration on a copied, stopped baseline. No production performance claim.
 Requires VINTAGE_STORY, DOTNET_ROOT and NSS_WEB_TEST_BASELINE. Optional NSS_TEST_PACK
-adds local mod ZIPs. Build Suite, NOS and EntitySuiteProbe before running.
+adds local mod ZIPs. Build Suite and NOS before running; the disposable probe is rebuilt automatically.
 """
 from pathlib import Path
 import http.cookiejar, io, json, os, secrets, shutil, subprocess, threading, time
@@ -14,6 +14,11 @@ root=repo/'artifacts/validation'/('nos-entity-suite-'+str(int(time.time())))
 data=root/'data';root.mkdir(parents=True)
 shutil.copytree(Path(os.environ['NSS_WEB_TEST_BASELINE']),data,ignore=shutil.ignore_patterns('Logs','Mods','Cache','Backups','NewfiesBlockRepair','NewfiesOptimizer'))
 game=Path(os.environ['VINTAGE_STORY']);dotnet=str(Path(os.environ['DOTNET_ROOT'])/'dotnet')
+probe_project=repo/'modules/optimizer/tests/EntitySuiteProbe/EntitySuiteProbe.csproj'
+probe_build=subprocess.run([dotnet,'build',str(probe_project),'-c','Release','--nologo'],cwd=repo,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+if probe_build.returncode:
+    raise RuntimeError('Disposable probe build failed: '+probe_build.stdout)
+
 config=json.loads((data/'serverconfig.json').read_text());save=Path(config['WorldConfig']['SaveFileLocation']).name
 config.update(Ip='127.0.0.1',Port=42601,AdvertiseServer=False,Upnp=False,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save)
 (data/'serverconfig.json').write_text(json.dumps(config))
