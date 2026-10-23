@@ -17,3 +17,13 @@ Component fixtures compare actual native consumers with synthetic shapes, a sync
 In these fixtures normal and cached collision generation remove 96 bytes per regeneration, and cache hits remove 32 bytes. Animation scans remove 56 bytes per call; remaining proxy allocation is outside NOS. Collision CPU timings are mixed: some regenerations and most warmed cache hits are slower despite allocating less. New collision patches therefore stay off by default; profile actual workload before enabling. Animation fixture timings improve, but this does not measure whole-entity animation cost.
 
 These results do not establish production TPS, player capacity, GC-pause or heap reductions. Validation reports record build checks and disposable copied-server coverage separately. No production world is modified, and loading a modpack does not exercise every feature.
+
+The [initial copied-server fixture](research/components-0.16.0/initial-fixture.json) is retained. It expected unknown animation metadata to remain active, but native ServerAnimator removes it during OnFrame. The fixture now checks that native removal precedes the flag scan; runtime code and engine guards were not changed.
+
+## Final validation
+
+All 25 optimizer build/test suites pass, including 48 new component checks and 102 lifecycle/conflict checks. NOS and Suite compile with zero warnings/errors; 22 root checks, source consistency and browser/mobile/control regressions pass.
+
+[Copied-server validation](research/components-0.16.0/copied-server.json) passes 88 checks with 25 mod ZIPs. Each new setting toggles independently through Suite. Actual terrain exercises both collision generators; a native ServerAnimator executes its frame and collision flag scan. All new execution counters advance and failure counters remain zero. Settings are restored and the disposable server shuts down gracefully. No authenticated-client workload or production capacity is represented.
+
+[All component trials](research/components-0.16.0/collision-animation.json) and [exact tested runtime revision/assembly hashes](research/components-0.16.0/validation.json) are retained. Guides may be repackaged after validation; tested DLLs are preserved unchanged.

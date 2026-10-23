@@ -92,7 +92,7 @@ public sealed class EntitySuiteProbe:ModSystem
    foreach(var key in new[]{"collisionGenerationReuse","cachedCollisionGenerationReuse","animationCollisionFlagScan"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"generation/animation control enabled: "+key);
    var cachedCollision=new CachingCollisionTester();cachedCollision.NewTick(collisionPosition);cachedCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
    var animationManager=new AnimationManager();animationManager.Init(api,new EntityAgent{World=world,Api=api});animationManager.Animator=new ServerAnimator(()=>1.0,Array.Empty<Animation>(),Array.Empty<ShapeElement>(),new Dictionary<int,AnimationJoint>());animationManager.ActiveAnimationsByAnimCode.Add("nos-fixture",new AnimationMetaData{AdjustCollisionBox=true});animationManager.OnServerTick(.02f);
-   Assert(animationManager.AdjustCollisionBoxToAnimation,"native ServerAnimator frame plus collision flag scan execute");
+   Assert(!animationManager.AdjustCollisionBoxToAnimation&&animationManager.ActiveAnimationsByAnimCode.Count==0,"native ServerAnimator removes unknown animation before collision flag scan");
    var generationCounters=Control("get").GetProperty("counters");
    foreach(var key in new[]{"collisionGenerationCalls","cachedCollisionGenerationCalls","animationCollisionScans"})Assert(generationCounters.GetProperty(key).GetInt64()>0,"native generation/animation helper executes: "+key);
    foreach(var key in new[]{"collisionGenerationFailures","animationScanFailures"})Assert(generationCounters.GetProperty(key).GetInt64()==0,"generation/animation failure counter zero: "+key);

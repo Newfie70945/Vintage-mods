@@ -85,3 +85,5 @@ NOS 0.13.0 adds optional callback-snapshot and mob-spawn scratch reuse, reduces 
 NOS 0.14.0 adds independently controlled nearby/cuboid entity-query scratch reuse and shapeless recipe allocation reductions. Suite 1.2.48 NOS Recipes1 exposes their controls, actual counters and failure/conflict status. See [validation](modules/optimizer/docs/performance-0.14.0.md).
 
 NOS 0.15.0 adds optional struct traversal in native collision and container scan/tick loops. Collision resolution, food transitions and custom inventory enumerators remain; no stationary collision bypass is introduced. See [validation](modules/optimizer/docs/performance-0.15.0.md).
+
+NOS 0.16.0 adds independent opt-in collision-generation callback reuse and animation collision-flag scan controls. Frames, triggers and native geometry remain; lower fixture allocation has mixed collision CPU timings. See [validation and limitations](modules/optimizer/docs/performance-0.16.0.md).
