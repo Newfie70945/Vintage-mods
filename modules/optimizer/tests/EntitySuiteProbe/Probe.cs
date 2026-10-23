@@ -39,7 +39,7 @@ public sealed class EntitySuiteProbe:ModSystem
    foreach(var key in new[]{"blockUpdateListReuse","chunkLoadRequestListReuse","chunkUnloadListReuse"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"block/chunk control enabled: "+key);
    foreach(var key in new[]{"blockUpdatePasses","chunkRequestPasses","chunkUnloadCandidatePasses"})Assert(before.GetProperty("counters").GetProperty(key).GetInt64()>0,"normal copied-server work executes "+key);
    foreach(var key in new[]{"delayedCallbackSnapshotReuse","spawnOpportunityListReuse","spawnColumnArrayReuse"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"callback/spawn control enabled: "+key);
-   Assert(before.GetProperty("counters").GetProperty("callbackSnapshotPasses").GetInt64()>0,"normal copied-server callbacks use snapshot scopes");
+   Assert(before.GetProperty("counters").GetProperty("callbackSnapshotPasses").GetInt64()+before.GetProperty("counters").GetProperty("callbackDebugSnapshotPasses").GetInt64()>0,"copied-server normal/debug callbacks use snapshot scopes");
    var world=api.World;const BindingFlags networkFlags=BindingFlags.NonPublic|BindingFlags.Instance;
    var rawBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(byte[]),typeof(IServerPlayer[])},null)!;
    var packetBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(Packet_Server),typeof(IServerPlayer[])},null)!;

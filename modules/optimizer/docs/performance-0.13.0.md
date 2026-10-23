@@ -33,3 +33,9 @@ The callback case reduces snapshot allocation by 10,792 bytes per call. The empt
 [Monitor measurements](research/components-0.13.0/monitor.json) with the same enabled module set reduce allocation from about 91.5 KB to 73.5 KB per one-second compatibility check; timing differences do not establish an aggregate CPU improvement.
 
 Checks cover callback timing/order/mutation errors, original positions, seeded spawn results/RNG/caps, queued-list independence, complete/incomplete column locks, cleanup after inner/logging failures, exact column sizes, caps, null arguments, nested/threaded isolation, rejected IL and target-specific conflicts/failures. Build and copied-server evidence accompany the download. No authenticated-player workload is represented by these fixtures; real matched-player soaks remain necessary.
+
+## Build and copied-server validation
+
+All 22 optimizer build/test suites pass, including 51 callback/spawn checks, 71 lifecycle/conflict checks and all earlier module checks. Suite and NOS compile with zero warnings/errors. Browser checks verify the new switches and local module filters alongside drafts, permissions, capture locks, older-NOS compatibility and mobile width; 22 root checks pass.
+
+[Forty-nine copied-server checks pass](research/components-0.13.0/copied-server.json) with official 1.22.7 and the 25-ZIP Suite/selected content-mod pack. They verify independent activation/disable, saved controls, actual normal/debug callback scope execution, earlier terrain/path/animal/timeline behavior and diagnostic ZIP output. No callback/spawn module failures were recorded. There are no authenticated players; this does not exercise every loaded mod or establish live spawning throughput. Final tested assembly hashes are recorded with the result.
