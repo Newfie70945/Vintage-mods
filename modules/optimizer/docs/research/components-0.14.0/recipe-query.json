@@ -1,0 +1,167 @@
+{
+  "checks": 67,
+  "measurements": [
+    {
+      "trial": 0,
+      "stock": {
+        "merge": {
+          "bytesPerCall": 2184,
+          "nsPerCall": 1118.65
+        },
+        "wildcard": {
+          "bytesPerCall": 136,
+          "nsPerCall": 214.77
+        },
+        "nearby": {
+          "bytesPerCall": 664,
+          "nsPerCall": 470.6
+        },
+        "cuboid": {
+          "bytesPerCall": 664,
+          "nsPerCall": 611.51
+        }
+      },
+      "optimized": {
+        "merge": {
+          "bytesPerCall": 1736,
+          "nsPerCall": 545.725
+        },
+        "wildcard": {
+          "bytesPerCall": 0,
+          "nsPerCall": 37.84
+        },
+        "nearby": {
+          "bytesPerCall": 336,
+          "nsPerCall": 345.095
+        },
+        "cuboid": {
+          "bytesPerCall": 336,
+          "nsPerCall": 500.27
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "merge": {
+          "bytesPerCall": 2184,
+          "nsPerCall": 882.085
+        },
+        "wildcard": {
+          "bytesPerCall": 136,
+          "nsPerCall": 194.045
+        },
+        "nearby": {
+          "bytesPerCall": 664,
+          "nsPerCall": 500.625
+        },
+        "cuboid": {
+          "bytesPerCall": 664,
+          "nsPerCall": 604.105
+        }
+      },
+      "optimized": {
+        "merge": {
+          "bytesPerCall": 1736,
+          "nsPerCall": 620.065
+        },
+        "wildcard": {
+          "bytesPerCall": 0,
+          "nsPerCall": 41.785
+        },
+        "nearby": {
+          "bytesPerCall": 336,
+          "nsPerCall": 384.57
+        },
+        "cuboid": {
+          "bytesPerCall": 336,
+          "nsPerCall": 444.7
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "merge": {
+          "bytesPerCall": 2184,
+          "nsPerCall": 884.675
+        },
+        "wildcard": {
+          "bytesPerCall": 136,
+          "nsPerCall": 194.775
+        },
+        "nearby": {
+          "bytesPerCall": 664,
+          "nsPerCall": 572.175
+        },
+        "cuboid": {
+          "bytesPerCall": 664,
+          "nsPerCall": 1007.355
+        }
+      },
+      "optimized": {
+        "merge": {
+          "bytesPerCall": 1736,
+          "nsPerCall": 931.29
+        },
+        "wildcard": {
+          "bytesPerCall": 0,
+          "nsPerCall": 72.4
+        },
+        "nearby": {
+          "bytesPerCall": 336,
+          "nsPerCall": 640.31
+        },
+        "cuboid": {
+          "bytesPerCall": 336,
+          "nsPerCall": 761.58
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "merge": {
+          "bytesPerCall": 2184,
+          "nsPerCall": 977.51
+        },
+        "wildcard": {
+          "bytesPerCall": 136,
+          "nsPerCall": 210.755
+        },
+        "nearby": {
+          "bytesPerCall": 664,
+          "nsPerCall": 1038.77
+        },
+        "cuboid": {
+          "bytesPerCall": 664,
+          "nsPerCall": 636.425
+        }
+      },
+      "optimized": {
+        "merge": {
+          "bytesPerCall": 1736,
+          "nsPerCall": 958.875
+        },
+        "wildcard": {
+          "bytesPerCall": 0,
+          "nsPerCall": 75.885
+        },
+        "nearby": {
+          "bytesPerCall": 336,
+          "nsPerCall": 619.545
+        },
+        "cuboid": {
+          "bytesPerCall": 336,
+          "nsPerCall": 775.735
+        }
+      }
+    }
+  ],
+  "scope": "Official helper/query methods, synthetic item/chunk fixtures; not production TPS evidence.",
+  "testedCodeRevision": "7a33abac24bd06fc85f8147e757d9cdd42251ca4",
+  "tieredCompilation": false,
+  "iterationsPerMeasurement": 20000,
+  "warmupIterations": 3000,
+  "timingLimit": "This run overlapped copied-server startup. Preserve raw timings; use these fixtures for allocation evidence, not an aggregate CPU conclusion."
+}
