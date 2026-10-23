@@ -72,7 +72,7 @@ Install **both inner mod ZIPs** from the paired download into the game server's 
 
 Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.
 
-Current Suite build: **1.2.48 · ms11-nos-collisiongen1**. See [NOS controls and validation](docs/VALIDATION-NOS-DISTANCE-1.2.48.md), [memory/performance validation](docs/VALIDATION-MEMORY-PERF-1.2.48.md), [timeline and web validation](docs/VALIDATION-TIMELINE-WEB-1.2.48.md) and [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
+Current Suite build: **1.2.48 · ms11-optimization-ui1**. See [NOS controls and validation](docs/VALIDATION-NOS-DISTANCE-1.2.48.md), [memory/performance validation](docs/VALIDATION-MEMORY-PERF-1.2.48.md), [timeline and web validation](docs/VALIDATION-TIMELINE-WEB-1.2.48.md) and [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
 
 NOS 0.10.0 adds independent, opt-in distant AI/wander/stationary repulsion scheduling, waypoint candidate-node pooling and missing-attribute resync suppression. Configure these in Suite → Optimizations and review the [validation and limits](modules/optimizer/docs/performance-0.10.0.md).
 
@@ -87,3 +87,5 @@ NOS 0.14.0 adds independently controlled nearby/cuboid entity-query scratch reus
 NOS 0.15.0 adds optional struct traversal in native collision and container scan/tick loops. Collision resolution, food transitions and custom inventory enumerators remain; no stationary collision bypass is introduced. See [validation](modules/optimizer/docs/performance-0.15.0.md).
 
 NOS 0.16.0 adds independent opt-in collision-generation callback reuse and animation collision-flag scan controls. Frames, triggers and native geometry remain; lower fixture allocation has mixed collision CPU timings. See [validation and limitations](modules/optimizer/docs/performance-0.16.0.md).
+
+Optimization UI1 compacts missing optimizer integrations and groups NOS settings into expandable cards. Read the [autosave and public-server testing guide](modules/suite/guides/AUTOSAVE-AND-OPTIMIZER-TESTING.md) before selecting experimental controls. No save transaction or scheduling policy changes are included.
