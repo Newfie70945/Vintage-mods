@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS Chunks1: add independent controls and counters for NOS 0.12.0 block-update batching, chunk-request staging/coordinates and chunk-unload scratch reuse; build `ms11-nos-chunks1`. Preserve original simulation, queue limits, delivery and save policies. New switches default off.
+
 - NOS Broadcast1: add controls/counters for NOS 0.11.0 empty-exclusion broadcast fast paths and bounded entity cleanup/despawn list reuse; build `ms11-nos-broadcast1`.
 - Stream diagnostic ZIP JSON entries instead of creating large intermediate JSON strings. Include NOS version/settings/actual states/counters and the retained native tick-debug snapshot in diagnostic bundles, without starting profiling.
 - Keep insufficient execution evidence above weak queue/save correlations; reassess retained incidents once. Accept valid overlapping slow ticks up to five minutes while preserving bounded result counts and invalid-duration rejection.

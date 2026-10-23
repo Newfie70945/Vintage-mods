@@ -10,7 +10,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.11.0-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.12.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
@@ -77,3 +77,5 @@ Current Suite build: **1.2.48 · ms11-nos-broadcast1**. See [NOS controls and va
 NOS 0.10.0 adds independent, opt-in distant AI/wander/stationary repulsion scheduling, waypoint candidate-node pooling and missing-attribute resync suppression. Configure these in Suite → Optimizations and review the [validation and limits](modules/optimizer/docs/performance-0.10.0.md).
 
 NOS 0.11.0 adds optional empty-exclusion broadcast fast paths and bounded entity cleanup/despawn list reuse. Suite diagnostic exports stream JSON, include NOS/native tick-debug state and keep weak pressure counters below missing-execution evidence. See [validation](modules/optimizer/docs/performance-0.11.0.md).
+
+NOS 0.12.0 adds optional block-update, chunk-request staging and chunk-unload scratch reuse with independent Suite controls. It preserves simulation, chunk delivery and save policies. See [validation](modules/optimizer/docs/performance-0.12.0.md).

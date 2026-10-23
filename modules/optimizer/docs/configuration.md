@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.9.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.12.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -170,3 +170,19 @@ Leave AttributeNoOpSkip disabled if a mod intentionally removes an absent key to
 ## Broadcast/lifecycle allocation switches (0.11.0)
 
 EngineOptimizations.BroadcastFilterReuse and EngineOptimizations.EntityLifecycleListReuse default false, with separate actual statuses for each target. Configure in Suite → Optimizations and Save and Apply. Broadcast filtering normalizes only empty method-local arrays and runs stock send code. Lifecycle lists retain at most 4,096 slots per temporary list/thread/scope and release entity references after each call; packet arrays remain caller owned. No tick suppression, TCP consolidation or transport policy is added.
+
+## Block/chunk scratch switches (0.12.0)
+
+All three default **false** and can be saved/applied live through Suite → Optimizations → Newfies Server Optimizer.
+
+| EngineOptimizations field | Actual targets |
+| --- | --- |
+| `BlockUpdateListReuse` | Three local lists in block update/no-relight/decor batching. Queued positions remain original, independently owned objects. |
+| `ChunkLoadRequestListReuse` | Request staging list and one private coordinate, preserving queue capacity, locking, order and request priority. |
+| `ChunkUnloadListReuse` | Candidate numeric list plus per-client unload notification lists/temporary coordinates. Original age, force-load and tracking rules remain. |
+
+Each target reports activation/conflicts separately. Exact official engine hashes and verified IL are required. Existing/late foreign patches block the affected target; block-list consumers and the replaced coordinate decoder also participate in conflict checks. Unexpected native exceptions disable reuse for that target immediately and the monitor removes its patch; the original error is preserved and no completed work is replayed. A failure counter is not proof that NOS caused the native exception.
+
+Scopes are thread-local and nested. Original position references clear on success/failure. At most one idle scope per target/thread is retained, using generation invalidation after configuration changes. Lists cap retained capacity at 4,096; the numeric unload-candidate list may retain up to 65,536 long slots (512 KiB). Larger buffers are released. The unload coordinate pool caps at 4,096 objects and overflow allocates normally. Retained numeric coordinate objects contain no entity, chunk or world references.
+
+Counters include block-update/request/candidate/notification passes, request/unload coordinates reused, scratch buffer creation/oversize releases and failures. Pass counts are executions, not bytes or time saved. Empty paths can cost more CPU even while allocating less; compare representative workloads before leaving a switch enabled. There is no forced collection, load/unload delay, send-budget change, async chunk I/O or incremental autosave in this pass.

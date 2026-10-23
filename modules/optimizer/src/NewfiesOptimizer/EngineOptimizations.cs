@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.11.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.12.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -66,6 +66,18 @@ public sealed class EngineOptimizations : IDisposable
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
         entries.Add(new("entityDespawnLists",options.EntityLifecycleListReuse,()=>EntityLifecycleOptimizations.DespawnTarget,()=>EntityLifecycleOptimizations.Dependencies(1),AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.DespawnPrefix)),EntityLifecycleOptimizations.ConfigureDespawns)
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
+
+        string[] scratchNames = ["blockUpdateListReuse", "chunkLoadRequestListReuse", "chunkUnloadCandidateListReuse", "chunkUnloadNotificationReuse"];
+        bool[] scratchSwitches = [options.BlockUpdateListReuse, options.ChunkLoadRequestListReuse, options.ChunkUnloadListReuse, options.ChunkUnloadListReuse];
+        string[] scratchPrefixes = [nameof(BlockChunkScratchOptimizations.BlockPrefix), nameof(BlockChunkScratchOptimizations.LoadPrefix), nameof(BlockChunkScratchOptimizations.CandidatesPrefix), nameof(BlockChunkScratchOptimizations.NotifyPrefix)];
+        for (int i = 0; i < scratchNames.Length; i++)
+        {
+            int kind = i;
+            BlockChunkScratchOptimizations.Configure(kind, false);
+            entries.Add(new(scratchNames[i], scratchSwitches[i], () => BlockChunkScratchOptimizations.Target(kind), () => BlockChunkScratchOptimizations.Dependencies(kind),
+                AccessTools.Method(typeof(BlockChunkScratchOptimizations), scratchPrefixes[i]), value => BlockChunkScratchOptimizations.Configure(kind, value))
+                { Transpiler = AccessTools.Method(typeof(BlockChunkScratchOptimizations), nameof(BlockChunkScratchOptimizations.Transpiler)), Finalizer = AccessTools.Method(typeof(BlockChunkScratchOptimizations), nameof(BlockChunkScratchOptimizations.Finalizer)) });
+        }
 
         PathNodePoolOptimizations.Configure(false);PathNodePoolOptimizations.ConfigureScope(false);
         entries.Add(new("waypointNodePoolScope",options.WaypointNodePooling,()=>PathNodePoolOptimizations.ScopeTarget,()=>PathNodePoolOptimizations.Dependencies,
@@ -129,7 +141,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -277,8 +289,10 @@ public sealed class EngineOptimizations : IDisposable
             }
         }
     }
+    private static int? ScratchKind(string name) => name switch { "blockUpdateListReuse" => 0, "chunkLoadRequestListReuse" => 1, "chunkUnloadCandidateListReuse" => 2, "chunkUnloadNotificationReuse" => 3, _ => null };
     private static long Failures(string name)
     {
+        if (ScratchKind(name) is int kind) return BlockChunkScratchOptimizations.Counters(kind).Failures;
         return name switch { "broadcastRawFilter" or "broadcastPacketFilter" or "broadcastUdpFilter"=>0, "entityTickCleanupLists" or "entityDespawnLists"=>EntityLifecycleOptimizations.Counters.Failures, "waypointNodePooling" or "waypointNodePoolScope" => PathNodePoolOptimizations.Failures, "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" => EntityDistanceOptimizations.Counters.Failures, "attributeNoOpSkip" => 0, "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
             "nearbyPlayerQueries" => PlayerQueryOptimizations.GetCounters().AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
@@ -309,7 +323,14 @@ public sealed class EngineOptimizations : IDisposable
         var despawn = DespawnPacketOptimizations.Counters;
         var distance=EntityDistanceOptimizations.Counters; var nodes=PathNodePoolOptimizations.Counters;
         var broadcasts=BroadcastOptimizations.Counters;var lifecycle=EntityLifecycleOptimizations.Counters;
-        return new Dictionary<string,long> { ["broadcastRawCalls"]=broadcasts.Raw,["broadcastPacketCalls"]=broadcasts.Packet,["broadcastUdpCalls"]=broadcasts.Udp,["entityCleanupPasses"]=lifecycle.Calls,["entityCleanupBuffersCreated"]=lifecycle.Created,["entityCleanupOversizedReleased"]=lifecycle.Released, ["waypointNodesReused"] = nodes.Reused, ["waypointNodesCreated"] = nodes.Created, ["waypointPoolOverflow"] = nodes.Overflow, ["aiChecksDeferred"] = distance.Ai, ["wanderChecksDeferred"] = distance.Wander, ["repulsionChecksDeferred"] = distance.Repulsion, ["entityPolicyFailures"] = distance.Failures, ["attributeNoOpSkips"] = AttributeSyncOptimizations.Skipped, ["despawnPacketCalls"] = despawn.Calls, ["despawnPacketEntities"] = despawn.Entities, ["physicsPacketPasses"] = physics.Calls, ["physicsPacketBuffersCreated"] = physics.Created, ["physicsPacketOversizedBuffersReleased"] = physics.Oversized, ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
+        var blockScratch = BlockChunkScratchOptimizations.Counters(0); var loadScratch = BlockChunkScratchOptimizations.Counters(1);
+        var candidateScratch = BlockChunkScratchOptimizations.Counters(2); var notifyScratch = BlockChunkScratchOptimizations.Counters(3);
+        return new Dictionary<string,long> { ["blockUpdatePasses"] = blockScratch.Calls, ["chunkRequestPasses"] = loadScratch.Calls,
+            ["chunkUnloadCandidatePasses"] = candidateScratch.Calls, ["chunkUnloadNotificationPasses"] = notifyScratch.Calls,
+            ["chunkRequestCoordinatesReused"] = loadScratch.Coordinates, ["chunkUnloadCoordinatesReused"] = notifyScratch.Coordinates,
+            ["blockChunkBuffersCreated"] = blockScratch.Created + loadScratch.Created + candidateScratch.Created + notifyScratch.Created,
+            ["blockChunkOversizedReleased"] = blockScratch.Released + loadScratch.Released + candidateScratch.Released + notifyScratch.Released,
+            ["blockChunkFailures"] = blockScratch.Failures + loadScratch.Failures + candidateScratch.Failures + notifyScratch.Failures, ["broadcastRawCalls"]=broadcasts.Raw,["broadcastPacketCalls"]=broadcasts.Packet,["broadcastUdpCalls"]=broadcasts.Udp,["entityCleanupPasses"]=lifecycle.Calls,["entityCleanupBuffersCreated"]=lifecycle.Created,["entityCleanupOversizedReleased"]=lifecycle.Released, ["waypointNodesReused"] = nodes.Reused, ["waypointNodesCreated"] = nodes.Created, ["waypointPoolOverflow"] = nodes.Overflow, ["aiChecksDeferred"] = distance.Ai, ["wanderChecksDeferred"] = distance.Wander, ["repulsionChecksDeferred"] = distance.Repulsion, ["entityPolicyFailures"] = distance.Failures, ["attributeNoOpSkips"] = AttributeSyncOptimizations.Skipped, ["despawnPacketCalls"] = despawn.Calls, ["despawnPacketEntities"] = despawn.Entities, ["physicsPacketPasses"] = physics.Calls, ["physicsPacketBuffersCreated"] = physics.Created, ["physicsPacketOversizedBuffersReleased"] = physics.Oversized, ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
             ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,

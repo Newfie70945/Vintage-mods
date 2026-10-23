@@ -1,0 +1,118 @@
+{
+  "checks": 46,
+  "trials": [
+    {
+      "kind": 0,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 1144,
+      "nsPerCall": 1669.7
+    },
+    {
+      "kind": 0,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 0,
+      "nsPerCall": 1467.6666666666667
+    },
+    {
+      "kind": 0,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 1144,
+      "nsPerCall": 1727.9
+    },
+    {
+      "kind": 0,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 0,
+      "nsPerCall": 1198.9666666666667
+    },
+    {
+      "kind": 1,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 2704,
+      "nsPerCall": 2960.2
+    },
+    {
+      "kind": 1,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 24,
+      "nsPerCall": 2043.3666666666666
+    },
+    {
+      "kind": 1,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 2704,
+      "nsPerCall": 2249.3
+    },
+    {
+      "kind": 1,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 24,
+      "nsPerCall": 1952.1666666666667
+    },
+    {
+      "kind": 2,
+      "enabled": false,
+      "entries": 0,
+      "bytesPerCall": 32,
+      "nsPerCall": 32.03333333333333
+    },
+    {
+      "kind": 2,
+      "enabled": true,
+      "entries": 0,
+      "bytesPerCall": 0,
+      "nsPerCall": 48.2
+    },
+    {
+      "kind": 2,
+      "enabled": false,
+      "entries": 0,
+      "bytesPerCall": 32,
+      "nsPerCall": 32
+    },
+    {
+      "kind": 2,
+      "enabled": true,
+      "entries": 0,
+      "bytesPerCall": 0,
+      "nsPerCall": 47.666666666666664
+    },
+    {
+      "kind": 3,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 34360,
+      "nsPerCall": 43301.066666666666
+    },
+    {
+      "kind": 3,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 23880,
+      "nsPerCall": 42864.76666666667
+    },
+    {
+      "kind": 3,
+      "enabled": false,
+      "entries": 64,
+      "bytesPerCall": 34360,
+      "nsPerCall": 44527.13333333333
+    },
+    {
+      "kind": 3,
+      "enabled": true,
+      "entries": 64,
+      "bytesPerCall": 23880,
+      "nsPerCall": 43576.86666666667
+    }
+  ],
+  "scope": "Official 1.22.7 methods, synthetic fixtures with intercepted sends/requests. Includes fixture queue work; no player/TPS claim."
+}

@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.11.0 preview
+# Newfie's Server Optimizer 0.12.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -129,3 +129,9 @@ See [coverage](docs/replacement-coverage.md) and [validation](docs/performance-0
 Lifecycle reuse replaces only method-local list construction in official TickEntities/SendEntityDespawns. Per-thread nested scopes use separate lists. All lists clear references on success and exceptions; capacities above 4,096 are discarded. Stock ToArray output buffers remain independent. Full entity ticks, despawn queues, save data and exceptions retain their original behavior.
 
 [0.11.0 validation and diagnostic findings](docs/performance-0.11.0.md) separate component allocation results from production causes and player performance.
+
+## Block/chunk allocation pass (0.12.0)
+
+Three independent switches default off: `BlockUpdateListReuse`, `ChunkLoadRequestListReuse` and `ChunkUnloadListReuse`. Suite controls save/apply them live. They reuse block-update batching lists, generation-request staging lists/temporary coordinates, and unload candidate/notification scratch. All original random ticks, neighbor callbacks, generation queue limits, unload ages, forced loads, chunk sends and saves remain unchanged.
+
+This does not pool positions queued for block ticks, alter growth simulation, speed up terrain generation or rewrite disk I/O. Official 1.22.7 already reuses its random-tick working positions; `ChunkPos` is a value type. Outgoing arrays and chunk/save objects retain native ownership. Each patched target has its own conflict/failure state. [Validation and limits](docs/performance-0.12.0.md).

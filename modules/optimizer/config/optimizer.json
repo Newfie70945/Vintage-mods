@@ -90,6 +90,9 @@
       "game:trader-*"
     ],
     "BroadcastFilterReuse": false,
-    "EntityLifecycleListReuse": false
+    "EntityLifecycleListReuse": false,
+    "BlockUpdateListReuse": false,
+    "ChunkLoadRequestListReuse": false,
+    "ChunkUnloadListReuse": false
   }
 }
