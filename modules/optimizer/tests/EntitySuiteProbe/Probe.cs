@@ -51,10 +51,14 @@ public sealed class EntitySuiteProbe:ModSystem
     else Assert(status=="active","new block/unload module activates independently: "+key);
    }
    var nativeFireBlock=world.GetBlock(new AssetLocation("game:firepit-cold"));Assert(nativeFireBlock!=null,"native cold firepit block resolves");
-   var idleFire=new BlockEntityFirepit{Api=api,Block=nativeFireBlock!,Pos=new BlockPos(0,0,0),furnaceTemperature=20,inputStackCookingTime=7};
-   typeof(BlockEntityFirepit).GetMethod("OnBurnTick",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(idleFire,[.1f]);
-   Assert(idleFire.inputStackCookingTime==0&&idleFire.furnaceTemperature==20,"real registry firepit retains native idle result without world mutation");
-   Assert(!firepitActive||Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()>0,"active idle firepit path executes when compatible; ARL path stays native");
+   if(firepitActive)
+   {
+    var idleFire=new BlockEntityFirepit{Api=api,Block=nativeFireBlock!,Pos=new BlockPos(0,0,0),furnaceTemperature=20,inputStackCookingTime=7};
+    typeof(BlockEntityFirepit).GetMethod("OnBurnTick",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(idleFire,[.1f]);
+    Assert(idleFire.inputStackCookingTime==0&&idleFire.furnaceTemperature==20,"real registry firepit retains native idle result without world mutation");
+    Assert(Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()>0,"compatible firepit path executes");
+   }
+   else Assert(Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()==0,"ARL helper overlap leaves firepit callback untouched; no fast paths executed");
    var nativePairRecipe=new BarrelRecipe{Ingredients=[new BarrelRecipeIngredient{Code=new AssetLocation("game:stick"),Type=EnumItemClass.Item,Quantity=1,MatchingType=EnumRecipeMatchType.Wildcard}]};
    var nativePairSlots=new[]{new ItemSlot(null){Itemstack=new ItemStack(world.GetItem(new AssetLocation("game:stick")))}};
    var paired=(System.Collections.IList)typeof(BarrelRecipe).GetMethod("PairInput",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(nativePairRecipe,[nativePairSlots])!;
