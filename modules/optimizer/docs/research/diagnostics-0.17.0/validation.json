@@ -1,0 +1,57 @@
+{
+  "testedRuntimeRevision": "8ab774af1771ebe8de75ce26863f532d108dde4e",
+  "optimizerCompiledRevision": "8a9ce87838cf36733c7392fe7a36724fd09e9e29",
+  "suiteCompiledRevision": "760cc7345fa2cda78a41dbc6f92ac76a318723ca",
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "6894e36069b34dbdfcb3d859a445ab4f78a810961d169b153bb00cd30468738f",
+    "NewfiesServerOptimizer.dll": "64921d4dc7e52bf406a4192d89b1b46a28a2fae98d59cec27b38c7bec0365a6a"
+  },
+  "officialDependencies": {
+    "VintagestoryAPI.dll": "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296",
+    "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
+    "Mods/VSEssentials.dll": "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e",
+    "Lib/0Harmony.dll": "64b8b8f926efe5b926b832aaedb93e73de34af2e84d9f8f5d51c6fb70ab61149"
+  },
+  "optimizerTestSuites": [
+    "tests/AiTaskStartTests/AiTaskStartTests.csproj",
+    "tests/AssetCacheTests/AssetCacheTests.csproj",
+    "tests/BlockChunkTests/BlockChunkTests.csproj",
+    "tests/BroadcastLifecycleTests/BroadcastLifecycleTests.csproj",
+    "tests/CallbackSpawnTests/CallbackSpawnTests.csproj",
+    "tests/CaptureReleaseTests/CaptureReleaseTests.csproj",
+    "tests/CollisionAnimationTests/CollisionAnimationTests.csproj",
+    "tests/DespawnPacketTests/DespawnPacketTests.csproj",
+    "tests/DistancePolicyTests/DistancePolicyTests.csproj",
+    "tests/EngineHookTests/EngineHookTests.csproj",
+    "tests/EngineModuleTests/EngineModuleTests.csproj",
+    "tests/EntityHotPathTests/EntityHotPathTests.csproj",
+    "tests/EntitySearchTests/EntitySearchTests.csproj",
+    "tests/NativeBuildLogTests/NativeBuildLogTests.csproj",
+    "tests/PathQueueTests/PathQueueTests.csproj",
+    "tests/PhysicsPacketTests/PhysicsPacketTests.csproj",
+    "tests/PlayerQueryTests/PlayerQueryTests.csproj",
+    "tests/ProfilerTests/ProfilerTests.csproj",
+    "tests/RecipeQueryTests/RecipeQueryTests.csproj",
+    "tests/StreamCopyTests/StreamCopyTests.csproj",
+    "tests/TraversalTests/TraversalTests.csproj",
+    "tests/WorldStorageTests/WorldStorageTests.csproj",
+    "tools/stress-tester/tests",
+    "tools/benchmark/tests",
+    "tools/dashboard/tests",
+    "tools/probe/tests"
+  ],
+  "nativeBuildLogChecks": 13,
+  "engineLifecycleChecks": 107,
+  "logEvidenceChecks": 11,
+  "rootChecks": 22,
+  "browserChecks": [
+    "optimizer settings/state/locks/mobile",
+    "log origin escaping, recent counts, rate warmup and legacy context",
+    "performance freshness, retained peaks, filters and incident navigation"
+  ],
+  "copiedServerChecks": 92,
+  "copiedServerModZips": 25,
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.",
+  "productionPerformanceClaims": false,
+  "privateDiagnosticBundleIncluded": false
+}

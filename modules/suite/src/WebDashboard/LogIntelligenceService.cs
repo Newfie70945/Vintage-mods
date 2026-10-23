@@ -71,7 +71,9 @@ public sealed class LogIntelligenceService : IDisposable
     private readonly object sync = new();
     private readonly Dictionary<string, LogIssueState> issues = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> fileOffsets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<ModAlias> modAliases = new();
+    private ModAlias[] modAliases = Array.Empty<ModAlias>();
+    private readonly Dictionary<string, RecentLogIssueCounts> recentIssues = new(StringComparer.Ordinal);
+    private readonly long observationStarted = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     private readonly HashSet<string> archivedScanFingerprints = new(StringComparer.OrdinalIgnoreCase);
     private readonly string diagnosticsRoot;
     private readonly string statePath;
@@ -282,6 +284,7 @@ public sealed class LogIntelligenceService : IDisposable
         {
             cleared = issues.Count;
             issues.Clear();
+            recentIssues.Clear();
         }
         SaveState();
         return cleared;
@@ -508,12 +511,15 @@ public sealed class LogIntelligenceService : IDisposable
     {
         string category = ClassifyCategory(line, context);
         string impact = ClassifyImpact(line, category);
-        string signature = NormalizeSignature(line, category);
+        string origin = LogIssueEvidence.Origin(context);
+        string signature = LogIssueEvidence.WithOrigin(NormalizeSignature(line, category), origin);
         if (string.IsNullOrWhiteSpace(signature)) return;
 
         long now = ParseLogTimestampUnixMilliseconds(line) ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         badBlockEntityTracker.Observe(line, context, archived, now);
-        var attribution = AttributeMod(line + "\n" + context);
+        var attribution = LogIssueEvidence.IsNativeBuildLogger(origin)
+            ? new ModAttribution("", "Vintage Story native build logger", "High")
+            : AttributeMod(origin.Length > 0 ? origin : line + "\n" + context);
 
         lock (sync)
         {
@@ -526,13 +532,14 @@ public sealed class LogIntelligenceService : IDisposable
                         .ThenBy(x => x.LastSeenUnixMilliseconds)
                         .Select(x => x.Signature)
                         .FirstOrDefault();
-                    if (evict != null) issues.Remove(evict);
+                    if (evict != null) { issues.Remove(evict); recentIssues.Remove(evict); }
                 }
 
                 issue = new LogIssueState
                 {
                     Signature = signature,
                     Title = CleanTitle(line),
+                    Origin = origin,
                     Category = category,
                     Impact = impact,
                     FirstSeenUnixMilliseconds = now,
@@ -546,6 +553,12 @@ public sealed class LogIntelligenceService : IDisposable
                 issues[signature] = issue;
             }
 
+            long observedNow=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if(!archived&&now>=observationStarted&&now<=observedNow&&observedNow-now<300000)
+            {
+                if(!recentIssues.TryGetValue(signature,out var counter))recentIssues[signature]=counter=new RecentLogIssueCounts();
+                counter.Observe(now);
+            }
             issue.Occurrences++;
             issue.FirstSeenUnixMilliseconds = Math.Min(issue.FirstSeenUnixMilliseconds, now);
             issue.LastSeenUnixMilliseconds = Math.Max(issue.LastSeenUnixMilliseconds, now);
@@ -898,21 +911,19 @@ public sealed class LogIntelligenceService : IDisposable
 
         lock (sync)
         {
-            modAliases.Clear();
-            modAliases.AddRange(aliases.OrderByDescending(x => x.Aliases.Length == 0 ? 0 : x.Aliases.Max(a => a.Length)));
+            Volatile.Write(ref modAliases, aliases.OrderByDescending(x => x.Aliases.Length == 0 ? 0 : x.Aliases.Max(a => a.Length)).ToArray());
         }
     }
 
     private ModAttribution AttributeMod(string text)
     {
-        if (text.Contains("BlockLogger", StringComparison.OrdinalIgnoreCase) ||
+        if (text.StartsWith("BlockLogger.", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("WebDashboard", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("ServerEssentials", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("NewfiesServerEssentialsSuite", StringComparison.OrdinalIgnoreCase))
             return new ModAttribution("newfiesserveressentialssuite", "Newfies Server Essentials Suite", "High");
 
-        List<ModAlias> aliases;
-        lock (sync) aliases = modAliases.ToList();
+        var aliases = Volatile.Read(ref modAliases);
         foreach (var mod in aliases)
         {
             foreach (string alias in mod.Aliases)
@@ -943,6 +954,10 @@ public sealed class LogIntelligenceService : IDisposable
             if (pieces.Count > 0) correlation = string.Join("; ", pieces) + ".";
         }
 
+        long observedNow=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        int recent=recentIssues.TryGetValue(state.Signature,out var counter)?counter.Count(observedNow):0;
+        double seconds=Math.Min(300,Math.Max(0,(observedNow-observationStarted)/1000d));
+        bool legacy=!state.Signature.Contains("|origin:",StringComparison.Ordinal)&&state.Samples.Exists(x=>LogIssueEvidence.Origin(x.Context).Length>0);
         return new LogIssueView
         {
             Signature = state.Signature,
@@ -950,12 +965,17 @@ public sealed class LogIntelligenceService : IDisposable
             Category = state.Category,
             Impact = state.Impact,
             Occurrences = state.Occurrences,
+            Origin = state.Origin,
+            RecentOccurrences = recent,
+            RecentRatePerMinute = seconds>=60?Math.Round(recent*60/seconds,2):null,
+            RecentObservedSeconds = seconds,
+            LegacyAggregate = legacy,
             FirstSeenUnixMilliseconds = state.FirstSeenUnixMilliseconds,
             LastSeenUnixMilliseconds = state.LastSeenUnixMilliseconds,
-            LikelyModId = state.LikelyModId,
-            LikelyModName = state.LikelyModName,
-            AttributionConfidence = state.AttributionConfidence,
-            Diagnosis = state.Diagnosis,
+            LikelyModId = legacy ? "" : state.LikelyModId,
+            LikelyModName = legacy ? "Legacy aggregate — source not reassigned" : state.LikelyModName,
+            AttributionConfidence = legacy ? "Low" : state.AttributionConfidence,
+            Diagnosis = legacy ? "Older message-only signatures may contain multiple sources. New observations are separated by originating stack frame; historical totals cannot be reassigned to one mod." : state.Diagnosis,
             RecommendedFix = state.RecommendedFix,
             HealthCorrelation = correlation,
             ActivityState = BuildActivityState(state.LastSeenUnixMilliseconds),
@@ -1197,6 +1217,7 @@ public sealed class LogIntelligenceService : IDisposable
             lock (sync)
             {
                 issues.Clear();
+            recentIssues.Clear();
                 foreach (var issue in state.Issues.Take(MaxIssueSignatures))
                     if (!string.IsNullOrWhiteSpace(issue.Signature)) issues[issue.Signature] = issue;
                 lastScanUnixMilliseconds = state.LastScanUnixMilliseconds;
@@ -1293,6 +1314,11 @@ public sealed class LogCategorySummary
 
 public sealed class LogIssueView
 {
+    public string Origin { get; set; } = "";
+    public int RecentOccurrences { get; set; }
+    public double? RecentRatePerMinute { get; set; }
+    public double RecentObservedSeconds { get; set; }
+    public bool LegacyAggregate { get; set; }
     public string Signature { get; set; } = "";
     public string Title { get; set; } = "";
     public string Category { get; set; } = "";
@@ -1313,6 +1339,7 @@ public sealed class LogIssueView
 
 public sealed class LogIssueState
 {
+    public string Origin { get; set; } = "";
     public string Signature { get; set; } = "";
     public string Title { get; set; } = "";
     public string Category { get; set; } = "";

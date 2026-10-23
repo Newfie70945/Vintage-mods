@@ -44,7 +44,7 @@ if os.environ.get('NSS_TEST_COMPACT_OVERVIEW'):
     stamp=int(time.time()*1000)-60000
     for n in range(40):
         start=stamp-n*1000
-        compact_fixtures.append(dict(Id='fixture-'+str(n),StartUnixMilliseconds=start,EndUnixMilliseconds=start,DurationSeconds=1,Severity='Watch',PrimaryCategory='Synthetic validation archive',AttributionVersion=6,
+        compact_fixtures.append(dict(Id='fixture-'+str(n),StartUnixMilliseconds=start,EndUnixMilliseconds=start,DurationSeconds=1,Severity='Watch',PrimaryCategory='Synthetic validation archive',AttributionVersion=6,WorstDelayMs=44000 if n==39 else 100,
             Before=[dict(UnixMilliseconds=start-45000+i*1000,Players=0,ManagedHeapMb=100) for i in range(45)]))
     (folder/'NewfiesPerformanceCenter.json').write_text(json.dumps(dict(SchemaVersion=3,Incidents=compact_fixtures)))
 process=subprocess.Popen([dotnet,str(game/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port','42601'],cwd=game,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
@@ -91,7 +91,9 @@ try:
             assert len(overview_rows)==40 and all('hasTickEvidence' in row and 'before' not in row and 'webServer' not in row for row in overview_rows)
             status,detail=request('/api/performance/incident?start='+str(compact_fixtures[0]['StartUnixMilliseconds']))
             assert status==200 and detail['found'] and len(detail['incident']['before'])==45
+            assert page['overview']['windowSummary']['retainedIncidentPeakDelayMs']==44000
             checks.append('forty compact incident rows retain independently fetched 45-observation detail')
+            checks.append('retained 44-second incident peak survives compact/downsampled overview independently of sampled delay statistics')
 
         status,timeline=request('/api/performance/timeline?window=61');assert status==200
         assert 'samplingGaps' in timeline and 'rawSampleCount' in timeline and 'worldSaves' in timeline
@@ -144,13 +146,26 @@ try:
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
     checks.append('new optimizer defaults visible through authenticated Suite bridge')
-    for flag in ('aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
+    # Synthetic local log entries validate stack-based grouping without production data.
+    time.sleep(1)
+    stamp=time.strftime('%d.%m.%Y %H:%M:%S',time.gmtime())
+    with (data/'Logs/server-main.log').open('a') as log:
+        for frame in ['VintagestoryLib.Server.Systems.ServerSystemBlockLogger.DidBreakBock','Validation.OtherMod.Run']:
+            log.write(stamp+' [Error] Exception NullReferenceException: NOS grouping validation\n   at '+frame+'()\n')
+    status,log_result=request('/api/log-intelligence/scan',dict(includeArchived=False));assert status==200
+    validation=[x for x in log_result['issues'] if 'NOS grouping validation' in x['title']]
+    assert len(validation)==2 and len({x['signature'] for x in validation})==2
+    native=next(x for x in validation if 'DidBreakBock' in x['origin'])
+    assert native['likelyModName']=='Vintage Story native build logger' and native['recentOccurrences']>=1
+    checks.append('same-message exceptions split by stack origin; native logger attributed correctly with recent counts')
+
+    for flag in ('nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
         assert settings[flag] is False
         status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
         assert next(m for m in enabled['optimizer']['modules'] if m['name']==flag)['status']=='active'
         status,disabled=control('set',{flag:False});assert status==200 and disabled['success']
         assert next(m for m in disabled['optimizer']['modules'] if m['name']==flag)['status']=='disabled'
-    checks.append('five new opt-in modules default off and independently activate/disable on official server')
+    checks.append('six opt-in modules default off and independently activate/disable on official server')
     status,patterns=control('set',dict(entityPolicyInclude=['game:wolf*'],entityPolicyExclude=['game:wolf-baby*'],entityProtectionRadius=96));assert status==200 and patterns['success']
     persisted=json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']
     assert persisted['EntityPolicyInclude']==['game:wolf*'] and persisted['EntityProtectionRadius']==96
