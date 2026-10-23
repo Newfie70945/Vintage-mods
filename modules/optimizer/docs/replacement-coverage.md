@@ -1,14 +1,14 @@
-# NOS replacement coverage — 0.10.0 preview
+# NOS replacement coverage — 0.11.0 preview
 
 Public feature catalogs checked at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
 
 | Area documented by the other mods | Current NOS coverage | Remaining difference |
 | --- | --- | --- |
-| Online/nearby-player queries and ServerMain LINQ | Independent online snapshot and optional population-gated nearby query modules | No blanket replacement of all ServerMain/broadcast LINQ |
+| Online/nearby-player queries and ServerMain LINQ | Independent online/nearby queries plus optional empty-exclusion broadcast fast paths | No blanket replacement of all ServerMain/broadcast LINQ |
 | Entity proximity searches | Nearest/interactable query state reuse | Does not replace every GetEntitiesAround overload |
 | AI and repulsion | Allocation reductions plus opt-in distant task/wander/stationary repulsion scheduling | Full entity sleep remains absent |
 | Physics packet temporary collections | Bounded independent temporary-list reuse | Does not cover every physics simulation/method list or stationary collision shortcut |
-| Entity despawn packets | Direct stock-equivalent projections with packet-owned arrays | Player-death broadcast and bulk-attribute paths remain separate |
+| Entity despawn packets | Direct stock-equivalent projections with packet-owned arrays | Optional stock lifecycle despawn-list reuse added; bulk-attribute paths remain separate |
 | Generation requests and save retention | Existing request allocation reduction; completed save snapshot reference release | No general chunk I/O/load/unload rewrite, incremental autosave or GenTerra noise/BitArray/native-noise replacement |
 | Asset compression and stream reads | Bounded server-assets cache and guarded bulk reads | No chunk packet pooling or altered terrain/send budgets |
 | Inventory dirty scan | No NOS patch | Official 1.22.7 already checks InventoryBase.IsDirty before scanning dirty slots; mod-specific overrides and whole-inventory iteration require separate evidence |

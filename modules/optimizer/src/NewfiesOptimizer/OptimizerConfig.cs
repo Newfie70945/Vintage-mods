@@ -88,6 +88,8 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool BroadcastFilterReuse { get; set; }
+    public bool EntityLifecycleListReuse { get; set; }
     public bool AiDistanceThrottle { get; set; }
     public bool DistantWanderThrottle { get; set; }
     public bool RepulsionDistanceThrottle { get; set; }

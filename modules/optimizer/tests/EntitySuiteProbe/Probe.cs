@@ -33,6 +33,18 @@ public sealed class EntitySuiteProbe:ModSystem
   try
   {
    original=Control("get").GetProperty("settings").GetRawText();
+   var before=Control("get");
+   Assert(before.GetProperty("settings").GetProperty("broadcastFilterReuse").GetBoolean()&&before.GetProperty("settings").GetProperty("entityLifecycleListReuse").GetBoolean(),"new allocation controls enabled through Suite for real-server validation");
+   Assert(before.GetProperty("counters").GetProperty("entityCleanupPasses").GetInt64()>0,"actual server entity cleanup passes use bounded scopes");
+   var world=api.World;const BindingFlags networkFlags=BindingFlags.NonPublic|BindingFlags.Instance;
+   var rawBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(byte[]),typeof(IServerPlayer[])},null)!;
+   var packetBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(Packet_Server),typeof(IServerPlayer[])},null)!;
+   var udpBroadcast=world.GetType().GetMethod("BroadcastArbitraryUdpPacket",networkFlags,null,new[]{typeof(Packet_UdpPacket),typeof(IServerPlayer[])},null)!;
+   rawBroadcast.Invoke(world,new object[]{new byte[]{1},Array.Empty<IServerPlayer>()});
+   packetBroadcast.Invoke(world,new object[]{new Packet_Server{Id=2,Ping=new()},Array.Empty<IServerPlayer>()});
+   udpBroadcast.Invoke(world,new object[]{new Packet_UdpPacket(),Array.Empty<IServerPlayer>()});
+   var broadcastCounters=Control("get").GetProperty("counters");
+   Assert(broadcastCounters.GetProperty("broadcastRawCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastRawCalls").GetInt64()&&broadcastCounters.GetProperty("broadcastPacketCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastPacketCalls").GetInt64()&&broadcastCounters.GetProperty("broadcastUdpCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastUdpCalls").GetInt64(),"three stock broadcast overloads execute empty-exclusion fast paths on copied server");
    astar=new AStar(api);var queue=new PathfindingAsync();
    const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
    typeof(PathfindingAsync).GetField("api",flags)!.SetValue(queue,api);

@@ -8,7 +8,8 @@ Check(!Match(Tick(7_000,200)).HasMeasuredTicks,"Unrelated old tick blamed");
 Check(Match(Tick(10_100,300)).HasMeasuredTicks,"Tick straddling event endpoint lost");
 Check(!Match(Tick(10_000,20)).HasMeasuredTicks,"Healthy tick used as slow work");
 Check(!Match(Tick(10_000,double.NaN)).HasMeasuredTicks,"Invalid duration accepted");
-Check(!Match(Tick(10_000,60_000)).HasMeasuredTicks,"Unbounded tick accepted");
+Check(Match(Tick(10_000,64_000)).HasMeasuredTicks,"Legitimate minute-long tick excluded");
+Check(!Match(Tick(10_000,300_001)).HasMeasuredTicks,"Unbounded tick accepted");
 Check(Match(Enumerable.Range(0,20).Select(i=>Tick(9_900,100+i)).ToArray()).Ticks.Count==8,"Evidence payload not bounded");
 var after=IncidentProfilerMatcher.Match(new[]{Tick(12_000,200)},10_000,10_000,500,15_000,"Automatic lag incident",10_000);
 Check(after.State=="After-spike capture"&&!after.HasMeasuredTicks,"Automatic trigger treated as original cause");
@@ -20,4 +21,7 @@ Check(IncidentProfilerMatcher.GcScore(100,1,5000)<40,"Minor pause blamed for a m
 Check(IncidentProfilerMatcher.WorkScore(20,5000)<40,"Small marker given strong weight against a long stall");
 Check(IncidentProfilerMatcher.WorkScore(500,1000)>IncidentProfilerMatcher.WorkScore(20,1000),"Work ranking ignores size relative to stall");
 Check(IncidentProfilerMatcher.WorkScore(double.NaN,1000)==0,"Invalid work duration ranked as measured");
+var weak=new[]{35,IncidentProfilerMatcher.GcScore(635.41,1,64400.89),IncidentProfilerMatcher.WorkScore(44.02,64400.89)};
+Check(IncidentProfilerMatcher.IncompleteEvidenceScore(weak)>weak.Max(),"64-second bundle stall falsely blamed on a queue or small GC pause");
+Check(IncidentProfilerMatcher.IncompleteEvidenceScore(new[]{35,75})==0,"Actual measured contributor hidden by fallback");
 Console.WriteLine($"PASS {n} tick overlap, follow-up capture, bounded payload and GC-evidence checks");

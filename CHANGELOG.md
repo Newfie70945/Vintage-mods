@@ -2,6 +2,10 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS Broadcast1: add controls/counters for NOS 0.11.0 empty-exclusion broadcast fast paths and bounded entity cleanup/despawn list reuse; build `ms11-nos-broadcast1`.
+- Stream diagnostic ZIP JSON entries instead of creating large intermediate JSON strings. Include NOS version/settings/actual states/counters and the retained native tick-debug snapshot in diagnostic bundles, without starting profiling.
+- Keep insufficient execution evidence above weak queue/save correlations; reassess retained incidents once. Accept valid overlapping slow ticks up to five minutes while preserving bounded result counts and invalid-duration rejection.
+
 - NOS Distance1: add independent controls, entity filters, protected radius/intervals and work counters for NOS 0.10.0 distant AI/wander/stationary repulsion policies, waypoint candidate pooling and missing-attribute resync suppression. Preserve drafts and older-NOS compatibility; build `ms11-nos-distance1`.
 
 - MemoryPerf2: stream large Performance/Operations JSON archives into atomic replacement files, reducing intermediate allocation and preserving the previous archive on write failure.
@@ -243,3 +247,9 @@
 - Add optional suppression of redundant full attribute resyncs when removing a nonexistent attribute. Actual removals and subclasses retain stock behavior.
 - Keep same-method modules independent: remove only each module's own patch methods and verify its exact installed patches. Preserve the allocation-only repulsion patch when distance scheduling stands down. Avoid repeated assembly resolution during the compatibility monitor.
 - All new switches default off. Add exact-engine contract/conflict checks, safety observer dependencies, visible counters and immediate Suite configuration. No forced GC, chunk delivery restriction or production performance claim.
+
+## Newfies Server Optimizer 0.11.0 preview
+
+- Add optional empty-exclusion fast paths to official raw, packet and UDP broadcasts. Run original send bodies, preserve nonempty filter callbacks, array ownership, compression, packet preparation and ordering. No transport batching or client protocol change.
+- Add optional bounded, nested/thread-isolated entity cleanup/despawn temporary lists. Preserve full entity ticks, per-client tracked despawns, independently owned packet arrays and original failure/queue behavior. Clear retained entity references and discard oversized buffers.
+- Add independent target statuses, exact-engine/foreign-patch checks and Suite controls/counters. Both new switches default off.

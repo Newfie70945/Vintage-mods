@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.10.0 preview
+# Newfie's Server Optimizer 0.11.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -11,6 +11,8 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 | Distant stationary repulsion (opt-in) | Reduces repulsion checks while stationary and far from observers | Moving, hurt, owned and otherwise exempt animals remain stock |
 | Waypoint candidate pooling (opt-in) | Reuses up to 4,096 candidate nodes per official solver | Raw node-returning searches outside waypoint scope remain unpooled; exact official solver only |
 | Missing-attribute resync suppression (opt-in) | Avoids full synchronization after removing a nonexistent key | Actual removals, null-key handling and subclasses remain stock |
+| Empty broadcast exclusions (opt-in) | Normalize empty method-local exclusion arrays to null before the original raw/packet/UDP broadcast | All original send, serialization, compression, enumeration and nonempty filtering logic remains |
+| Entity lifecycle lists (opt-in) | Bounded, isolated temporary cleanup and despawn lists | Every entity tick and send remains stock; packet arrays are not pooled; references cleared on success/failure |
 | Despawn packet projection | Removes three LINQ projection iterators per despawn packet | Same IDs, reasons, damage sources, order and independently owned output arrays |
 | Physics packet list reuse | Bounded per-thread temporary lists | Original packet arrays, filtering, batching and sends; references cleared on failure and success |
 | Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
@@ -119,3 +121,11 @@ Distance policies protect 64 blocks plus a 16-block margin by default. Only grou
 Candidate pooling is restricted to official `FindPathAsWaypoints` searches. Raw paths returned outside that scope keep independent nodes. Overflow candidates allocate normally; disabled, nested/busy and custom-solver scopes use stock allocation. Every reused node is reset, including dimension, action, parent and heap index. A pool adds bounded candidate slots per live solver; it does not bound the engine's own search sets or parent graphs.
 
 See [coverage](docs/replacement-coverage.md) and [validation](docs/performance-0.10.0.md). No production TPS or memory reduction is claimed from component checks.
+
+## Broadcast and lifecycle allocation pass (0.11.0)
+
+`EngineOptimizations.BroadcastFilterReuse` and `EntityLifecycleListReuse` default false. Save/apply them through Suite → Optimizations. The broadcast switch reports raw, normal-packet and UDP activation separately. It only changes empty exclusion arguments to null inside the method. Stock treats both as “exclude nobody”, while the null form avoids constructing per-client predicate delegates. Nonempty/null input, original arrays, compression, socket preparation, packet ordering and transport behavior remain stock. This does not batch TCP sends or reduce network update frequency.
+
+Lifecycle reuse replaces only method-local list construction in official TickEntities/SendEntityDespawns. Per-thread nested scopes use separate lists. All lists clear references on success and exceptions; capacities above 4,096 are discarded. Stock ToArray output buffers remain independent. Full entity ticks, despawn queues, save data and exceptions retain their original behavior.
+
+[0.11.0 validation and diagnostic findings](docs/performance-0.11.0.md) separate component allocation results from production causes and player performance.

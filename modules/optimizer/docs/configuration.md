@@ -166,3 +166,7 @@ Under `EngineOptimizations`, `AiDistanceThrottle`, `DistantWanderThrottle`, `Rep
 Patterns cannot override safety exclusions. Include/exclude inputs are comma-separated in the webpanel. These policies affect distant decisions, so start with one switch and compare real animal behavior and tick distributions at the same player/chunk/entity load. No forced GC or global GC configuration changes are added.
 
 Leave AttributeNoOpSkip disabled if a mod intentionally removes an absent key to force a full attribute resync. Custom behavior/task implementations can exempt many animals on a heavily modded server; matching a code cannot override those safety exclusions.
+
+## Broadcast/lifecycle allocation switches (0.11.0)
+
+EngineOptimizations.BroadcastFilterReuse and EngineOptimizations.EntityLifecycleListReuse default false, with separate actual statuses for each target. Configure in Suite → Optimizations and Save and Apply. Broadcast filtering normalizes only empty method-local arrays and runs stock send code. Lifecycle lists retain at most 4,096 slots per temporary list/thread/scope and release entity references after each call; packet arrays remain caller owned. No tick suppression, TCP consolidation or transport policy is added.

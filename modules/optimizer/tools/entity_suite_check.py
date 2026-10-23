@@ -4,7 +4,7 @@ Requires VINTAGE_STORY, DOTNET_ROOT and NSS_WEB_TEST_BASELINE. Optional NSS_TEST
 adds local mod ZIPs. Build Suite, NOS and EntitySuiteProbe before running.
 """
 from pathlib import Path
-import http.cookiejar, json, os, secrets, shutil, subprocess, threading, time
+import http.cookiejar, io, json, os, secrets, shutil, subprocess, threading, time
 import urllib.error, urllib.request, zipfile
 repo=Path(__file__).resolve().parents[3]
 suite_version=json.loads((repo/'modules/suite/modinfo.json').read_text())['version']
@@ -179,10 +179,28 @@ try:
     status,refused=control('capture-clear');assert status>=400 or not refused['success'];checks.append('running capture cannot be discarded')
     status,stopped=control('profile-stop');assert status==200 and stopped['success']
     status,cleared=control('capture-clear');assert status==200 and cleared['success'] and not cleared['optimizer']['captureAvailable'];checks.append('stopped capture released through Suite')
+    for flag,names in [('broadcastFilterReuse',['broadcastRawFilter','broadcastPacketFilter','broadcastUdpFilter']),('entityLifecycleListReuse',['entityTickCleanupLists','entityDespawnLists'])]:
+        assert nos['settings'][flag] is False
+        status,new=control('set',{flag:True});assert status==200 and new['success']
+        assert all(next(m for m in new['optimizer']['modules'] if m['name']==name)['status']=='active' for name in names)
+        status,off=control('set',{flag:False});assert status==200 and off['success']
+        assert all(next(m for m in off['optimizer']['modules'] if m['name']==name)['status']=='disabled' for name in names)
+    checks.append('broadcast and cleanup groups independently activate/disable all five actual targets')
+    status,new=control('set',dict(broadcastFilterReuse=True,entityLifecycleListReuse=True));assert status==200 and new['success'];time.sleep(1.2)
     offset=len(lines);process.stdin.write('/nosentitycheck\n');process.stdin.flush()
     line=wait('NOS_ENTITY_INTEGRATION ',offset);terrain=json.loads(line.split('NOS_ENTITY_INTEGRATION ',1)[1]);assert terrain['success'],terrain
     checks.extend(terrain['checks'])
     measurement=wait('NOS_WAYPOINT_MEASUREMENTS ',offset);waypoint_measurements=json.loads(measurement.split('NOS_WAYPOINT_MEASUREMENTS ',1)[1])
+    status,off=control('set',dict(broadcastFilterReuse=False,entityLifecycleListReuse=False));assert status==200 and off['success']
+    # Export the actual streamed ZIP and verify new evidence without starting a capture.
+    bundle_req=urllib.request.Request('http://127.0.0.1:42670/api/performance/bundle')
+    with client.open(bundle_req,timeout=30) as response:bundle_bytes=response.read()
+    with zipfile.ZipFile(io.BytesIO(bundle_bytes)) as bundle:
+        for entry in bundle.namelist():
+            if entry.endswith('.json'):json.loads(bundle.read(entry))
+        exported=json.loads(bundle.read('newfies-optimizer.json'));assert exported['available'] and exported['optimizer']['version']==optimizer_semver and not exported['optimizer']['profiling']
+        tick_debug=json.loads(bundle.read('tick-debug.json'));assert 'slowTickCapture' in tick_debug
+    checks.append('streamed diagnostic ZIP contains valid JSON plus NOS actual state and retained tick-debug evidence, without starting profiling')
     state=request('/api/optimizations/newfies')[1]['optimizer']
     assert not state['settings']['pathMainThreadBudget'];checks.append('probe restores original optimizer settings')
     (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],waypointMeasurements=waypoint_measurements,loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),requestMeasurements=request_measurements,scope='Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.'),indent=2)+'\n')

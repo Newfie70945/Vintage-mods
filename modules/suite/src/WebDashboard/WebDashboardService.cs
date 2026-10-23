@@ -8332,6 +8332,8 @@ public sealed partial class WebDashboardService : IDisposable
                     ["login-protection.json"] = BuildLoginProtectionConfigSnapshot(),
                     ["suite-self-test.json"] = BuildServerUtilitiesHealth(),
                     ["web-diagnostics.json"] = BuildWebDiagnosticsSnapshot(),
+                    ["newfies-optimizer.json"] = OptimizerControlBridge.Request(api),
+                    ["tick-debug.json"] = BuildNativeTickDebugSnapshot(),
                     ["smart-diagnosis.json"] = module.ServerHealth?.GetSnapshot(240, 1800) ?? new ServerHealthSnapshot(),
                     ["loaded-mods.json"] = api.ModLoader.Mods
                         .Where(x => x?.Info != null)
@@ -11630,7 +11632,7 @@ public sealed partial class WebDashboardService : IDisposable
         bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
             incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
             (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
-        if (archived.AttributionVersion >= 6 && !betterProfile) return false;
+        if (archived.AttributionVersion >= 7 && !betterProfile) return false;
         if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
         if (betterProfile) archived.ProfileEvidence = incoming;
         var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
@@ -11650,7 +11652,7 @@ public sealed partial class WebDashboardService : IDisposable
         };
         archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database, archived.NetworkHandlers);
         ApplyIncidentVerdict(archived);
-        archived.AttributionVersion = 6;
+        archived.AttributionVersion = 7;
         return true;
     }
 
@@ -14248,8 +14250,9 @@ public sealed partial class WebDashboardService : IDisposable
             Evidence = $"Largest sampled loaded-chunk change was {group.MaxChunkDelta:+#;-#;0}; chunk count is intentionally refreshed only about every 30 seconds."
         });
 
-        if (!result.Any(x => x.Score >= 40))
-            result.Add(new IncidentCauseScore { Category = "Insufficient evidence", Score = 30, Confidence = "Low",
+        int incompleteScore=IncidentProfilerMatcher.IncompleteEvidenceScore(result.Select(x=>x.Score));
+        if (incompleteScore>0)
+            result.Add(new IncidentCauseScore { Category = "Insufficient evidence", Score = incompleteScore, Confidence = "Low",
                 Evidence = profile.Note + " Normal collection counts or a large heap are not enough to name a cause. Use a bounded Incident + Profile capture while the slowdown is occurring." });
         return result.OrderByDescending(x => x.Score).ToList();
     }
@@ -14922,14 +14925,7 @@ public sealed partial class WebDashboardService : IDisposable
                     CompressionLevel.Fastest);
 
                 using var stream = entry.Open();
-                using var writer = new StreamWriter(
-                    stream,
-                    new UTF8Encoding(false));
-
-                writer.Write(
-                    JsonSerializer.Serialize(
-                        value,
-                        jsonOptions));
+                JsonSerializer.Serialize(stream,value,value.GetType(),jsonOptions);
             }
 
             AddJson("performance-core.json", core);
@@ -14971,6 +14967,8 @@ public sealed partial class WebDashboardService : IDisposable
                 writer.WriteLine("Contents:");
                 writer.WriteLine("- performance-core.json: health timeline, archived black-box incidents, entity scans/growth, environment changes, alerts/actions, player-load history, world-save observations, server network samples, providers, Harmony overlaps, loaded mods, and redacted web-audit metadata");
                 writer.WriteLine("- block-activity.json: recent BlockLogger coordinate activity (activity evidence, not CPU timing)");
+                writer.WriteLine("- tick-debug.json: current native capture state and retained slow-tick excerpt; does not start diagnostics");
+                writer.WriteLine("- newfies-optimizer.json: current NOS version, settings, actual module states and work counters (no capture start or configuration changes)");
                 writer.WriteLine("- optimization-experiments.json: measured Tungsten/Synergy before/after tests");
                 writer.WriteLine("- compatibility.json: lightweight known-rule/command ownership compatibility report (Harmony deep scan stays manual)");
                 writer.WriteLine("- data-collection-audit.json: automatic/manual collector cadence, cost policy and measured suite/web overhead");
