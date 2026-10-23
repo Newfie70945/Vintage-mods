@@ -1,0 +1,1 @@
+{"full":{"bytesPerRead":83584,"nsPerRead":110610.5},"monitoring":{"bytesPerRead":80960,"nsPerRead":75560.5},"scope":"3000 retained observations and populated profiler tables; reflection read component, not whole-server TPS."}

@@ -437,9 +437,19 @@ public sealed class ServerHealthService : IDisposable
         }
     }
 
-    public ServerHealthSnapshot GetSnapshot(
-        int maxGraphPoints = 360,
-        int windowSeconds = 1800)
+    public ServerHealthSample? GetLatestObservation()
+    {
+        lock (sync) return latestSample;
+    }
+
+    // Background consumers need observations and diagnosis, not copied profiler tables.
+    public ServerHealthSnapshot GetMonitoringSnapshot(int maxGraphPoints = 360, int windowSeconds = 1800)
+        => BuildSnapshot(maxGraphPoints, windowSeconds, false);
+
+    public ServerHealthSnapshot GetSnapshot(int maxGraphPoints = 360, int windowSeconds = 1800)
+        => BuildSnapshot(maxGraphPoints, windowSeconds, true);
+
+    private ServerHealthSnapshot BuildSnapshot(int maxGraphPoints, int windowSeconds, bool includeProfileDetails)
     {
         lock (sync)
         {
@@ -480,17 +490,17 @@ public sealed class ServerHealthService : IDisposable
                     .Reverse()
                     .Take(60)
                     .ToList(),
-                DiagnosticSummary = BuildDiagnosticSummaryUnsafe(allSamples),
+                DiagnosticSummary = GetDiagnosticSummaryUnsafe(allSamples),
                 SmartAnalysis = GetSmartAnalysisUnsafe(
                     allSamples,
                     diagnosticIncidents.ToList()),
-                Hotspots = lastHotspots.Take(30).ToList(),
-                ModHotspots = lastModHotspots.Take(30).ToList(),
-                Phases = lastPhases.Take(30).ToList(),
-                ProfileSlowTicks = lastProfileSlowTicks.Take(60).ToList(),
-                ProfileSlowCauses = lastSlowCauses.ToList(),
-                OffThreadReports = lastOffThreadReports.Take(30).ToList(),
-                LoadedModCount = modIdentities.Count > 0
+                Hotspots = includeProfileDetails ? lastHotspots.Take(30).ToList() : new(),
+                ModHotspots = includeProfileDetails ? lastModHotspots.Take(30).ToList() : new(),
+                Phases = includeProfileDetails ? lastPhases.Take(30).ToList() : new(),
+                ProfileSlowTicks = includeProfileDetails ? lastProfileSlowTicks.Take(60).ToList() : new(),
+                ProfileSlowCauses = includeProfileDetails ? lastSlowCauses.ToList() : new(),
+                OffThreadReports = includeProfileDetails ? lastOffThreadReports.Take(30).ToList() : new(),
+                LoadedModCount = !includeProfileDetails ? 0 : modIdentities.Count > 0
                     ? modIdentities.Count
                     : api.ModLoader.Mods.Count(),
                 ProfileRunning = profileRunning,
@@ -1837,6 +1847,21 @@ public sealed class ServerHealthService : IDisposable
             "Info" => 1,
             _ => 0
         };
+
+    private ServerDiagnosticSummary? cachedDiagnosticSummary;
+    private long diagnosticSummarySample, diagnosticSummaryAt;
+    private bool diagnosticSummaryEnabled;
+    private ServerDiagnosticSummary GetDiagnosticSummaryUnsafe(List<ServerHealthSample> source)
+    {
+        long now = Environment.TickCount64;
+        long latest = source.Count == 0 ? 0 : source[^1].UnixMilliseconds;
+        if (cachedDiagnosticSummary != null && diagnosticSummarySample == latest &&
+            diagnosticSummaryEnabled == enabled && now - diagnosticSummaryAt < 1000)
+            return cachedDiagnosticSummary;
+        cachedDiagnosticSummary = BuildDiagnosticSummaryUnsafe(source);
+        diagnosticSummarySample = latest; diagnosticSummaryEnabled = enabled; diagnosticSummaryAt = now;
+        return cachedDiagnosticSummary;
+    }
 
     private ServerDiagnosticSummary BuildDiagnosticSummaryUnsafe(
         List<ServerHealthSample> source)

@@ -1,0 +1,1 @@
+{"stock":{"iterations":5,"bytesPerWrite":6859299.2,"msPerWrite":51.018},"streamed":{"iterations":5,"bytesPerWrite":699216,"msPerWrite":39.9153},"scope":"5000-row synthetic JSON state, allocation/write component only; not production TPS or heap reduction."}

@@ -2602,6 +2602,7 @@ __NSS_RETENTION_HTML__
       </div>
       <div class="quickActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button><button id="nosClearCapture">Release Stopped Capture</button></div>
       <p class="small">Entity search reuse reduces temporary objects without skipping AI ticks or changing activation ranges. Search inputs are cleared after every call. Release Stopped Capture releases retained NOS report references; exported files remain. These controls do not force GC or change process-wide GC settings.</p>
+      <details class="compactNote" style="margin-top:10px"><summary>Replacing Synergy or Tungsten: current coverage</summary><p>NOS currently reduces allocations in player/entity searches, AI delegate dispatch, repulsion callbacks, physics/despawn packets, asset compression, generation requests and completed save snapshots. Each active module is listed below.</p><p>It does not yet replace distance-based entity activation, AI/repulsion throttling, path-node pooling, TCP flush batching, client delta packets, recipe/container patches or terrain-noise optimizations. Removing another optimizer can remove those benefits. No full replacement or equal performance claim is made. NOS does not change GC mode or force collections.</p></details>
       <div id="nosEditState" class="small"></div>
       <div class="tableWrap dataScroll" style="margin-top:12px"><table><thead><tr><th>Module</th><th>Actual state</th><th>Compatibility / fallback reason</th></tr></thead><tbody id="nosModules"></tbody></table></div>
       <div id="nosCounters" class="small" style="margin-top:10px"></div>
@@ -8051,6 +8052,13 @@ function signedMemoryDelta(value){
   return `${n>=0?'+':''}${n.toFixed(1)} MB`;
 }
 
+function memorySnapshotAllocationRate(a,b){
+  const older=Number(a.unixMilliseconds)<=Number(b.unixMilliseconds)?a:b,newer=older===a?b:a;
+  const elapsed=Number(newer.unixMilliseconds)-Number(older.unixMilliseconds),allocated=Number(newer.totalAllocatedMb)-Number(older.totalAllocatedMb);
+  if(!(elapsed>0)||!Number.isFinite(allocated)||allocated<0||Number(newer.gen2Collections)<Number(older.gen2Collections))return null;
+  if(!(older.processStartedUnixMilliseconds>0)||older.processStartedUnixMilliseconds!==newer.processStartedUnixMilliseconds)return null;
+  return allocated/(elapsed/1000);
+}
 function renderMemoryInspectorComparison(){
   const a=memoryInspectorSnapshotById($('memoryCompareA').value);
   const b=memoryInspectorSnapshotById($('memoryCompareB').value);
@@ -8064,6 +8072,7 @@ function renderMemoryInspectorComparison(){
     return {category:y.category||x.category||'',name:y.name||x.name||'',runtimeType:y.runtimeType||x.runtimeType||'',before:Number(x.count||0),after:Number(y.count||0),delta:Number(y.count||0)-Number(x.count||0)};
   }).filter(x=>x.delta!==0).sort((x,y)=>Math.abs(y.delta)-Math.abs(x.delta)).slice(0,10);
   const elapsed=Math.abs(Number(b.unixMilliseconds||0)-Number(a.unixMilliseconds||0));
+  const allocationRate=memorySnapshotAllocationRate(a,b);
   $('memoryInspectorComparison').innerHTML=`
     <div class="grid">
       ${metric('Heap Δ',signedMemoryDelta(delta('managedHeapMb')),delta('managedHeapMb')>256?'warn':'')}
@@ -8074,8 +8083,9 @@ function renderMemoryInspectorComparison(){
       ${metric('Allocated since process start Δ',signedMemoryDelta(delta('totalAllocatedMb')))}
       ${metric('Gen2 Δ',`${delta('gen2Collections')>=0?'+':''}${delta('gen2Collections').toFixed(0)}`)}
       ${metric('Elapsed',`${(elapsed/60000).toFixed(1)} min`)}
+      ${metric('Whole-process allocation rate',allocationRate==null?'Need same-run snapshots':`${allocationRate.toFixed(1)} MB/s`)}
     </div>
-    <div class="compactNote" style="margin-top:10px">Growth is evidence to investigate, not automatic proof of a leak. Tracked structure counts cover Suite-owned collections and runtime context only.</div>
+    <div class="compactNote" style="margin-top:10px">Allocation rate counts temporary objects too; it is not retained memory growth or per-mod attribution. Rate requires two snapshots from the same process; older snapshots may lack process identity. Compare chunks, entities and players at similar workloads. Tracked structures cover the Suite only.</div>
     <div class="tableWrap" style="margin-top:8px"><table><thead><tr><th>Tracked structure</th><th>Before</th><th>After</th><th>Δ</th></tr></thead><tbody>
       ${growth.map(x=>`<tr><td>${esc(x.category)} · ${esc(x.name)}<div class="small"><code>${esc(x.runtimeType)}</code></div></td><td>${x.before.toLocaleString()}</td><td>${x.after.toLocaleString()}</td><td class="${x.delta>0?'warnText':''}">${x.delta>0?'+':''}${x.delta.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No tracked structure count changes.</td></tr>'}
     </tbody></table></div>`;
@@ -8697,6 +8707,7 @@ async function loadPerformanceOverview(showError=true,preloaded=null,windowSecon
   }
 }
 
+function incidentHasTickEvidence(row){return typeof row.hasTickEvidence==='boolean'?row.hasTickEvidence:!!row.profileEvidence?.ticks?.length;}
 function suiteTimingIsWait(name){return /Web Dashboard (request|worker queue wait|main-thread wait)|Web (request elapsed|worker queue wait|game-thread queue wait)/i.test(name||'');}
 function renderPerformanceOverview(d){
   if(!d||!d.available){
@@ -8748,9 +8759,9 @@ function renderPerformanceOverview(d){
   const allIncidents=d.incidents||[];
   performanceIncidentRows=allIncidents;
   const evidence=$('perfEvidenceFilter')?.value||'all',severity=$('perfSeverityFilter')?.value||'all';
-  const incidents=allIncidents.filter(x=>(severity==='all'||x.severity===severity)&&(evidence==='all'||(evidence==='measured')===!!x.profileEvidence?.ticks?.length));
+  const incidents=allIncidents.filter(x=>(severity==='all'||x.severity===severity)&&(evidence==='all'||(evidence==='measured')===incidentHasTickEvidence(x)));
   $('perfIncidentCount').textContent=`${incidents.length} / ${allIncidents.length} grouped incident(s)`;
-  const captured=allIncidents.filter(x=>x.profileEvidence?.ticks?.length).length,patterns=new Map();
+  const captured=allIncidents.filter(incidentHasTickEvidence).length,patterns=new Map();
   allIncidents.forEach(x=>{const key=x.primaryCategory||'Insufficient evidence';patterns.set(key,(patterns.get(key)||0)+1);});
   if($('perfIncidentPatterns'))$('perfIncidentPatterns').textContent=`Tick evidence: ${captured}/${allIncidents.length}. Frequent assessments: ${[...patterns].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>`${k} (${n})`).join(' · ')||'No incidents'}. Repeated assessments are patterns, not proof of a shared cause.`;
   for(const id of ['perfEvidenceFilter','perfSeverityFilter'])if($(id))$(id).onchange=()=>renderPerformanceOverview(d);
@@ -8821,7 +8832,7 @@ function renderPerformanceQuickRead(d){
     ? `${smart.state||'Learning'} · ${smart.analysisConfidence||'Low'} confidence · data quality ${Number(smart.dataQualityScore||0)}/100`
     : 'Building the adaptive server baseline.';
 
-  const hottest=suite.slice().sort((a,b)=>Number(b.timePerMinuteMilliseconds||0)-Number(a.timePerMinuteMilliseconds||0)||Number(b.p95Milliseconds||0)-Number(a.p95Milliseconds||0))[0];
+  const hottest=suite.filter(x=>!suiteTimingIsWait(x.name)).sort((a,b)=>Number(b.timePerMinuteMilliseconds||0)-Number(a.timePerMinuteMilliseconds||0)||Number(b.p95Milliseconds||0)-Number(a.p95Milliseconds||0))[0];
   const suiteTime=hottest?Number(hottest.timePerMinuteMilliseconds||0):0;
   const suiteClass=suiteTime>=1000?'critical':suiteTime>=250?'watch':'info';
   const w=d.windowSummary||{};

@@ -2,6 +2,12 @@
 
 ## Server Essentials Suite 1.2.48
 
+- MemoryPerf2: stream large Performance/Operations JSON archives into atomic replacement files, reducing intermediate allocation and preserving the previous archive on write failure.
+- Send compact incident list rows during overview refreshes and marker-only timeline events; fetch full retained evidence when opening a spike. Preserve filters/comparison and prevent queue waits ranking as workload in the quick-read card.
+- Background maintenance skips unused profiler-table copies; compact memory snapshots reuse the latest observation. Reuse unchanged diagnostic summaries briefly.
+- Add whole-process allocation rate to same-run memory snapshot comparisons, with restart/legacy/counter-reset guards. Explain current NOS coverage and missing Synergy/Tungsten features in Optimizations.
+- Build `ms11-memory-perf2`; retains the timeline, save-marker and animal-generation changes below. The invisible-chunk report was identified by the owner as Better Crates and Wool; no chunk delivery policy is changed here.
+
 - Fix timeline traces disappearing in longer ranges: distinguish raw sampling gaps from graph downsampling, show isolated observations, redraw on panel reveal/resize and ignore outdated range responses.
 - Add cyan world-save/autosave markers and a top legend; shade genuine missing-observation intervals without inventing data through stalls.
 - Use compact timeline-only snapshots, bounded/coalesced window caches and shared serialized responses. Opening Performance Center reuses the last manual Harmony inspection instead of enumerating patches.
@@ -222,3 +228,8 @@
 - Remove temporary LINQ projection iterators from despawn packet construction. Preserve IDs, reason/source defaults, order and independent packet array ownership.
 - Add independent Suite controls, compatibility/conflict checks and packet/entry counters. No entity despawn policy, simulation or network frequency changes.
 - See performance-0.9.0.md for component allocation results and validation scope.
+
+## Newfies Server Optimizer 0.9.1 preview
+
+- Reduce allocation in the once-per-second compatibility monitor while retaining independent switches, exact-engine guards, foreign-patch detection and failure fallback. Cache asset field metadata and avoid unrelated failure-counter reads.
+- Publish the Synergy/Tungsten replacement coverage audit. Existing runtime optimizations remain; distance AI/sleeping, path-node pooling, batching and other listed features are not yet implemented. No automatic GC or chunk-budget changes.

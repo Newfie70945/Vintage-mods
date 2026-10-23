@@ -68,3 +68,52 @@ var untouchedWeb=RuntimeHelpers.GetUninitializedObject(serviceType);
 var lastInspection=serviceType.GetMethod("GetLastPatchConflictSnapshot",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(untouchedWeb,null)!;
 Check((bool)Get(lastInspection,"requiresManualInspection"),"Page inspection fallback must not execute Harmony inspection or require game API");
 Console.WriteLine("PASS automatic page inspection placeholder is read-only and independent of heavy Harmony enumeration.");
+
+// Background monitoring excludes profiler tables and loader enumeration entirely.
+foreach(string field in new[]{"slowSpikes","diagnosticIncidents"}) {
+ var info=headerServiceType.GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)!;GraphField(field,Activator.CreateInstance(info.FieldType)!);
+}
+GraphField("cachedSmartAnalysis",Make("BlockLogger.ServerHealth.ServerSmartAnalysis"));
+GraphField("cachedSmartAnalysisUnixMilliseconds",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+GraphField("lastProfile",Make("BlockLogger.ServerHealth.ServerProfileSummary"));GraphField("enabled",true);
+var monitorMethod=headerServiceType.GetMethod("GetMonitoringSnapshot")!;
+var monitored=monitorMethod.Invoke(graph,new object[]{300,1800})!;
+Check(((IList)Get(monitored,"Hotspots")).Count==0,"Background snapshot copied profiler details");
+Check(((IList)Get(monitored,"Samples")).Count>0,"Background snapshot lost observations");
+var again=monitorMethod.Invoke(graph,new object[]{300,1800})!;
+Check(ReferenceEquals(Get(monitored,"DiagnosticSummary"),Get(again,"DiagnosticSummary")),"Unchanged diagnostic summary was rebuilt");
+GraphField("enabled",false);var disabledMonitoring=monitorMethod.Invoke(graph,new object[]{300,1800})!;
+Check((string)Get(Get(disabledMonitoring,"DiagnosticSummary"),"State")=="Disabled","Cached summary ignored enable/disable transition");
+GraphField("enabled",true);
+// Populate profiler tables only for the full-detail baseline; no game API is used.
+foreach(string field in new[]{"lastHotspots","lastModHotspots","lastPhases","lastProfileSlowTicks","lastSlowCauses","lastOffThreadReports","modIdentities"}) {
+ var info=headerServiceType.GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)!;var list=(IList)Activator.CreateInstance(info.FieldType)!;
+ var element=info.FieldType.GetGenericArguments()[0];for(int i=0;i<100;i++)list.Add(RuntimeHelpers.GetUninitializedObject(element));GraphField(field,list);
+}
+var fullMethod=headerServiceType.GetMethod("GetSnapshot")!;var full=fullMethod.Invoke(graph,new object[]{300,1800})!;
+var light=monitorMethod.Invoke(graph,new object[]{300,1800})!;
+Check(ReferenceEquals(Get(full,"Current"),Get(light,"Current"))&&((IList)Get(full,"Samples")).Count==((IList)Get(light,"Samples")).Count,"Monitoring changed current or window observations");
+Check(((IList)Get(full,"Hotspots")).Count==30,"Full diagnostic page lost profiler details");
+object MeasureSnapshot(MethodInfo method) {
+ object[] args={300,1800};for(int i=0;i<10;i++)method.Invoke(graph,args);
+ long bytes=GC.GetAllocatedBytesForCurrentThread(),stamp=System.Diagnostics.Stopwatch.GetTimestamp();
+ for(int i=0;i<200;i++)method.Invoke(graph,args);
+ return new{bytesPerRead=(GC.GetAllocatedBytesForCurrentThread()-bytes)/200d,nsPerRead=System.Diagnostics.Stopwatch.GetElapsedTime(stamp).TotalNanoseconds/200};
+}
+var monitoringMeasurements=new{full=MeasureSnapshot(fullMethod),monitoring=MeasureSnapshot(monitorMethod),scope="3000 retained observations and populated profiler tables; reflection read component, not whole-server TPS."};
+string monitoringReport=System.Text.Json.JsonSerializer.Serialize(monitoringMeasurements);Console.WriteLine(monitoringReport);
+if(Environment.GetEnvironmentVariable("NSS_MONITOR_MEASUREMENTS") is string reportPath)File.WriteAllText(reportPath,monitoringReport+"\n");
+Console.WriteLine("PASS background observation/diagnosis equivalence, summary reuse/invalidation and full profiler detail preservation.");
+
+var listRowMethod=serviceType.GetMethod("BuildIncidentListRow",BindingFlags.Static|BindingFlags.NonPublic)!;
+var bulky=FreshArchive();Set(bulky,"ProfileEvidence",profile);
+for(int i=0;i<45;i++){((IList)Get(bulky,"Before")).Add(Make("BlockLogger.ServerHealth.ServerHealthSample"));}
+var compact=listRowMethod.Invoke(null,new[]{bulky})!;
+Check((bool)Get(compact,"hasTickEvidence"),"Incident list lost tick-evidence filtering state");
+Check(compact.GetType().GetProperty("Before")==null&&compact.GetType().GetProperty("WebServer")==null,"Overview leaked full incident evidence arrays");
+Check((long)Get(compact,"StartUnixMilliseconds")==10000L,"Compact list changed incident identity");
+Check(((IList)Get(bulky,"Before")).Count==45&&ReferenceEquals(Get(bulky,"ProfileEvidence"),profile),"Overview compacting modified retained drawer evidence");
+var archiveBytes=System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(bulky,bulky.GetType()).Length;
+var listBytes=System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(compact,compact.GetType()).Length;
+Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{fullIncidentBytes=archiveBytes,compactRowBytes=listBytes,scope="Synthetic incident with 45 observations; detail payload remains separately available."}));
+Console.WriteLine("PASS compact incident identity/filter evidence and retained full archive preservation.");

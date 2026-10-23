@@ -1,0 +1,17 @@
+# NOS 0.9.1 preview and Suite 1.2.48 MemoryPerf2
+
+The reported invisible terrain was traced by the owner to Better Crates and Wool. This pass does not alter chunk delivery limits, world generation order, packet data, AI cadence or GC mode.
+
+NOS compatibility monitoring now iterates entries directly, inspects patch ownership without temporary owner/LINQ collections, reuses the already-inspected target patch metadata and caches asset field metadata. Failure counters are read only for their owning module. Exact engine identity, dependent-method conflicts, removed-patch detection, module trip counters and disposal remain enforced every second.
+
+A 1,000-check actual-Harmony fixture with all modules active and a synthetic client count measured **85,480 → 34,816 allocated bytes/check (59.3% less)**. Timing varied under concurrent builds, so this is an allocation result, not a claimed CPU/TPS improvement. This modest once-per-second saving does not explain the owner's reported ~75 MB/s whole-process allocation rate. See research/components-0.9.1/monitor-before.json and monitor-after.json.
+
+Suite internal background monitoring excludes unused profiler-table copies and mod-loader enumeration while retaining observations, diagnosis and incident groups. The full diagnostic pages keep profiler details. Five-minute summaries are reused for at most one second while the newest sample and enabled state are unchanged. Manual memory snapshots read the latest observation without generating Smart Diagnosis/history.
+
+Large Performance/Operations archives now stream JSON into a unique temporary file before atomic replacement. The synthetic 5,000-row fixture measured **6,859,299 → 699,216 bytes/write (89.8% less)**. Roundtrip, failed getter/serialization, failed replacement and temporary-file cleanup checks pass. This removes a large intermediate string allocation; serialization and file I/O still have a cost and remain synchronous.
+
+Timeline responses now send marker fields only instead of full incident histories or mod-environment snapshots. Overview refreshes send scalar incident rows, preserving identity, table filters and comparison while fetching full evidence only when the drawer is opened. A 45-observation synthetic incident serialized to **365 bytes as a list row versus 21,999 bytes as a full archive**. No archived observations or drawer details are deleted. The quick-read workload card also excludes elapsed/queue waits from its execution ranking.
+
+Memory snapshot comparison adds whole-process allocation rate for matching process identities, with reversed selections supported and cross-restart/old/zero-interval comparisons rejected. The Optimization page and replacement-coverage.md explicitly list NOS coverage and missing Synergy/Tungsten features. Full replacement or equal performance is not established.
+
+All 18 optimizer test suites passed, including 39 engine lifecycle/conflict checks. Both release builds have zero warnings/errors. Suite runtime checks preserve current/window observations and full profiler details while testing summary reuse and invalidation. Browser checks cover allocation-rate edge cases and existing timeline recovery. The selected-modpack copied-world integration passed 22 checks, including 40 compact synthetic incident rows, marker-only timelines, independent full 45-observation detail, actual save markers and Suite controls; no real-player workload, long-session heap improvement, production TPS or 25 GB memory reduction is claimed.

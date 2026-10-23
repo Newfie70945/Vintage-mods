@@ -155,6 +155,18 @@ static class Checks
    failureField.SetValue(null,11L);foreach(var tick in retry.Ticks)tick(1);
    Assert(module.Modules().Single(x=>x.Name=="assetCompressionCache").Status=="failed","new failures still stand module down");
   }
+  var bench=Api();
+  using(var module=new EngineOptimizations(bench.Api,Config(),()=>200))
+  {
+   void Tick(){foreach(var tick in bench.Ticks)tick(1);}
+   for(int i=0;i<100;i++)Tick();
+   long before=GC.GetAllocatedBytesForCurrentThread(),stamp=System.Diagnostics.Stopwatch.GetTimestamp();
+   for(int i=0;i<1000;i++)Tick();
+   var result=new{iterations=1000,bytesPerCheck=(GC.GetAllocatedBytesForCurrentThread()-before)/1000d,nsPerCheck=System.Diagnostics.Stopwatch.GetElapsedTime(stamp).TotalNanoseconds/1000,scope="Actual Harmony module monitor with all modules active, 200 synthetic client count, no gameplay or network workload."};
+   var report=System.Text.Json.JsonSerializer.Serialize(result);
+   Console.WriteLine(report);
+   var output=Environment.GetEnvironmentVariable("NOS_MEASUREMENTS");if(output!=null)File.WriteAllText(output,report+"\n");
+  }
   AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StratumServer.TestMarker"),AssemblyBuilderAccess.Run);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().All(x=>x.Status=="blocked"),"alternative runtime blocked");
   Console.WriteLine($"{checks} engine module lifecycle/conflict checks passed against actual Harmony targets.");
