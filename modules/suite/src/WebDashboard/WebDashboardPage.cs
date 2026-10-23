@@ -412,6 +412,30 @@ canvas.healthChart{
 .clickableRow:hover td{background:#22303c!important}
 .modsSearch{min-width:280px;flex:1}
 .optGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+
+/* Optimizer workspace: compact missing integrations, readable settings cards. */
+#optimizations [hidden]{display:none!important}
+#optimizations .optimizerMissing{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#optimizations .optimizerMissing h3{margin:0}
+#optimizations .optimizerMissing .small{flex:1}
+#optimizations .nosGroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start;margin:14px 0}
+#optimizations .nosGroup{min-width:0;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,rgba(117,175,224,.065),transparent);padding:0 14px}
+#optimizations .nosGroup summary{padding:14px 0;cursor:pointer;font-weight:750;font-size:14px;color:var(--text);line-height:1.4}
+#optimizations .nosGroup summary .small{float:right;font-weight:400;margin-left:8px}
+#optimizations .nosGroupContent{padding-bottom:12px}
+#optimizations .nosGroupContent>br{display:none}
+#optimizations .nosGroup label{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px!important;font-weight:500!important;letter-spacing:normal!important;text-transform:none!important;line-height:1.5;margin:9px 0}
+#optimizations .nosGroup label:has(input[type=checkbox]){display:flex!important;width:100%;box-sizing:border-box;flex-wrap:nowrap}
+#optimizations .nosGroup input[type=checkbox]{flex-shrink:0}
+#optimizations .nosGroup input[type=text]{min-width:0}
+#optimizations .nosGroup p{line-height:1.65}
+#optimizations .nosActions{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel,#111b24)}
+#optimizations #nosState{margin-top:12px}
+#optimizations #nosPanel .optStatusIcon{width:42px;height:42px;font-size:18px;border-width:2px}
+#optimizations .nosSupport{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}
+#optimizations #nosModules{font-size:13px}
+@media(max-width:800px){#optimizations .nosGroups{grid-template-columns:1fr}#optimizations .nosActions{position:static}#optimizations .nosGroup summary .small{float:none;display:block;margin:4px 0 0}#optimizations .optimizerMissing .small{flex-basis:100%}}
+
 .optStatusHero{display:flex;align-items:center;gap:14px}
 .optStatusIcon{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:850;background:#26323d;border:4px solid #40505f}
 .optStatusIcon.good{border-color:var(--good);color:var(--good)}
@@ -2558,17 +2582,20 @@ __NSS_RETENTION_HTML__
     </div>
   </div>
 
+  <details class="card" id="optimizerSaveGuide" style="margin-bottom:14px"><summary><b>Autosave lag &amp; public-server testing guide</b></summary>
+    <div class="grid" style="margin-top:12px"><div><h4>Find the save cost first</h4><p class="small">Open a save marker in Performance Center and compare several save windows. Save overlap alone is correlation. Look for measured save preparation, mod save callbacks, GC pauses and background disk work. Official 1.22.7 already performs part of normal saves off-thread; main-thread preparation and mod callbacks can still stall.</p><p class="small">NOS “Release completed save snapshots” reduces retained chunk references after successful background saves. It is not incremental autosave and does not shorten serialization or disk transactions. Do not disable saves or change transaction durability to chase lower ticks.</p><p class="small">Use fast local SSD/NVMe storage; check host disk latency, container CPU/memory pressure and competing backup jobs during saves. Longer save intervals reduce frequency, not necessarily duration, and increase potential lost progress after a crash.</p></div>
+    <div><h4>Test one change at a time</h4><p class="small">Keep your currently working allocation modules enabled. Try animation flag scan, then container transition scan/tick traversal separately if your NOS version supports them. Compare tick p95/p99, worst save duration, allocation rate and memory at similar player/entity/chunk counts across several saves.</p><p class="small">Leave experimental distant AI/wander/repulsion scheduling, main-thread path assistance, waypoint pooling and nearby-player scaling off for the initial public-server comparison. Collision generation/traversal reduces allocation but can cost CPU; enable only when measured results justify it.</p><p class="small">Runtime patches are reversible by disabling/removing NOS after a clean shutdown. That is not a guarantee against bugs, crashes or lost unsaved progress. Keep a recoverable world/config copy, test a copy first, and check Actual state for conflicts or failures. No buttons in this guide change settings or force GC.</p></div></div>
+  </details>
   <div class="card" id="nosPanel" style="margin-bottom:16px;border-top:3px solid #75afe0">
     <div class="cardHeader"><div><h3>Newfies Server Optimizer</h3><div class="small">Official-server API patches, controlled here by the Suite. Each module checks engine compatibility and conflicting patches.</div></div><div class="spacer"></div><button id="nosRefresh">Refresh NOS</button></div>
-    <div id="nosState" class="compactNote">Checking for the optimizer…</div>
+    <div class="nosSupport"><span class="pill">Server-only runtime patches</span><a href="https://github.com/Newfie70945/Vintage-mods/tree/main/modules/optimizer" target="_blank" rel="noopener">Source &amp; setup guide</a></div><div id="nosState" class="compactNote" role="status">Checking for the optimizer…</div>
     <div id="nosControls" hidden>
-      <div class="grid" style="margin-top:12px">
-        <div><h4>Safety and activation</h4>
+      <div class="nosGroups">
+        <details class="nosGroup" open><summary>Safety and activation<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosEnabled"> Enable optimizer</label><br>
           <label><input type="checkbox" id="nosSafeMode"> Safe mode (stock engine methods)</label>
-          <p class="small">Apply saves optimizer.json and reapplies engine modules immediately. Stop a running NOS capture before changing settings. Unsupported builds or conflicts retain stock behavior.</p>
-        </div>
-        <div><h4>API and allocation modules</h4>
+          <p class="small">Apply saves optimizer.json and reapplies engine modules immediately. Stop a running NOS capture before changing settings. Unsupported builds or conflicts retain stock behavior.</p></div></details>
+        <details class="nosGroup"><summary>API and allocation modules<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosBroadcastFilterReuse"> Empty broadcast exclusion fast path</label><br>
           <label><input type="checkbox" id="nosEntityLifecycleListReuse"> Reuse entity cleanup and despawn temporary lists</label><br>
           <label><input type="checkbox" id="nosOnlinePlayerSnapshots"> Online-player snapshots</label><br>
@@ -2581,51 +2608,44 @@ __NSS_RETENTION_HTML__
           <label><input type="checkbox" id="nosRepulseDelegateReuse"> Repulsion callback reuse</label><br>
           <label><input type="checkbox" id="nosBulkStreamReads"> Bulk stream reads</label><br>
           <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
-          <label class="small">Cache limit <input id="nosAssetCacheMaxMiB" type="number" min="1" max="32" value="16" style="width:70px"> MiB</label>
-        </div>
-        <div><h4>Collision generation and animation</h4>
+          <label class="small">Cache limit <input id="nosAssetCacheMaxMiB" type="number" min="1" max="32" value="16" style="width:70px"> MiB</label></div></details>
+        <details class="nosGroup"><summary>Collision generation and animation<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosCollisionGenerationReuse"> Reuse standard collision-generation callback</label><br>
           <label><input type="checkbox" id="nosCachedCollisionGenerationReuse"> Reuse cached collision-generation callback</label><br>
           <label><input type="checkbox" id="nosAnimationCollisionFlagScan"> Reduce server animation flag-scan allocations</label><br>
-          <p class="small">Off by default. Native synchronous block traversal, shape hooks, bounds and cache decisions remain. Custom block walkers fall back to the original path. Animation frames and triggers still run; no neighbour results are cached across ticks.</p>
-        </div>
-        <div><h4>Collision and container traversal</h4>
+          <p class="small">Off by default. Native synchronous block traversal, shape hooks, bounds and cache decisions remain. Custom block walkers fall back to the original path. Animation frames and triggers still run; no neighbour results are cached across ticks.</p></div></details>
+        <details class="nosGroup"><summary>Collision and container traversal<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosCollisionTraversalReuse"> Avoid collision-loop iterator allocation</label><br>
           <label><input type="checkbox" id="nosContainerTransitionScan"> Avoid container transition-scan iterator allocation</label><br>
           <label><input type="checkbox" id="nosContainerTickTraversal"> Avoid container tick iterator allocation</label><br>
-          <p class="small">Optional and off by default. Native collision resolution and food transitions still run. Custom inventory enumerators use the original path. No stationary-entity, spoilage or temperature checks are skipped. Collision traversal trades some CPU overhead for fewer allocations; compare results before leaving it enabled.</p>
-        </div>
-        <div><h4>Entity queries and shapeless recipes</h4>
+          <p class="small">Optional and off by default. Native collision resolution and food transitions still run. Custom inventory enumerators use the original path. No stationary-entity, spoilage or temperature checks are skipped. Collision traversal trades some CPU overhead for fewer allocations; compare results before leaving it enabled.</p></div></details>
+        <details class="nosGroup"><summary>Entity queries and shapeless recipes<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosNearbyEntityListReuse"> Reuse nearby-entity query scratch</label><br>
           <label><input type="checkbox" id="nosCuboidEntityListReuse"> Reuse cuboid-entity query scratch</label><br>
           <label><input type="checkbox" id="nosShapelessStackMerge"> Reduce shapeless stack-merge allocations</label><br>
           <label><input type="checkbox" id="nosShapelessWildcardMatch"> Reduce shapeless wildcard-check allocations</label><br>
-          <p class="small">Optional and off by default. Entity queries retain native traversal and separate result arrays. Recipe checks preserve item attributes, comparisons and crafting hooks; no recipe results or inventories are cached.</p>
-        </div>
-        <div><h4>Callbacks and spawning</h4>
+          <p class="small">Optional and off by default. Entity queries retain native traversal and separate result arrays. Recipe checks preserve item attributes, comparisons and crafting hooks; no recipe results or inventories are cached.</p></div></details>
+        <details class="nosGroup"><summary>Callbacks and spawning<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosDelayedCallbackSnapshotReuse"> Reuse delayed-callback position snapshots</label><br>
           <label><input type="checkbox" id="nosSpawnOpportunityListReuse"> Reuse mob-spawn search scratch list</label><br>
           <label><input type="checkbox" id="nosSpawnColumnArrayReuse"> Reuse mob-spawn chunk-read array</label><br>
-          <p class="small">Bounded scratch reuse keeps callback timing, spawn caps and random decisions unchanged. Spawn results retain their own queued lists.</p>
-        </div>
-        <div><h4>Blocks, chunks and saves</h4>
+          <p class="small">Bounded scratch reuse keeps callback timing, spawn caps and random decisions unchanged. Spawn results retain their own queued lists.</p></div></details>
+        <details class="nosGroup"><summary>Blocks, chunks and saves<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosBlockUpdateListReuse"> Reuse block-update batching lists</label><br>
           <label><input type="checkbox" id="nosChunkLoadRequestListReuse"> Reuse chunk-load request staging list</label><br>
           <label><input type="checkbox" id="nosChunkUnloadListReuse"> Reuse chunk-unload lists and packet coordinates</label><br>
 
           <label><input type="checkbox" id="nosWorldgenRequestReuse"> Allocation-free generation request lookup</label><br>
           <label><input type="checkbox" id="nosSaveSnapshotRelease"> Release completed save snapshots</label>
-          <p class="small">Keeps stock generation order and save transactions. Releases saved chunk references after successful background saves; failed saves keep their retry snapshot.</p>
-        </div>
-        <div><h4>Pathfinding queue</h4>
+          <p class="small">Keeps stock generation order and save transactions. Releases saved chunk references after successful background saves; failed saves keep their retry snapshot.</p></div></details>
+        <details class="nosGroup"><summary>Pathfinding queue<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosPathQueueLimitFix"> Preserve queued requests at the worker limit</label><br>
           <label><input type="checkbox" id="nosPathMainThreadBudget"> Limit main-thread pathfinding assistance (experimental)</label><br>
           <label class="small">Soft budget <input id="nosPathMainThreadBudgetMs" type="number" min="1" max="10" value="2" style="width:70px"> ms</label><br>
           <label class="small">Maximum searches <input id="nosPathMainThreadMaxSearches" type="number" min="1" max="8" value="1" style="width:70px"> per help tick</label><br>
           <label class="small">Observed head wait <input id="nosPathMainThreadGraceMs" type="number" min="0" max="5000" value="300" style="width:80px"> ms</label>
-          <p class="small">Budgeting is off by default. The worker keeps running. One search cannot be interrupted and may exceed the soft budget; waiting paths may complete later. Test under actual animal workloads.</p>
-        </div>
-        <div><h4>Conservative distant-entity scheduling (experimental)</h4>
+          <p class="small">Budgeting is off by default. The worker keeps running. One search cannot be interrupted and may exceed the soft budget; waiting paths may complete later. Test under actual animal workloads.</p></div></details>
+        <details class="nosGroup"><summary>Conservative distant-entity scheduling (experimental)<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosAiDistanceThrottle"> Space out new AI task evaluations</label><br>
           <label><input type="checkbox" id="nosDistantWanderThrottle"> Space out distant wandering checks</label><br>
           <label><input type="checkbox" id="nosRepulsionDistanceThrottle"> Space out stationary distant repulsion</label><br>
@@ -2635,26 +2655,23 @@ __NSS_RETENTION_HTML__
           <label class="small">Repulsion interval <input id="nosRepulsionDistanceIntervalMs" type="number" min="50" max="500" value="100" style="width:75px"> ms</label><br>
           <label class="small">Include entity codes (comma separated, * wildcard)<input id="nosEntityIncludePatterns" data-nos-patterns type="text" value="game:*" style="width:100%;box-sizing:border-box"></label><br>
           <label class="small">Exclude entity codes<input id="nosEntityExcludePatterns" data-nos-patterns type="text" value="game:player, game:trader-*" style="width:100%;box-sizing:border-box"></label>
-          <p class="small">Off by default. Full entity ticks and running tasks continue. Nearby players, owned/named/bred animals, mounts, combat, injured animals, custom entity/task/behavior implementations and unsafe conditions retain stock scheduling. No observer in the dimension also retains stock behavior.</p>
-        </div>
-        <div><h4>Additional allocation and sync reductions (experimental)</h4>
+          <p class="small">Off by default. Full entity ticks and running tasks continue. Nearby players, owned/named/bred animals, mounts, combat, injured animals, custom entity/task/behavior implementations and unsafe conditions retain stock scheduling. No observer in the dimension also retains stock behavior.</p></div></details>
+        <details class="nosGroup"><summary>Additional allocation and sync reductions (experimental)<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosWaypointNodePooling"> Reuse waypoint-search candidate nodes</label><br>
           <label><input type="checkbox" id="nosAttributeNoOpSkip"> Skip missing-attribute removal resyncs</label>
-          <p class="small">Off by default. Node reuse is restricted to official waypoint searches, with up to 4,096 reusable candidates per solver. Raw node-returning searches retain their original ownership. Real attribute removals and subclasses keep stock behavior.</p>
-        </div>
-        <div><h4>Optional population scaling</h4>
+          <p class="small">Off by default. Node reuse is restricted to official waypoint searches, with up to 4,096 reusable candidates per solver. Raw node-returning searches retain their original ownership. Real attribute removals and subclasses keep stock behavior.</p></div></details>
+        <details class="nosGroup"><summary>Optional population scaling<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosNearbyPlayerQueries"> Nearby-player queries</label><br>
           <label class="small">Activate at <input id="nosMinimumNearbyClients" type="number" min="0" max="4096" value="128" style="width:80px"> connected clients</label>
-          <p class="small">Off by default: allocation savings can trade against CPU time. Uses population hysteresis. Test against your actual player workload.</p>
-        </div>
+          <p class="small">Off by default: allocation savings can trade against CPU time. Uses population hysteresis. Test against your actual player workload.</p></div></details>
       </div>
-      <div class="quickActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button><button id="nosClearCapture">Release Stopped Capture</button></div>
+      <div class="quickActions nosActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button><button id="nosClearCapture">Release Stopped Capture</button></div>
       <p class="small">Entity search reuse reduces temporary objects without skipping AI ticks or changing activation ranges. Search inputs are cleared after every call. Release Stopped Capture releases retained NOS report references; exported files remain. These controls do not force GC or change process-wide GC settings.</p>
       <details class="compactNote" style="margin-top:10px"><summary>Replacing Synergy or Tungsten: current coverage</summary><p>NOS currently reduces allocations in player/entity searches, AI delegate dispatch, repulsion callbacks, physics/despawn packets, asset compression, generation requests and completed save snapshots. Each active module is listed below.</p><p>Optional collision/container traversal reuse, entity query scratch and shapeless recipe helper optimizations are also available. Optional modules now add distant AI/wander/stationary repulsion scheduling, waypoint candidate-node reuse and missing-attribute resync suppression. They do not provide full entity sleep, TCP flush batching, client delta packets, general cooking patches or terrain-noise optimizations. Removing another optimizer can remove those benefits. No full replacement or equal performance claim is made. NOS does not change GC mode or force collections.</p></details>
       <div id="nosEditState" class="small"></div>
       <div class="toolbar" style="margin-top:12px"><label class="small">Find a module <input id="nosModuleSearch" type="search" placeholder="Name or reason" style="max-width:220px"></label><label class="small">Show <select id="nosModuleFilter"><option value="all">All states</option><option value="attention">Needs attention</option><option value="active">Active</option><option value="inactive">Disabled / standby</option></select></label><span id="nosModuleCount" class="small" aria-live="polite"></span></div>
       <div class="tableWrap dataScroll" style="margin-top:12px"><table><thead><tr><th>Module</th><th>Actual state</th><th>Compatibility / fallback reason</th></tr></thead><tbody id="nosModules"></tbody></table></div>
-      <div id="nosCounters" class="small" style="margin-top:10px"></div>
+      <details style="margin-top:10px"><summary>Execution counters · allocation &amp; fallback evidence</summary><div id="nosCounters" class="small" style="margin-top:10px;line-height:1.8"></div></details>
     </div>
   </div>
 
@@ -2662,6 +2679,7 @@ __NSS_RETENTION_HTML__
     <div class="empty">Checking for Tungsten…</div>
   </div>
 
+  <div id="tungstenControls" hidden>
   <div class="grid" style="margin-bottom:12px">
     <div class="card">
       <div class="cardHeader"><h3>Smart Optimization Advisor</h3><div class="spacer"></div><span id="tungstenAdvisorState" class="small"></span></div>
@@ -2740,19 +2758,14 @@ __NSS_RETENTION_HTML__
     </div>
   </div>
 
-  <div style="height:1px;background:var(--line);margin:18px 0"></div>
-
-  <div class="pageTitle" style="margin-bottom:10px">
-    <div>
-      <h2 style="font-size:21px">Synergy</h2>
-      <div class="subtitle">Coordinated server/client optimization integration through Synergy's public <code>/synergy</code> command interface.</div>
-    </div>
   </div>
+  <div style="height:1px;background:var(--line);margin:18px 0"></div>
 
   <div id="synergyBanner" class="card" style="margin-bottom:12px">
     <div class="empty">Checking for Synergy…</div>
   </div>
 
+  <div id="synergyControls" hidden>
   <div class="grid" style="margin-bottom:12px">
     <div class="card">
       <div class="cardHeader"><h3>Synergy Advisor</h3><div class="spacer"></div><span id="synergyAdvisorState" class="small"></span></div>
@@ -2804,6 +2817,7 @@ __NSS_RETENTION_HTML__
     <pre id="synergyOutput" class="status">No Synergy command has been run from the web dashboard yet.</pre>
   </div>
 
+  </div>
   <div class="card" style="margin-bottom:12px">
     <div class="cardHeader"><h3>Optimization Test History</h3><div class="spacer"></div><span class="small">Persistent server-side before/after results</span></div>
     <div class="tableWrap"><table>
@@ -2812,7 +2826,7 @@ __NSS_RETENTION_HTML__
     </table></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="tungstenCommandPanel" hidden>
     <div class="cardHeader"><h3>Last Tungsten Command</h3><div class="spacer"></div><button id="tungstenClearOutput">Clear</button></div>
     <pre id="tungstenOutput" class="status">No Tungsten command has been run from the web dashboard yet.</pre>
   </div>
@@ -9735,6 +9749,8 @@ function renderTungsten(){
   const ready=installed&&!!d.commandRegistered;
   const safeModeLocked=!!d.safeDiagnosticsMode;
   const experimentLocked=!!d.pendingExperiment;
+  $('tungstenControls').hidden=!installed;
+  $('tungstenCommandPanel').hidden=!installed;
 
   $('tungstenBanner').innerHTML=`
     <div class="optStatusHero">
@@ -9749,6 +9765,7 @@ function renderTungsten(){
       </div>
     </div>`;
 
+  if(!installed)$('tungstenBanner').innerHTML='<div class="optimizerMissing"><h3>Tungsten</h3><span class="small">Not installed · controls hidden</span><a href="https://mods.vintagestory.at/show/mod/35001" target="_blank" rel="noopener">Mod DB ↗</a><button onclick="loadTungsten()">Check again</button></div>';
   $('tungstenAdvisorState').textContent=d.recommendationState||'';
   const opts=d.optimizations||[];
   const recommended=opts
@@ -9857,6 +9874,7 @@ function renderSynergy(){
   const ready=installed&&!!d.commandRegistered;
   const safeModeLocked=!!d.safeDiagnosticsMode;
   const experimentLocked=!!d.pendingExperiment;
+  $('synergyControls').hidden=!installed;
   const compatibility=d.compatibilityWarning||'';
 
   $('synergyBanner').innerHTML=`
@@ -9874,6 +9892,7 @@ function renderSynergy(){
       </div>
     </div>`;
 
+  if(!installed)$('synergyBanner').innerHTML='<div class="optimizerMissing"><h3>Synergy</h3><span class="small">Not installed · controls hidden</span><a href="https://mods.vintagestory.at/synergy" target="_blank" rel="noopener">Mod DB ↗</a><button onclick="loadSynergy()">Check again</button></div>';
   $('synergyAdvisorState').textContent=d.recommendationState||'';
   const opts=d.optimizations||[];
   const recommended=opts
@@ -10148,6 +10167,7 @@ function renderNos(result){
   nosSnapshot=state;
   $('nosControls').hidden=!available;
   $('nosState').textContent=available?`NOS ${state.version} · ${state.profiling?'Capture running':'Capture stopped'} · configured switches and actual activation are shown separately.`:(result.message||'NOS is unavailable. Install the matching optimizer module and restart.');
+  if(available){const modules=state.modules||[];const active=modules.filter(m=>m.status==='active').length;$('nosState').innerHTML=`<div class="optStatusHero"><div class="optStatusIcon ${state.settings.enabled&&!state.settings.safeMode?'good':''}">N</div><div><b>NOS ${esc(state.version||'')}</b><div class="small">${active} / ${modules.length} modules active · ${state.profiling?'Capture running':'Capture stopped'} · configured switches may differ from actual state.</div></div></div>`;}
   if(!available)return;
   const locked=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
   Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(!nosDirty){if(el.type==='checkbox')el.checked=!!state.settings[key];else el.value=el.hasAttribute('data-nos-patterns')?(state.settings[key]||[]).join(', '):String(state.settings[key]??'');}el.disabled=nosBusy||locked||!!state.profiling||!Object.prototype.hasOwnProperty.call(state.settings,key);el.title=Object.prototype.hasOwnProperty.call(state.settings,key)?'':'Update NOS to configure this module.';});
@@ -10158,10 +10178,15 @@ function renderNos(result){
   $('nosExport').disabled=nosBusy||locked;
   $('nosClearCapture').disabled=nosBusy||locked||!!state.profiling||!state.captureAvailable||!(state.capabilities||[]).includes('capture-clear');
   $('nosEditState').textContent=locked?'Read-only or Suite Safe Diagnostics Mode: module changes and capture starts are locked.':state.profiling?'Stop the NOS capture to edit settings.':nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
+  updateNosGroupCounts();
   renderNosModules();
   const c=state.counters||{};
   $('nosCounters').textContent=`Collision generation ${Number(c.collisionGenerationCalls||0).toLocaleString()} standard / ${Number(c.cachedCollisionGenerationCalls||0).toLocaleString()} cached · ${Number(c.collisionGenerationCacheHits||0).toLocaleString()} bounds-cache hits · ${Number(c.collisionGenerationContextsCreated||0).toLocaleString()} callback contexts created · ${Number(c.collisionGenerationFallbacks||0).toLocaleString()} custom-walker fallbacks / ${Number(c.collisionGenerationFailures||0)} failures · Animation flag scans ${Number(c.animationCollisionScans||0).toLocaleString()} / ${Number(c.animationScanFallbacks||0)} fallbacks / ${Number(c.animationScanFailures||0)} failures · Collision / container traversals ${Number(c.collisionTraversalCalls||0).toLocaleString()} / ${Number(c.containerTransitionScans||0).toLocaleString()} scans / ${Number(c.containerTickTraversals||0).toLocaleString()} ticks · ${Number(c.traversalIteratorsAvoided||0).toLocaleString()} iterator allocations avoided · ${Number(c.customInventoryTraversalFallbacks||0).toLocaleString()} custom inventory fallbacks · ${Number(c.collisionTraversalFailures||0)+Number(c.containerScanFailures||0)+Number(c.containerTickFailures||0)} traversal failures · Entity query passes ${Number(c.nearbyEntityListPasses||0).toLocaleString()} nearby / ${Number(c.cuboidEntityListPasses||0).toLocaleString()} cuboid · ${Number(c.entityQueryBuffersCreated||0).toLocaleString()} query buffers created / ${Number(c.entityQueryOversizedReleased||0).toLocaleString()} oversized released · ${Number(c.entityQueryFailures||0)} query failures · Shapeless merge / wildcard checks ${Number(c.shapelessMergeCalls||0).toLocaleString()} / ${Number(c.shapelessWildcardCalls||0).toLocaleString()} · ${Number(c.shapelessMergeFailures||0)+Number(c.shapelessWildcardFailures||0)} recipe failures · Callback snapshots ${Number(c.callbackSnapshotPasses||0).toLocaleString()} / ${Number(c.callbackDebugSnapshotPasses||0).toLocaleString()} debug · spawn searches ${Number(c.spawnOpportunityPasses||0).toLocaleString()} · spawn arrays reused ${Number(c.spawnColumnArraysReused||0).toLocaleString()} · callback/spawn failures ${Number(c.callbackSpawnFailures||0).toLocaleString()} · Block updates ${Number(c.blockUpdatePasses||0).toLocaleString()} · chunk request passes ${Number(c.chunkRequestPasses||0).toLocaleString()} · unload candidates / notifications ${Number(c.chunkUnloadCandidatePasses||0).toLocaleString()} / ${Number(c.chunkUnloadNotificationPasses||0).toLocaleString()} · unload coordinates reused ${Number(c.chunkUnloadCoordinatesReused||0).toLocaleString()} · scratch failures ${Number(c.blockChunkFailures||0).toLocaleString()} · Executed: ${Number(c.despawnPacketCalls||0).toLocaleString()} despawn packets / ${Number(c.despawnPacketEntities||0).toLocaleString()} despawn entries · ${Number(c.physicsPacketPasses||0).toLocaleString()} physics packet passes · ${Number(c.physicsPacketBuffersCreated||0).toLocaleString()} packet buffer sets created / ${Number(c.physicsPacketOversizedBuffersReleased||0).toLocaleString()} oversized sets released · ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Empty-exclusion fast paths: ${Number(c.broadcastRawCalls||0)} raw / ${Number(c.broadcastPacketCalls||0)} packet / ${Number(c.broadcastUdpCalls||0)} UDP passes · ${Number(c.entityCleanupPasses||0)} entity cleanup passes / ${Number(c.entityCleanupBuffersCreated||0)} temporary buffer sets created / ${Number(c.entityCleanupOversizedReleased||0)} oversized sets released. Distant scheduling: ${Number(c.aiChecksDeferred||0).toLocaleString()} AI / ${Number(c.wanderChecksDeferred||0).toLocaleString()} wander / ${Number(c.repulsionChecksDeferred||0).toLocaleString()} repulsion checks deferred · ${Number(c.entityPolicyFailures||0)} policy failures · ${Number(c.waypointNodesReused||0).toLocaleString()} waypoint nodes reused / ${Number(c.waypointNodesCreated||0).toLocaleString()} pooled nodes created / ${Number(c.waypointPoolOverflow||0).toLocaleString()} unpooled candidates · ${Number(c.attributeNoOpSkips||0).toLocaleString()} missing-attribute resyncs skipped. Counters are cumulative for this server process; hits are not a TPS measurement.`;
 }
+function updateNosGroupCounts(){
+  document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{const fields=[...group.querySelectorAll('input[type=checkbox]')];group.querySelector('.nosGroupCount').textContent=`${fields.filter(el=>el.checked&&!el.title).length} / ${fields.filter(el=>!el.title).length} configured on`;});
+}
+$('nosControls').addEventListener('change',updateNosGroupCounts);
 function renderNosModules(){
   const modules=nosSnapshot?.modules||[],query=$('nosModuleSearch').value.trim().toLowerCase(),filter=$('nosModuleFilter').value;
   const rows=modules.filter(m=>{const status=String(m.status||'').toLowerCase(),stateMatches=filter==='all'||(filter==='active'&&status==='active')||(filter==='inactive'&&['disabled','standby'].includes(status))||(filter==='attention'&&!['active','disabled','standby'].includes(status));return stateMatches&&(!query||`${m.name||''} ${status} ${m.reason||''}`.toLowerCase().includes(query));});
