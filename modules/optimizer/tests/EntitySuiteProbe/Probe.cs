@@ -36,6 +36,8 @@ public sealed class EntitySuiteProbe:ModSystem
    var before=Control("get");
    Assert(before.GetProperty("settings").GetProperty("broadcastFilterReuse").GetBoolean()&&before.GetProperty("settings").GetProperty("entityLifecycleListReuse").GetBoolean(),"new allocation controls enabled through Suite for real-server validation");
    Assert(before.GetProperty("counters").GetProperty("entityCleanupPasses").GetInt64()>0,"actual server entity cleanup passes use bounded scopes");
+   foreach(var key in new[]{"blockUpdateListReuse","chunkLoadRequestListReuse","chunkUnloadListReuse"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"block/chunk control enabled: "+key);
+   foreach(var key in new[]{"blockUpdatePasses","chunkRequestPasses","chunkUnloadCandidatePasses"})Assert(before.GetProperty("counters").GetProperty(key).GetInt64()>0,"normal copied-server work executes "+key);
    var world=api.World;const BindingFlags networkFlags=BindingFlags.NonPublic|BindingFlags.Instance;
    var rawBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(byte[]),typeof(IServerPlayer[])},null)!;
    var packetBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(Packet_Server),typeof(IServerPlayer[])},null)!;

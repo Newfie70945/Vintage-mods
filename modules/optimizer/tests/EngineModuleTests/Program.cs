@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true, BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -105,6 +105,25 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
    Assert(module.Modules().Single(x=>x.Name=="aiFilterDispatch").Status=="conflict","AI foreign ownership blocks only its module");
   foreign.UnpatchAll(foreign.Id);
+  string[] scratchNames=["blockUpdateListReuse","chunkLoadRequestListReuse","chunkUnloadCandidateListReuse","chunkUnloadNotificationReuse"];
+  for(int kind=0;kind<4;kind++)
+  {
+   foreign.Patch(BlockChunkScratchOptimizations.Target(kind),prefix:prefix);
+   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   {
+    Assert(module.Modules().Single(x=>x.Name==scratchNames[kind]).Status=="conflict","foreign patch blocks only affected block/chunk target "+kind);
+    Assert(module.Modules().Where(x=>x.Name!=scratchNames[kind]).All(x=>x.Status=="active"),"other modules survive block/chunk conflict "+kind);
+   }
+   foreign.UnpatchAll(foreign.Id);
+  }
+  var chunkFailure=Api();
+  using(var module=new EngineOptimizations(chunkFailure.Api,Config(),()=>200))
+  {
+   BlockChunkScratchOptimizations.NotifyPrefix(out var state);BlockChunkScratchOptimizations.Finalizer(new InvalidOperationException("native-send"),state);
+   foreach(var tick in chunkFailure.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="chunkUnloadNotificationReuse").Status=="failed","unload exception disables notification target");
+   Assert(module.Modules().Where(x=>x.Name!="chunkUnloadNotificationReuse").All(x=>x.Status=="active"),"native unload error does not disable unrelated targets");
+  }
   var rangeConflict=Api();
   using(var module=new EngineOptimizations(rangeConflict.Api,Config(),()=>200))
   {
