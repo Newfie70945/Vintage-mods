@@ -13,6 +13,8 @@ The two supplied manual 30-second profiles identify firepit and barrel callbacks
 
 Use Suite Optimizations -> Newfies Server Optimizer -> block/world settings, or `EngineOptimizations` in optimizer.json. Configured state and actual activation may differ. Existing/late foreign Harmony dependency patches, unsupported method contracts and runtime failures disable the affected module. Exceptions are preserved without retrying partially completed work. These preview controls are not a guarantee against all mod interactions.
 
+**Observed compatibility:** Attribute Rendering Library 3.2.0 patches `canHeatInput` in the heavy test pack. This deliberately blocks `IdleFirepitFastPath`; its configured switch can be on while actual state remains conflict. Do not bypass this guard or remove a dependency merely to activate the shortcut. Barrel pairing, bush flattening and unload staging are evaluated independently.
+
 The first three modules check exact inspected official method IL. Berry flattening also verifies its base callback remains a no-op. Public engine data and save formats are unchanged. No server DLL is written to disk.
 
 ## Suite improvements

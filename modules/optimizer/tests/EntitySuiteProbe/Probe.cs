@@ -43,11 +43,18 @@ public sealed class EntitySuiteProbe:ModSystem
    foreach(var key in new[]{"delayedCallbackSnapshotReuse","spawnOpportunityListReuse","spawnColumnArrayReuse"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"callback/spawn control enabled: "+key);
    Assert(before.GetProperty("counters").GetProperty("callbackSnapshotPasses").GetInt64()+before.GetProperty("counters").GetProperty("callbackDebugSnapshotPasses").GetInt64()>0,"copied-server normal/debug callbacks use snapshot scopes");
    var world=api.World;const BindingFlags networkFlags=BindingFlags.NonPublic|BindingFlags.Instance;
-   foreach(var key in new[]{"idleFirepitFastPath","barrelIngredientPairing","wildBushCallbackFlatten","chunkUnloadStagingReuse"})Assert(before.GetProperty("modules").EnumerateArray().Single(m=>m.GetProperty("name").GetString()==key).GetProperty("status").GetString()=="active","new block/unload module activates independently: "+key);
+   bool firepitActive=false;
+   foreach(var key in new[]{"idleFirepitFastPath","barrelIngredientPairing","wildBushCallbackFlatten","chunkUnloadStagingReuse"})
+   {
+    var actual=before.GetProperty("modules").EnumerateArray().Single(m=>m.GetProperty("name").GetString()==key);string? status=actual.GetProperty("status").GetString();
+    if(key=="idleFirepitFastPath") {firepitActive=status=="active";Assert(firepitActive||(status=="conflict"&&actual.GetProperty("reason").GetString()!.Contains("ARL")),"firepit module active or safely blocked by ARL helper overlap");}
+    else Assert(status=="active","new block/unload module activates independently: "+key);
+   }
    var nativeFireBlock=world.GetBlock(new AssetLocation("game:firepit-cold"));Assert(nativeFireBlock!=null,"native cold firepit block resolves");
    var idleFire=new BlockEntityFirepit{Api=api,Block=nativeFireBlock!,Pos=new BlockPos(0,0,0),furnaceTemperature=20,inputStackCookingTime=7};
    typeof(BlockEntityFirepit).GetMethod("OnBurnTick",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(idleFire,[.1f]);
-   Assert(idleFire.inputStackCookingTime==0&&idleFire.furnaceTemperature==20&&Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()>0,"real registry firepit uses idle path without world mutation");
+   Assert(idleFire.inputStackCookingTime==0&&idleFire.furnaceTemperature==20,"real registry firepit retains native idle result without world mutation");
+   Assert(!firepitActive||Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()>0,"active idle firepit path executes when compatible; ARL path stays native");
    var nativePairRecipe=new BarrelRecipe{Ingredients=[new BarrelRecipeIngredient{Code=new AssetLocation("game:stick"),Type=EnumItemClass.Item,Quantity=1,MatchingType=EnumRecipeMatchType.Wildcard}]};
    var nativePairSlots=new[]{new ItemSlot(null){Itemstack=new ItemStack(world.GetItem(new AssetLocation("game:stick")))}};
    var paired=(System.Collections.IList)typeof(BarrelRecipe).GetMethod("PairInput",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(nativePairRecipe,[nativePairSlots])!;

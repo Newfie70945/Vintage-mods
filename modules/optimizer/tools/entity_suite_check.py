@@ -162,10 +162,15 @@ try:
     for flag in ('idleFirepitFastPath','barrelIngredientPairing','wildBushCallbackFlatten','chunkUnloadStagingReuse','nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
         assert settings[flag] is False
         status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
-        assert next(m for m in enabled['optimizer']['modules'] if m['name']==flag)['status']=='active'
+        actual=next(m for m in enabled['optimizer']['modules'] if m['name']==flag)
+        if flag=='idleFirepitFastPath' and actual['status']=='conflict':
+            assert 'ARL' in actual['reason'],actual
+            checks.append('ARL firepit helper overlap safely retains stock callback instead of bypassing foreign patch')
+        else:
+            assert actual['status']=='active',actual
         status,disabled=control('set',{flag:False});assert status==200 and disabled['success']
         assert next(m for m in disabled['optimizer']['modules'] if m['name']==flag)['status']=='disabled'
-    checks.append('independent opt-in modules default off and independently activate/disable on official server')
+    checks.append('independent opt-in modules default off; activation or explicit ARL fallback and disable state verified on official server')
     status,patterns=control('set',dict(entityPolicyInclude=['game:wolf*'],entityPolicyExclude=['game:wolf-baby*'],entityProtectionRadius=96));assert status==200 and patterns['success']
     persisted=json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']
     assert persisted['EntityPolicyInclude']==['game:wolf*'] and persisted['EntityProtectionRadius']==96
