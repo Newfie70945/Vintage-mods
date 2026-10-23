@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.7.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.8.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -32,6 +32,7 @@ public sealed class EngineOptimizations : IDisposable
         public bool Installed;
         public long FailureBaseline;
         public MethodInfo? Postfix;
+        public MethodInfo? Finalizer;
         public MethodInfo? Transpiler;
         private MethodInfo? resolvedTarget;
         private MethodInfo[]? resolvedDependencies;
@@ -44,6 +45,7 @@ public sealed class EngineOptimizations : IDisposable
         minimumNearbyClients = config.EngineOptimizations.MinimumNearbyClients;
         assetCacheBytes = config.EngineOptimizations.AssetCacheMaxMiB * 1048576;
         AssetCompressionOptimizations.Configure(false);
+        PhysicsPacketOptimizations.Configure(false);
         PathQueueOptimizations.ConfigureLimit(false); PathQueueOptimizations.ConfigureBudget(false);
         EntitySearchOptimizations.ConfigureNearest(false); EntitySearchOptimizations.ConfigureInteractable(false);
         AiTaskStartOptimizations.Configure(false); AiFilterOptimizations.Configure(false); RepulseDelegateOptimizations.Configure(false);
@@ -54,6 +56,9 @@ public sealed class EngineOptimizations : IDisposable
         PlayerQueryOptimizations.AroundEnabled = false;
         StreamCopyOptimizations.ConfigureRead(false);
         var options = config.EngineOptimizations;
+        entries.Add(new("physicsPacketListReuse", options.PhysicsPacketListReuse, () => PhysicsPacketOptimizations.Target,
+            () => [PhysicsPacketOptimizations.Target], PhysicsPacketOptimizations.PrefixMethod, PhysicsPacketOptimizations.Configure)
+            { Transpiler = PhysicsPacketOptimizations.TranspilerMethod, Finalizer = PhysicsPacketOptimizations.FinalizerMethod });
         entries.Add(new("onlinePlayerSnapshots", options.OnlinePlayerSnapshots, () => PlayerQueryOptimizations.SnapshotTarget,
             () => [PlayerQueryOptimizations.SnapshotTarget], PlayerQueryOptimizations.SnapshotPrefixMethod, value => PlayerQueryOptimizations.SnapshotEnabled = value));
         entries.Add(new("nearbyPlayerQueries", options.NearbyPlayerQueries, () => PlayerQueryOptimizations.AroundTarget,
@@ -91,7 +96,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -115,7 +120,7 @@ public sealed class EngineOptimizations : IDisposable
     {
         string? conflict = Conflict(entry);
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
-        harmony.Patch(entry.TargetMethod, prefix: entry.Prefix == null ? null : new HarmonyMethod(entry.Prefix), transpiler: entry.Transpiler == null ? null : new HarmonyMethod(entry.Transpiler), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix));
+        harmony.Patch(entry.TargetMethod, prefix: entry.Prefix == null ? null : new HarmonyMethod(entry.Prefix), transpiler: entry.Transpiler == null ? null : new HarmonyMethod(entry.Transpiler), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix), finalizer: entry.Finalizer == null ? null : new HarmonyMethod(entry.Finalizer));
         if(entry.Name == "assetCompressionCache") RefreshAssets();
         entry.FailureBaseline = Failures(entry.Name);
         entry.Installed = true; entry.Enable(true); entry.State = "active";
@@ -202,7 +207,7 @@ public sealed class EngineOptimizations : IDisposable
     private static long Failures(string name)
     {
         var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
+        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
             "nearbyPlayerQueries" => query.AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
@@ -222,7 +227,8 @@ public sealed class EngineOptimizations : IDisposable
         var saves = SaveSnapshotOptimizations.Counters;
         var entitySearch = EntitySearchOptimizations.Counters;
         var paths = PathQueueOptimizations.Counters;
-        return new Dictionary<string,long> { ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
+        var physics = PhysicsPacketOptimizations.Counters;
+        return new Dictionary<string,long> { ["physicsPacketPasses"] = physics.Calls, ["physicsPacketBuffersCreated"] = physics.Created, ["physicsPacketOversizedBuffersReleased"] = physics.Oversized, ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
             ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,

@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -88,6 +88,10 @@ static class Checks
   foreign.Patch(PathQueueOptimizations.WorkerTarget,prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
    Assert(module.Modules().Single(x=>x.Name=="pathQueueLimitFix").Status=="conflict","foreign path queue patch blocks queue replacement");
+  foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(PhysicsPacketOptimizations.Target,prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   Assert(module.Modules().Single(x=>x.Name=="physicsPacketListReuse").Status=="conflict","foreign physics packet patch blocks list reuse");
   foreign.UnpatchAll(foreign.Id);
   foreign.Patch(AiTaskStartOptimizations.Target,prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))

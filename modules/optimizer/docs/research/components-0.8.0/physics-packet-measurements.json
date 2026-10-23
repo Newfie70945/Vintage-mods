@@ -1,0 +1,78 @@
+{
+  "checks": 18,
+  "trials": [
+    {
+      "enabled": false,
+      "entities": 0,
+      "bytesPerCall": 96,
+      "nsPerCall": 55.14666666666667
+    },
+    {
+      "enabled": true,
+      "entities": 0,
+      "bytesPerCall": 0,
+      "nsPerCall": 36.70666666666666
+    },
+    {
+      "enabled": false,
+      "entities": 0,
+      "bytesPerCall": 96,
+      "nsPerCall": 345.0466666666667
+    },
+    {
+      "enabled": true,
+      "entities": 0,
+      "bytesPerCall": 0,
+      "nsPerCall": 40.2
+    },
+    {
+      "enabled": false,
+      "entities": 0,
+      "bytesPerCall": 96,
+      "nsPerCall": 24.076666666666668
+    },
+    {
+      "enabled": true,
+      "entities": 0,
+      "bytesPerCall": 0,
+      "nsPerCall": 106.95
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 3768,
+      "nsPerCall": 3036.05
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1448,
+      "nsPerCall": 2303.7
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 3768,
+      "nsPerCall": 3185.63
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1448,
+      "nsPerCall": 2312.5266666666666
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 3768,
+      "nsPerCall": 2852.9933333333333
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1448,
+      "nsPerCall": 2240.326666666667
+    }
+  ],
+  "scope": "Actual official physics send loop, synthetic one-client fixtures, intercepted transport. No real-player/TPS claim."
+}

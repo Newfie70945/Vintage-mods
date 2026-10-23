@@ -82,6 +82,7 @@ public sealed class BenchmarkOptions
 // Each semantics-preserving API patch is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool PhysicsPacketListReuse { get; set; } = true;
     public bool WorldgenRequestReuse { get; set; } = true;
     public bool SaveSnapshotRelease { get; set; } = true;
     public bool PathQueueLimitFix { get; set; } = true;

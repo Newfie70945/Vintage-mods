@@ -2572,6 +2572,7 @@ __NSS_RETENTION_HTML__
           <label><input type="checkbox" id="nosAiTaskStartDispatch"> Allocation-free AI task-start vetoes</label><br>
           <label><input type="checkbox" id="nosNearestEntitySearch"> Reuse nearest-entity search state</label><br>
           <label><input type="checkbox" id="nosInteractableEntitySearch"> Reuse interactable-entity search state</label><br>
+          <label><input type="checkbox" id="nosPhysicsPacketListReuse"> Reuse physics packet temporary lists</label><br>
           <label><input type="checkbox" id="nosRepulseDelegateReuse"> Repulsion callback reuse</label><br>
           <label><input type="checkbox" id="nosBulkStreamReads"> Bulk stream reads</label><br>
           <label><input type="checkbox" id="nosAssetCompressionCache"> Server-assets compression cache</label><br>
@@ -9673,8 +9674,8 @@ function renderTungsten(){
         <td>${recommendationBadge(x.recommendation)}<div class="small" style="margin-top:4px;max-width:310px">${esc((x.recommendation||{}).reason||'')}</div></td>
         <td><span class="optCategory">${esc(x.category)}</span></td>
         <td>${esc(x.description)}</td>
-        <td class="${x.commandAvailable?'good':'bad'}"><b>${x.commandAvailable?'YES':'NO'}</b></td>
-        <td><div class="optActions">
+        <td class="${x.commandAvailable?'good':'bad'}"><b>${!installed?'Not installed':!ready?'Command unavailable':x.commandAvailable?'Available':'Unsupported command'}</b></td>
+        <td>${!installed?'<div class="small">Requires Tungsten</div>':!ready||!x.commandAvailable?'<div class="small">Check installed version and command support</div>':''}<div class="optActions">
           <button data-tungsten-code="${esc(x.code)}" data-enabled="true" class="primary" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>ON</button>
           <button data-tungsten-code="${esc(x.code)}" data-enabled="false" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>OFF</button>
           <button data-tungsten-test="${esc(x.code)}" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>Measure ON</button>
@@ -9792,7 +9793,7 @@ function renderSynergy(){
         <td><span class="optCategory">${esc(x.category||'')}</span></td>
         <td>${esc(x.description||'')}</td>
         <td class="small" style="max-width:300px">${esc(x.caution||'')}</td>
-        <td><div class="optActions">
+        <td>${!installed?'<div class="small">Requires Synergy</div>':!ready||!x.commandAvailable?'<div class="small">Check installed version and command support</div>':''}<div class="optActions">
           <button data-synergy-code="${esc(x.code)}" data-enabled="true" class="primary" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>ON</button>
           <button data-synergy-code="${esc(x.code)}" data-enabled="false" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>OFF</button>
           <button data-synergy-test="${esc(x.code)}" ${!ready||!x.commandAvailable||experimentLocked||safeModeLocked?'disabled':''}>Measure ON</button>
@@ -10023,7 +10024,7 @@ $('bmExport').onclick=()=>{if(!bmOwner()||!bmState)return;const url=URL.createOb
 setInterval(()=>{if(currentSection==='blockMigration'&&!bmBusy&&(bmState?.loadedMigration?.active||['backing-up','activating'].includes(bmValue(bmState?.loadedMigration,'State'))||bmValue(bmState?.scan,'State')==='running'||bmValue(bmState?.mappingAdvice,'State')==='running'||bmValue(bmValue(bmState?.preview,'InventoryReport'),'State')==='running'||['queued','running'].includes(bmValue(bmValue(bmValue(bmState?.loadedMigration,'Plan'),'InventoryReport'),'State'))))loadBlockMigration();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={pathQueueLimitFix:'PathQueueLimitFix',pathMainThreadBudget:'PathMainThreadBudget',pathMainThreadBudgetMs:'PathMainThreadBudgetMs',pathMainThreadMaxSearches:'PathMainThreadMaxSearches',pathMainThreadGraceMs:'PathMainThreadGraceMs',nearestEntitySearch:'NearestEntitySearch',interactableEntitySearch:'InteractableEntitySearch',aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={physicsPacketListReuse:'PhysicsPacketListReuse',pathQueueLimitFix:'PathQueueLimitFix',pathMainThreadBudget:'PathMainThreadBudget',pathMainThreadBudgetMs:'PathMainThreadBudgetMs',pathMainThreadMaxSearches:'PathMainThreadMaxSearches',pathMainThreadGraceMs:'PathMainThreadGraceMs',nearestEntitySearch:'NearestEntitySearch',interactableEntitySearch:'InteractableEntitySearch',aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;
@@ -10041,7 +10042,7 @@ function renderNos(result){
   $('nosEditState').textContent=locked?'Read-only or Suite Safe Diagnostics Mode: module changes and capture starts are locked.':state.profiling?'Stop the NOS capture to edit settings.':nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
   $('nosModules').innerHTML=(state.modules||[]).map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.status)}</td><td>${esc(m.reason)}</td></tr>`).join('');
   const c=state.counters||{};
-  $('nosCounters').textContent=`Executed: ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Counters are cumulative for this server process; hits are not a TPS measurement.`;
+  $('nosCounters').textContent=`Executed: ${Number(c.physicsPacketPasses||0).toLocaleString()} physics packet passes · ${Number(c.physicsPacketBuffersCreated||0).toLocaleString()} packet buffer sets created / ${Number(c.physicsPacketOversizedBuffersReleased||0).toLocaleString()} oversized sets released · ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Counters are cumulative for this server process; hits are not a TPS measurement.`;
 }
 async function loadNos(){try{renderNos(await api('/api/optimizations/newfies'));}catch(e){$('nosState').textContent=e.message;}}
 async function nosAction(operation){

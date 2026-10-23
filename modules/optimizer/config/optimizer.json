@@ -53,6 +53,7 @@
     "RunId": ""
   },
   "EngineOptimizations": {
+    "PhysicsPacketListReuse": true,
     "OnlinePlayerSnapshots": true,
     "NearbyPlayerQueries": false,
     "BulkStreamReads": true,

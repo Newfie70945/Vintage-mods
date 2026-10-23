@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.7.0 preview
+# Newfie's Server Optimizer 0.8.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -6,6 +6,7 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 
 | Module | Change | Correctness boundary |
 | --- | --- | --- |
+| Physics packet list reuse | Bounded per-thread temporary lists | Original packet arrays, filtering, batching and sends; references cleared on failure and success |
 | Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
 | Interactable-entity search reuse | Reuses composed search/filter state | Same interactability and caller-filter order; independently switchable |
 | Path worker limit fix | Checks the request cap before dequeuing | Prevents dropping one request at the cap; stock A* unchanged |
@@ -95,3 +96,5 @@ Entity/AI hot paths run with profiling OFF. Suite 1.2.47 exposes independent `Ai
 See [modpack validation and measurements](docs/performance-0.6.0.md). All six Suite modules and the selected third-party pack are checked for enabled state by the laboratory runner; this does not establish authenticated-player capacity or exercise every feature of every loaded mod.
 
 See [0.7.0 validation and limits](docs/performance-0.7.0.md) for component measurements, real-terrain tests and the Opttage Path review.
+
+See [0.8.0 validation](docs/performance-0.8.0.md) for physics allocation measurements and test limits.
