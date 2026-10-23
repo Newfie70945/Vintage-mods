@@ -9,6 +9,7 @@ Suite 1.2.48 `ms11-diagnostics-fix1` pairs with NOS 0.17.0-preview on official V
 - Suite exceptions now include their first non-framework stack origin in the grouping key. The official native `ServerSystemBlockLogger` is no longer mistaken for the Suite's `BlockLogger` namespace.
 - Old mixed message-only totals remain historical legacy aggregates. They are not reassigned to a mod. New bounded 5-second buckets show approximate live 5-minute observations, with rate warmup and coverage. Archived/pre-start events do not contribute to these rates.
 - Immutable mod-alias snapshots remove a repeated list clone from live error attribution.
+- Performance Center reports the retained incident peak separately from sampled P95/max, so a severe archived stall is not hidden by coarse sampling.
 - Performance Center exposes missing engine profiles and absent/stale manual entity scans. It does not start additional profiling or population scans.
 
 ## Evidence and limits

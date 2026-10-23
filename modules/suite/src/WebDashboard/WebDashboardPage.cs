@@ -8939,7 +8939,8 @@ function renderPerformanceQuickRead(d){
   const signed=(v,digits=0,unit='')=>{const n=Number(v||0);return `${n>0?'+':''}${n.toFixed(digits)}${unit}`;};
   windowHost.innerHTML=
     metric('Window',`${Math.max(1,Math.round(Number(w.durationSeconds||0)/60))} min`,'',`${Number(w.sampleCount||0).toLocaleString()} samples`)+
-    metric('Delay P95',`${Number(w.delayP95Ms||0).toFixed(1)} ms`,Number(w.delayP95Ms||0)>=100?'bad':Number(w.delayP95Ms||0)>=50?'warn':'good',`median ${Number(w.delayMedianMs||0).toFixed(1)} ms · max ${Number(w.delayMaxMs||0).toFixed(0)} ms`)+
+    metric('Delay P95',`${Number(w.delayP95Ms||0).toFixed(1)} ms`,Number(w.delayP95Ms||0)>=100?'bad':Number(w.delayP95Ms||0)>=50?'warn':'good',`median ${Number(w.delayMedianMs||0).toFixed(1)} ms · sampled max ${Number(w.delayMaxMs||0).toFixed(0)} ms`)+
+    metric('Retained incident peak',Number(w.retainedIncidentCountInWindow||0)>0?`${Number(w.retainedIncidentPeakDelayMs||0).toFixed(0)} ms`:'None','',`${Number(w.retainedIncidentCountInWindow||0)} retained incident(s) in requested window; separate from sampled P95`)+
     metric('CPU P95',`${Number(w.cpuP95Percent||0).toFixed(1)}%`,Number(w.cpuP95Percent||0)>=90?'bad':Number(w.cpuP95Percent||0)>=75?'warn':'',`average ${Number(w.cpuAveragePercent||0).toFixed(1)}% · max ${Number(w.cpuMaxPercent||0).toFixed(1)}%`)+
     metric('Heap change',signed(w.heapDeltaMb,0,' MB'),Number(w.heapDeltaMb||0)>=512?'warn':'',`private ${signed(w.privateMemoryDeltaMb,0,' MB')}`)+
     metric('Entity change',signed(w.entityDelta,0),Math.abs(Number(w.entityDelta||0))>=1000?'warn':'',`current ${Number(cur.loadedEntities||0).toLocaleString()}`)+

@@ -12015,7 +12015,7 @@ public sealed partial class WebDashboardService : IDisposable
         };
     }
 
-    private object BuildPerformanceWindowSummary(ServerHealthSnapshot health)
+    private object BuildPerformanceWindowSummary(ServerHealthSnapshot health, int windowSeconds)
     {
         var rows = (health.Samples ?? new List<ServerHealthSample>())
             .OrderBy(x => x.UnixMilliseconds)
@@ -12051,6 +12051,11 @@ public sealed partial class WebDashboardService : IDisposable
         var first = rows[0];
         var last = rows[^1];
         double durationSeconds = Math.Max(0, (last.UnixMilliseconds - first.UnixMilliseconds) / 1000d);
+        long windowEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long windowStart = windowEnd - windowSeconds * 1000L;
+        var retainedInWindow = performanceCenterStore.Incidents
+            .Where(x => x.EndUnixMilliseconds >= windowStart && x.StartUnixMilliseconds <= windowEnd)
+            .ToList();
         long droppedIncrease = Math.Max(0, last.BlockLoggerDropped - first.BlockLoggerDropped);
         int gen2Increase = Math.Max(0, last.Gen2Collections - first.Gen2Collections);
 
@@ -12062,6 +12067,8 @@ public sealed partial class WebDashboardService : IDisposable
             delayMedianMs = Median(rows.Select(x => x.MainThreadDelayMs)),
             delayP95Ms = Percentile95(rows.Select(x => x.MainThreadDelayMs)),
             delayMaxMs = rows.Max(x => x.MainThreadDelayMs),
+            retainedIncidentPeakDelayMs = retainedInWindow.Select(x => x.WorstDelayMs).DefaultIfEmpty(0).Max(),
+            retainedIncidentCountInWindow = retainedInWindow.Count,
             cpuAveragePercent = rows.Average(x => x.CpuPercent),
             cpuP95Percent = Percentile95(rows.Select(x => x.CpuPercent)),
             cpuMaxPercent = rows.Max(x => x.CpuPercent),
@@ -12115,7 +12122,7 @@ public sealed partial class WebDashboardService : IDisposable
 
         var growth = BuildEntityGrowthRows();
         var suiteTimings = SuiteTimingRegistry.GetSnapshot();
-        var windowSummary = BuildPerformanceWindowSummary(health);
+        var windowSummary = BuildPerformanceWindowSummary(health, windowSeconds);
         var latestProfileMod = health.ModHotspots
             .Where(x => !x.IsCore && !string.IsNullOrWhiteSpace(x.ModId) && x.ModId != "<unattributed>" && x.Confidence != "Low")
             .OrderByDescending(x => x.TotalMs)
