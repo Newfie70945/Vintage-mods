@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS Distance1: add independent controls, entity filters, protected radius/intervals and work counters for NOS 0.10.0 distant AI/wander/stationary repulsion policies, waypoint candidate pooling and missing-attribute resync suppression. Preserve drafts and older-NOS compatibility; build `ms11-nos-distance1`.
+
 - MemoryPerf2: stream large Performance/Operations JSON archives into atomic replacement files, reducing intermediate allocation and preserving the previous archive on write failure.
 - Send compact incident list rows during overview refreshes and marker-only timeline events; fetch full retained evidence when opening a spike. Preserve filters/comparison and prevent queue waits ranking as workload in the quick-read card.
 - Background maintenance skips unused profiler-table copies; compact memory snapshots reuse the latest observation. Reuse unchanged diagnostic summaries briefly.
@@ -233,3 +235,11 @@
 
 - Reduce allocation in the once-per-second compatibility monitor while retaining independent switches, exact-engine guards, foreign-patch detection and failure fallback. Cache asset field metadata and avoid unrelated failure-counter reads.
 - Publish the Synergy/Tungsten replacement coverage audit. Existing runtime optimizations remain; distance AI/sleeping, path-node pooling, batching and other listed features are not yet implemented. No automatic GC or chunk-budget changes.
+
+## Newfies Server Optimizer 0.10.0 preview
+
+- Add optional distant new-task evaluation, wander checks and stationary repulsion scheduling with independent intervals, protected player radius and entity-code include/exclude rules. Full entity ticks and running tasks continue. Pets, named/bred/owned animals, mounts, combat, damage grace and custom entity/task/behavior implementations retain stock behavior.
+- Add optional waypoint candidate-node reuse with a per-solver 4,096-slot pool. Restrict reuse to official waypoint-only scopes, reset all node fields and preserve raw node ownership outside those scopes. Nested/busy/custom solver scopes and overflow use stock allocations.
+- Add optional suppression of redundant full attribute resyncs when removing a nonexistent attribute. Actual removals and subclasses retain stock behavior.
+- Keep same-method modules independent: remove only each module's own patch methods and verify its exact installed patches. Preserve the allocation-only repulsion patch when distance scheduling stands down. Avoid repeated assembly resolution during the compatibility monitor.
+- All new switches default off. Add exact-engine contract/conflict checks, safety observer dependencies, visible counters and immediate Suite configuration. No forced GC, chunk delivery restriction or production performance claim.

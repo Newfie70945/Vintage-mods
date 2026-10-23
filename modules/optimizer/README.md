@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.9.1 preview
+# Newfie's Server Optimizer 0.10.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -6,6 +6,11 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 
 | Module | Change | Correctness boundary |
 | --- | --- | --- |
+| Distant AI evaluation (opt-in) | Spaces out new task evaluations for eligible distant animals | Running tasks and full entity ticks continue; pets, mounts, combat and custom implementations exempt |
+| Distant wander checks (opt-in) | Reduces idle wandering evaluations away from players | Independent interval and code filters; normal nearby behavior |
+| Distant stationary repulsion (opt-in) | Reduces repulsion checks while stationary and far from observers | Moving, hurt, owned and otherwise exempt animals remain stock |
+| Waypoint candidate pooling (opt-in) | Reuses up to 4,096 candidate nodes per official solver | Raw node-returning searches outside waypoint scope remain unpooled; exact official solver only |
+| Missing-attribute resync suppression (opt-in) | Avoids full synchronization after removing a nonexistent key | Actual removals, null-key handling and subclasses remain stock |
 | Despawn packet projection | Removes three LINQ projection iterators per despawn packet | Same IDs, reasons, damage sources, order and independently owned output arrays |
 | Physics packet list reuse | Bounded per-thread temporary lists | Original packet arrays, filtering, batching and sends; references cleared on failure and success |
 | Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
@@ -48,7 +53,7 @@ Temporary player-query lists retain no player references between calls and have 
 
 `Enabled=false` disables the optimizer. `Compatibility.SafeMode=true` prevents the API replacement modules from installing. **Existing 0.1.0 configurations keep their previous SafeMode=true value**; explicitly set false on a staging server to try these modules. New 0.2.0 defaults use false with strict engine identity checks.
 
-The six module switches operate independently. **Nearby-query reuse defaults off**: it cut allocation in component tests but its CPU timings were mixed, including regressions. Enable only for a controlled workload comparison. Nearby-query reuse stays unpatched below its activation threshold, and unpatches again below threshold minus 32 clients to avoid churn. Detailed profiler timing switches remain separate and default off. Stopping a profile does not disable API optimizations.
+The module switches operate independently. **Nearby-query reuse defaults off**: it cut allocation in component tests but its CPU timings were mixed, including regressions. Enable only for a controlled workload comparison. Nearby-query reuse stays unpatched below its activation threshold, and unpatches again below threshold minus 32 clients to avoid churn. Detailed profiler timing switches remain separate and default off. Stopping a profile does not disable API optimizations.
 
 ## Compatibility and fallback
 
@@ -103,4 +108,14 @@ See [0.8.0 validation](docs/performance-0.8.0.md) for physics allocation measure
 See [0.9.0 validation](docs/performance-0.9.0.md) for despawn packet equivalence and allocation measurements.
 
 
-Current maintenance pass: [0.9.1 validation](docs/performance-0.9.1.md) and [Synergy/Tungsten coverage audit](docs/replacement-coverage.md). These changes reduce optimizer/Suite overhead; NOS does not yet replace every feature of those mods.
+Previous memory/performance pass: [0.9.1 validation](docs/performance-0.9.1.md) and [Synergy/Tungsten coverage audit](docs/replacement-coverage.md). These changes reduce optimizer/Suite overhead; NOS does not yet replace every feature of those mods.
+
+## New distance and allocation policies (0.10.0)
+
+All five new switches default **off**. Enable them individually in Suite → Optimizations → Newfies Server Optimizer, save/apply and inspect the actual activation reason and counters. Default include is `game:*`; exclude is `game:player, game:trader-*`. Empty include means no animals qualify. Patterns use a qualified domain and `*`, not regular expressions. Custom entity, behavior and AI-task implementations are automatically exempt even if their code matches.
+
+Distance policies protect 64 blocks plus a 16-block margin by default. Only grounded, living, interactable, unowned, unnamed, unbred official animals with no active combat/special task qualify. Damage grants a ten-second grace. Nearby observers and missing observers in the dimension use stock scheduling. Proximity refresh is at most 100 ms apart, or immediately when the animal moves eight blocks or changes dimension. Playing-client position changes can take that refresh interval to be observed. These policies intentionally reduce distant decision frequency; they are not full entity sleep and do not skip hunger, breeding, health, physics or running AI tasks.
+
+Candidate pooling is restricted to official `FindPathAsWaypoints` searches. Raw paths returned outside that scope keep independent nodes. Overflow candidates allocate normally; disabled, nested/busy and custom-solver scopes use stock allocation. Every reused node is reset, including dimension, action, parent and heap index. A pool adds bounded candidate slots per live solver; it does not bound the engine's own search sets or parent graphs.
+
+See [coverage](docs/replacement-coverage.md) and [validation](docs/performance-0.10.0.md). No production TPS or memory reduction is claimed from component checks.

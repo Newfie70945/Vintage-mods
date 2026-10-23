@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -127,6 +127,35 @@ static class Checks
    Assert(module.Modules().Where(x=>x.Name!="saveSnapshotRelease").All(x=>x.Status=="active"),"save conflict leaves unrelated modules active");
   }
   foreign.UnpatchAll(foreign.Id);
+  foreign.Patch(typeof(Vintagestory.Essentials.PathNode).GetConstructor([typeof(Vintagestory.Essentials.PathNode),typeof(Vintagestory.API.MathTools.Cardinal)])!,prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   Assert(module.Modules().Where(x=>x.Name is "waypointNodePooling" or "waypointNodePoolScope").All(x=>x.Status=="conflict"),"foreign node constructor blocks both pool components");
+  foreign.UnpatchAll(foreign.Id);
+  var policyConflict=Api();
+  using(var module=new EngineOptimizations(policyConflict.Api,Config(),()=>200))
+  {
+   foreign.Patch(EntityDistanceOptimizations.HurtTarget,prefix:prefix);
+   foreach(var tick in policyConflict.Ticks)tick(1);
+   Assert(module.Modules().Where(x=>x.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle").All(x=>x.Status=="conflict"),"late damage observer conflict disables dependent scheduling policies");
+   Assert(module.Modules().Single(x=>x.Name=="attributeNoOpSkip").Status=="active","unrelated synchronization module remains active");
+  }
+  foreign.UnpatchAll(foreign.Id);
+  var poolFailure=Api();
+  using(var module=new EngineOptimizations(poolFailure.Api,Config(),()=>200))
+  {
+   var field=typeof(PathNodePoolOptimizations).GetField("failures",BindingFlags.NonPublic|BindingFlags.Static)!;field.SetValue(null,PathNodePoolOptimizations.Failures+1);
+   foreach(var tick in poolFailure.Ticks)tick(1);
+   Assert(module.Modules().Where(x=>x.Name is "waypointNodePooling" or "waypointNodePoolScope").All(x=>x.Status=="failed"),"pool failure stands down both components without replaying search");
+  }
+  var shared=Api();
+  using(var module=new EngineOptimizations(shared.Api,Config(),()=>200))
+  {
+   var h=new Harmony(EngineOptimizations.HarmonyId);h.Unpatch(EntityDistanceOptimizations.RepulsionTarget,AccessTools.Method(typeof(EntityDistanceOptimizations),nameof(EntityDistanceOptimizations.RepulsionPrefix)));
+   foreach(var tick in shared.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="repulsionDistanceThrottle").Status=="failed","missing exact prefix diagnosed despite another own patch on same target");
+   Assert(module.Modules().Single(x=>x.Name=="repulseDelegateReuse").Status=="active","independent repulsion allocation patch survives scheduling stand-down");
+   Assert(Harmony.GetPatchInfo(EntityDistanceOptimizations.RepulsionTarget)!.Transpilers.Any(p=>p.owner==EngineOptimizations.HarmonyId),"shared-target transpiler remains installed");
+  }
   var lost=Api();
   using(var module=new EngineOptimizations(lost.Api,Config(),()=>200))
   {

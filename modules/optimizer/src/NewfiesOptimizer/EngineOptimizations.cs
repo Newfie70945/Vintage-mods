@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.9.1";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.10.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -21,12 +21,12 @@ public sealed class EngineOptimizations : IDisposable
     private readonly int minimumNearbyClients;
     private readonly int assetCacheBytes;
     private readonly Func<int> clientCount;
-    private sealed class Entry(string name, bool requested, Func<MethodInfo> target, Func<MethodInfo[]> dependencies, MethodInfo? prefix, Action<bool> enable)
+    private sealed class Entry(string name, bool requested, Func<MethodInfo> target, Func<MethodBase[]> dependencies, MethodInfo? prefix, Action<bool> enable)
     {
         public string Name = name, State = "pending", Reason = "Not installed";
         public bool Requested = requested;
         public Func<MethodInfo> Target = target;
-        public Func<MethodInfo[]> Dependencies = dependencies;
+        public Func<MethodBase[]> Dependencies = dependencies;
         public MethodInfo? Prefix = prefix;
         public Action<bool> Enable = enable;
         public bool Installed;
@@ -35,9 +35,9 @@ public sealed class EngineOptimizations : IDisposable
         public MethodInfo? Finalizer;
         public MethodInfo? Transpiler;
         private MethodInfo? resolvedTarget;
-        private MethodInfo[]? resolvedDependencies;
+        private MethodBase[]? resolvedDependencies;
         public MethodInfo TargetMethod => resolvedTarget ??= Target();
-        public MethodInfo[] DependencyMethods => resolvedDependencies ??= Dependencies();
+        public MethodBase[] DependencyMethods => resolvedDependencies ??= Dependencies();
     }
     public EngineOptimizations(ICoreServerAPI api, OptimizerConfig config, Func<int>? clientCount = null)
     {
@@ -57,6 +57,26 @@ public sealed class EngineOptimizations : IDisposable
         PlayerQueryOptimizations.AroundEnabled = false;
         StreamCopyOptimizations.ConfigureRead(false);
         var options = config.EngineOptimizations;
+        PathNodePoolOptimizations.Configure(false);PathNodePoolOptimizations.ConfigureScope(false);
+        entries.Add(new("waypointNodePoolScope",options.WaypointNodePooling,()=>PathNodePoolOptimizations.ScopeTarget,()=>PathNodePoolOptimizations.Dependencies,
+            AccessTools.Method(typeof(PathNodePoolOptimizations),nameof(PathNodePoolOptimizations.Prefix)),PathNodePoolOptimizations.ConfigureScope)
+            {Finalizer=AccessTools.Method(typeof(PathNodePoolOptimizations),nameof(PathNodePoolOptimizations.Finalizer))});
+        entries.Add(new("waypointNodePooling",options.WaypointNodePooling,()=>PathNodePoolOptimizations.Target,()=>PathNodePoolOptimizations.Dependencies,null,PathNodePoolOptimizations.Configure)
+            {Transpiler=AccessTools.Method(typeof(PathNodePoolOptimizations),nameof(PathNodePoolOptimizations.Transpiler))});
+
+        EntityDistanceOptimizations.ConfigureAi(false);EntityDistanceOptimizations.ConfigureWander(false);EntityDistanceOptimizations.ConfigureRepulsion(false);EntityDistanceOptimizations.ConfigureSafety(false);AttributeSyncOptimizations.Configure(false);
+        EntityDistanceOptimizations.Settings(options.EntityProtectionRadius,options.AiDistanceIntervalMs,options.DistantWanderIntervalMs,options.RepulsionDistanceIntervalMs,options.EntityPolicyInclude,options.EntityPolicyExclude);
+        entries.Add(new("entityHurtSafety",options.AiDistanceThrottle||options.DistantWanderThrottle||options.RepulsionDistanceThrottle,()=>EntityDistanceOptimizations.HurtTarget,
+            ()=>[EntityDistanceOptimizations.HurtTarget],AccessTools.Method(typeof(EntityDistanceOptimizations),nameof(EntityDistanceOptimizations.HurtPrefix)),EntityDistanceOptimizations.ConfigureSafety));
+        entries.Add(new("aiDistanceThrottle",options.AiDistanceThrottle,()=>EntityDistanceOptimizations.AiTarget,
+            ()=>EntityDistanceOptimizations.Dependencies(EntityDistanceOptimizations.AiTarget),AccessTools.Method(typeof(EntityDistanceOptimizations),nameof(EntityDistanceOptimizations.AiPrefix)),EntityDistanceOptimizations.ConfigureAi));
+        entries.Add(new("distantWanderThrottle",options.DistantWanderThrottle,()=>EntityDistanceOptimizations.WanderTarget,
+            ()=>EntityDistanceOptimizations.Dependencies(EntityDistanceOptimizations.WanderTarget),AccessTools.Method(typeof(EntityDistanceOptimizations),nameof(EntityDistanceOptimizations.WanderPrefix)),EntityDistanceOptimizations.ConfigureWander));
+        entries.Add(new("repulsionDistanceThrottle",options.RepulsionDistanceThrottle,()=>EntityDistanceOptimizations.RepulsionTarget,
+            ()=>EntityDistanceOptimizations.Dependencies(EntityDistanceOptimizations.RepulsionTarget),AccessTools.Method(typeof(EntityDistanceOptimizations),nameof(EntityDistanceOptimizations.RepulsionPrefix)),EntityDistanceOptimizations.ConfigureRepulsion));
+        entries.Add(new("attributeNoOpSkip",options.AttributeNoOpSkip,()=>AttributeSyncOptimizations.Target,
+            ()=>AttributeSyncOptimizations.Dependencies,AccessTools.Method(typeof(AttributeSyncOptimizations),nameof(AttributeSyncOptimizations.Prefix)),AttributeSyncOptimizations.Configure));
+
         entries.Add(new("despawnPacketProjection", options.DespawnPacketProjection, () => DespawnPacketOptimizations.Target,
             () => [DespawnPacketOptimizations.Target], DespawnPacketOptimizations.PrefixMethod, DespawnPacketOptimizations.Configure));
         entries.Add(new("physicsPacketListReuse", options.PhysicsPacketListReuse, () => PhysicsPacketOptimizations.Target,
@@ -99,7 +119,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -168,15 +188,32 @@ public sealed class EngineOptimizations : IDisposable
         }
         return Find(patches.Prefixes) ?? Find(patches.Postfixes) ?? Find(patches.Transpilers) ?? Find(patches.Finalizers);
     }
-    private static bool HasOwnPatch(Patches? patches)
+    private static readonly Func<Patch,MethodInfo,bool> MatchesPatch = CreatePatchMatcher();
+    private static Func<Patch,MethodInfo,bool> CreatePatchMatcher()
+    {
+        try
+        {
+            // GetPatchInfo reconstructs records. Resolving PatchMethod on each
+            // record walks assemblies again; compare the stored identity instead.
+            var token=AccessTools.FieldRefAccess<Patch,int>("methodToken");
+            var module=AccessTools.FieldRefAccess<Patch,string>("moduleGUID");
+            string ownModule=typeof(EngineOptimizations).Module.ModuleVersionId.ToString();
+            return (patch,expected)=>token(patch)==expected.MetadataToken && module(patch)==ownModule;
+        }
+        catch { return (patch,expected)=>patch.PatchMethod==expected; }
+    }
+    private static bool HasOwnPatch(Entry entry, Patches? patches)
     {
         if (patches == null) return false;
-        static bool Find(IList<Patch> list)
+        static bool Find(IList<Patch> list, MethodInfo? expected)
         {
-            for (int i = 0; i < list.Count; i++) if (list[i].owner == HarmonyId) return true;
+            if(expected == null) return true;
+            for(int i=0;i<list.Count;i++)
+                if(list[i].owner==HarmonyId && MatchesPatch(list[i],expected)) return true;
             return false;
         }
-        return Find(patches.Prefixes) || Find(patches.Postfixes) || Find(patches.Transpilers) || Find(patches.Finalizers);
+        return Find(patches.Prefixes,entry.Prefix) && Find(patches.Postfixes,entry.Postfix) &&
+            Find(patches.Transpilers,entry.Transpiler) && Find(patches.Finalizers,entry.Finalizer);
     }
     private static string? Conflict(Entry entry, Patches? targetInfo = null, bool targetInspected = false)
     {
@@ -218,7 +255,7 @@ public sealed class EngineOptimizations : IDisposable
                         { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
                     }
                     var targetInfo = entry.Installed ? Harmony.GetPatchInfo(entry.TargetMethod) : null;
-                    if (entry.Installed && !HasOwnPatch(targetInfo))
+                    if (entry.Installed && !HasOwnPatch(entry,targetInfo))
                     { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
                     if(entry.Name == "assetCompressionCache") RefreshAssets();
                     string? conflict = Conflict(entry, targetInfo, entry.Installed);
@@ -232,7 +269,7 @@ public sealed class EngineOptimizations : IDisposable
     }
     private static long Failures(string name)
     {
-        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
+        return name switch { "waypointNodePooling" or "waypointNodePoolScope" => PathNodePoolOptimizations.Failures, "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" => EntityDistanceOptimizations.Counters.Failures, "attributeNoOpSkip" => 0, "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
             "nearbyPlayerQueries" => PlayerQueryOptimizations.GetCounters().AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
@@ -240,7 +277,13 @@ public sealed class EngineOptimizations : IDisposable
     private void Disable(Entry entry, string state, string reason)
     {
         entry.Enable(false);
-        try { harmony.Unpatch(entry.TargetMethod, HarmonyPatchType.All, HarmonyId); }
+        try
+        {
+            // Several independent modules can share one engine method. Remove only
+            // this entry's patch methods, preserving other NOS and foreign patches.
+            foreach(var method in new[]{entry.Prefix,entry.Postfix,entry.Transpiler,entry.Finalizer})
+                if(method!=null) harmony.Unpatch(entry.TargetMethod,method);
+        }
         catch (Exception error) { reason += "; own patch removal failed: " + error.GetType().Name + ". Prefix is disabled."; }
         entry.Installed = false; entry.State = state; entry.Reason = reason;
     }
@@ -254,7 +297,8 @@ public sealed class EngineOptimizations : IDisposable
         var paths = PathQueueOptimizations.Counters;
         var physics = PhysicsPacketOptimizations.Counters;
         var despawn = DespawnPacketOptimizations.Counters;
-        return new Dictionary<string,long> { ["despawnPacketCalls"] = despawn.Calls, ["despawnPacketEntities"] = despawn.Entities, ["physicsPacketPasses"] = physics.Calls, ["physicsPacketBuffersCreated"] = physics.Created, ["physicsPacketOversizedBuffersReleased"] = physics.Oversized, ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
+        var distance=EntityDistanceOptimizations.Counters; var nodes=PathNodePoolOptimizations.Counters;
+        return new Dictionary<string,long> { ["waypointNodesReused"] = nodes.Reused, ["waypointNodesCreated"] = nodes.Created, ["waypointPoolOverflow"] = nodes.Overflow, ["aiChecksDeferred"] = distance.Ai, ["wanderChecksDeferred"] = distance.Wander, ["repulsionChecksDeferred"] = distance.Repulsion, ["entityPolicyFailures"] = distance.Failures, ["attributeNoOpSkips"] = AttributeSyncOptimizations.Skipped, ["despawnPacketCalls"] = despawn.Calls, ["despawnPacketEntities"] = despawn.Entities, ["physicsPacketPasses"] = physics.Calls, ["physicsPacketBuffersCreated"] = physics.Created, ["physicsPacketOversizedBuffersReleased"] = physics.Oversized, ["pathAssistanceFailures"] = PathQueueOptimizations.MainFailures, ["pathWorkerLimitStops"] = paths.WorkerLimitStops, ["pathMainSearches"] = paths.MainSearches, ["pathDeferredTicks"] = paths.DeferredTicks, ["nearestEntitySearchCalls"] = entitySearch.NearestCalls, ["interactableEntitySearchCalls"] = entitySearch.InteractableCalls, ["entitySearchContextsCreated"] = entitySearch.ContextsCreated, ["saveSnapshotReferencesReleased"] = saves.ReferencesReleased, ["saveSnapshotCompletions"] = saves.Completions, ["onlineSnapshotCalls"] = q.SnapshotCalls,
             ["nearbyQueryCalls"] = q.AroundCalls, ["snapshotFallbacks"] = q.SnapshotFallbacks,
             ["nearbyFallbacks"] = q.AroundFallbacks, ["snapshotFailures"] = q.SnapshotFailures,
             ["nearbyFailures"] = q.AroundFailures, ["assetCacheHits"] = assets.Hits, ["assetCacheMisses"] = assets.Misses,

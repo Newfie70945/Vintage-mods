@@ -1,4 +1,4 @@
-# NOS replacement coverage — 0.9.1 preview
+# NOS replacement coverage — 0.10.0 preview
 
 Public feature catalogs checked at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
 
@@ -6,7 +6,7 @@ Public feature catalogs checked at [Tungsten](https://mods.vintagestory.at/tungs
 | --- | --- | --- |
 | Online/nearby-player queries and ServerMain LINQ | Independent online snapshot and optional population-gated nearby query modules | No blanket replacement of all ServerMain/broadcast LINQ |
 | Entity proximity searches | Nearest/interactable query state reuse | Does not replace every GetEntitiesAround overload |
-| AI and repulsion | Allocation reductions in task-start vetoes, execution filters and repulsion callbacks | No distance-based AI scheduling, repulsion throttle or activation/sleep ranges |
+| AI and repulsion | Allocation reductions plus opt-in distant task/wander/stationary repulsion scheduling | Full entity sleep remains absent |
 | Physics packet temporary collections | Bounded independent temporary-list reuse | Does not cover every physics simulation/method list or stationary collision shortcut |
 | Entity despawn packets | Direct stock-equivalent projections with packet-owned arrays | Player-death broadcast and bulk-attribute paths remain separate |
 | Generation requests and save retention | Existing request allocation reduction; completed save snapshot reference release | No general chunk I/O/load/unload rewrite, incremental autosave or GenTerra noise/BitArray/native-noise replacement |
@@ -14,8 +14,8 @@ Public feature catalogs checked at [Tungsten](https://mods.vintagestory.at/tungs
 | Inventory dirty scan | No NOS patch | Official 1.22.7 already checks InventoryBase.IsDirty before scanning dirty slots; mod-specific overrides and whole-inventory iteration require separate evidence |
 | Inventory/cooking/recipes/drop lists/propick | Not implemented | No container, grid recipe, RecipeBase, drop-list or prospecting replacement |
 | General list/registry optimizations | Targeted modules above only | Entity spawning, block/event-manager lists, registry placeholders/frozen lookup, random-block-tick BlockPos pooling and wildcard paths remain unimplemented |
-| Pathfinding | Worker cap correction and optional bounded main-thread assistance | A* itself remains stock; no path-node pool or distance throttle |
-| Network fluidity | Stock transports and entity update cadence | No TCP flush consolidation, distance send-frequency reduction, no-op attribute skip, tracking hysteresis or spawn priority |
+| Pathfinding | Worker cap correction and optional bounded main-thread assistance | Optional waypoint candidate-node pooling; no general path scheduling by distance or raw-node pooling |
+| Network fluidity | Missing-attribute removal resync suppression added; stock transports and entity update cadence | No TCP flush consolidation, distance send-frequency reduction, tracking hysteresis or spawn priority |
 | Client features | Server-only module | No client entity-load budgeting or negotiated delta position protocol |
 
 Removing Synergy/Tungsten can remove benefits in the remaining areas. NOS cannot currently promise equal or better aggregate performance. Public percentage claims from other mods are not NOS benchmark evidence.

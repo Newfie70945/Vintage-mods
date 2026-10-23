@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-22",
+  "game": "1.22.7",
+  "optimizer": "0.10.0-preview",
+  "suite": "1.2.48-ms11-nos-distance1",
+  "optimizerSuites": [
+    "tests/AiTaskStartTests/AiTaskStartTests.csproj",
+    "tests/AssetCacheTests/AssetCacheTests.csproj",
+    "tests/CaptureReleaseTests/CaptureReleaseTests.csproj",
+    "tests/DespawnPacketTests/DespawnPacketTests.csproj",
+    "tests/DistancePolicyTests/DistancePolicyTests.csproj",
+    "tests/EngineHookTests/EngineHookTests.csproj",
+    "tests/EngineModuleTests/EngineModuleTests.csproj",
+    "tests/EntityHotPathTests/EntityHotPathTests.csproj",
+    "tests/EntitySearchTests/EntitySearchTests.csproj",
+    "tests/PathQueueTests/PathQueueTests.csproj",
+    "tests/PhysicsPacketTests/PhysicsPacketTests.csproj",
+    "tests/PlayerQueryTests/PlayerQueryTests.csproj",
+    "tests/ProfilerTests/ProfilerTests.csproj",
+    "tests/StreamCopyTests/StreamCopyTests.csproj",
+    "tests/WorldStorageTests/WorldStorageTests.csproj",
+    "tools/stress-tester/tests",
+    "tools/benchmark/tests",
+    "tools/dashboard/tests",
+    "tools/probe/tests"
+  ],
+  "distancePolicyChecks": 45,
+  "engineLifecycleChecks": 46,
+  "officialServerChecks": 34,
+  "browser": "Headless Chromium: module controls, patterns, draft preservation, permission/capture locks, older module support and mobile layout",
+  "suiteBuild": "0 warnings, 0 errors",
+  "monitor": {
+    "iterations": 1000,
+    "bytesPerCheck": 58016,
+    "nsPerCheck": 250834.6,
+    "scope": "Actual Harmony module monitor with all modules active, 200 synthetic client count, no gameplay or network workload."
+  },
+  "performanceScope": "Laboratory components and copied server without authenticated players; no production TPS claim."
+}

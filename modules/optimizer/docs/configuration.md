@@ -149,3 +149,20 @@ Search scratch state is checked out per thread and cleared in finally, including
 ## Despawn packet projection (0.9.0)
 
 `EngineOptimizations.DespawnPacketProjection` defaults to true. It removes three temporary LINQ projection iterators from the official entity-despawn packet factory. All three stock field-projection passes, output order, default reasons/damage sources and independently owned output arrays remain. Null input uses the original method, including original exception details. This does not change despawn policy, entity lifetime or send frequency. Suite counters show packets and entry counts, not estimated network savings. Unsupported builds and foreign patches retain stock behavior.
+
+## Experimental distance/synchronization modules (0.10.0)
+
+Under `EngineOptimizations`, `AiDistanceThrottle`, `DistantWanderThrottle`, `RepulsionDistanceThrottle`, `WaypointNodePooling` and `AttributeNoOpSkip` each default false. Each has independent activation, conflict and fallback status. Suite controls persist them to optimizer.json and apply immediately; manual JSON edits require restart.
+
+| Setting | Default | Bounds |
+| --- | --- | --- |
+| EntityProtectionRadius | 64 | 48–256 blocks, plus a fixed 16-block safety margin |
+| AiDistanceIntervalMs | 250 | 100–1,000 ms |
+| DistantWanderIntervalMs | 1500 | 250–10,000 ms |
+| RepulsionDistanceIntervalMs | 100 | 50–500 ms |
+| EntityPolicyInclude | game:* | Up to 64 qualified wildcard patterns |
+| EntityPolicyExclude | game:player, game:trader-* | Up to 64 qualified wildcard patterns |
+
+Patterns cannot override safety exclusions. Include/exclude inputs are comma-separated in the webpanel. These policies affect distant decisions, so start with one switch and compare real animal behavior and tick distributions at the same player/chunk/entity load. No forced GC or global GC configuration changes are added.
+
+Leave AttributeNoOpSkip disabled if a mod intentionally removes an absent key to force a full attribute resync. Custom behavior/task implementations can exempt many animals on a heavily modded server; matching a code cannot override those safety exclusions.
