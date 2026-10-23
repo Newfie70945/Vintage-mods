@@ -46,7 +46,7 @@ internal static class IncidentProfilerMatcher
         // Tick timestamps are profiler-observation times; permit actual interval
         // overlap only, rather than matching any profile in a broad ±15s window.
         long first = start - 1000 - (long)Math.Min(delayMs, 3_600_000);
-        result.Ticks = ticks.Where(t => double.IsFinite(t.TickMs) && t.TickMs >= 50 && t.TickMs < 60_000 &&
+        result.Ticks = ticks.Where(t => double.IsFinite(t.TickMs) && t.TickMs >= 50 && t.TickMs <= 300_000 &&
                 t.UnixMilliseconds >= first && t.UnixMilliseconds - (long)t.TickMs <= end)
             .OrderByDescending(t => t.TickMs).Take(8).ToList();
         bool followup = kind == "Automatic lag incident" && trigger >= first && trigger <= end;
@@ -60,6 +60,9 @@ internal static class IncidentProfilerMatcher
         }
         return result;
     }
+
+    // Weak counters/temporal correlations cannot outrank missing execution evidence.
+    internal static int IncompleteEvidenceScore(IEnumerable<int> scores)=>scores.Any(s=>s>=40)?0:39;
 
     internal static int WorkScore(double workMs, double delayMs, int strong = 98)
     {

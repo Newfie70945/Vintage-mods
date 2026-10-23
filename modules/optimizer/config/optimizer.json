@@ -88,6 +88,8 @@
     "EntityPolicyExclude": [
       "game:player",
       "game:trader-*"
-    ]
+    ],
+    "BroadcastFilterReuse": false,
+    "EntityLifecycleListReuse": false
   }
 }

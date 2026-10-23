@@ -1,4 +1,4 @@
-# Implementation status: 0.10.0 preview
+# Implementation status: 0.11.0 preview
 
 NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 
@@ -24,10 +24,12 @@ Implemented independent engine modules:
 
 Each has a separate switch and runtime status, exact official-assembly guards, contract/conflict checks, disposal and stock fallback. Suite controls use the versioned event bridge. Profiling can remain off while engine modules operate.
 
-[Current validation](performance-0.10.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
+[Current validation](performance-0.11.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
 
 Deferred: full entity activation/sleep, broad pathfinder algorithm/cache replacements, activation ranges, chunk backpressure, network batching, incremental autosave, chunk I/O and terrain algorithm changes. These require representative profiles plus gameplay/equivalence validation before implementation.
 
 See [replacement coverage](replacement-coverage.md) before removing an external optimizer. Feature goals do not establish equivalent behavior or measured performance.
 
 0.10.0 adds five independently controlled opt-in modules: distant AI evaluation, wander checks, stationary repulsion, waypoint candidate-node pooling and missing-attribute resync suppression. Full entity activation/sleep, TCP consolidation and paired client protocols remain unimplemented. See replacement-coverage.md and performance-0.10.0.md.
+
+0.11.0 adds optional empty-exclusion broadcast fast paths and bounded local entity cleanup/despawn lists. The complete original broadcast send bodies and full entity ticking remain. See performance-0.11.0.md for validation and limits.

@@ -1,0 +1,36 @@
+{
+  "checks": 22,
+  "measurements": [
+    {
+      "enabled": false,
+      "clients": 32,
+      "bytesPerBroadcast": 2848.056,
+      "nsPerBroadcast": 4620.18
+    },
+    {
+      "enabled": true,
+      "clients": 32,
+      "bytesPerBroadcast": 800,
+      "nsPerBroadcast": 550.39
+    },
+    {
+      "enabled": true,
+      "clients": 32,
+      "bytesPerBroadcast": 800,
+      "nsPerBroadcast": 565.35
+    },
+    {
+      "enabled": false,
+      "clients": 32,
+      "bytesPerBroadcast": 2848,
+      "nsPerBroadcast": 1160.35
+    }
+  ],
+  "tickCleanup": {
+    "stockBytes": 32.01,
+    "reusedBytes": 0,
+    "stockNs": 118.3,
+    "reusedNs": 130.93
+  },
+  "scope": "Official broadcast methods, real serialization, transport intercepted; lifecycle engine fixtures, not player workload or TCP batching."
+}
