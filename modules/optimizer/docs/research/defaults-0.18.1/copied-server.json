@@ -1,0 +1,457 @@
+{
+  "success": true,
+  "suiteVersion": "1.2.49",
+  "optimizerVersion": "0.18.1",
+  "checks": [
+    "promoted allocation defaults active through authenticated Suite bridge",
+    "same-message exceptions split by stack origin; native logger attributed correctly with recent counts",
+    "ARL firepit helper overlap safely retains stock callback instead of bypassing foreign patch",
+    "independent defaults verified; activation or explicit ARL fallback and disable state verified on official server",
+    "entity patterns/radius persist, reject invalid patterns without altering saved settings, and restore defaults",
+    "despawn packet optimization independently toggled through Suite",
+    "physics packet reuse independently toggled through Suite",
+    "nearest search switch independently applied",
+    "invalid path budget refused",
+    "running capture cannot be discarded",
+    "stopped capture released through Suite",
+    "entity queries, recipes, block/chunk, broadcast and cleanup groups independently activate/disable twenty-three actual targets",
+    "new allocation controls enabled through Suite for real-server validation",
+    "actual server entity cleanup passes use bounded scopes",
+    "block/chunk control enabled: blockUpdateListReuse",
+    "block/chunk control enabled: chunkLoadRequestListReuse",
+    "block/chunk control enabled: chunkUnloadListReuse",
+    "normal copied-server work executes blockUpdatePasses",
+    "normal copied-server work executes chunkRequestPasses",
+    "normal copied-server work executes chunkUnloadCandidatePasses",
+    "callback/spawn control enabled: delayedCallbackSnapshotReuse",
+    "callback/spawn control enabled: spawnOpportunityListReuse",
+    "callback/spawn control enabled: spawnColumnArrayReuse",
+    "copied-server normal/debug callbacks use snapshot scopes",
+    "firepit module active or safely blocked by ARL helper overlap",
+    "new block/unload module activates independently: barrelIngredientPairing",
+    "new block/unload module activates independently: wildBushCallbackFlatten",
+    "new block/unload module activates independently: chunkUnloadStagingReuse",
+    "native cold firepit block resolves",
+    "ARL helper overlap leaves firepit callback untouched; no fast paths executed",
+    "barrel pairing preserves real item stack and native match",
+    "native empty bush batch removes only redundant wrapper",
+    "three stock broadcast overloads execute empty-exclusion fast paths on copied server",
+    "traversal control enabled: collisionTraversalReuse",
+    "traversal control enabled: containerTransitionScan",
+    "traversal control enabled: containerTickTraversal",
+    "query/recipe control enabled: nearbyEntityListReuse",
+    "query/recipe control enabled: cuboidEntityListReuse",
+    "query/recipe control enabled: shapelessStackMerge",
+    "query/recipe control enabled: shapelessWildcardMatch",
+    "actual query results remain owned across subsequent queries",
+    "real vanilla recipe input resolved",
+    "complete shapeless exact/wildcard matches equal native with real game items",
+    "recipe checks leave real input stacks unchanged",
+    "copied-server query/recipe helper executes: nearbyEntityListPasses",
+    "copied-server query/recipe helper executes: cuboidEntityListPasses",
+    "copied-server query/recipe helper executes: shapelessMergeCalls",
+    "copied-server query/recipe helper executes: shapelessWildcardCalls",
+    "copied-server query/recipe failure counter remains zero: entityQueryFailures",
+    "copied-server query/recipe failure counter remains zero: shapelessMergeFailures",
+    "copied-server query/recipe failure counter remains zero: shapelessWildcardFailures",
+    "container fixture wall resolved",
+    "native nonperishable container tick leaves real inventory unchanged",
+    "real perishable item resolved",
+    "real perishable item requests a transition tick",
+    "enclosed room passes native chunk-loading guard",
+    "zero-motion native collision still runs and preserves position on copied terrain",
+    "generation/animation control enabled: collisionGenerationReuse",
+    "generation/animation control enabled: cachedCollisionGenerationReuse",
+    "generation/animation control enabled: animationCollisionFlagScan",
+    "both native testers use unchanged-bounds return on actual terrain",
+    "native NewTick invalidates cached bounds instead of skipping regeneration",
+    "native ServerAnimator removes unknown animation before collision flag scan",
+    "native generation/animation helper executes: collisionGenerationCalls",
+    "native generation/animation helper executes: cachedCollisionGenerationCalls",
+    "native generation/animation helper executes: animationCollisionScans",
+    "generation/animation failure counter zero: collisionGenerationFailures",
+    "generation/animation failure counter zero: animationScanFailures",
+    "real terrain/container loop executes: collisionTraversalCalls",
+    "real terrain/container loop executes: containerTransitionScans",
+    "real terrain/container loop executes: containerTickTraversals",
+    "traversal failure counter remains zero: collisionTraversalFailures",
+    "traversal failure counter remains zero: containerScanFailures",
+    "traversal failure counter remains zero: containerTickFailures",
+    "stock dequeue-before-limit behavior reproduced on real terrain",
+    "worker leaves capped request queued",
+    "101 of 101 actual A* requests complete",
+    "real main-thread assistance respects search count",
+    "assisted path equals direct official A* for this terrain case",
+    "arena floor resolved",
+    "nontrivial real waypoint path found",
+    "raw official path retained for ownership check",
+    "both pool components activate on official server",
+    "repeated pooled waypoints preserve route geometry",
+    "held raw-node path unchanged by later pooled searches",
+    "pooled repeated waypoint search reduces measured thread allocation in this arena",
+    "repeat allocation comparison 0",
+    "repeat allocation comparison 1",
+    "held raw path unchanged after repeated pool recreation",
+    "streamed diagnostic ZIP contains valid JSON plus NOS actual state and retained tick-debug evidence, without starting profiling",
+    "probe restores original optimizer settings"
+  ],
+  "modules": [
+    {
+      "name": "idleFirepitFastPath",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "barrelIngredientPairing",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "wildBushCallbackFlatten",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkUnloadStagingReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nativeBuildLogGuard",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "broadcastRawFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "broadcastPacketFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "broadcastUdpFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityTickCleanupLists",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityDespawnLists",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "collisionGenerationReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "cachedCollisionGenerationReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "animationCollisionFlagScan",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "collisionTraversalReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "containerTransitionScan",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "containerTickTraversal",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nearbyEntityListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "shapelessStackMerge",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "cuboidEntityListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "shapelessWildcardMatch",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "callbackSnapshotReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "callbackDebugSnapshotReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "spawnOpportunityListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "spawnColumnArrayReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "blockUpdateListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkLoadRequestListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkUnloadCandidateListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkUnloadNotificationReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "waypointNodePoolScope",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "waypointNodePooling",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityHurtSafety",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "aiDistanceThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "distantWanderThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "repulsionDistanceThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "attributeNoOpSkip",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "despawnPacketProjection",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "physicsPacketListReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "onlinePlayerSnapshots",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "nearbyPlayerQueries",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "bulkStreamReads",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "assetCompressionCache",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathQueueLimitFix",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathMainThreadBudget",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nearestEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "interactableEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiTaskStartDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiFilterDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "repulseDelegateReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "worldgenRequestReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "saveSnapshotRelease",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "counters": {
+    "idleFirepitFastPathCalls": 0,
+    "idleFirepitFastPathFallbacks": 0,
+    "idleFirepitFastPathFailures": 0,
+    "barrelIngredientPairingCalls": 1,
+    "barrelIngredientPairingFallbacks": 0,
+    "barrelIngredientPairingFailures": 0,
+    "wildBushCallbackFlattenCalls": 1,
+    "wildBushCallbackFlattenFallbacks": 0,
+    "wildBushCallbackFlattenFailures": 0,
+    "chunkUnloadStagingCalls": 0,
+    "chunkUnloadStagingBuffersCreated": 0,
+    "chunkUnloadStagingOversizedReleased": 0,
+    "chunkUnloadStagingFailures": 0,
+    "nativeBuildLogMissingCodes": 0,
+    "nativeBuildLogSystemPlayers": 0,
+    "nativeBuildLogFailures": 0,
+    "collisionGenerationCalls": 2,
+    "cachedCollisionGenerationCalls": 3,
+    "collisionGenerationCacheHits": 2,
+    "collisionGenerationContextsCreated": 2,
+    "collisionGenerationFallbacks": 0,
+    "collisionGenerationFailures": 0,
+    "animationCollisionScans": 32,
+    "animationScanFallbacks": 0,
+    "animationScanFailures": 0,
+    "collisionTraversalCalls": 5,
+    "containerTransitionScans": 2,
+    "containerTickTraversals": 1,
+    "traversalIteratorsAvoided": 8,
+    "customInventoryTraversalFallbacks": 0,
+    "collisionTraversalFailures": 0,
+    "containerScanFailures": 0,
+    "containerTickFailures": 0,
+    "nearbyEntityListPasses": 2,
+    "cuboidEntityListPasses": 1,
+    "entityQueryBuffersCreated": 2,
+    "entityQueryOversizedReleased": 0,
+    "entityQueryFailures": 0,
+    "shapelessMergeCalls": 2,
+    "shapelessWildcardCalls": 2,
+    "shapelessMergeFailures": 0,
+    "shapelessWildcardFailures": 0,
+    "callbackSnapshotPasses": 206,
+    "callbackDebugSnapshotPasses": 0,
+    "callbackPositionsCopied": 0,
+    "spawnOpportunityPasses": 0,
+    "spawnColumnPasses": 0,
+    "spawnColumnArraysCreated": 0,
+    "spawnColumnArraysReused": 0,
+    "callbackSpawnBuffersCreated": 3,
+    "callbackSpawnOversizedReleased": 0,
+    "callbackSpawnFailures": 0,
+    "blockUpdatePasses": 27,
+    "chunkRequestPasses": 182,
+    "chunkUnloadCandidatePasses": 2,
+    "chunkUnloadNotificationPasses": 16,
+    "chunkRequestCoordinatesReused": 0,
+    "chunkUnloadCoordinatesReused": 0,
+    "blockChunkBuffersCreated": 23,
+    "blockChunkOversizedReleased": 0,
+    "blockChunkFailures": 0,
+    "broadcastRawCalls": 1,
+    "broadcastPacketCalls": 5,
+    "broadcastUdpCalls": 1,
+    "entityCleanupPasses": 130,
+    "entityCleanupBuffersCreated": 6,
+    "entityCleanupOversizedReleased": 0,
+    "waypointNodesReused": 1204640,
+    "waypointNodesCreated": 240,
+    "waypointPoolOverflow": 0,
+    "aiChecksDeferred": 0,
+    "wanderChecksDeferred": 0,
+    "repulsionChecksDeferred": 0,
+    "entityPolicyFailures": 0,
+    "attributeNoOpSkips": 0,
+    "despawnPacketCalls": 0,
+    "despawnPacketEntities": 0,
+    "physicsPacketPasses": 2653,
+    "physicsPacketBuffersCreated": 67,
+    "physicsPacketOversizedBuffersReleased": 0,
+    "pathAssistanceFailures": 0,
+    "pathWorkerLimitStops": 1,
+    "pathMainSearches": 1,
+    "pathDeferredTicks": 0,
+    "nearestEntitySearchCalls": 4,
+    "interactableEntitySearchCalls": 0,
+    "entitySearchContextsCreated": 1,
+    "saveSnapshotReferencesReleased": 0,
+    "saveSnapshotCompletions": 0,
+    "onlineSnapshotCalls": 4840,
+    "nearbyQueryCalls": 0,
+    "snapshotFallbacks": 0,
+    "nearbyFallbacks": 0,
+    "snapshotFailures": 0,
+    "nearbyFailures": 0,
+    "assetCacheHits": 0,
+    "assetCacheMisses": 0,
+    "assetCacheBytes": 0,
+    "assetCacheFailures": 0,
+    "bulkReadCalls": 0,
+    "bulkReadBytes": 0,
+    "bulkReadFallbacks": 0,
+    "bulkReadFailures": 0
+  },
+  "packZipCount": 25,
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims."
+}

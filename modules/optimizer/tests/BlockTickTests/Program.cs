@@ -14,6 +14,15 @@ using Vintagestory.GameContent;
 using Vintagestory.Server;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,name)=>{foreach(var d in new[]{game,Path.Combine(game,"Lib"),Path.Combine(game,"Mods")}){var p=Path.Combine(d,name.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
+var defaults = new NewfiesOptimizer.OptimizerConfig();
+if (!defaults.EngineOptimizations.BarrelIngredientPairing || !defaults.EngineOptimizations.WildBushCallbackFlatten || !defaults.EngineOptimizations.AnimationCollisionFlagScan)
+    throw new Exception("Validated allocation defaults must be enabled.");
+var preserved = JsonSerializer.Deserialize<NewfiesOptimizer.OptimizerConfig>("{\"EngineOptimizations\":{\"BarrelIngredientPairing\":false,\"WildBushCallbackFlatten\":false,\"AnimationCollisionFlagScan\":false}}")!;
+preserved.Normalize();
+if (preserved.EngineOptimizations.BarrelIngredientPairing || preserved.EngineOptimizations.WildBushCallbackFlatten || preserved.EngineOptimizations.AnimationCollisionFlagScan)
+    throw new Exception("Saved opt-outs must remain disabled.");
+if (defaults.EngineOptimizations.IdleFirepitFastPath || defaults.EngineOptimizations.AiDistanceThrottle || defaults.EngineOptimizations.ChunkUnloadStagingReuse)
+    throw new Exception("Unpromoted modules must remain opt-in.");
 Checks.Run();
 public class Proxy:DispatchProxy
 {

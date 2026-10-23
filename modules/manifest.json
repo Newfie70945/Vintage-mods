@@ -46,7 +46,7 @@
   ],
   "optimizer": {
     "path": "modules/optimizer",
-    "version": "0.18.0-preview",
+    "version": "0.18.1-preview",
     "status": "guarded API patches with profiling; experimental"
   }
 }

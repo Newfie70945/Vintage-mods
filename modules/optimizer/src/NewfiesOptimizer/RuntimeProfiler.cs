@@ -147,7 +147,7 @@ public sealed class RuntimeProfiler : IDisposable
 
     public string Status()
     {
-        string summary = "Newfie's Server Optimizer 0.9.0 preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
+        string summary = "Newfie's Server Optimizer " + typeof(OptimizerConfig).Assembly.GetName().Version?.ToString(3) + " preview | " + (IsRunning ? "recording" : "stopped") + " | game " + EngineVersion.Actual + "; engine module activation is listed separately.";
         if (Session is not null) summary += $" Capture {Session.ElapsedSeconds:F1}s, {Session.TickCount} completed ticks.";
         if (LastExport is not null) summary += " Last export: " + LastExport + ".";
         if (ExportFailure is not null) summary += " Export failed: " + ExportFailure + ".";

@@ -242,4 +242,11 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 
 ### Block ticks and private unload staging (0.18.0-preview)
 
-`IdleFirepitFastPath`, `BarrelIngredientPairing`, `WildBushCallbackFlatten` and `ChunkUnloadStagingReuse` each default to `false` under `EngineOptimizations`. Configure independently through the Suite and verify actual module state. They reduce narrow native work/allocations while retaining active cooking, fermentation, growth and unload/save behavior. [Detailed compatibility and measurement boundaries](performance-0.18.0.md).
+`IdleFirepitFastPath`, `BarrelIngredientPairing`, `WildBushCallbackFlatten` and `ChunkUnloadStagingReuse` were introduced default-off in 0.18.0 under `EngineOptimizations`; in 0.18.1 barrel pairing and bush flattening default on for absent fields. Configure independently through the Suite and verify actual module state. They reduce narrow native work/allocations while retaining active cooking, fermentation, growth and unload/save behavior. [Detailed compatibility and measurement boundaries](performance-0.18.0.md).
+
+
+## 0.18.1 allocation defaults
+
+New configurations enable `EngineOptimizations.AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. A missing field inherits that default; an explicitly saved false remains false through normalization and reload. To adopt these on an existing config, enable the three switches in Suite → Optimizations → Newfies Server Optimizer, then Save and Apply NOS Settings. No restart is required for Suite Apply. Inspect each actual module state: unsupported builds, conflicts or failures retain stock behavior. Master off and Safe Mode still disable them.
+
+These changes remove temporary allocations. They do not reduce animation frequency, cooking/fermentation, berry growth or save frequency. Idle firepit, distance policies, path budgets and unload staging remain opt-in.

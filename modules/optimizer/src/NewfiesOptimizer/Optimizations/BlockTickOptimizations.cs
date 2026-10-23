@@ -63,9 +63,9 @@ public static class BlockTickOptimizations
     public static bool BarrelPrefix(BarrelRecipe __instance, ItemSlot[] inputSlots, ref List<(ItemSlot, BarrelRecipeIngredient)> __result, out bool __state)
     {
         __state = Volatile.Read(ref enabled[1]);
-        var ingredients = __instance.Ingredients;
         if (!__state) return true;
-        if (__instance.GetType() != typeof(BarrelRecipe) || inputSlots == null || inputSlots.Length > 2 || ingredients == null || ingredients.Length > 2 || ingredients.Any(x => x == null || x.GetType() != typeof(BarrelRecipeIngredient)))
+        var ingredients = __instance.Ingredients;
+        if (__instance.GetType() != typeof(BarrelRecipe) || inputSlots == null || inputSlots.Length > 2 || ingredients == null || ingredients.Length > 2 || !HasNativeIngredients(ingredients))
         { Interlocked.Increment(ref fallbacks[1]); return true; }
         int count = 0;
         foreach (var slot in inputSlots) if (!slot.Empty) count++;
@@ -90,6 +90,14 @@ public static class BlockTickOptimizations
             if (pairs > 1) __result.Add((slot1!, item1!));
         }
         Interlocked.Increment(ref calls[1]); return false;
+    }
+    // Only zero to two entries reach this check. Avoid a generic predicate scan
+    // on every recipe attempt; retain exact-type fallback for mod ingredients.
+    private static bool HasNativeIngredients(BarrelRecipeIngredient[] ingredients)
+    {
+        for (int i = 0; i < ingredients.Length; i++)
+            if (ingredients[i] == null || ingredients[i].GetType() != typeof(BarrelRecipeIngredient)) return false;
+        return true;
     }
     public static bool BushPrefix(BlockEntityWildFruitingBush __instance, ref FarmlandFastForwardUpdate? onInterval, ref FarmlandUpdateEnd? onEnd, out bool __state)
     {

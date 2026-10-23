@@ -89,13 +89,13 @@ public sealed class BenchmarkOptions
 public sealed class EngineOptimizationOptions
 {
     public bool IdleFirepitFastPath { get; set; } = false;
-    public bool BarrelIngredientPairing { get; set; } = false;
-    public bool WildBushCallbackFlatten { get; set; } = false;
+    public bool BarrelIngredientPairing { get; set; } = true;
+    public bool WildBushCallbackFlatten { get; set; } = true;
     public bool ChunkUnloadStagingReuse { get; set; } = false;
     public bool NativeBuildLogGuard { get; set; } = false;
     public bool CollisionGenerationReuse { get; set; }
     public bool CachedCollisionGenerationReuse { get; set; }
-    public bool AnimationCollisionFlagScan { get; set; }
+    public bool AnimationCollisionFlagScan { get; set; } = true;
     public bool CollisionTraversalReuse { get; set; }
     public bool ContainerTransitionScan { get; set; }
     public bool ContainerTickTraversal { get; set; }

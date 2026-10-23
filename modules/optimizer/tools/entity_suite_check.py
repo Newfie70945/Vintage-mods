@@ -150,7 +150,10 @@ try:
     status,catalog=request('/api/server/mods');assert status==200
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
-    checks.append('new optimizer defaults visible through authenticated Suite bridge')
+    for flag in ('animationCollisionFlagScan','barrelIngredientPairing','wildBushCallbackFlatten'):
+        assert settings[flag]
+        assert next(m for m in nos['modules'] if m['name']==flag)['status']=='active'
+    checks.append('promoted allocation defaults active through authenticated Suite bridge')
     # Synthetic local log entries validate stack-based grouping without production data.
     time.sleep(1)
     stamp=time.strftime('%d.%m.%Y %H:%M:%S',time.gmtime())
@@ -165,7 +168,7 @@ try:
     checks.append('same-message exceptions split by stack origin; native logger attributed correctly with recent counts')
 
     for flag in ('idleFirepitFastPath','barrelIngredientPairing','wildBushCallbackFlatten','chunkUnloadStagingReuse','nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
-        assert settings[flag] is False
+        assert settings[flag] == (flag in ('barrelIngredientPairing','wildBushCallbackFlatten'))
         status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
         actual=next(m for m in enabled['optimizer']['modules'] if m['name']==flag)
         if flag=='idleFirepitFastPath' and actual['status']=='conflict':
@@ -175,7 +178,7 @@ try:
             assert actual['status']=='active',actual
         status,disabled=control('set',{flag:False});assert status==200 and disabled['success']
         assert next(m for m in disabled['optimizer']['modules'] if m['name']==flag)['status']=='disabled'
-    checks.append('independent opt-in modules default off; activation or explicit ARL fallback and disable state verified on official server')
+    checks.append('independent defaults verified; activation or explicit ARL fallback and disable state verified on official server')
     status,patterns=control('set',dict(entityPolicyInclude=['game:wolf*'],entityPolicyExclude=['game:wolf-baby*'],entityProtectionRadius=96));assert status==200 and patterns['success']
     persisted=json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']
     assert persisted['EntityPolicyInclude']==['game:wolf*'] and persisted['EntityProtectionRadius']==96
@@ -205,7 +208,7 @@ try:
     status,stopped=control('profile-stop');assert status==200 and stopped['success']
     status,cleared=control('capture-clear');assert status==200 and cleared['success'] and not cleared['optimizer']['captureAvailable'];checks.append('stopped capture released through Suite')
     for flag,names in [('collisionGenerationReuse',['collisionGenerationReuse']),('cachedCollisionGenerationReuse',['cachedCollisionGenerationReuse']),('animationCollisionFlagScan',['animationCollisionFlagScan']),('collisionTraversalReuse',['collisionTraversalReuse']),('containerTransitionScan',['containerTransitionScan']),('containerTickTraversal',['containerTickTraversal']),('nearbyEntityListReuse',['nearbyEntityListReuse']),('cuboidEntityListReuse',['cuboidEntityListReuse']),('shapelessStackMerge',['shapelessStackMerge']),('shapelessWildcardMatch',['shapelessWildcardMatch']),('delayedCallbackSnapshotReuse',['callbackSnapshotReuse','callbackDebugSnapshotReuse']),('spawnOpportunityListReuse',['spawnOpportunityListReuse']),('spawnColumnArrayReuse',['spawnColumnArrayReuse']),('blockUpdateListReuse',['blockUpdateListReuse']),('chunkLoadRequestListReuse',['chunkLoadRequestListReuse']),('chunkUnloadListReuse',['chunkUnloadCandidateListReuse','chunkUnloadNotificationReuse']),('broadcastFilterReuse',['broadcastRawFilter','broadcastPacketFilter','broadcastUdpFilter']),('entityLifecycleListReuse',['entityTickCleanupLists','entityDespawnLists'])]:
-        assert nos['settings'][flag] is False
+        assert nos['settings'][flag] == (flag == 'animationCollisionFlagScan')
         status,new=control('set',{flag:True});assert status==200 and new['success']
         assert all(next(m for m in new['optimizer']['modules'] if m['name']==name)['status']=='active' for name in names)
         status,off=control('set',{flag:False});assert status==200 and off['success']
