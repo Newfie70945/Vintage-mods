@@ -87,10 +87,16 @@ public sealed class EntitySuiteProbe:ModSystem
    Assert(containerFixture.Room!=null&&containerFixture.Room.AnyChunkUnloaded==0,"enclosed room passes native chunk-loading guard");
    var collisionEntity=new Vintagestory.API.Common.EntityAgent{World=world,CollisionBox=new Cuboidf(-.2f,0,-.2f,.2f,.8f,.2f)};
    var collisionPosition=new Vintagestory.API.Common.Entities.EntityPos(spawn.X,spawn.Y,spawn.Z);var collidedPosition=new Vec3d();
-   new CollisionTester().ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
+   var standardCollision=new CollisionTester();standardCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
    Assert(collidedPosition.X==collisionPosition.X&&collidedPosition.Y==collisionPosition.Y&&collidedPosition.Z==collisionPosition.Z,"zero-motion native collision still runs and preserves position on copied terrain");
    foreach(var key in new[]{"collisionGenerationReuse","cachedCollisionGenerationReuse","animationCollisionFlagScan"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"generation/animation control enabled: "+key);
    var cachedCollision=new CachingCollisionTester();cachedCollision.NewTick(collisionPosition);cachedCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
+   long cacheHits=Control("get").GetProperty("counters").GetProperty("collisionGenerationCacheHits").GetInt64();
+   standardCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);cachedCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
+   long repeatedHits=Control("get").GetProperty("counters").GetProperty("collisionGenerationCacheHits").GetInt64();
+   Assert(repeatedHits>=cacheHits+2,"both native testers use unchanged-bounds return on actual terrain");
+   cachedCollision.NewTick(collisionPosition);cachedCollision.ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
+   Assert(Control("get").GetProperty("counters").GetProperty("collisionGenerationCacheHits").GetInt64()==repeatedHits,"native NewTick invalidates cached bounds instead of skipping regeneration");
    var animationManager=new AnimationManager();animationManager.Init(api,new EntityAgent{World=world,Api=api});animationManager.Animator=new ServerAnimator(()=>1.0,Array.Empty<Animation>(),Array.Empty<ShapeElement>(),new Dictionary<int,AnimationJoint>());animationManager.ActiveAnimationsByAnimCode.Add("nos-fixture",new AnimationMetaData{AdjustCollisionBox=true});animationManager.OnServerTick(.02f);
    Assert(!animationManager.AdjustCollisionBoxToAnimation&&animationManager.ActiveAnimationsByAnimCode.Count==0,"native ServerAnimator removes unknown animation before collision flag scan");
    var generationCounters=Control("get").GetProperty("counters");
