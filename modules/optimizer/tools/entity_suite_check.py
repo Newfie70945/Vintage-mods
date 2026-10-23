@@ -8,6 +8,8 @@ import http.cookiejar, json, os, secrets, shutil, subprocess, threading, time
 import urllib.error, urllib.request, zipfile
 repo=Path(__file__).resolve().parents[3]
 suite_version=json.loads((repo/'modules/suite/modinfo.json').read_text())['version']
+optimizer_version=(repo/'modules/optimizer/VERSION').read_text().strip()
+optimizer_semver=json.loads((repo/'modules/optimizer/src/NewfiesOptimizer/modinfo.json').read_text())['version']
 root=repo/'artifacts/validation'/('nos-entity-suite-'+str(int(time.time())))
 data=root/'data';root.mkdir(parents=True)
 shutil.copytree(Path(os.environ['NSS_WEB_TEST_BASELINE']),data,ignore=shutil.ignore_patterns('Logs','Mods','Cache','Backups','NewfiesBlockRepair','NewfiesOptimizer'))
@@ -16,7 +18,7 @@ config=json.loads((data/'serverconfig.json').read_text());save=Path(config['Worl
 config.update(Ip='127.0.0.1',Port=42601,AdvertiseServer=False,Upnp=False,ModPaths=['Mods',str(data/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save)
 (data/'serverconfig.json').write_text(json.dumps(config))
 mods=data/'Mods';mods.mkdir()
-for source in [repo/f'artifacts/NewfiesServerEssentialsSuiteV{suite_version}.zip',repo/'modules/optimizer/artifacts/NewfiesServerOptimizer-0.7.0-preview.zip']:
+for source in [repo/f'artifacts/NewfiesServerEssentialsSuiteV{suite_version}.zip',repo/f'modules/optimizer/artifacts/NewfiesServerOptimizer-{optimizer_version}.zip']:
     shutil.copy2(source,mods/source.name)
 if os.environ.get('NSS_TEST_PACK'):
     for source in Path(os.environ['NSS_TEST_PACK']).glob('*.zip'):shutil.copy2(source,mods/source.name)
@@ -65,11 +67,17 @@ def wait(marker,start=0,timeout=240):
 try:
     wait('Dedicated Server now running on Port')
     status,auth=request('/api/login',dict(username='fixtureowner',password=password));assert status==200;csrf=auth['csrfToken']
-    status,state=request('/api/optimizations/newfies');assert status==200 and state['available'];nos=state['optimizer'];assert nos['version']=='0.7.0'
+    status,state=request('/api/optimizations/newfies');assert status==200 and state['available'];nos=state['optimizer'];assert nos['version']==optimizer_semver
     status,catalog=request('/api/server/mods');assert status==200
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
     checks.append('new optimizer defaults visible through authenticated Suite bridge')
+    assert settings['physicsPacketListReuse']
+    assert next(m for m in nos['modules'] if m['name']=='physicsPacketListReuse')['status']=='active'
+    status,physics_off=control('set',dict(physicsPacketListReuse=False));assert status==200 and physics_off['success']
+    assert next(m for m in physics_off['optimizer']['modules'] if m['name']=='physicsPacketListReuse')['status']=='disabled'
+    status,physics_on=control('set',dict(physicsPacketListReuse=True));assert status==200 and physics_on['success']
+    checks.append('physics packet reuse independently toggled through Suite')
     status,off=control('set',dict(nearestEntitySearch=False));assert status==200 and off['success']
     assert next(m for m in off['optimizer']['modules'] if m['name']=='nearestEntitySearch')['status']=='disabled'
     assert off['optimizer']['settings']['interactableEntitySearch'];checks.append('nearest search switch independently applied')
@@ -84,7 +92,7 @@ try:
     checks.extend(terrain['checks'])
     state=request('/api/optimizations/newfies')[1]['optimizer']
     assert not state['settings']['pathMainThreadBudget'];checks.append('probe restores original optimizer settings')
-    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion='0.7.0',checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),scope='Copied official server, real terrain and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
+    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),scope='Copied official server, real terrain and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
     print('PASS '+str(len(checks))+' official server/Suite/real-terrain integration checks; '+str(root/'result.json'),flush=True)
 finally:
     if process.poll() is None:

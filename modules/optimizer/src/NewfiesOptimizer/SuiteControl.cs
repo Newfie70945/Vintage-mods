@@ -11,10 +11,10 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.7.0", success = true,
+        available = true, protocol = 1, version = "0.8.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "capture-clear", "entity-search-reuse" },
+        capabilities = new[] { "capture-clear", "entity-search-reuse", "physics-packet-list-reuse" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
@@ -29,6 +29,7 @@ public sealed partial class OptimizerMod
             interactableEntitySearch = currentConfig.EngineOptimizations.InteractableEntitySearch,
             aiTaskStartDispatch = currentConfig.EngineOptimizations.AiTaskStartDispatch,
             aiFilterDispatch = currentConfig.EngineOptimizations.AiFilterDispatch,
+            physicsPacketListReuse = currentConfig.EngineOptimizations.PhysicsPacketListReuse,
             repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
             nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
             minimumNearbyClients = currentConfig.EngineOptimizations.MinimumNearbyClients,
@@ -88,6 +89,7 @@ public sealed partial class OptimizerMod
                 case "interactableEntitySearch": candidate.EngineOptimizations.InteractableEntitySearch=B(); break;
                 case "aiTaskStartDispatch": candidate.EngineOptimizations.AiTaskStartDispatch=B(); break;
                 case "aiFilterDispatch": candidate.EngineOptimizations.AiFilterDispatch=B(); break;
+                case "physicsPacketListReuse": candidate.EngineOptimizations.PhysicsPacketListReuse=B(); break;
                 case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
                 case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;
                 case "nearbyPlayerQueries": candidate.EngineOptimizations.NearbyPlayerQueries=B(); break;

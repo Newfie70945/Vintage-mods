@@ -2,6 +2,9 @@
 
 ## Server Essentials Suite 1.2.47
 
+- OptimizerPhysics1: add independent NOS 0.8.0 physics packet list reuse controls and pass/buffer counters. Build `ms11-optimizer-physics1`; preserves all Entity1 features.
+- Explain when external optimizer controls require an uninstalled mod or an unsupported command; unavailable controls stay disabled.
+
 - OptimizerEntity1: add NOS 0.7.0 entity-search and path-queue switches, observed-head wait/count/soft-budget settings, actual module states and work counters to Optimizations.
 - Add Release Stopped Capture with active-capture/read-only/safe-mode/older-NOS guards. Exported reports remain; no forced collection occurs.
 - Group AI allocation controls together and explain scheduling and GC limits. Suite advances to 1.2.47; build `ms11-optimizer-entity1`, retaining WebRequest2 and all earlier fixes.
@@ -191,3 +194,10 @@
 - Independently controlled nearest/interactable entity search state reuse reduces temporary closures/delegates without changing the stock walker or predicate order. Recursion, exceptions and thread isolation are tested; idle state holds no input references.
 - Fix worker dequeue-before-limit request loss. Add optional bounded main-thread assistance using official A*, creature types and an observed-head grace period. The soft budget cannot interrupt a single search; scheduling changes default off.
 - Add stopped-capture release without forced GC or deleting exported files, Suite configuration and execution counters. Preserve strict engine hashes, foreign-patch detection and independent disable controls.
+
+## Newfies Server Optimizer 0.8.0 preview
+
+- Reuse bounded temporary lists in physics packet construction without changing packet data, batching, ordering or send frequency.
+- Clear references after successful and failed sends; isolate nested/parallel calls and discard oversized buffers.
+- Add independent configuration, actual activation/conflict reporting and Suite controls.
+- Allocation measurements and real-server integration scope are documented in performance-0.8.0.md; no production TPS claim.

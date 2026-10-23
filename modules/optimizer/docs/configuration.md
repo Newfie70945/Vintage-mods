@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.7.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.8.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -141,3 +141,7 @@ Floral Zones uses PascalCase `ModID`/`Version`/`Dependencies`; the Suite now acc
 The grace period measures how long the same head has been observed, not its original enqueue timestamp. A worker advancing the queue can reset it. This conservative policy can delay paths; compare behavior under your actual animal workload before enabling. The helper passes each request's creature type to official A*.
 
 Search scratch state is checked out per thread and cleared in finally, including errors. Nested searches use a separate temporary context; only one idle context per thread is retained. No entity, position or filter references remain in idle state. Disable/reapply invalidates scratch generations. Completed report release removes references; the GC decides when memory is collected or returned to the OS. NOS does not call GC.Collect, compact the heap or alter process-wide GC modes.
+
+## Physics packet temporary lists (0.8.0)
+
+`EngineOptimizations.PhysicsPacketListReuse` defaults to true. It reuses only the three temporary lists in the official physics send loop. Packet arrays remain independently owned; no wire format, batching size, send frequency, filtering or simulation changes. One empty buffer set is retained per participating thread, with at most 4,096 entries of capacity in each list; larger sets are discarded. Nested calls use separate sets, and finalizers clear references on success and exceptions. Disable/reapply invalidates idle generations. Suite displays passes, buffer sets created and oversized sets released. These are work counters, not byte savings or TPS estimates.

@@ -1,3 +1,10 @@
+# NOS 0.8.0 preview
+
+- Reuse physics position/animation/tag temporary lists with bounded thread-local storage, nested-call isolation and exception cleanup. Outgoing packet arrays are never pooled.
+- Independent PhysicsPacketListReuse switch, compatibility guards, Suite status and work counters.
+- Suite 1.2.47 Physics1 clarifies external optimizer availability and preserves older NOS support.
+- See performance-0.8.0.md for measured allocation changes and validation limits.
+
 # 0.7.0 preview
 
 - Reduce entity-search garbage through independently controlled nearest/interactable search state reuse.
