@@ -93,6 +93,9 @@
     "EntityLifecycleListReuse": false,
     "BlockUpdateListReuse": false,
     "ChunkLoadRequestListReuse": false,
-    "ChunkUnloadListReuse": false
+    "ChunkUnloadListReuse": false,
+    "DelayedCallbackSnapshotReuse": false,
+    "SpawnOpportunityListReuse": false,
+    "SpawnColumnArrayReuse": false
   }
 }

@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.12.0 preview
+# Newfie's Server Optimizer 0.13.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -135,3 +135,9 @@ Lifecycle reuse replaces only method-local list construction in official TickEnt
 Three independent switches default off: `BlockUpdateListReuse`, `ChunkLoadRequestListReuse` and `ChunkUnloadListReuse`. Suite controls save/apply them live. They reuse block-update batching lists, generation-request staging lists/temporary coordinates, and unload candidate/notification scratch. All original random ticks, neighbor callbacks, generation queue limits, unload ages, forced loads, chunk sends and saves remain unchanged.
 
 This does not pool positions queued for block ticks, alter growth simulation, speed up terrain generation or rewrite disk I/O. Official 1.22.7 already reuses its random-tick working positions; `ChunkPos` is a value type. Outgoing arrays and chunk/save objects retain native ownership. Each patched target has its own conflict/failure state. [Validation and limits](docs/performance-0.12.0.md).
+
+## Callback and spawn allocation pass (0.13.0)
+
+Three new opt-in switches default off: `DelayedCallbackSnapshotReuse`, `SpawnOpportunityListReuse` and `SpawnColumnArrayReuse`. They reuse single-delayed-block-callback snapshots, private mob-spawn search lists and chunk-read arrays. Callback timing, spawn selection/caps, RNG and block locks remain native. Already queued spawn results retain separate lists. All retained chunk/position/entity-property references clear on scope completion, including failures; list retention caps at 4,096 and column arrays at 256 entries.
+
+The Suite groups callback/spawn and block/chunk controls separately and adds local module search/state filters. Compatibility checks now deduplicate shared patch inspection within each pass and release those snapshots afterward. [Validation and limits](docs/performance-0.13.0.md).

@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS Events1: add opt-in delayed-callback snapshot, spawn-search list and chunk-read array reuse controls/counters for NOS 0.13.0. Group controls and add local module name/reason/state filters. Reduce repeated compatibility metadata allocation while preserving conflict detection; build `ms11-nos-events1`.
+
 - NOS Chunks1: add independent controls and counters for NOS 0.12.0 block-update batching, chunk-request staging/coordinates and chunk-unload scratch reuse; build `ms11-nos-chunks1`. Preserve original simulation, queue limits, delivery and save policies. New switches default off.
 
 - NOS Broadcast1: add controls/counters for NOS 0.11.0 empty-exclusion broadcast fast paths and bounded entity cleanup/despawn list reuse; build `ms11-nos-broadcast1`.

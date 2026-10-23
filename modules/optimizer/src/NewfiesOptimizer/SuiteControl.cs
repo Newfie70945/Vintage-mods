@@ -11,12 +11,13 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.12.0", success = true,
+        available = true, protocol = 1, version = "0.13.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
         capabilities = new[] { "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
+            delayedCallbackSnapshotReuse=currentConfig.EngineOptimizations.DelayedCallbackSnapshotReuse, spawnOpportunityListReuse=currentConfig.EngineOptimizations.SpawnOpportunityListReuse, spawnColumnArrayReuse=currentConfig.EngineOptimizations.SpawnColumnArrayReuse,
             blockUpdateListReuse=currentConfig.EngineOptimizations.BlockUpdateListReuse, chunkLoadRequestListReuse=currentConfig.EngineOptimizations.ChunkLoadRequestListReuse, chunkUnloadListReuse=currentConfig.EngineOptimizations.ChunkUnloadListReuse,
             broadcastFilterReuse=currentConfig.EngineOptimizations.BroadcastFilterReuse, entityLifecycleListReuse=currentConfig.EngineOptimizations.EntityLifecycleListReuse,
             aiDistanceThrottle = currentConfig.EngineOptimizations.AiDistanceThrottle,
@@ -115,6 +116,9 @@ public sealed partial class OptimizerMod
                 case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
+                case "delayedCallbackSnapshotReuse": candidate.EngineOptimizations.DelayedCallbackSnapshotReuse=B(); break;
+                case "spawnOpportunityListReuse": candidate.EngineOptimizations.SpawnOpportunityListReuse=B(); break;
+                case "spawnColumnArrayReuse": candidate.EngineOptimizations.SpawnColumnArrayReuse=B(); break;
                 case "blockUpdateListReuse": candidate.EngineOptimizations.BlockUpdateListReuse=B(); break;
                 case "chunkLoadRequestListReuse": candidate.EngineOptimizations.ChunkLoadRequestListReuse=B(); break;
                 case "chunkUnloadListReuse": candidate.EngineOptimizations.ChunkUnloadListReuse=B(); break;

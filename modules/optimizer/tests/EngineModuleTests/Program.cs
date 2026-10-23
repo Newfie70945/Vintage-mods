@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true, BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -123,6 +123,33 @@ static class Checks
    foreach(var tick in chunkFailure.Ticks)tick(1);
    Assert(module.Modules().Single(x=>x.Name=="chunkUnloadNotificationReuse").Status=="failed","unload exception disables notification target");
    Assert(module.Modules().Where(x=>x.Name!="chunkUnloadNotificationReuse").All(x=>x.Status=="active"),"native unload error does not disable unrelated targets");
+  }
+  string[] workNames=["callbackSnapshotReuse","callbackDebugSnapshotReuse","spawnOpportunityListReuse","spawnColumnArrayReuse"];
+  for(int kind=0;kind<4;kind++)
+  {
+   foreign.Patch(CallbackSpawnOptimizations.Target(kind),prefix:prefix);
+   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+   {
+    var affected=kind==2?new[]{workNames[2],workNames[3]}:new[]{workNames[kind]};
+    Assert(module.Modules().Where(x=>affected.Contains(x.Name)).All(x=>x.Status=="conflict"),"foreign ownership blocks affected callback/spawn target and dependent column scope "+kind);
+    Assert(module.Modules().Where(x=>!affected.Contains(x.Name)).All(x=>x.Status=="active"),"unrelated modules survive callback/spawn conflict "+kind);
+   }
+   foreign.UnpatchAll(foreign.Id);
+  }
+  foreign.Patch(AccessTools.Method(typeof(Vintagestory.Server.ServerSystemEntitySpawner),"CanSpawnAt_offthread"),prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+  {
+   Assert(module.Modules().Single(x=>x.Name=="spawnColumnArrayReuse").Status=="conflict","foreign spawn validator retains ownership of column input");
+   Assert(module.Modules().Single(x=>x.Name=="spawnOpportunityListReuse").Status=="active","unrelated spawn scratch remains available with custom validator");
+  }
+  foreign.UnpatchAll(foreign.Id);
+  var callbackFailure=Api();
+  using(var module=new EngineOptimizations(callbackFailure.Api,Config(),()=>200))
+  {
+   CallbackSpawnOptimizations.TickPrefix(out var scope);CallbackSpawnOptimizations.Finalizer(new InvalidOperationException("callback-fixture"),scope);
+   foreach(var tick in callbackFailure.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="callbackSnapshotReuse").Status=="failed","callback exception removes only its target");
+   Assert(module.Modules().Where(x=>x.Name!="callbackSnapshotReuse").All(x=>x.Status=="active"),"other callback/spawn modules remain active after a normal-tick error");
   }
   var rangeConflict=Api();
   using(var module=new EngineOptimizations(rangeConflict.Api,Config(),()=>200))
@@ -217,6 +244,8 @@ static class Checks
    for(int i=0;i<100;i++)Tick();
    long before=GC.GetAllocatedBytesForCurrentThread(),stamp=System.Diagnostics.Stopwatch.GetTimestamp();
    for(int i=0;i<1000;i++)Tick();
+   var snapshots=(System.Collections.IDictionary)typeof(EngineOptimizations).GetField("patchSnapshots",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(module)!;
+   Assert(snapshots.Count==0,"compatibility snapshots retain no patch records between checks");
    var result=new{iterations=1000,bytesPerCheck=(GC.GetAllocatedBytesForCurrentThread()-before)/1000d,nsPerCheck=System.Diagnostics.Stopwatch.GetElapsedTime(stamp).TotalNanoseconds/1000,scope="Actual Harmony module monitor with all modules active, 200 synthetic client count, no gameplay or network workload."};
    var report=System.Text.Json.JsonSerializer.Serialize(result);
    Console.WriteLine(report);

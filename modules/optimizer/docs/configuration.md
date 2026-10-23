@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.12.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.13.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -186,3 +186,17 @@ Each target reports activation/conflicts separately. Exact official engine hashe
 Scopes are thread-local and nested. Original position references clear on success/failure. At most one idle scope per target/thread is retained, using generation invalidation after configuration changes. Lists cap retained capacity at 4,096; the numeric unload-candidate list may retain up to 65,536 long slots (512 KiB). Larger buffers are released. The unload coordinate pool caps at 4,096 objects and overflow allocates normally. Retained numeric coordinate objects contain no entity, chunk or world references.
 
 Counters include block-update/request/candidate/notification passes, request/unload coordinates reused, scratch buffer creation/oversize releases and failures. Pass counts are executions, not bytes or time saved. Empty paths can cost more CPU even while allocating less; compare representative workloads before leaving a switch enabled. There is no forced collection, load/unload delay, send-budget change, async chunk I/O or incremental autosave in this pass.
+
+## Callback/spawn scratch switches (0.13.0)
+
+| EngineOptimizations field | Default | Scope |
+| --- | --- | --- |
+| `DelayedCallbackSnapshotReuse` | false | Separate normal/debug base event-manager targets reuse private single-delayed-block-callback key snapshots. |
+| `SpawnOpportunityListReuse` | false | Reuse only the private search list; the list copied into each queued spawn result remains independently owned. |
+| `SpawnColumnArrayReuse` | false | Reuse exact-length temporary chunk-read arrays, at most 256 entries. Larger columns allocate normally. |
+
+Each target checks the official engine and inspected allocation layout, detects foreign patches and stands down on unexpected exceptions. Original exceptions propagate without repeating callbacks or spawn work. Relevant constructors and array-consuming spawn validators participate in conflict checks. A custom `CanSpawnAt_offthread` patch blocks column-array reuse while the independent opportunity-list optimization can remain available. None of these options change callback deadlines, execution frequency, spawn caps, RNG, AI decisions or lock order.
+
+Scopes isolate nested calls and threads, clear references on success/failure and retain at most one idle buffer per target/thread. List retention is capped at 4,096 slots. Exact column length is preserved across height changes; oversized arrays are not retained. Configuration changes invalidate old scopes before reuse.
+
+The Suite provides grouped controls, module search and All/Needs attention/Active/Disabled-standby filters. Filtering is local, preserves edits and makes no configuration requests. Runtime counters report passes, copied callback positions, column arrays created/reused, buffers, oversized releases and failures; counts do not equal time or bytes saved. Compatibility metadata is shared only within one monitor pass, invalidated after NOS patch changes and cleared in finally. Late conflicts remain checked every second.
