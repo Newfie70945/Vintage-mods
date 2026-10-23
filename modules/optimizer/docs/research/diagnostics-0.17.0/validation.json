@@ -1,0 +1,52 @@
+{
+  "testedRuntimeRevision": "8ab774af1771ebe8de75ce26863f532d108dde4e",
+  "optimizerCompiledRevision": "8a9ce87838cf36733c7392fe7a36724fd09e9e29",
+  "suiteCompiledRevision": "760cc73",
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "6894e36069b34dbdfcb3d859a445ab4f78a810961d169b153bb00cd30468738f",
+    "NewfiesServerOptimizer.dll": "64921d4dc7e52bf406a4192d89b1b46a28a2fae98d59cec27b38c7bec0365a6a"
+  },
+  "officialDependencies": {},
+  "optimizerTestSuites": [
+    "tests/AiTaskStartTests/AiTaskStartTests.csproj",
+    "tests/AssetCacheTests/AssetCacheTests.csproj",
+    "tests/BlockChunkTests/BlockChunkTests.csproj",
+    "tests/BroadcastLifecycleTests/BroadcastLifecycleTests.csproj",
+    "tests/CallbackSpawnTests/CallbackSpawnTests.csproj",
+    "tests/CaptureReleaseTests/CaptureReleaseTests.csproj",
+    "tests/CollisionAnimationTests/CollisionAnimationTests.csproj",
+    "tests/DespawnPacketTests/DespawnPacketTests.csproj",
+    "tests/DistancePolicyTests/DistancePolicyTests.csproj",
+    "tests/EngineHookTests/EngineHookTests.csproj",
+    "tests/EngineModuleTests/EngineModuleTests.csproj",
+    "tests/EntityHotPathTests/EntityHotPathTests.csproj",
+    "tests/EntitySearchTests/EntitySearchTests.csproj",
+    "tests/NativeBuildLogTests/NativeBuildLogTests.csproj",
+    "tests/PathQueueTests/PathQueueTests.csproj",
+    "tests/PhysicsPacketTests/PhysicsPacketTests.csproj",
+    "tests/PlayerQueryTests/PlayerQueryTests.csproj",
+    "tests/ProfilerTests/ProfilerTests.csproj",
+    "tests/RecipeQueryTests/RecipeQueryTests.csproj",
+    "tests/StreamCopyTests/StreamCopyTests.csproj",
+    "tests/TraversalTests/TraversalTests.csproj",
+    "tests/WorldStorageTests/WorldStorageTests.csproj",
+    "tools/stress-tester/tests",
+    "tools/benchmark/tests",
+    "tools/dashboard/tests",
+    "tools/probe/tests"
+  ],
+  "nativeBuildLogChecks": 13,
+  "engineLifecycleChecks": 107,
+  "logEvidenceChecks": 11,
+  "rootChecks": 22,
+  "browserChecks": [
+    "optimizer settings/state/locks/mobile",
+    "log origin escaping, recent counts, rate warmup and legacy context",
+    "performance freshness, retained peaks, filters and incident navigation"
+  ],
+  "copiedServerChecks": 92,
+  "copiedServerModZips": 25,
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.",
+  "productionPerformanceClaims": false,
+  "privateDiagnosticBundleIncluded": false
+}

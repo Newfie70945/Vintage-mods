@@ -17,3 +17,11 @@ Suite 1.2.48 `ms11-diagnostics-fix1` pairs with NOS 0.17.0-preview on official V
 The supplied diagnostic capture contains native build-logger null-reference stacks, mixed historical exception groups, no completed engine profile, and an old manual entity scan. It also contains both strongly GC-correlated stalls and a much larger stall with little measured GC pause. This pass targets the demonstrated exception path and misleading attribution; it does not claim to resolve every stall or prove production TPS gains.
 
 No forced collection, incremental autosave, world-generation policy, entity scheduling or world data format changes are introduced. Existing compatibility blocks, including foreign ownership of server-asset compression, remain enforced. Test on a recoverable server copy before changing optional runtime patches.
+
+## Validation
+
+- Official 1.22.7 / .NET 10: 26 optimizer test suites pass, including 13 native audit behavior/failure checks and 107 engine lifecycle/conflict checks.
+- Suite Release build: zero warnings/errors. 22 root checks and 11 bounded log-evidence checks pass.
+- Browser checks pass for NOS settings/locks/mobile layout, escaped stack origins/live counts/rate warmup, missing/stale evidence and separate retained peaks, filters and incident navigation.
+- Copied official server with 25 mod ZIPs: 92 checks pass, including real terrain/A*, independent opt-in guard activation/deactivation, same-message/different-stack grouping, correct native ownership/recent counts, and a synthetic retained 44-second incident peak independent of live sampling.
+- Results are sanitized synthetic validation artifacts in [research/diagnostics-0.17.0](research/diagnostics-0.17.0/validation.json). The private uploaded bundle and production logs are excluded. No authenticated-player workload or production TPS claim is made.
