@@ -49,6 +49,7 @@ public sealed class EntitySuiteProbe:ModSystem
    udpBroadcast.Invoke(world,new object[]{new Packet_UdpPacket(),Array.Empty<IServerPlayer>()});
    var broadcastCounters=Control("get").GetProperty("counters");
    Assert(broadcastCounters.GetProperty("broadcastRawCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastRawCalls").GetInt64()&&broadcastCounters.GetProperty("broadcastPacketCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastPacketCalls").GetInt64()&&broadcastCounters.GetProperty("broadcastUdpCalls").GetInt64()>before.GetProperty("counters").GetProperty("broadcastUdpCalls").GetInt64(),"three stock broadcast overloads execute empty-exclusion fast paths on copied server");
+   foreach(var key in new[]{"collisionTraversalReuse","containerTransitionScan","containerTickTraversal"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"traversal control enabled: "+key);
    foreach(var key in new[]{"nearbyEntityListReuse","cuboidEntityListReuse","shapelessStackMerge","shapelessWildcardMatch"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"query/recipe control enabled: "+key);
    var spawn=world.DefaultSpawnPosition;
    var queryPos=new Vec3d(spawn.X,spawn.Y,spawn.Z);var queryStart=new BlockPos((int)spawn.X-8,(int)spawn.Y-8,(int)spawn.Z-8);var queryEnd=new BlockPos((int)spawn.X+8,(int)spawn.Y+8,(int)spawn.Z+8);
@@ -68,6 +69,20 @@ public sealed class EntitySuiteProbe:ModSystem
    var recipeCounters=Control("get").GetProperty("counters");
    foreach(var key in new[]{"nearbyEntityListPasses","cuboidEntityListPasses","shapelessMergeCalls","shapelessWildcardCalls"})Assert(recipeCounters.GetProperty(key).GetInt64()>0,"copied-server query/recipe helper executes: "+key);
    foreach(var key in new[]{"entityQueryFailures","shapelessMergeFailures","shapelessWildcardFailures"})Assert(recipeCounters.GetProperty(key).GetInt64()==0,"copied-server query/recipe failure counter remains zero: "+key);
+   var containerInventory=new InventoryGeneric(4,"nos-fixture-0",api);containerInventory[0].Itemstack=new ItemStack(stick!,2);
+   var containerFixture=new Vintagestory.GameContent.InWorldContainer(()=>containerInventory,"nos-fixture");
+   containerFixture.Init(api,()=>new BlockPos((int)spawn.X,(int)spawn.Y,(int)spawn.Z),()=>{});containerFixture.OnTick(1);
+   Assert(containerInventory[0].Itemstack!.StackSize==2,"native nonperishable container tick leaves real inventory unchanged");
+   // Exercise the native transition loop with a real perishable item if resolved.
+   var food=world.GetItem(new AssetLocation("game:vegetable-cabbage"));
+   Assert(food!=null,"real perishable item resolved");containerInventory[0].Itemstack=new ItemStack(food!,1);containerFixture.OnTick(1);
+   var collisionEntity=new Vintagestory.API.Common.EntityAgent{World=world,CollisionBox=new Cuboidf(-.2f,0,-.2f,.2f,.8f,.2f)};
+   var collisionPosition=new Vintagestory.API.Common.Entities.EntityPos(spawn.X,spawn.Y,spawn.Z);var collidedPosition=new Vec3d();
+   new CollisionTester().ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
+   Assert(collidedPosition.X==collisionPosition.X&&collidedPosition.Y==collisionPosition.Y&&collidedPosition.Z==collisionPosition.Z,"zero-motion native collision still runs and preserves position on copied terrain");
+   var traversalCounters=Control("get").GetProperty("counters");
+   foreach(var key in new[]{"collisionTraversalCalls","containerTransitionScans","containerTickTraversals"})Assert(traversalCounters.GetProperty(key).GetInt64()>0,"real terrain/container loop executes: "+key);
+   foreach(var key in new[]{"collisionTraversalFailures","containerScanFailures","containerTickFailures"})Assert(traversalCounters.GetProperty(key).GetInt64()==0,"traversal failure counter remains zero: "+key);
    astar=new AStar(api);var queue=new PathfindingAsync();
    const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
    typeof(PathfindingAsync).GetField("api",flags)!.SetValue(queue,api);

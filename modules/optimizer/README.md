@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.14.0 preview
+# Newfie's Server Optimizer 0.15.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -147,3 +147,7 @@ The Suite groups callback/spawn and block/chunk controls separately and adds loc
 Four new switches default off: `NearbyEntityListReuse`, `CuboidEntityListReuse`, `ShapelessStackMerge` and `ShapelessWildcardMatch`. Enable them individually in Suite → Optimizations → Entity queries and shapeless recipes. Query traversal stays native and each result keeps its own array; cleared scratch lists retain at most 4,096 slots per target/thread. Shapeless helpers eliminate temporary iterators/delegates while preserving stack attributes/clones and collectible crafting hooks. No inventories, recipes or results are cached.
 
 Failures preserve the original exception without replaying a partially completed operation, disable the affected gate and appear in the module status/counters. Reapply settings to retry after resolving the cause. Foreign target patches and unsupported official binaries retain native behavior. [Validation and remaining Synergy/Tungsten gaps](docs/performance-0.14.0.md).
+
+## Collision and container traversal (0.15.0)
+
+Three new controls default off: `CollisionTraversalReuse`, `ContainerTransitionScan` and `ContainerTickTraversal`. They replace private iterator objects with method-local structs in verified native loops; no geometry, inventory or result pool is retained. Collision resolution/flags/hooks, room checks, food transitions and sync callbacks still run. Custom inventory GetEnumerator overrides retain their native iterator and disposal. [Measured evidence and limits](docs/performance-0.15.0.md).

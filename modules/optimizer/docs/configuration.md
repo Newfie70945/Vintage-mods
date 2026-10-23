@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.14.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.15.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -217,3 +217,15 @@ Entity query scratch clears all entity references in a finalizer; recursion and 
 Recipe scratch remains owned by its caller; NOS pools no inventory, item stack or ingredient. First-match order, cloning, attributes, quantity behavior, wildcard/tag/allowed-variant checks and collectible hooks are preserved, including hooks invoked on preliminary mismatches. Virtual overrides remain virtual. No consumption, output or recipe registry is replaced.
 
 On an exception the affected gate disables immediately and the one-second compatibility monitor removes its own target patch. The exception is not swallowed and work is never replayed; a mod hook may already have had side effects. Failure counters describe observed errors, not automatic proof of an NOS bug. Fix the cause before applying settings again.
+
+## Scoped collision/container traversal (0.15.0)
+
+| EngineOptimizations setting | Default | Native consumer |
+| --- | --- | --- |
+| `CollisionTraversalReuse` | false | CollisionTester.ApplyTerrainCollision's cuboid iteration. |
+| `ContainerTransitionScan` | false | InWorldContainer.HasTransitionables' slot iteration. |
+| `ContainerTickTraversal` | false | InWorldContainer.OnTick's slot iteration. |
+
+Suite → Optimizations → Collision and container traversal exposes these switches separately. Each replaces only the consumer's iterator local/calls, retains the native try/finally and disposes its local references. There is no shared iterator pool, no inventory/transition cache and no skipped food or collision check. Inventory Count/indexer behavior remains live; custom GetEnumerator overrides fall back to their native iterator, including custom order and disposal. Fallbacks appear in counters and do not mean failure.
+
+Exact native binaries, factory/iterator state-machine ownership and the expected one-loop/finally IL shape are checked. Unexpected layouts or foreign target/factory/state-machine hooks retain native behavior. Native exceptions are preserved, never replayed, and disable the affected target until settings are reapplied. New settings default off; collision timings are mixed in component fixtures, so compare allocation rate and tick tails before leaving it enabled. No forced GC, save-format change or stationary-entity bypass is introduced.

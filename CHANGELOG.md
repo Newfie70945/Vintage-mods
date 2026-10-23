@@ -2,6 +2,9 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS Traversal1: add independent NOS 0.15.0 collision-loop, container transition-scan and container tick traversal controls and fallback/failure counters; build `ms11-nos-traversal1`. Native collision resolution, spoilage and custom inventory iteration remain. New switches default off.
+- NOS Recipes1: add independent NOS 0.14.0 nearby/cuboid query scratch and shapeless recipe helper controls, counters and compatibility status; build `ms11-nos-recipes1`.
+
 - NOS Events1: add opt-in delayed-callback snapshot, spawn-search list and chunk-read array reuse controls/counters for NOS 0.13.0. Group controls and add local module name/reason/state filters. Reduce repeated compatibility metadata allocation while preserving conflict detection; build `ms11-nos-events1`.
 
 - NOS Chunks1: add independent controls and counters for NOS 0.12.0 block-update batching, chunk-request staging/coordinates and chunk-unload scratch reuse; build `ms11-nos-chunks1`. Preserve original simulation, queue limits, delivery and save policies. New switches default off.

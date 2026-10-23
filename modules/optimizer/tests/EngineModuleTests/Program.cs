@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, NearbyEntityListReuse=true,CuboidEntityListReuse=true,ShapelessStackMerge=true,ShapelessWildcardMatch=true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { NearbyPlayerQueries = true, CollisionTraversalReuse=true,ContainerTransitionScan=true,ContainerTickTraversal=true, NearbyEntityListReuse=true,CuboidEntityListReuse=true,ShapelessStackMerge=true,ShapelessWildcardMatch=true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.CollisionTraversalReuse=off.EngineOptimizations.ContainerTransitionScan=off.EngineOptimizations.ContainerTickTraversal=off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -105,6 +105,28 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
    Assert(module.Modules().Single(x=>x.Name=="aiFilterDispatch").Status=="conflict","AI foreign ownership blocks only its module");
   foreign.UnpatchAll(foreign.Id);
+  string[] traversalNames=["collisionTraversalReuse","containerTransitionScan","containerTickTraversal"];
+  for(int i=0;i<3;i++)
+  {
+   var tickApi=Api();using(var module=new EngineOptimizations(tickApi.Api,Config(),()=>200))
+   {
+    foreign.Patch(TraversalOptimizations.Target(i),prefix:prefix);foreach(var tick in tickApi.Ticks)tick(1);
+    Assert(module.Modules().Single(x=>x.Name==traversalNames[i]).Status=="conflict","late foreign traversal target disables independently "+i);
+    Assert(module.Modules().Where(x=>x.Name!=traversalNames[i]).All(x=>x.Status=="active"),"other modules survive traversal conflict "+i);
+   }foreign.UnpatchAll(foreign.Id);
+  }
+  foreign.Patch(TraversalOptimizations.Dependencies(1).Single(m=>m.Name=="MoveNext"),prefix:prefix);
+  using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+  {
+   Assert(module.Modules().Where(x=>x.Name is "containerTransitionScan" or "containerTickTraversal").All(x=>x.Status=="conflict"),"foreign inventory iterator state machine blocks both affected consumers");
+   Assert(module.Modules().Where(x=>x.Name is not "containerTransitionScan" and not "containerTickTraversal").All(x=>x.Status=="active"),"unrelated targets survive iterator-state conflict");
+  }foreign.UnpatchAll(foreign.Id);
+  var traversalFailure=Api();using(var module=new EngineOptimizations(traversalFailure.Api,Config(),()=>200))
+  {
+   TraversalOptimizations.TickFinalizer(new InvalidOperationException("transition-hook"),true);foreach(var tick in traversalFailure.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="containerTickTraversal").Status=="failed","transition failure removes affected target");
+   Assert(module.Modules().Where(x=>x.Name!="containerTickTraversal").All(x=>x.Status=="active"),"transition failure keeps independent modules active");
+  }
   string[] queryRecipeNames=["nearbyEntityListReuse","cuboidEntityListReuse","shapelessStackMerge","shapelessWildcardMatch"];
   for(int i=0;i<4;i++)
   {

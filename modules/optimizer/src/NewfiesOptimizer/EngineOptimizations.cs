@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.14.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.15.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -68,6 +68,18 @@ public sealed class EngineOptimizations : IDisposable
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
         entries.Add(new("entityDespawnLists",options.EntityLifecycleListReuse,()=>EntityLifecycleOptimizations.DespawnTarget,()=>EntityLifecycleOptimizations.Dependencies(1),AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.DespawnPrefix)),EntityLifecycleOptimizations.ConfigureDespawns)
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
+
+        string[] traversalNames = ["collisionTraversalReuse", "containerTransitionScan", "containerTickTraversal"];
+        bool[] traversalFlags = [options.CollisionTraversalReuse, options.ContainerTransitionScan, options.ContainerTickTraversal];
+        string[] traversalPrefixes = [nameof(TraversalOptimizations.CollisionPrefix), nameof(TraversalOptimizations.ScanPrefix), nameof(TraversalOptimizations.TickPrefix)];
+        string[] traversalFinalizers = [nameof(TraversalOptimizations.CollisionFinalizer), nameof(TraversalOptimizations.ScanFinalizer), nameof(TraversalOptimizations.TickFinalizer)];
+        for (int i = 0; i < 3; i++)
+        {
+            int kind = i; TraversalOptimizations.Configure(kind, false);
+            entries.Add(new(traversalNames[i], traversalFlags[i], () => TraversalOptimizations.Target(kind), () => TraversalOptimizations.Dependencies(kind),
+                AccessTools.Method(typeof(TraversalOptimizations), traversalPrefixes[i]), value => TraversalOptimizations.Configure(kind, value))
+                { Transpiler = AccessTools.Method(typeof(TraversalOptimizations), nameof(TraversalOptimizations.Transpiler)), Finalizer = AccessTools.Method(typeof(TraversalOptimizations), traversalFinalizers[i]) });
+        }
 
         string[] queryNames = ["nearbyEntityListReuse", "cuboidEntityListReuse"];
         string[] recipeNames = ["shapelessStackMerge", "shapelessWildcardMatch"];
@@ -170,7 +182,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = RecipeKind(entry.Name) is int recipeKind ? RecipeOptimizations.ValidateContract(recipeKind, out why) : QueryKind(entry.Name) is int queryKind ? EntityQueryScratchOptimizations.ValidateContract(queryKind, out why) : WorkKind(entry.Name) is int workKind ? CallbackSpawnOptimizations.ValidateContract(workKind, out why) : ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = TraversalKind(entry.Name) is int traversalKind ? TraversalOptimizations.ValidateContract(traversalKind, out why) : RecipeKind(entry.Name) is int recipeKind ? RecipeOptimizations.ValidateContract(recipeKind, out why) : QueryKind(entry.Name) is int queryKind ? EntityQueryScratchOptimizations.ValidateContract(queryKind, out why) : WorkKind(entry.Name) is int workKind ? CallbackSpawnOptimizations.ValidateContract(workKind, out why) : ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -330,12 +342,14 @@ public sealed class EngineOptimizations : IDisposable
             finally { checking = false; patchSnapshots.Clear(); }
         }
     }
+    private static int? TraversalKind(string name) => name switch { "collisionTraversalReuse" => 0, "containerTransitionScan" => 1, "containerTickTraversal" => 2, _ => null };
     private static int? RecipeKind(string name) => name switch { "shapelessStackMerge" => 0, "shapelessWildcardMatch" => 1, _ => null };
     private static int? QueryKind(string name) => name switch { "nearbyEntityListReuse" => 0, "cuboidEntityListReuse" => 1, _ => null };
     private static int? WorkKind(string name) => name switch { "callbackSnapshotReuse" => 0, "callbackDebugSnapshotReuse" => 1, "spawnOpportunityListReuse" => 2, "spawnColumnArrayReuse" => 3, _ => null };
     private static int? ScratchKind(string name) => name switch { "blockUpdateListReuse" => 0, "chunkLoadRequestListReuse" => 1, "chunkUnloadCandidateListReuse" => 2, "chunkUnloadNotificationReuse" => 3, _ => null };
     private static long Failures(string name)
     {
+        if (TraversalKind(name) is int traversalKind) return TraversalOptimizations.Counters(traversalKind).Failures;
         if (RecipeKind(name) is int recipeKind) return RecipeOptimizations.Counters(recipeKind).Failures;
         if (QueryKind(name) is int queryKind) return EntityQueryScratchOptimizations.Counters(queryKind).Failures;
         if (WorkKind(name) is int workKind) return CallbackSpawnOptimizations.Counters(workKind).Failures;
@@ -377,7 +391,10 @@ public sealed class EngineOptimizations : IDisposable
         var spawn = CallbackSpawnOptimizations.Counters(2); var column = CallbackSpawnOptimizations.Counters(3);
         var around = EntityQueryScratchOptimizations.Counters(0); var cuboid = EntityQueryScratchOptimizations.Counters(1);
         var merge = RecipeOptimizations.Counters(0); var wildcard = RecipeOptimizations.Counters(1);
-        return new Dictionary<string,long> { ["nearbyEntityListPasses"] = around.Calls, ["cuboidEntityListPasses"] = cuboid.Calls,
+        var collision = TraversalOptimizations.Counters(0); var scan = TraversalOptimizations.Counters(1); var tick = TraversalOptimizations.Counters(2);
+        return new Dictionary<string,long> { ["collisionTraversalCalls"] = collision.Calls, ["containerTransitionScans"] = scan.Calls, ["containerTickTraversals"] = tick.Calls,
+            ["traversalIteratorsAvoided"] = collision.Calls + scan.Calls + tick.Calls,
+            ["customInventoryTraversalFallbacks"] = scan.Fallbacks + tick.Fallbacks, ["collisionTraversalFailures"] = collision.Failures, ["containerScanFailures"] = scan.Failures, ["containerTickFailures"] = tick.Failures, ["nearbyEntityListPasses"] = around.Calls, ["cuboidEntityListPasses"] = cuboid.Calls,
             ["entityQueryBuffersCreated"] = around.Created + cuboid.Created, ["entityQueryOversizedReleased"] = around.Oversized + cuboid.Oversized,
             ["entityQueryFailures"] = around.Failures + cuboid.Failures, ["shapelessMergeCalls"] = merge.Calls, ["shapelessWildcardCalls"] = wildcard.Calls,
             ["shapelessMergeFailures"] = merge.Failures, ["shapelessWildcardFailures"] = wildcard.Failures, ["callbackSnapshotPasses"] = callback.Calls, ["callbackDebugSnapshotPasses"] = callbackDebug.Calls,
