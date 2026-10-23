@@ -43,7 +43,7 @@ public static class CollisionGenerationOptimizations
     public static MethodBase[] Dependencies(int kind)
     {
         var ctor = PatchProcessor.GetOriginalInstructions(Target(kind)).Where(c=>c.opcode==OpCodes.Newobj && c.operand is ConstructorInfo ci && ci.DeclaringType?.DeclaringType==Target(kind).DeclaringType).Select(c=>(ConstructorInfo)c.operand).Single();
-        return new MethodBase[]{Target(kind),Walk,ctor}.Concat(ctor.DeclaringType!.GetMethods(BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.DeclaredOnly)).ToArray();
+        return new MethodBase[]{Target(kind),Walk,AccessTools.Method(typeof(BlockPos),nameof(BlockPos.SetAndEquals),[typeof(int),typeof(int),typeof(int)]),ctor}.Concat(ctor.DeclaringType!.GetMethods(BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.DeclaredOnly)).ToArray();
     }
     public static bool ValidateContract(int kind,out string reason)
     {
@@ -52,25 +52,33 @@ public static class CollisionGenerationOptimizations
         reason=valid?"Official collision bounds/callback and synchronous walker verified.":"Collision generation contract differs; retain stock.";return valid;
     }
     public static void Configure(int kind,bool value){Volatile.Write(ref enabled[kind],false);Interlocked.Increment(ref epochs[kind]);if(idle!=null)idle[kind]=null;Volatile.Write(ref enabled[kind],value);}
-    public static (long Calls,long Hits,long Created,long Fallbacks,long Failures) Counters(int kind)=>(Interlocked.Read(ref calls[kind]),Interlocked.Read(ref hits[kind]),Interlocked.Read(ref created[kind]),Interlocked.Read(ref fallbacks[kind]),Interlocked.Read(ref failures[kind]));
+    public static (long Calls,long Hits,long Created,long Fallbacks,long Failures) Counters(int kind)=>(Interlocked.Read(ref calls[kind])+Interlocked.Read(ref hits[kind]),Interlocked.Read(ref hits[kind]),Interlocked.Read(ref created[kind]),Interlocked.Read(ref fallbacks[kind]),Interlocked.Read(ref failures[kind]));
     public static bool CurrentThreadRetainsInputs=>idle?.Any(c=>c?.Owner!=null||c?.Accessor!=null)??false;
     public static bool NormalPrefix(CollisionTester __instance,IBlockAccessor blockAccessor,double motionX,double motionY,double motionZ,float stepHeight,float yExtra,int dimension)=>Run(0,__instance,blockAccessor,motionX,motionY,motionZ,stepHeight,yExtra);
     public static bool CachedPrefix(CollisionTester __instance,IBlockAccessor blockAccessor,double motionX,double motionY,double motionZ,float stepHeight,float yExtra,int dimension)=>Run(1,__instance,blockAccessor,motionX,motionY,motionZ,stepHeight,yExtra);
     private static bool Run(int kind,CollisionTester owner,IBlockAccessor accessor,double x,double y,double z,float step,float extra)
     {
         if(!Volatile.Read(ref enabled[kind]))return true;
-        bool native;
-        try{native=accessor!=null&&contracts.GetValue(accessor.GetType(),Inspect).Native;}
-        catch{Interlocked.Increment(ref fallbacks[kind]);return true;}
-        if(!native){Interlocked.Increment(ref fallbacks[kind]);return true;}
-        Interlocked.Increment(ref calls[kind]);Context? context=null;
+        Context? context=null;
         try
         {
+            // Native SetAndEquals is side-effect-free when all coordinates match.
+            // Do not inspect an accessor or borrow callback state for that native return.
+            // On a miss, preserve bounds until ownership is verified so fallback can
+            // still run the original method instead of observing falsely warmed bounds.
             var box=owner.entityBox;
-            bool min=owner.minPos.SetAndEquals((int)(box.X1+Math.Min(0,x)),(int)(box.Y1+Math.Min(0,y)-extra),(int)(box.Z1+Math.Min(0,z)));
+            int minX=(int)(box.X1+Math.Min(0,x)),minY=(int)(box.Y1+Math.Min(0,y)-extra),minZ=(int)(box.Z1+Math.Min(0,z));
             double top=Math.Max(box.Y1+step,box.Y2);
-            bool max=owner.maxPos.SetAndEquals((int)(box.X2+Math.Max(0,x)),(int)(top+Math.Max(0,y)),(int)(box.Z2+Math.Max(0,z)));
-            if(min & max){Interlocked.Increment(ref hits[kind]);return false;}
+            int maxX=(int)(box.X2+Math.Max(0,x)),maxY=(int)(top+Math.Max(0,y)),maxZ=(int)(box.Z2+Math.Max(0,z));
+            if(owner.minPos.X==minX&&owner.minPos.Y==minY&&owner.minPos.Z==minZ&&owner.maxPos.X==maxX&&owner.maxPos.Y==maxY&&owner.maxPos.Z==maxZ)
+            {Interlocked.Increment(ref hits[kind]);return false;}
+            bool native;
+            try{native=accessor!=null&&contracts.GetValue(accessor.GetType(),Inspect).Native;}
+            catch{Interlocked.Increment(ref fallbacks[kind]);return true;}
+            if(!native){Interlocked.Increment(ref fallbacks[kind]);return true;}
+            Interlocked.Increment(ref calls[kind]);
+            owner.minPos.SetAndEquals(minX,minY,minZ);
+            owner.maxPos.SetAndEquals(maxX,maxY,maxZ);
             owner.CollisionBoxList.Clear();
             idle??=new Context?[2];context=idle[kind];idle[kind]=null;int epoch=Volatile.Read(ref epochs[kind]);
             if(context==null||context.Epoch!=epoch){context=new(){Kind=kind,Epoch=epoch};Interlocked.Increment(ref created[kind]);}
