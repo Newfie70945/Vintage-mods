@@ -1,0 +1,21 @@
+{
+  "suiteVersion": "1.2.48",
+  "suiteBuild": "ms11-optimization-ui1",
+  "optimizerVersion": "0.16.0-preview",
+  "testedSuiteRuntimeRevision": "3c34b725d5d1eaa7c67d6e277e4dfb742e8650dc",
+  "suiteBuildWarnings": 0,
+  "suiteBuildErrors": 0,
+  "browser": "passed: grouped controls, missing/reappearing integrations, incompatible installed state, draft preservation, permissions, capture lock, older NOS and mobile overflow",
+  "rootChecks": 22,
+  "sourceConsistency": "passed",
+  "copiedServerChecks": 88,
+  "copiedServerModZips": 25,
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "9ed5a3766415ee23bf1978be73454bfc8bc20041f5708165683709f9d52d5a1b",
+    "NewfiesServerOptimizer.dll": "2f0cfdb1d81ba4db86c3354f685eb4868aa692c296a98ff18cfbf2ca7960dd69"
+  },
+  "optimizerRuntimeChanged": false,
+  "saveRuntimeChanged": false,
+  "productionPerformanceMeasured": false,
+  "scope": "UI and guide pass; copied official 1.22.7 server with actual terrain and native ServerAnimator. Browser previews use synthetic status data. No autosave latency reduction or risk-free runtime claim."
+}
