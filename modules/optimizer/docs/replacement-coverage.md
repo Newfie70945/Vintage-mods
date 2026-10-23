@@ -1,4 +1,4 @@
-# NOS replacement coverage — 0.15.0 preview
+# NOS replacement coverage — 0.16.0 preview
 
 Public feature catalogs rechecked on 2026-10-23 at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
 
@@ -39,3 +39,7 @@ Tungsten's catalog includes broad GetEntitiesAround and RecipeBase LINQ areas. N
 No redundant idle-inventory/random-position patch was added: the inspected official 1.22.7 already has an IsDirty guard and reused working BlockPos objects. Published or queued objects must not be pooled just to match another mod's checklist. Deeper collision, networking, worldgen and save changes still require representative cost/queue profiles and behavior validation.
 
 0.15.0 targets allocation inside existing collision/container loops. This closes part of the broad container/physics allocation gap, not Synergy's zero-motion collision bypass. Skipping ApplyTerrainCollision wholesale would also skip native flags/hooks; NOS retains them. Local structs add no retained inventory/geometry pool. See [measurements and validation](performance-0.15.0.md).
+
+## Collision generation and animation (0.16.0)
+
+Three independent controls default off: `CollisionGenerationReuse`, `CachedCollisionGenerationReuse` and `AnimationCollisionFlagScan`. Collision callbacks reuse cleared thread-local context only with the verified synchronous official walker; custom walkers retain native allocation and ownership. Animation scans use a struct dictionary enumerator without skipping frames, poses or triggers. Collision fixtures allocate less but show mixed CPU timings, including slower warm cache hits. See [evidence and limits](performance-0.16.0.md).

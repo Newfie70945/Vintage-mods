@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.15.0 preview
+# Newfie's Server Optimizer 0.16.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -151,3 +151,7 @@ Failures preserve the original exception without replaying a partially completed
 ## Collision and container traversal (0.15.0)
 
 Three new controls default off: `CollisionTraversalReuse`, `ContainerTransitionScan` and `ContainerTickTraversal`. They replace private iterator objects with method-local structs in verified native loops; no geometry, inventory or result pool is retained. Collision resolution/flags/hooks, room checks, food transitions and sync callbacks still run. Custom inventory GetEnumerator overrides retain their native iterator and disposal. [Measured evidence and limits](docs/performance-0.15.0.md).
+
+## Collision generation and animation (0.16.0)
+
+Three independent controls default off: `CollisionGenerationReuse`, `CachedCollisionGenerationReuse` and `AnimationCollisionFlagScan`. Collision callbacks reuse cleared thread-local context only with the verified synchronous official walker; custom walkers retain native allocation and ownership. Animation scans use a struct dictionary enumerator without skipping frames, poses or triggers. Collision fixtures allocate less but show mixed CPU timings, including slower warm cache hits. See [evidence and limits](docs/performance-0.16.0.md).

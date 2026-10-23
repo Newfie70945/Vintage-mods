@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.48
 
+- NOS CollisionGen1: independent NOS 0.16.0 standard/cached collision-generation callback reuse and animation collision-flag scan controls, counters and compatibility status; build `ms11-nos-collisiongen1`. All three default off. Native geometry, animation frames and triggers remain. Collision allocation falls in component tests, with mixed CPU timings.
+
 - NOS Traversal1: add independent NOS 0.15.0 collision-loop, container transition-scan and container tick traversal controls and fallback/failure counters; build `ms11-nos-traversal1`. Native collision resolution, spoilage and custom inventory iteration remain. New switches default off.
 - NOS Recipes1: add independent NOS 0.14.0 nearby/cuboid query scratch and shapeless recipe helper controls, counters and compatibility status; build `ms11-nos-recipes1`.
 

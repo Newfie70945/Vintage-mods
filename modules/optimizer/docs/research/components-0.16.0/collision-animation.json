@@ -1,0 +1,162 @@
+{
+  "checks": 48,
+  "trials": [
+    {
+      "trial": 0,
+      "stock": {
+        "normal": {
+          "bytesPerCall": 96,
+          "nsPerCall": 120.05333333333333
+        },
+        "cached": {
+          "bytesPerCall": 96,
+          "nsPerCall": 122.50333333333333
+        },
+        "cacheHit": {
+          "bytesPerCall": 32,
+          "nsPerCall": 43.17333333333333
+        },
+        "animation": {
+          "bytesPerCall": 176.00053333333332,
+          "nsPerCall": 334.77666666666664
+        }
+      },
+      "optimized": {
+        "normal": {
+          "bytesPerCall": 0,
+          "nsPerCall": 103.38
+        },
+        "cached": {
+          "bytesPerCall": 0,
+          "nsPerCall": 97.59333333333333
+        },
+        "cacheHit": {
+          "bytesPerCall": 0,
+          "nsPerCall": 28.706666666666667
+        },
+        "animation": {
+          "bytesPerCall": 120,
+          "nsPerCall": 63.64
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "normal": {
+          "bytesPerCall": 96,
+          "nsPerCall": 169.82333333333332
+        },
+        "cached": {
+          "bytesPerCall": 96,
+          "nsPerCall": 95.89333333333333
+        },
+        "cacheHit": {
+          "bytesPerCall": 32,
+          "nsPerCall": 23.74
+        },
+        "animation": {
+          "bytesPerCall": 176,
+          "nsPerCall": 115.07
+        }
+      },
+      "optimized": {
+        "normal": {
+          "bytesPerCall": 0,
+          "nsPerCall": 114.47
+        },
+        "cached": {
+          "bytesPerCall": 0,
+          "nsPerCall": 96.10333333333334
+        },
+        "cacheHit": {
+          "bytesPerCall": 0,
+          "nsPerCall": 27.31
+        },
+        "animation": {
+          "bytesPerCall": 120,
+          "nsPerCall": 63.63666666666666
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "normal": {
+          "bytesPerCall": 96,
+          "nsPerCall": 79.67
+        },
+        "cached": {
+          "bytesPerCall": 96,
+          "nsPerCall": 123.63333333333334
+        },
+        "cacheHit": {
+          "bytesPerCall": 32,
+          "nsPerCall": 17.61
+        },
+        "animation": {
+          "bytesPerCall": 176,
+          "nsPerCall": 312.6666666666667
+        }
+      },
+      "optimized": {
+        "normal": {
+          "bytesPerCall": 0,
+          "nsPerCall": 113.39666666666666
+        },
+        "cached": {
+          "bytesPerCall": 0,
+          "nsPerCall": 100.46666666666667
+        },
+        "cacheHit": {
+          "bytesPerCall": 0,
+          "nsPerCall": 26.95
+        },
+        "animation": {
+          "bytesPerCall": 120,
+          "nsPerCall": 84.58666666666667
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "normal": {
+          "bytesPerCall": 96,
+          "nsPerCall": 81.76
+        },
+        "cached": {
+          "bytesPerCall": 96,
+          "nsPerCall": 81.27333333333333
+        },
+        "cacheHit": {
+          "bytesPerCall": 32,
+          "nsPerCall": 21
+        },
+        "animation": {
+          "bytesPerCall": 176,
+          "nsPerCall": 135.7
+        }
+      },
+      "optimized": {
+        "normal": {
+          "bytesPerCall": 0,
+          "nsPerCall": 91.12333333333333
+        },
+        "cached": {
+          "bytesPerCall": 0,
+          "nsPerCall": 102.19333333333333
+        },
+        "cacheHit": {
+          "bytesPerCall": 0,
+          "nsPerCall": 28.323333333333334
+        },
+        "animation": {
+          "bytesPerCall": 120,
+          "nsPerCall": 68.70333333333333
+        }
+      }
+    }
+  ],
+  "scope": "Official generation/animation methods with synthetic shapes and intercepted native synchronous walker; no production claim."
+}

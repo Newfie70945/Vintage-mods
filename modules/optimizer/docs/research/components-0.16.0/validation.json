@@ -1,0 +1,19 @@
+{
+  "testedRuntimeRevision": "3b299c6c28a8153d17aa2252f696d7bd957c85bb",
+  "suiteVersion": "1.2.48",
+  "suiteBuild": "ms11-nos-collisiongen1",
+  "optimizerVersion": "0.16.0-preview",
+  "optimizerSuites": 25,
+  "componentChecks": 48,
+  "engineLifecycleChecks": 102,
+  "rootChecks": 22,
+  "browser": "passed: controls, mobile, drafts, permissions, older NOS",
+  "copiedServerChecks": 88,
+  "copiedServerModZips": 25,
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "f97e3af627863f51927f9b3754b1a424cbf7830d8fb99936dbcf849d023274ab",
+    "NewfiesServerOptimizer.dll": "2f0cfdb1d81ba4db86c3354f685eb4868aa692c296a98ff18cfbf2ca7960dd69"
+  },
+  "productionPerformanceMeasured": false,
+  "scope": "Disposable official server with actual terrain, ServerAnimator and Suite controls; no authenticated clients. Component timings do not establish production TPS or GC pause reductions."
+}

@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.15.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.16.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -229,3 +229,7 @@ On an exception the affected gate disables immediately and the one-second compat
 Suite → Optimizations → Collision and container traversal exposes these switches separately. Each replaces only the consumer's iterator local/calls, retains the native try/finally and disposes its local references. There is no shared iterator pool, no inventory/transition cache and no skipped food or collision check. Inventory Count/indexer behavior remains live; custom GetEnumerator overrides fall back to their native iterator, including custom order and disposal. Fallbacks appear in counters and do not mean failure.
 
 Exact native binaries, factory/iterator state-machine ownership and the expected one-loop/finally IL shape are checked. Unexpected layouts or foreign target/factory/state-machine hooks retain native behavior. Native exceptions are preserved, never replayed, and disable the affected target until settings are reapplied. New settings default off; collision timings are mixed in component fixtures, so compare allocation rate and tick tails before leaving it enabled. No forced GC, save-format change or stationary-entity bypass is introduced.
+
+## Collision generation and animation (0.16.0)
+
+Three independent controls default off: `CollisionGenerationReuse`, `CachedCollisionGenerationReuse` and `AnimationCollisionFlagScan`. Collision callbacks reuse cleared thread-local context only with the verified synchronous official walker; custom walkers retain native allocation and ownership. Animation scans use a struct dictionary enumerator without skipping frames, poses or triggers. Collision fixtures allocate less but show mixed CPU timings, including slower warm cache hits. See [evidence and limits](performance-0.16.0.md).
