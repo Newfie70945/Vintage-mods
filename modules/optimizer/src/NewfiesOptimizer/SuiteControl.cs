@@ -11,7 +11,7 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.16.0", success = true,
+        available = true, protocol = 1, version = "0.16.1", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
         capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },

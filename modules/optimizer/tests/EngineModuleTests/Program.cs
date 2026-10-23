@@ -115,6 +115,15 @@ static class Checks
     Assert(module.Modules().Where(x=>x.Name!=affected).All(x=>x.Status=="active"),"unrelated generation/animation modules survive");
    }foreign.UnpatchAll(foreign.Id);
   }
+  var boundsApi=Api();var boundsHelper=AccessTools.Method(typeof(Vintagestory.API.MathTools.BlockPos),nameof(Vintagestory.API.MathTools.BlockPos.SetAndEquals),[typeof(int),typeof(int),typeof(int)]);
+  using(var module=new EngineOptimizations(boundsApi.Api,Config(),()=>200))
+  {
+   foreign.Patch(boundsHelper,prefix:prefix);foreach(var tick in boundsApi.Ticks)tick(1);
+   Assert(module.Modules().Where(x=>x.Name is "collisionGenerationReuse" or "cachedCollisionGenerationReuse").All(x=>x.Status=="conflict"),"late foreign bounds helper blocks cache-hit shortcuts");
+   Assert(module.Modules().Where(x=>x.Name is not ("collisionGenerationReuse" or "cachedCollisionGenerationReuse")).All(x=>x.Status=="active"),"bounds helper conflict leaves other modules active");
+   Assert(Harmony.GetPatchInfo(boundsHelper)!.Owners.Contains(foreign.Id),"foreign bounds hook is preserved");
+  }
+  foreign.UnpatchAll(foreign.Id);
   foreign.Patch(CollisionGenerationOptimizations.Walk,prefix:prefix);
   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))Assert(module.Modules().Where(x=>x.Name is "collisionGenerationReuse" or "cachedCollisionGenerationReuse").All(x=>x.Status=="conflict"),"foreign walker blocks borrowed callback ownership");
   foreign.UnpatchAll(foreign.Id);

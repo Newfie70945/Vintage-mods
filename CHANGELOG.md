@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.48
 
+- Optimization UI2 / NOS 0.16.1: search and expand settings groups, review pending edits, reject invalid numeric drafts before applying, add execution cards and clearer state badges. Improve native collision bounds-cache hits while preserving miss/fallback behavior; new bounds-helper conflict guard. No preset, save policy or scheduling changes.
+
 - Optimization UI1: compact absent Tungsten/Synergy/NOS integrations, expandable readable NOS settings groups, configured-state counts and an autosave/public-server testing guide. Preserve drafts, permissions and actual compatibility states. No save timing, durability or runtime optimization policy changes.
 
 - NOS CollisionGen1: independent NOS 0.16.0 standard/cached collision-generation callback reuse and animation collision-flag scan controls, counters and compatibility status; build `ms11-nos-collisiongen1`. All three default off. Native geometry, animation frames and triggers remain. Collision allocation falls in component tests, with mixed CPU timings.

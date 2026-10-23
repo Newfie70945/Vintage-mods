@@ -430,6 +430,12 @@ canvas.healthChart{
 #optimizations .nosGroup input[type=text]{min-width:0}
 #optimizations .nosGroup p{line-height:1.65}
 #optimizations .nosActions{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel,#111b24)}
+#optimizations .nosMetricGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:12px}
+#optimizations .nosMetric{padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(117,175,224,.045);min-width:0}
+#optimizations .nosModuleState{display:inline-block;padding:3px 8px;border:1px solid var(--line);border-radius:6px}
+#optimizations .nosModuleState.active{color:var(--good)}
+#optimizations .nosModuleState.attention{color:var(--warn,#e9b765)}
+#optimizations .nosMetric b{display:block;font-size:18px;color:var(--text);margin:5px 0}
 #optimizations #nosState{margin-top:12px}
 #optimizations #nosPanel .optStatusIcon{width:42px;height:42px;font-size:18px;border-width:2px}
 #optimizations .nosSupport{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}
@@ -2590,7 +2596,9 @@ __NSS_RETENTION_HTML__
     <div class="cardHeader"><div><h3>Newfies Server Optimizer</h3><div class="small">Official-server API patches, controlled here by the Suite. Each module checks engine compatibility and conflicting patches.</div></div><div class="spacer"></div><button id="nosRefresh">Refresh NOS</button></div>
     <div class="nosSupport"><span class="pill">Server-only runtime patches</span><a href="https://github.com/Newfie70945/Vintage-mods/tree/main/modules/optimizer" target="_blank" rel="noopener">Source &amp; setup guide</a></div><div id="nosState" class="compactNote" role="status">Checking for the optimizer…</div>
     <div id="nosControls" hidden>
-      <div class="nosGroups">
+      <div id="nosMetrics" class="nosMetricGrid" aria-label="Optimizer execution summary"></div><p class="small">Counts are cumulative for this server process. Work executed is not a TPS, latency or bytes-saved measurement. See Actual state and full failure/fallback counters below.</p>
+      <div class="toolbar" style="margin-top:12px"><label>Find a setting <input id="nosSettingSearch" type="search" placeholder="Animation, saves, AI…" aria-controls="nosSettingsGroups"></label><button id="nosExpandSettings" type="button">Expand groups</button><button id="nosCollapseSettings" type="button">Collapse groups</button><span id="nosSettingMatches" class="small" role="status" aria-live="polite"></span></div>
+      <div id="nosSettingsGroups" class="nosGroups">
         <details class="nosGroup" open><summary>Safety and activation<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosEnabled"> Enable optimizer</label><br>
           <label><input type="checkbox" id="nosSafeMode"> Safe mode (stock engine methods)</label>
@@ -2665,6 +2673,7 @@ __NSS_RETENTION_HTML__
           <label class="small">Activate at <input id="nosMinimumNearbyClients" type="number" min="0" max="4096" value="128" style="width:80px"> connected clients</label>
           <p class="small">Off by default: allocation savings can trade against CPU time. Uses population hysteresis. Test against your actual player workload.</p></div></details>
       </div>
+      <details id="nosPending" hidden style="margin:12px 0"><summary id="nosPendingCount">Pending changes</summary><div class="tableWrap dataScroll"><table><thead><tr><th>Setting</th><th>Current server value</th><th>Your draft</th></tr></thead><tbody id="nosPendingRows"></tbody></table></div><p class="small">Review these changes before Save and Apply. Opening groups, searching or reviewing this list does not change server settings. Actual activation still depends on compatibility checks.</p></details>
       <div class="quickActions nosActions"><button id="nosApply" class="primary">Save and Apply NOS Settings</button><button id="nosDiscard">Discard Edits</button><button id="nosProfileStart">Start NOS Capture</button><button id="nosProfileStop">Stop NOS Capture</button><button id="nosExport">Export NOS Report</button><button id="nosClearCapture">Release Stopped Capture</button></div>
       <p class="small">Entity search reuse reduces temporary objects without skipping AI ticks or changing activation ranges. Search inputs are cleared after every call. Release Stopped Capture releases retained NOS report references; exported files remain. These controls do not force GC or change process-wide GC settings.</p>
       <details class="compactNote" style="margin-top:10px"><summary>Replacing Synergy or Tungsten: current coverage</summary><p>NOS currently reduces allocations in player/entity searches, AI delegate dispatch, repulsion callbacks, physics/despawn packets, asset compression, generation requests and completed save snapshots. Each active module is listed below.</p><p>Optional collision/container traversal reuse, entity query scratch and shapeless recipe helper optimizations are also available. Optional modules now add distant AI/wander/stationary repulsion scheduling, waypoint candidate-node reuse and missing-attribute resync suppression. They do not provide full entity sleep, TCP flush batching, client delta packets, general cooking patches or terrain-noise optimizations. Removing another optimizer can remove those benefits. No full replacement or equal performance claim is made. NOS does not change GC mode or force collections.</p></details>
@@ -10178,11 +10187,37 @@ function renderNos(result){
   $('nosExport').disabled=nosBusy||locked;
   $('nosClearCapture').disabled=nosBusy||locked||!!state.profiling||!state.captureAvailable||!(state.capabilities||[]).includes('capture-clear');
   $('nosEditState').textContent=locked?'Read-only or Suite Safe Diagnostics Mode: module changes and capture starts are locked.':state.profiling?'Stop the NOS capture to edit settings.':nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
+  renderNosDraft();
+  if(!locked&&!state.profiling)$('nosEditState').textContent=nosDirty?'Unsaved edits. Refresh preserves your draft until Apply or Discard.':'Settings reflect optimizer.json. Module state below is the current runtime state.';
   updateNosGroupCounts();
+  filterNosSettings();
   renderNosModules();
   const c=state.counters||{};
+  const sum=keys=>keys.reduce((total,key)=>total+Math.max(0,Number(c[key])||0),0);
+  const metrics=[['Entity searches',sum(['nearestEntitySearchCalls','interactableEntitySearchCalls','nearbyEntityListPasses','cuboidEntityListPasses']),'Native search passes using NOS'],['Collision cache hits',sum(['collisionGenerationCacheHits']),'Native bounds-cache returns'],['Animation scans',sum(['animationCollisionScans']),'Frames and triggers still run'],['Save snapshot releases',sum(['saveSnapshotCompletions']),'Completed snapshots released; not save duration']];
+  $('nosMetrics').innerHTML=metrics.map(([label,value,note])=>`<div class="nosMetric"><span class="small">${esc(label)}</span><b>${Number(value).toLocaleString()}</b><span class="small">${esc(note)}</span></div>`).join('');
   $('nosCounters').textContent=`Collision generation ${Number(c.collisionGenerationCalls||0).toLocaleString()} standard / ${Number(c.cachedCollisionGenerationCalls||0).toLocaleString()} cached · ${Number(c.collisionGenerationCacheHits||0).toLocaleString()} bounds-cache hits · ${Number(c.collisionGenerationContextsCreated||0).toLocaleString()} callback contexts created · ${Number(c.collisionGenerationFallbacks||0).toLocaleString()} custom-walker fallbacks / ${Number(c.collisionGenerationFailures||0)} failures · Animation flag scans ${Number(c.animationCollisionScans||0).toLocaleString()} / ${Number(c.animationScanFallbacks||0)} fallbacks / ${Number(c.animationScanFailures||0)} failures · Collision / container traversals ${Number(c.collisionTraversalCalls||0).toLocaleString()} / ${Number(c.containerTransitionScans||0).toLocaleString()} scans / ${Number(c.containerTickTraversals||0).toLocaleString()} ticks · ${Number(c.traversalIteratorsAvoided||0).toLocaleString()} iterator allocations avoided · ${Number(c.customInventoryTraversalFallbacks||0).toLocaleString()} custom inventory fallbacks · ${Number(c.collisionTraversalFailures||0)+Number(c.containerScanFailures||0)+Number(c.containerTickFailures||0)} traversal failures · Entity query passes ${Number(c.nearbyEntityListPasses||0).toLocaleString()} nearby / ${Number(c.cuboidEntityListPasses||0).toLocaleString()} cuboid · ${Number(c.entityQueryBuffersCreated||0).toLocaleString()} query buffers created / ${Number(c.entityQueryOversizedReleased||0).toLocaleString()} oversized released · ${Number(c.entityQueryFailures||0)} query failures · Shapeless merge / wildcard checks ${Number(c.shapelessMergeCalls||0).toLocaleString()} / ${Number(c.shapelessWildcardCalls||0).toLocaleString()} · ${Number(c.shapelessMergeFailures||0)+Number(c.shapelessWildcardFailures||0)} recipe failures · Callback snapshots ${Number(c.callbackSnapshotPasses||0).toLocaleString()} / ${Number(c.callbackDebugSnapshotPasses||0).toLocaleString()} debug · spawn searches ${Number(c.spawnOpportunityPasses||0).toLocaleString()} · spawn arrays reused ${Number(c.spawnColumnArraysReused||0).toLocaleString()} · callback/spawn failures ${Number(c.callbackSpawnFailures||0).toLocaleString()} · Block updates ${Number(c.blockUpdatePasses||0).toLocaleString()} · chunk request passes ${Number(c.chunkRequestPasses||0).toLocaleString()} · unload candidates / notifications ${Number(c.chunkUnloadCandidatePasses||0).toLocaleString()} / ${Number(c.chunkUnloadNotificationPasses||0).toLocaleString()} · unload coordinates reused ${Number(c.chunkUnloadCoordinatesReused||0).toLocaleString()} · scratch failures ${Number(c.blockChunkFailures||0).toLocaleString()} · Executed: ${Number(c.despawnPacketCalls||0).toLocaleString()} despawn packets / ${Number(c.despawnPacketEntities||0).toLocaleString()} despawn entries · ${Number(c.physicsPacketPasses||0).toLocaleString()} physics packet passes · ${Number(c.physicsPacketBuffersCreated||0).toLocaleString()} packet buffer sets created / ${Number(c.physicsPacketOversizedBuffersReleased||0).toLocaleString()} oversized sets released · ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Empty-exclusion fast paths: ${Number(c.broadcastRawCalls||0)} raw / ${Number(c.broadcastPacketCalls||0)} packet / ${Number(c.broadcastUdpCalls||0)} UDP passes · ${Number(c.entityCleanupPasses||0)} entity cleanup passes / ${Number(c.entityCleanupBuffersCreated||0)} temporary buffer sets created / ${Number(c.entityCleanupOversizedReleased||0)} oversized sets released. Distant scheduling: ${Number(c.aiChecksDeferred||0).toLocaleString()} AI / ${Number(c.wanderChecksDeferred||0).toLocaleString()} wander / ${Number(c.repulsionChecksDeferred||0).toLocaleString()} repulsion checks deferred · ${Number(c.entityPolicyFailures||0)} policy failures · ${Number(c.waypointNodesReused||0).toLocaleString()} waypoint nodes reused / ${Number(c.waypointNodesCreated||0).toLocaleString()} pooled nodes created / ${Number(c.waypointPoolOverflow||0).toLocaleString()} unpooled candidates · ${Number(c.attributeNoOpSkips||0).toLocaleString()} missing-attribute resyncs skipped. Counters are cumulative for this server process; hits are not a TPS measurement.`;
 }
+function readNosDraft(){
+  const settings={};Object.entries(nosFields).forEach(([key,id])=>{if(!Object.prototype.hasOwnProperty.call(nosSnapshot?.settings||{},key))return;const el=$('nos'+id);settings[key]=el.type==='checkbox'?el.checked:el.hasAttribute('data-nos-patterns')?el.value.split(',').map(x=>x.trim()).filter(Boolean):(el.value.trim()===''?NaN:Number(el.value));});return settings;
+}
+function renderNosDraft(){
+  const draft=readNosDraft(),edits=Object.entries(draft).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(nosSnapshot.settings[key]));
+  nosDirty=edits.length>0;$('nosPending').hidden=!nosDirty;$('nosPendingCount').textContent=`${edits.length} pending change${edits.length===1?'':'s'} — review before Apply`;
+  const show=value=>Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'On':'Off'):Number.isFinite(value)?String(value):'Invalid value';
+  $('nosPendingRows').innerHTML=edits.map(([key,value])=>`<tr><td>${esc($('nos'+nosFields[key]).closest('label')?.textContent.trim()||key)}<div class="small">${esc(key)}</div></td><td>${esc(show(nosSnapshot.settings[key]))}</td><td>${esc(show(value))}</td></tr>`).join('');
+  $('nosDiscard').disabled=nosBusy||!nosDirty;
+}
+const nosGroupOpenState=new WeakMap();let nosSearching=false;
+function filterNosSettings(){
+  const query=$('nosSettingSearch').value.trim().toLowerCase(),groups=[...document.querySelectorAll('#nosControls .nosGroup')];
+  if(query&&!nosSearching)groups.forEach(group=>nosGroupOpenState.set(group,group.open));
+  let matches=0;groups.forEach(group=>{const match=!query||group.textContent.toLowerCase().includes(query);group.hidden=!match;if(match)matches++;if(query&&match)group.open=true;else if(!query&&nosSearching)group.open=nosGroupOpenState.get(group)??false;});
+  nosSearching=!!query;$('nosSettingMatches').textContent=query?`${matches} matching group${matches===1?'':'s'}`:'';
+}
+$('nosSettingSearch').oninput=filterNosSettings;
+function setNosGroupsOpen(open){document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{if(!group.hidden){group.open=open;if(nosSearching)nosGroupOpenState.set(group,open);}});}
+$('nosExpandSettings').onclick=()=>setNosGroupsOpen(true);$('nosCollapseSettings').onclick=()=>setNosGroupsOpen(false);
 function updateNosGroupCounts(){
   document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{const fields=[...group.querySelectorAll('input[type=checkbox]')];group.querySelector('.nosGroupCount').textContent=`${fields.filter(el=>el.checked&&!el.title).length} / ${fields.filter(el=>!el.title).length} configured on`;});
 }
@@ -10191,7 +10226,7 @@ function renderNosModules(){
   const modules=nosSnapshot?.modules||[],query=$('nosModuleSearch').value.trim().toLowerCase(),filter=$('nosModuleFilter').value;
   const rows=modules.filter(m=>{const status=String(m.status||'').toLowerCase(),stateMatches=filter==='all'||(filter==='active'&&status==='active')||(filter==='inactive'&&['disabled','standby'].includes(status))||(filter==='attention'&&!['active','disabled','standby'].includes(status));return stateMatches&&(!query||`${m.name||''} ${status} ${m.reason||''}`.toLowerCase().includes(query));});
   $('nosModuleCount').textContent=`${rows.length} of ${modules.length} modules`;
-  $('nosModules').innerHTML=rows.length?rows.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.status)}</td><td>${esc(m.reason)}</td></tr>`).join(''):'<tr><td colspan="3" class="small">No modules match these filters.</td></tr>';
+  $('nosModules').innerHTML=rows.length?rows.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td><span class="nosModuleState ${m.status==='active'?'active':['disabled','standby'].includes(m.status)?'inactive':'attention'}">${esc(m.status)}</span></td><td>${esc(m.reason)}</td></tr>`).join(''):'<tr><td colspan="3" class="small">No modules match these filters.</td></tr>';
 }
 $('nosModuleSearch').oninput=renderNosModules;$('nosModuleFilter').onchange=renderNosModules;
 async function loadNos(){try{renderNos(await api('/api/optimizations/newfies'));}catch(e){$('nosState').textContent=e.message;}}
@@ -10199,7 +10234,12 @@ async function nosAction(operation){
   if(nosBusy||currentSessionRole==='ReadOnly')return;
   if(safeDiagnosticsModeGlobal&&operation!=='profile-stop'){toast('Suite Safe Diagnostics Mode blocks this change.','error');return;}
   let settings={};
-  if(operation==='set')Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(Object.prototype.hasOwnProperty.call(nosSnapshot?.settings||{},key))settings[key]=el.type==='checkbox'?el.checked:el.hasAttribute('data-nos-patterns')?el.value.split(',').map(x=>x.trim()).filter(Boolean):Number(el.value);});
+  if(operation==='set'){
+    if(nosSnapshot?.profiling){toast('Stop the NOS capture before changing settings.','error');return;}
+    const invalid=Object.entries(nosFields).map(([key,id])=>({key,el:$('nos'+id)})).find(({key,el})=>Object.prototype.hasOwnProperty.call(nosSnapshot?.settings||{},key)&&!el.disabled&&(!el.checkValidity()||(el.type==='number'&&el.value.trim()==='')));
+    if(invalid){const group=invalid.el.closest('.nosGroup');if(group){$('nosSettingSearch').value='';filterNosSettings();group.open=true;}invalid.el.focus();invalid.el.reportValidity();toast('Check the highlighted setting before applying.','error');return;}
+    settings=readNosDraft();
+  }
   nosBusy=true;
   if(nosSnapshot)renderNos({available:true,optimizer:nosSnapshot});
   try{
@@ -10209,7 +10249,7 @@ async function nosAction(operation){
   }catch(e){toast(e.message,'error');}
   finally{nosBusy=false;await loadNos();}
 }
-Object.values(nosFields).forEach(id=>$('nos'+id).oninput=()=>{nosDirty=true;$('nosEditState').textContent='Unsaved edits — use Save and Apply to activate.'; $('nosDiscard').disabled=false;});
+Object.values(nosFields).forEach(id=>$('nos'+id).oninput=()=>{renderNosDraft();updateNosGroupCounts();$('nosEditState').textContent=nosDirty?'Unsaved edits — review pending changes, then Save and Apply.':'Draft matches current server settings.';});
 $('nosRefresh').onclick=loadNos;
 $('nosApply').onclick=()=>nosAction('set');
 $('nosDiscard').onclick=()=>{nosDirty=false;loadNos();};

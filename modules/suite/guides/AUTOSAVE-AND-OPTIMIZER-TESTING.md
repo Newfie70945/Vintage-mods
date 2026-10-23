@@ -1,6 +1,6 @@
 # Autosave lag and public-server optimizer testing
 
-Suite 1.2.48 / Optimization UI1, NOS 0.16.0-preview, inspected official Vintage Story 1.22.7.
+Suite 1.2.48 / Optimization UI2, NOS 0.16.1-preview, inspected official Vintage Story 1.22.7.
 
 ## What the existing save optimization does
 

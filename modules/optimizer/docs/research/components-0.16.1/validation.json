@@ -1,0 +1,22 @@
+{
+  "suiteVersion": "1.2.48",
+  "suiteBuild": "ms11-optimization-ui2",
+  "optimizerVersion": "0.16.1-preview",
+  "testedRuntimeRevision": "abccee3b2424793f3f066db36749fb1d7a3881dc",
+  "optimizerCompiledRevision": "79ba6cb8a821bf92deafd7c3fceb3a5964b18985",
+  "optimizerSuites": 25,
+  "componentChecks": 54,
+  "engineLifecycleChecks": 105,
+  "rootChecks": 22,
+  "browser": "passed: settings search/open-state restoration, local expand/collapse, pending edits/revert, numeric validation, metrics, missing/reappearing integrations, drafts, permissions, capture lock, older NOS and mobile overflow",
+  "buildWarnings": 0,
+  "buildErrors": 0,
+  "copiedServerChecks": 90,
+  "copiedServerModZips": 25,
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "dcdea402c1b8cbfbd3978c911f66382281ea81f919f616e4e27b318f91c5a522",
+    "NewfiesServerOptimizer.dll": "42f48e45d46a619abaaf156d7126cf621a06f48422ce1bdce717efb3b5e8c1d6"
+  },
+  "productionPerformanceMeasured": false,
+  "scope": "Actual official engine methods with synthetic component fixtures and disposable copied official 1.22.7 server. No authenticated clients or production TPS/autosave claims. Tiered compilation disabled for retained component runs and the copied-server correctness run."
+}
