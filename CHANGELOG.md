@@ -2,6 +2,11 @@
 
 ## Server Essentials Suite 1.2.47
 
+- AnimalGeneration1: per-population-rule generation protection: inherit global settings, ignore generation protection, or protect generation N and above. Overrides also replace generic farm/bred protection for that rule; pet/name/exclusion/player-distance safeguards remain.
+- Add generation settings to the web rule editor and `/animallimit generationrule`, with persisted settings and rule summaries. Existing rules inherit previous behavior.
+- Add Create/Edit rule actions to each population-scan entity type, search/filter, height-limited scrolling totals and collapsible scrolling regional detail. Scan actions populate the editor for review before saving.
+- Suite stays 1.2.47, build `ms11-animal-generation1`; optimizer stays 0.9.0 preview.
+
 - OptimizerNetwork2: add NOS 0.9.0 despawn packet allocation switch, actual status and packet/entry counters. Preserve Physics1 and Entity1 controls; build `ms11-optimizer-network2`.
 
 - OptimizerPhysics1: add independent NOS 0.8.0 physics packet list reuse controls and pass/buffer counters. Build `ms11-optimizer-physics1`; preserves all Entity1 features.

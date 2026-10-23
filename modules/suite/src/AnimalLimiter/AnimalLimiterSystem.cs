@@ -42,6 +42,8 @@ public sealed class AnimalLimiterRuleInfo
     public int Limit { get; init; }
     public int RadiusChunks { get; init; }
     public bool UsesDefaultRadius { get; init; }
+    public string GenerationMode { get; init; } = "Inherit";
+    public int MinimumProtectedGeneration { get; init; } = 1;
     public int RegisteredMatches { get; init; }
 }
 
@@ -550,6 +552,7 @@ public sealed class AnimalLimiterSystem : ModSystem
         config.Enabled ??= false;
         config.Rules ??= new Dictionary<string, int>();
         config.RuleRadiusChunks ??= new Dictionary<string, int>();
+        config.RuleGenerationPolicies ??= new Dictionary<string, AnimalGenerationPolicy>();
         config.ExcludeRules ??= new List<string>();
         config.OwnerAttributeKeys ??= new List<string>();
         config.TamedAttributeKeys ??= new List<string>();
@@ -574,6 +577,15 @@ public sealed class AnimalLimiterSystem : ModSystem
             .Where(kv => !string.IsNullOrWhiteSpace(kv.Key))
             .Select(kv => new KeyValuePair<string, int>(NormalizePattern(kv.Key), Math.Clamp(kv.Value, 0, 32)))
             .Where(kv => config.Rules.ContainsKey(kv.Key))
+            .GroupBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
+
+        config.RuleGenerationPolicies = config.RuleGenerationPolicies
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && kv.Value != null)
+            .Select(kv => new KeyValuePair<string, AnimalGenerationPolicy>(NormalizePattern(kv.Key), new AnimalGenerationPolicy {
+                Mode = AnimalGenerationPolicy.Canonical(kv.Value.Mode) ?? "Inherit",
+                MinimumProtectedGeneration = Math.Clamp(kv.Value.MinimumProtectedGeneration, 1, 1000000) }))
+            .Where(kv => config.Rules.ContainsKey(kv.Key) && kv.Value.Mode != "Inherit")
             .GroupBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
 
@@ -659,6 +671,7 @@ public sealed class AnimalLimiterSystem : ModSystem
                 case "include": CmdInclude(player, groupId, args); break;
                 case "protect": CmdProtect(player, groupId, args); break;
                 case "generation": CmdGeneration(player, groupId, args); break;
+                case "generationrule": CmdGenerationRule(player, groupId, args); break;
                 case "list": CmdList(player, groupId); break;
                 case "find": CmdFind(player, groupId, args); break;
                 case "matches": CmdMatches(player, groupId, args); break;
@@ -693,6 +706,7 @@ public sealed class AnimalLimiterSystem : ModSystem
             "/animallimit exclude <pattern> | include <pattern>\n" +
             "/animallimit protect pets|farm|named on|off\n" +
             "/animallimit generation off|wildonly|bredonly|protectbred\n" +
+            "/animallimit generationrule <stored-rule> inherit|off|protectfrom [generation]\n" +
             "/animallimit find <text> | matches <pattern>\n" +
             "/animallimit top [pattern]\n" +
             "/animallimit preview [pattern] [limit]\n" +
@@ -791,14 +805,21 @@ public sealed class AnimalLimiterSystem : ModSystem
         return $"Rule set from target: {code} | limit {limit} | radius {radiusChunks} chunks.";
     }
 
-    public string SetRuleFromGui(string? pattern, int limit, int radiusChunks)
+    public string SetRuleFromGui(string? pattern, int limit, int radiusChunks) => SetRuleFromGui(pattern, limit, radiusChunks, null, 1);
+
+    public string SetRuleFromGui(string? pattern, int limit, int radiusChunks, string? generationMode, int minimumProtectedGeneration)
     {
         pattern = NormalizePattern(pattern);
         if (string.IsNullOrWhiteSpace(pattern)) return "Enter an entity code or wildcard pattern.";
         limit = Math.Max(0, limit);
         radiusChunks = Math.Clamp(radiusChunks, 0, 32);
+        string? mode = generationMode == null ? null : AnimalGenerationPolicy.Canonical(generationMode);
+        if (generationMode != null && mode == null) return "Invalid generation policy. Use Inherit, Off or ProtectFromGeneration.";
+        if (mode == "ProtectFromGeneration" && (minimumProtectedGeneration < 1 || minimumProtectedGeneration > 1000000)) return "Invalid protected generation; use 1-1000000.";
         config.Rules[pattern] = limit;
         config.RuleRadiusChunks[pattern] = radiusChunks;
+        if (mode == "Inherit") config.RuleGenerationPolicies.Remove(pattern);
+        else if (mode != null) config.RuleGenerationPolicies[pattern] = new AnimalGenerationPolicy { Mode = mode, MinimumProtectedGeneration = minimumProtectedGeneration };
         SaveConfig();
         InvalidateBucketsAndReconcile();
         return $"Rule set: {pattern} | limit {limit} | radius {radiusChunks} chunks. Matches {CountRegisteredMatches(pattern)} registered entity types.";
@@ -810,6 +831,7 @@ public sealed class AnimalLimiterSystem : ModSystem
         if (string.IsNullOrWhiteSpace(pattern)) return "Enter the exact stored rule to remove.";
         bool removed = config.Rules.Remove(pattern);
         config.RuleRadiusChunks.Remove(pattern);
+        config.RuleGenerationPolicies.Remove(pattern);
         if (removed)
         {
             SaveConfig();
@@ -865,6 +887,8 @@ public sealed class AnimalLimiterSystem : ModSystem
                     Limit = x.Value,
                     RadiusChunks = radius,
                     UsesDefaultRadius = !explicitRadius,
+                    GenerationMode = config.RuleGenerationPolicies.TryGetValue(x.Key, out var gp) ? gp.Mode : "Inherit",
+                    MinimumProtectedGeneration = gp?.MinimumProtectedGeneration ?? 1,
                     RegisteredMatches = CountRegisteredMatches(x.Key)
                 };
             })
@@ -1595,7 +1619,7 @@ public sealed class AnimalLimiterSystem : ModSystem
         {
             bool explicitRadius = config.RuleRadiusChunks.TryGetValue(kv.Key, out var storedRadius);
             int radius = explicitRadius ? Math.Clamp(storedRadius, 0, 32) : Math.Clamp(config.RadiusChunks, 0, 32);
-            lines.Add($"{kv.Key}    |    {kv.Value}    |    {radius} chunks{(explicitRadius ? "" : " (default)")}");
+            lines.Add($"{kv.Key}    |    {kv.Value}    |    {radius} chunks{(explicitRadius ? "" : " (default)")}    |    {(config.RuleGenerationPolicies.TryGetValue(kv.Key, out var gp) ? gp.Describe() : "Inherit global protection")}");
         }
 
         if (config.Rules.Count == 0) lines.Add("(none)");
@@ -1687,6 +1711,7 @@ public sealed class AnimalLimiterSystem : ModSystem
         if (string.IsNullOrWhiteSpace(pattern)) { Msg(p, g, "Usage: /animallimit remove <pattern>"); return; }
         bool ok = config.Rules.Remove(pattern);
         config.RuleRadiusChunks.Remove(pattern);
+        config.RuleGenerationPolicies.Remove(pattern);
         SaveConfig();
         if (ok) InvalidateBucketsAndReconcile();
         Msg(p, g, ok ? $"Removed rule {pattern}." : $"No exact stored rule named {pattern}.");
@@ -1720,6 +1745,18 @@ public sealed class AnimalLimiterSystem : ModSystem
         SaveConfig(); Msg(p, g, $"Protection {what} = {on}.");
     }
 
+    private void CmdGenerationRule(IServerPlayer p, int g, CmdArgs args)
+    {
+        string pattern = NormalizePattern(args.PopWord());
+        string? mode = AnimalGenerationPolicy.Canonical(args.PopWord());
+        int threshold = 1;
+        if (mode == null || (mode == "ProtectFromGeneration" && (!int.TryParse(args.PopWord(), out threshold) || threshold < 1 || threshold > 1000000)))
+        { Msg(p, g, "Usage: /animallimit generationrule <stored-rule> inherit|off|protectfrom [generation]"); return; }
+        if (!config.Rules.TryGetValue(pattern, out int limit)) { Msg(p, g, "Create that population rule first with /animallimit set or the webpanel."); return; }
+        Msg(p, g, SetRuleFromGui(pattern, limit, ResolveRadiusForRule(pattern), mode, threshold));
+        Msg(p, g, "Generation policy: " + (config.RuleGenerationPolicies.TryGetValue(pattern, out var policy) ? policy.Describe() : "Inherit global protection") + ". Owned pets, names, exclusions and nearby-player protection remain.");
+    }
+
     private void CmdGeneration(IServerPlayer p, int g, CmdArgs a)
     {
         string v = (a.PopWord() ?? "").ToLowerInvariant();
@@ -1734,7 +1771,7 @@ public sealed class AnimalLimiterSystem : ModSystem
     {
         var sb = new StringBuilder();
         sb.AppendLine("Rules (most specific matching rule wins):");
-        foreach (var kv in config.Rules.OrderByDescending(x => Specificity(x.Key)).ThenBy(x => x.Key)) sb.AppendLine($"  {kv.Key} = {kv.Value}");
+        foreach (var kv in config.Rules.OrderByDescending(x => Specificity(x.Key)).ThenBy(x => x.Key)) sb.AppendLine($"  {kv.Key} = {kv.Value} | {(config.RuleGenerationPolicies.TryGetValue(kv.Key, out var gp) ? gp.Describe() : "Inherit global protection")}");
         sb.AppendLine("Excludes: " + (config.ExcludeRules.Count == 0 ? "(none)" : string.Join(", ", config.ExcludeRules)));
         Msg(p, g, sb.ToString().TrimEnd());
     }
@@ -2010,14 +2047,41 @@ public sealed class AnimalLimiterSystem : ModSystem
 
         if (config.ProtectPets && LooksTamedOrOwned(entity)) { why = "pet/owned"; return true; }
 
+        AnimalGenerationPolicy? generationPolicy = null;
+        if (config.RuleGenerationPolicies.Count > 0)
+        {
+            ResolveLimitForCode(code, null, out string matchedRule);
+            config.RuleGenerationPolicies.TryGetValue(matchedRule, out generationPolicy);
+        }
+        bool inherit = generationPolicy == null || generationPolicy.Mode == "Inherit";
         string gf = (config.GenerationFilter ?? "Off").ToLowerInvariant();
-        bool needBred = config.ProtectFarmAnimals || gf == "wildonly" || gf == "protectbred" || gf == "bredonly";
+        bool needBred = inherit && (config.ProtectFarmAnimals || gf == "wildonly" || gf == "protectbred" || gf == "bredonly");
         bool bred = needBred && LooksBred(entity);
 
-        if (config.ProtectFarmAnimals && bred) { why = "farm/bred"; return true; }
+        if (inherit && config.ProtectFarmAnimals && bred) { why = "farm/bred"; return true; }
         if (config.ProtectNamedEntities && LooksNamed(entity)) { why = "named"; return true; }
+        if (!inherit)
+        {
+            if (generationPolicy!.Mode == "ProtectFromGeneration" && GenerationAtLeast(entity, generationPolicy.MinimumProtectedGeneration))
+            { why = "rule generation threshold protected"; return true; }
+            return false; // Off bypasses both generic generation and farm/bred protection.
+        }
         if ((gf == "wildonly" || gf == "protectbred") && bred) { why = "generation protected"; return true; }
         if (gf == "bredonly" && !bred) { why = "generation wild skipped"; return true; }
+        return false;
+    }
+
+    private bool GenerationAtLeast(Entity entity, int threshold)
+    {
+        foreach (string key in config.GenerationAttributeKeys)
+        {
+            double number = entity.WatchedAttributes.GetDecimal(key, 0);
+            if (double.IsFinite(number) && number >= threshold) return true;
+            if (threshold == 1 && entity.WatchedAttributes[key] is BoolAttribute or StringAttribute && entity.WatchedAttributes.GetAsBool(key, false)) return true;
+        }
+        if (threshold == 1)
+            foreach (string key in config.TamedAttributeKeys)
+                if (key.Contains("domestic", StringComparison.OrdinalIgnoreCase) && entity.WatchedAttributes.GetAsBool(key, false)) return true;
         return false;
     }
 

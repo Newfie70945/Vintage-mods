@@ -4,7 +4,7 @@ namespace BlockLogger.AnimalLimiter;
 
 public sealed class AnimalLimiterConfig
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     // Nullable only for backward-compatible loading of configs created before this setting existed.
     // Fresh installs are initialized disabled by AnimalLimiterSystem.LoadConfig().
@@ -29,6 +29,9 @@ public sealed class AnimalLimiterConfig
     // Optional per-rule radius override in chunks. Existing rules without an entry here
     // inherit RadiusChunks, preserving compatibility with older configs.
     public Dictionary<string, int> RuleRadiusChunks { get; set; } = new();
+
+    // Overrides apply only to the winning population rule, not broader matches.
+    public Dictionary<string, AnimalGenerationPolicy> RuleGenerationPolicies { get; set; } = new();
 
     // Never limit matching codes, even when LimitAllEntities is enabled.
     public List<string> ExcludeRules { get; set; } = new()
@@ -77,4 +80,15 @@ public sealed class AnimalLimiterConfig
 
     public int RemovalHistoryDays { get; set; } = 7;
     public int MaxRemovalHistory { get; set; } = 5000;
+}
+
+public sealed class AnimalGenerationPolicy
+{
+    public string Mode { get; set; } = "Inherit";
+    public int MinimumProtectedGeneration { get; set; } = 1;
+    public static string? Canonical(string? mode) => (mode ?? "").Trim().ToLowerInvariant() switch
+    {
+        "inherit" => "Inherit", "off" => "Off", "protectfromgeneration" or "protectfrom" => "ProtectFromGeneration", _ => null
+    };
+    public string Describe() => Mode == "Off" ? "Ignore generation protection" : Mode == "ProtectFromGeneration" ? $"Protect generation {MinimumProtectedGeneration}+" : "Inherit global protection";
 }
