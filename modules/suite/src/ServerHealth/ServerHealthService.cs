@@ -414,6 +414,29 @@ public sealed class ServerHealthService : IDisposable
         ReleaseManualProfileWorkingSetUnsafe();
     }
 
+    // Graph reads do not build diagnostic summaries, run Smart Diagnosis or touch game API state.
+    public ServerTimelineSnapshot GetTimelineSnapshot(int maxGraphPoints = 600, int windowSeconds = 1800)
+    {
+        lock (sync)
+        {
+            long cutoff = DateTimeOffset.UtcNow.AddSeconds(-Math.Clamp(windowSeconds, 60, 3600)).ToUnixTimeMilliseconds();
+            var source = samples.Where(x => x.UnixMilliseconds >= cutoff).ToList();
+            var gaps = new List<ServerTimelineGap>();
+            for (int i = 1; i < source.Count; i++)
+                if (source[i].UnixMilliseconds - source[i-1].UnixMilliseconds > SampleIntervalMs * 2.5)
+                    gaps.Add(new ServerTimelineGap { StartUnixMilliseconds = source[i-1].UnixMilliseconds, EndUnixMilliseconds = source[i].UnixMilliseconds });
+            return new ServerTimelineSnapshot
+            {
+                Enabled = enabled, RawSampleCount = source.Count, SamplingGaps = gaps,
+                WorldSaves = worldSaveWindows.Where(x => x.StartUnixMilliseconds >= cutoff).Select(x => new ServerTimelineSave {
+                    UnixMilliseconds = x.StartUnixMilliseconds, ObservedMainThreadWindowMs = x.ObservedMilliseconds }).ToList(),
+                Samples = Downsample(source, Math.Clamp(maxGraphPoints, 60, 1800)).Select(x => new ServerTimelineSample {
+                    UnixMilliseconds = x.UnixMilliseconds, MainThreadDelayMs = x.MainThreadDelayMs,
+                    CpuPercent = x.CpuPercent, Players = x.Players, LoadedEntities = x.LoadedEntities, ManagedHeapMb = x.ManagedHeapMb }).ToList()
+            };
+        }
+    }
+
     public ServerHealthSnapshot GetSnapshot(
         int maxGraphPoints = 360,
         int windowSeconds = 1800)
@@ -3128,4 +3151,33 @@ public sealed class ServerTickContributors
     public int SampledTicks { get; set; }
     public int RemainingSeconds { get; set; }
     public List<ServerProfilerHotspot> Rows { get; set; } = new();
+}
+
+public sealed class ServerTimelineSnapshot
+{
+    public bool Enabled { get; init; }
+    public int RawSampleCount { get; init; }
+    public List<ServerTimelineSample> Samples { get; init; } = new();
+    public List<ServerTimelineGap> SamplingGaps { get; init; } = new();
+    public List<ServerTimelineSave> WorldSaves { get; init; } = new();
+}
+public sealed class ServerTimelineGap
+{
+    public long StartUnixMilliseconds { get; init; }
+    public long EndUnixMilliseconds { get; init; }
+}
+public sealed class ServerTimelineSample
+{
+    public long UnixMilliseconds { get; init; }
+    public double MainThreadDelayMs { get; init; }
+    public double CpuPercent { get; init; }
+    public int Players { get; init; }
+    public int LoadedEntities { get; init; }
+    public double ManagedHeapMb { get; init; }
+}
+
+public sealed class ServerTimelineSave
+{
+    public long UnixMilliseconds { get; init; }
+    public double ObservedMainThreadWindowMs { get; init; }
 }

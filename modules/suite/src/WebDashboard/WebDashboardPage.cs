@@ -2301,6 +2301,7 @@ __NSS_INTERFACE_STYLE__
 
   <div class="card perfSection">
     <div class="cardHeader"><h3>Suite Timing Hotspots</h3><div class="spacer"></div><span class="small">Rolling in-memory timings; recorded Suite wall time, not whole-server CPU attribution</span></div>
+    <p class="small">Execution intervals are listed first. Web elapsed and queue-wait counters include time waiting for the server; they are not CPU cost or proof of a cause. Callback wall times can include GC and scheduling pauses—inspect the spike evidence for overlapping measured work.</p>
     <div class="tableWrap"><table><thead><tr><th>Subsystem</th><th>Calls / min</th><th>Time / min</th><th>Last</th><th>Average</th><th>P95</th><th>Max</th><th>Recent samples</th></tr></thead><tbody id="perfSuiteTimings"><tr><td colspan="8" class="muted">No suite timing samples yet.</td></tr></tbody></table></div>
   </div>
 
@@ -2311,7 +2312,8 @@ __NSS_INTERFACE_STYLE__
       <button id="perfTimelineRange" title="Change the shared performance analysis window">Range: 30 min</button>
       <span id="perfTimelineState" class="small">30-minute rolling view</span>
     </div>
-    <p class="small">Aligned scheduler delay, CPU, loaded entities, and managed heap. Vertical markers show archived lag incidents, mod-environment changes, and manual entity scans.</p>
+    <p class="small">Aligned scheduler delay, CPU, players, loaded entities and managed heap. World-save markers include autosaves and manual saves; their overlap alone is not proof of a lag cause.</p>
+    <div id="perfTimelineLegend" class="small" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:10px"><span><b style="color:#75afe0">━</b> Metric trace</span><span><b style="color:#ffad66">┃</b> Lag</span><span><b style="color:#ff7474">┃</b> Critical lag</span><span><b style="color:#49d6c5">┆</b> World save / autosave</span><span><b style="color:#c69cff">┆</b> Mod change</span><span><b style="color:#8fda72">┆</b> Entity scan</span><span><b style="color:#acb9c6">▧</b> Missing observations</span></div>
     <div class="timelineWrap"><canvas id="perfTimelineCanvas" class="performanceTimeline"></canvas></div>
   </div>
 
@@ -6499,7 +6501,7 @@ async function apiCore(path, options={}) {
     let data={};
     try{data=await r.json();}catch{}
     if(r.status===401){showLogin();throw new Error('Authentication required');}
-    if(!r.ok)throw new Error(data.error||data.message||`HTTP ${r.status}`);
+    if(!r.ok){const error=new Error(data.error||data.message||`HTTP ${r.status}`);error.status=r.status;throw error;}
     return data;
   } catch(e) {
     if(e?.name==='AbortError')throw e;
@@ -6600,6 +6602,7 @@ function setSection(section,load=true) {
   const previousSection=currentSection;
   if(previousSection&&previousSection!==section)rememberSectionScroll(previousSection);
   currentSection=section;
+  if(section==='performance')requestPerformanceTimelineRender();
   localStorage.setItem('nsu.section',section);
   if(mobileNavViewport())setMobileNavOpen(false);
   document.querySelectorAll('#nav button').forEach(x=>{const active=x.dataset.section===section;x.classList.toggle('active',active);if(x.dataset.section)x.setAttribute('aria-current',active?'page':'false');});
@@ -8629,6 +8632,9 @@ $('performanceSnapshotCreate').onclick=createPerformanceSnapshot;
 $('configSnapshotCreate').onclick=createConfigSnapshot;
 $('auditRefresh').onclick=()=>loadOperationsAudit(true);
 
+if('ResizeObserver' in window){const timelineObserver=new ResizeObserver(requestPerformanceTimelineRender);timelineObserver.observe($('perfTimelineCanvas').parentElement);}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentSection==='performance')requestPerformanceTimelineRender();});
+
 function performanceWindowSeconds(){
   const el=$('perfWindow');
   const value=Number(el?.value||1800);
@@ -8640,19 +8646,22 @@ function performanceWindowLabel(){
   return seconds===3600?'1-hour':`${seconds/60}-minute`;
 }
 
+let performancePageRevision=0;
 async function loadPerformanceCenter(full=true){
   if(!full){
     await loadPerformanceOverview(true);
     return;
   }
+  const revision=++performancePageRevision,requestedWindow=performanceWindowSeconds();
 
   try{
     // One cached page snapshot replaces the old burst of seven main-thread-backed GETs.
     // Block activity stays separate because it is a database query with its own worker.
-    const page=await api(`/api/performance/page-snapshot?window=${performanceWindowSeconds()}`);
+    const page=await api(`/api/performance/page-snapshot?window=${requestedWindow}`);
+    if(revision!==performancePageRevision||requestedWindow!==performanceWindowSeconds())return;
     await Promise.allSettled([
-      loadPerformanceOverview(true,page.overview||null),
-      loadPerformanceTimeline(false,page.timeline||null),
+      loadPerformanceOverview(true,page.overview||null,requestedWindow),
+      loadPerformanceTimeline(false,page.timeline||null,requestedWindow),
       loadPerformanceEntityScan(false,page.entityScan||null),
       loadPerformanceEntityGrowth(false,page.entityGrowth||null),
       loadPerformanceEnvironment(false,page.environment||null),
@@ -8660,6 +8669,8 @@ async function loadPerformanceCenter(full=true){
       loadPerformanceConflicts(false,page.conflicts||null)
     ]);
   }catch(e){
+    if(revision!==performancePageRevision||requestedWindow!==performanceWindowSeconds())return;
+    if(![404,405].includes(e.status)){$('perfNotice').textContent='Performance snapshot could not refresh: '+e.message;return;}
     // Compatibility fallback for a mixed deployment during upgrades. Keep requests
     // sequential so the browser still does not stampede the web worker queue.
     await loadPerformanceOverview(true);
@@ -8668,16 +8679,17 @@ async function loadPerformanceCenter(full=true){
     await loadPerformanceEntityGrowth(false);
     await loadPerformanceEnvironment(false);
     await loadPerformanceProviders(false);
-    await loadPerformanceConflicts(false);
+    await loadPerformanceConflicts(false,performanceConflictsData||{requiresManualInspection:true,message:'Run Inspect Harmony Patches for a manual capture.'});
   }
 
   // Historical BlockLogger activity is open/refresh driven, never part of Live Updates.
-  await loadPerformanceBlockActivity(false);
+  if(revision===performancePageRevision&&requestedWindow===performanceWindowSeconds())await loadPerformanceBlockActivity(false);
 }
 
-async function loadPerformanceOverview(showError=true,preloaded=null){
+async function loadPerformanceOverview(showError=true,preloaded=null,windowSeconds=performanceWindowSeconds()){
   try{
-    const d=preloaded||await api(`/api/performance/overview?window=${performanceWindowSeconds()}`);
+    const d=preloaded||await api(`/api/performance/overview?window=${windowSeconds}`);
+    if(windowSeconds!==performanceWindowSeconds())return;
     performanceOverviewData=d;
     renderPerformanceOverview(d);
   }catch(e){
@@ -8685,6 +8697,7 @@ async function loadPerformanceOverview(showError=true,preloaded=null){
   }
 }
 
+function suiteTimingIsWait(name){return /Web Dashboard (request|worker queue wait|main-thread wait)|Web (request elapsed|worker queue wait|game-thread queue wait)/i.test(name||'');}
 function renderPerformanceOverview(d){
   if(!d||!d.available){
     $('perfNotice').innerHTML=`<div class="warning">${esc((d||{}).message||'Performance diagnostics unavailable.')}</div>`;
@@ -8720,10 +8733,10 @@ function renderPerformanceOverview(d){
 
   const suiteTimings=d.suiteTimings||[];
   $('perfSuiteTimings').innerHTML=suiteTimings.length
-    ? suiteTimings.slice().sort((a,b)=>Number(b.timePerMinuteMilliseconds||0)-Number(a.timePerMinuteMilliseconds||0)||Number(b.p95Milliseconds||0)-Number(a.p95Milliseconds||0)).slice(0,20).map(x=>`<tr>
-        <td><b>${esc(x.name||'')}</b></td>
+    ? suiteTimings.slice().sort((a,b)=>Number(suiteTimingIsWait(a.name))-Number(suiteTimingIsWait(b.name))||Number(b.timePerMinuteMilliseconds||0)-Number(a.timePerMinuteMilliseconds||0)||Number(b.p95Milliseconds||0)-Number(a.p95Milliseconds||0)).slice(0,20).map(x=>`<tr>
+        <td><b>${esc(x.name||'')}</b>${suiteTimingIsWait(x.name)?'<div class="small">Elapsed / waiting — not tick execution</div>':''}</td>
         <td>${Number(x.callsPerMinute||0).toLocaleString()}</td>
-        <td class="${Number(x.timePerMinuteMilliseconds||0)>=1000?'bad':Number(x.timePerMinuteMilliseconds||0)>=250?'warn':''}"><b>${Number(x.timePerMinuteMilliseconds||0).toFixed(1)} ms</b></td>
+        <td class="${suiteTimingIsWait(x.name)?'muted':Number(x.timePerMinuteMilliseconds||0)>=1000?'bad':Number(x.timePerMinuteMilliseconds||0)>=250?'warn':''}"><b>${Number(x.timePerMinuteMilliseconds||0).toFixed(1)} ms</b></td>
         <td>${Number(x.lastMilliseconds||0).toFixed(2)} ms</td>
         <td>${Number(x.averageMilliseconds||0).toFixed(2)} ms</td>
         <td>${Number(x.p95Milliseconds||0).toFixed(2)} ms</td>
@@ -9140,24 +9153,37 @@ async function openPerformanceIncident(ts){
   }
 }
 
-async function loadPerformanceTimeline(showLoading=true,preloaded=null){
+let performanceTimelineLoads=new Map(),performanceTimelineRevision=0;
+async function loadPerformanceTimeline(showLoading=true,preloaded=null,windowSeconds=performanceWindowSeconds()){
+  const revision=++performanceTimelineRevision;
   if(showLoading)$('perfTimelineState').textContent=`Loading ${performanceWindowLabel()} timeline…`;
   try{
-    performanceTimelineData=preloaded||await api(`/api/performance/timeline?window=${performanceWindowSeconds()}`);
-    renderPerformanceTimeline();
-  }catch(e){
-    $('perfTimelineState').textContent=e.message;
-  }
+    let pending=preloaded?Promise.resolve(preloaded):performanceTimelineLoads.get(windowSeconds);
+    if(!pending){pending=api(`/api/performance/timeline?window=${windowSeconds}`);performanceTimelineLoads.set(windowSeconds,pending);pending.finally(()=>{if(performanceTimelineLoads.get(windowSeconds)===pending)performanceTimelineLoads.delete(windowSeconds);}).catch(()=>{});}
+    const data=await pending;
+    if(revision!==performanceTimelineRevision||windowSeconds!==performanceWindowSeconds())return;
+    performanceTimelineData=data;renderPerformanceTimeline();
+  }catch(e){if(revision===performanceTimelineRevision)$('perfTimelineState').textContent=e.message;}
 }
 
-let performanceIncidentHitAreas=[];
-// Health samples normally arrive each second. A long stalled interval has no
-// observations; do not draw a diagonal and imply a measured gradual decline.
-function performanceTimelineSegments(samples,key,xFor,yFor){
+let performanceIncidentHitAreas=[],performanceSaveHitAreas=[],performanceTimelineFrame=0;
+function requestPerformanceTimelineRender(){
+  if(performanceTimelineFrame)return;
+  performanceTimelineFrame=requestAnimationFrame(()=>{performanceTimelineFrame=0;renderPerformanceTimeline();});
+}
+// New payloads supply raw sampling gaps before downsampling. Legacy payloads use
+// a conservative cadence estimate; a display stride must not look like a stall.
+function performanceTimelineSegments(samples,key,xFor,yFor,gaps=null){
   const result=[];let segment=[],previous=null;
+  const times=samples.map(s=>Number(s.unixMilliseconds));
+  const deltas=times.slice(1).map((t,i)=>t-times[i]).filter(d=>d>0).sort((a,b)=>a-b);
+  const threshold=Math.max(2500,2.5*(deltas[Math.floor((deltas.length-1)*.25)]||1000));
   for(const row of samples){
-    const time=Number(row.unixMilliseconds),value=Number(row[key]||0),point=[xFor(time),yFor(value)];
-    if(previous&&time-previous.time>2500){if(segment.length)result.push(segment);segment=[];}
+    const time=Number(row.unixMilliseconds),value=row[key];
+    if(!Number.isFinite(time)||value==null||!Number.isFinite(Number(value))){if(segment.length)result.push(segment);segment=[];previous=null;continue;}
+    const point=[xFor(time),yFor(Number(value))];
+    const gap=previous&&(Array.isArray(gaps)?gaps.some(g=>Number(g.startUnixMilliseconds)<time&&Number(g.endUnixMilliseconds)>previous.time):time-previous.time>threshold);
+    if(gap){if(segment.length)result.push(segment);segment=[];}
     else if(previous&&key==='players')segment.push([point[0],previous.y]);
     segment.push(point);previous={time,y:point[1]};
   }
@@ -9166,13 +9192,14 @@ function performanceTimelineSegments(samples,key,xFor,yFor){
 function renderPerformanceTimeline(){
   const canvas=$('perfTimelineCanvas');
   if(!canvas||!performanceTimelineData)return;
-  performanceIncidentHitAreas=[];
+  performanceIncidentHitAreas=[];performanceSaveHitAreas=[];
 
   const data=performanceTimelineData;
-  const samples=data.samples||[];
+  const samples=[...new Map((data.samples||[]).filter(s=>Number.isFinite(Number(s.unixMilliseconds))).map(s=>[Number(s.unixMilliseconds),s])).values()].sort((a,b)=>Number(a.unixMilliseconds)-Number(b.unixMilliseconds));
   const rect=canvas.getBoundingClientRect();
+  if(rect.width<1||rect.height<1)return; // ResizeObserver redraws after the panel becomes visible.
   const dpr=Math.min(2,window.devicePixelRatio||1);
-  const w=Math.max(300,rect.width),h=Math.max(200,rect.height);
+  const w=rect.width,h=rect.height;
   canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);
   const ctx=canvas.getContext('2d');
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -9181,7 +9208,7 @@ function renderPerformanceTimeline(){
 
   if(!samples.length){
     ctx.fillStyle='#8492a0';ctx.fillText('No performance samples yet.',18,24);
-    return;
+    $('perfTimelineState').textContent='No performance samples in this window. Enable diagnostics to collect data.';return;
   }
 
   const pad={l:75,r:12,t:12,b:26};
@@ -9198,8 +9225,8 @@ function renderPerformanceTimeline(){
   const bh=(h-pad.t-pad.b)/bands.length;
 
   bands.forEach((band,bi)=>{
-    const vals=samples.map(s=>Number(s[band.key]||0));
-    let min=Math.min(...vals),max=Math.max(...vals);
+    const vals=samples.filter(s=>s[band.key]!=null).map(s=>Number(s[band.key])).filter(Number.isFinite);
+    let min=vals.length?Math.min(...vals):0,max=vals.length?Math.max(...vals):1;
     if(band.key==='mainThreadDelayMs'||band.key==='cpuPercent')min=0;
     if(max<=min)max=min+1;
     const top=pad.t+bi*bh,bottom=top+bh-6;
@@ -9207,12 +9234,21 @@ function renderPerformanceTimeline(){
     ctx.strokeStyle='rgba(84,105,121,.22)';ctx.beginPath();ctx.moveTo(pad.l,bottom);ctx.lineTo(w-pad.r,bottom);ctx.stroke();
     ctx.fillStyle='#91a0ae';ctx.fillText(band.label,8,top+14);
     ctx.fillStyle='#708392';ctx.fillText(`${Math.round(max).toLocaleString()}${band.suffix}`,8,top+28);
-    const segments=performanceTimelineSegments(samples,band.key,xFor,v=>bottom-((v-min)/(max-min))*(bh-20));
-    for(const points of segments){chartAreaFill(ctx,points,bottom,'rgba(93,155,208,.055)');chartLine(ctx,points,'#75afe0',1.8);}
+    const segments=performanceTimelineSegments(samples,band.key,xFor,v=>bottom-((v-min)/(max-min))*(bh-20),data.samplingGaps);
+    for(const points of segments){chartAreaFill(ctx,points,bottom,'rgba(93,155,208,.055)');if(points.length===1){ctx.fillStyle='#75afe0';ctx.beginPath();ctx.arc(points[0][0],points[0][1],2,0,Math.PI*2);ctx.fill();}else chartLine(ctx,points,'#75afe0',1.8);}
   });
 
+  (data.samplingGaps||[]).forEach(g=>{
+    const a=Math.max(pad.l,xFor(g.startUnixMilliseconds)),b=Math.min(w-pad.r,xFor(g.endUnixMilliseconds));
+    if(b>a){ctx.fillStyle='rgba(172,185,198,.10)';ctx.fillRect(a,pad.t,b-a,h-pad.t-pad.b);}
+  });
+  (data.worldSaves||[]).forEach(save=>{
+    const time=Number(save.unixMilliseconds),px=xFor(time);if(time<first||time>last)return;
+    ctx.strokeStyle='#49d6c5';ctx.lineWidth=1.5;ctx.setLineDash([7,3]);ctx.beginPath();ctx.moveTo(px,pad.t);ctx.lineTo(px,h-pad.b);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=1;
+    performanceSaveHitAreas.push({x:px,windowMs:Number(save.observedMainThreadWindowMs||0)});
+  });
   (data.incidents||[]).forEach(x=>{
-    const px=xFor(x.startUnixMilliseconds);
+    const px=xFor(x.startUnixMilliseconds);if(px<pad.l||px>w-pad.r)return;
     performanceIncidentHitAreas.push({x:px,start:Number(x.startUnixMilliseconds||0),severity:String(x.severity||'Watch')});
     ctx.strokeStyle=String(x.severity||'').toLowerCase()==='critical'?'#ff7474':'#ffad66';
     ctx.globalAlpha=.85;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,pad.t);ctx.lineTo(px,h-pad.b);ctx.stroke();ctx.lineWidth=1;ctx.globalAlpha=1;
@@ -9234,7 +9270,7 @@ function renderPerformanceTimeline(){
     ctx.fillText(label,Math.max(pad.l,Math.min(w-80,px-25)),h-7);
   });
 
-  $('perfTimelineState').textContent=`${performanceWindowLabel()} · ${samples.length} sample points · gaps=no sample for >2.5s · orange/red=lag (click for incident drawer) · purple=mod change · green=entity scan`;
+  $('perfTimelineState').textContent=`${performanceWindowLabel()} · ${samples.length} displayed / ${Number(data.rawSampleCount||samples.length)} recorded points · ${(data.samplingGaps||[]).length} recorded sampling gaps. Shaded gaps mean no observation was recorded; traces are not interpolated through stalls.`;
 }
 
 if($('perfTimelineCanvas')){
@@ -9242,7 +9278,8 @@ if($('perfTimelineCanvas')){
     const canvas=$('perfTimelineCanvas'),rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left;
     const hit=performanceIncidentHitAreas.slice().sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0];
     canvas.classList.toggle('lagIncidentMarkerHover',!!hit&&Math.abs(hit.x-x)<=9);
-    canvas.title=hit&&Math.abs(hit.x-x)<=9?`${hit.severity} lag spike — click for full incident breakdown`:'';
+    const save=performanceSaveHitAreas.find(s=>Math.abs(s.x-x)<=7);
+    canvas.title=hit&&Math.abs(hit.x-x)<=9?`${hit.severity} lag spike — click for full incident breakdown`:save?`World save (automatic or manual): ${save.windowMs.toFixed(1)}ms observed callback window; overlap does not prove cause`:'';
   });
   $('perfTimelineCanvas').addEventListener('mouseleave',()=>{$('perfTimelineCanvas').classList.remove('lagIncidentMarkerHover');$('perfTimelineCanvas').title='';});
   $('perfTimelineCanvas').addEventListener('click',e=>{
@@ -9529,12 +9566,13 @@ async function loadPerformanceProviders(showLoading=true,preloaded=null){
 }
 
 async function loadPerformanceConflicts(showLoading=true,preloaded=null){
+  if(preloaded?.requiresManualInspection&&performanceConflictsData&&!performanceConflictsData.requiresManualInspection)preloaded=performanceConflictsData;
   if(showLoading)$('perfConflictSummary').textContent='Inspecting…';
   try{
     performanceConflictsData=preloaded||await api('/api/performance/conflicts');
     const d=performanceConflictsData||{};
-    $('perfConflictSummary').textContent=d.harmonyDetected
-      ? `${Number(d.patchedMethodCount||0).toLocaleString()} patched methods · ${Number(d.conflictCount||0).toLocaleString()} overlap(s)`
+    $('perfConflictSummary').textContent=d.requiresManualInspection?'Manual inspection available':d.harmonyDetected
+      ? `Last inspection · ${Number(d.patchedMethodCount||0).toLocaleString()} patched methods · ${Number(d.conflictCount||0).toLocaleString()} overlap(s)`
       : 'Harmony not detected';
 
     const rows=d.conflicts||[];

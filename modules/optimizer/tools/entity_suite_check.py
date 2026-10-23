@@ -46,14 +46,18 @@ def reader():
 threading.Thread(target=reader,daemon=True).start()
 client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));csrf=None
 checks=[]
+request_measurements=[]
 def request(path,payload=None):
     body=json.dumps(payload).encode() if payload is not None else None
     headers={'Content-Type':'application/json'}
     if csrf:headers['X-CSRF-Token']=csrf
     req=urllib.request.Request('http://127.0.0.1:42670'+path,data=body,headers=headers)
+    request_started=time.perf_counter()
     try:response=client.open(req,timeout=20)
     except urllib.error.HTTPError as error:response=error
-    return response.code,json.loads(response.read())
+    raw=response.read()
+    request_measurements.append(dict(path=path,status=response.code,elapsedMs=round((time.perf_counter()-request_started)*1000,3),responseBytes=len(raw)))
+    return response.code,json.loads(raw)
 def control(operation,settings=None):
     time.sleep(1.1) # Respect the existing administrative route cooldown.
     return request('/api/optimizations/newfies',dict(operation=operation,settings=settings or {}))
@@ -67,6 +71,31 @@ def wait(marker,start=0,timeout=240):
 try:
     wait('Dedicated Server now running on Port')
     status,auth=request('/api/login',dict(username='fixtureowner',password=password));assert status==200;csrf=auth['csrfToken']
+    if os.environ.get('NSS_TEST_TIMELINE'):
+        status,enabled=request('/api/profiler/enabled',dict(enabled=True));assert status==200
+        time.sleep(2.2)
+        status,page=request('/api/performance/page-snapshot?window=1800');assert status==200
+        assert page['conflicts'].get('requiresManualInspection') is True
+        checks.append('opening performance page does not enumerate Harmony patches')
+        status,timeline=request('/api/performance/timeline?window=61');assert status==200
+        assert 'samplingGaps' in timeline and 'rawSampleCount' in timeline and 'worldSaves' in timeline
+        assert all(len(row)==6 for row in timeline['samples'])
+        checks.append('timeline exposes compact metric points, raw gaps and save observations')
+        process.stdin.write('/autosavenow\n');process.stdin.flush()
+        deadline=time.monotonic()+30
+        while True:
+            time.sleep(1.1)
+            status,saved=request('/api/performance/timeline?window=60');assert status==200
+            if saved['worldSaves']:break
+            if time.monotonic()>deadline:raise AssertionError('World save observation did not reach timeline')
+        checks.append('actual copied-world save emits a timeline marker')
+        request('/api/performance/page-snapshot?window=1800');time.sleep(1.1)
+        status,warm=request('/api/performance/page-snapshot?window=1800');assert status==200
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=4) as workers:
+            responses=list(workers.map(lambda _:request('/api/performance/page-snapshot?window=1800'),range(12)))
+        assert all(code==200 and payload['generatedUnixMilliseconds']==warm['generatedUnixMilliseconds'] for code,payload in responses)
+        checks.append('twelve warm page requests share one snapshot generation')
     if os.environ.get('NSS_TEST_ANIMAL_RULES'):
         # Use an unregistered fixture namespace; never target live/modpack creatures.
         fixture_pattern='nosvalidation:nonexistent-animal-*'
@@ -123,7 +152,7 @@ try:
     checks.extend(terrain['checks'])
     state=request('/api/optimizations/newfies')[1]['optimizer']
     assert not state['settings']['pathMainThreadBudget'];checks.append('probe restores original optimizer settings')
-    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),scope='Copied official server, real terrain and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
+    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),requestMeasurements=request_measurements,scope='Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
     print('PASS '+str(len(checks))+' official server/Suite/real-terrain integration checks; '+str(root/'result.json'),flush=True)
 finally:
     if process.poll() is None:

@@ -1,6 +1,6 @@
 # Animal Limiter: per-rule generation protection
 
-Suite 1.2.47 AnimalGeneration1 adds generation overrides to existing population rules. This changes which animals qualify for the population cap; it does not stop mating or change breeding generation values.
+Suite 1.2.48 adds generation overrides to existing population rules. This changes which animals qualify for the population cap; it does not stop mating or change breeding generation values.
 
 For wild-breeding raccoon dogs:
 
@@ -36,6 +36,8 @@ Settings are stored with the Suite's Animal Limiter configuration (`ModConfig/Ne
 Population totals scroll within a 320 px panel; regional detail is collapsed by default and scrolls within 260 px when opened. Entity filtering and Create/Edit actions use the completed scan; no additional world scan is started by those actions.
 
 ## Validation
+
+The initial animal-feature validation capture retained below used a pre-release candidate labelled 1.2.47. The feature ships in 1.2.48; the original raw capture is preserved.
 
 - Twenty-seven checks invoke the actual compiled limiter protection method with synthetic entities: legacy behavior, ignoring both generation/farm protection, owned/named/exclusion safety, threshold boundaries and attribute types, invalid values, exact-rule precedence and config roundtrip. They do not remove animals.
 - Browser regression covers 120 entity types, scroll bounds and filtering, Create/Edit without saving, policy save/edit/reset, radius zero and mobile layout.
