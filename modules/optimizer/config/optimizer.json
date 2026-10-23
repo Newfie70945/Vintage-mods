@@ -94,6 +94,7 @@
     "BlockUpdateListReuse": false,
     "ChunkLoadRequestListReuse": false,
     "ChunkUnloadListReuse": false,
+    "NativeBuildLogGuard": false,
     "CollisionGenerationReuse": false,
     "CachedCollisionGenerationReuse": false,
     "AnimationCollisionFlagScan": false,

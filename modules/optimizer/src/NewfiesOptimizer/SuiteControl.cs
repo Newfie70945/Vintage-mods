@@ -16,6 +16,7 @@ public sealed partial class OptimizerMod
         captureAvailable = profiler?.Session != null,
         capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
+            nativeBuildLogGuard = currentConfig.EngineOptimizations.NativeBuildLogGuard,
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             collisionGenerationReuse=currentConfig.EngineOptimizations.CollisionGenerationReuse,cachedCollisionGenerationReuse=currentConfig.EngineOptimizations.CachedCollisionGenerationReuse,animationCollisionFlagScan=currentConfig.EngineOptimizations.AnimationCollisionFlagScan,
             collisionTraversalReuse=currentConfig.EngineOptimizations.CollisionTraversalReuse, containerTransitionScan=currentConfig.EngineOptimizations.ContainerTransitionScan, containerTickTraversal=currentConfig.EngineOptimizations.ContainerTickTraversal,
@@ -120,6 +121,7 @@ public sealed partial class OptimizerMod
                 case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
+                case "nativeBuildLogGuard": candidate.EngineOptimizations.NativeBuildLogGuard=B(); break;
                 case "collisionGenerationReuse": candidate.EngineOptimizations.CollisionGenerationReuse=B(); break;
                 case "cachedCollisionGenerationReuse": candidate.EngineOptimizations.CachedCollisionGenerationReuse=B(); break;
                 case "animationCollisionFlagScan": candidate.EngineOptimizations.AnimationCollisionFlagScan=B(); break;
