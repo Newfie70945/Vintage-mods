@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.16.1 preview
+# Newfie's Server Optimizer 0.17.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -157,3 +157,5 @@ Three new controls default off: `CollisionTraversalReuse`, `ContainerTransitionS
 Three independent controls default off: `CollisionGenerationReuse`, `CachedCollisionGenerationReuse` and `AnimationCollisionFlagScan`. Collision callbacks reuse cleared thread-local context only with the verified synchronous official walker; custom walkers retain native allocation and ownership. Animation scans use a struct dictionary enumerator without skipping frames, poses or triggers. Collision fixtures allocate less but show mixed CPU timings, including slower warm cache hits. See [evidence and limits](docs/performance-0.16.0.md).
 
 0.16.1 improves the existing collision bounds-cache return and adds searchable settings, pending-edit review and execution cards in Suite Optimization UI2. Collision defaults remain off. [Evidence and limits](docs/performance-0.16.1.md).
+
+0.17.0 adds an opt-in native build-log null guard and clearer live versus historical diagnostic evidence in the Suite. No world data, GC or autosave policy changes. [Scope and limits](docs/performance-0.17.0.md).

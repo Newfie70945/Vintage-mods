@@ -239,7 +239,7 @@ static class Checks
   var logConflict=Api();
   using(var module=new EngineOptimizations(logConflict.Api,Config(),()=>200))
   {
-   foreign.Patch(NativeBuildLogOptimizations.Dependencies[1],prefix:prefix);
+   foreign.Patch(NativeBuildLogOptimizations.Target,prefix:prefix);
    foreach(var tick in logConflict.Ticks)tick(1);
    Assert(module.Modules().Single(x=>x.Name=="nativeBuildLogGuard").Status=="conflict","late native build-log dependency patch disables guard");
    Assert(module.Modules().Where(x=>x.Name!="nativeBuildLogGuard").All(x=>x.Status=="active"),"native log conflict leaves unrelated modules active");
