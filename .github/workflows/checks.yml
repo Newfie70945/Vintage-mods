@@ -30,6 +30,7 @@ jobs:
         run: |
           dotnet run --project modules/suite/tests/web/CoalescedSnapshotTests.csproj -c Release
           node modules/suite/tests/web/test_nav_request_pressure.cjs
+          dotnet run --project modules/suite/tests/state-persistence -c Release
       - name: Check incident profiler matching and GC evidence
         run: dotnet run --project modules/suite/tests/IncidentEvidenceChecks/IncidentEvidenceChecks.csproj -c Release
       - name: Check save correlation and retention query work

@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.9.0 preview
+# Newfie's Server Optimizer 0.9.1 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -101,3 +101,6 @@ See [0.7.0 validation and limits](docs/performance-0.7.0.md) for component measu
 See [0.8.0 validation](docs/performance-0.8.0.md) for physics allocation measurements and test limits.
 
 See [0.9.0 validation](docs/performance-0.9.0.md) for despawn packet equivalence and allocation measurements.
+
+
+Current maintenance pass: [0.9.1 validation](docs/performance-0.9.1.md) and [Synergy/Tungsten coverage audit](docs/replacement-coverage.md). These changes reduce optimizer/Suite overhead; NOS does not yet replace every feature of those mods.

@@ -102,6 +102,7 @@ public sealed class MemoryInspectorSnapshot
 {
     public string Id { get; set; } = "";
     public long UnixMilliseconds { get; set; }
+    public long ProcessStartedUnixMilliseconds { get; set; }
     public string Label { get; set; } = "";
     public double ManagedHeapMb { get; set; }
     public double WorkingSetMb { get; set; }

@@ -38,6 +38,15 @@ for configfile in (data/'ModConfig').rglob('*Discord*.json'):
 folder=data/'ModConfig/NewfiesServerEssentialsSuite';file=folder/'NewfiesWebServer.json';web=json.loads(file.read_text());password=secrets.token_hex(24)
 web.update(Enabled=True,BindAddress='127.0.0.1',Port=42670,AdminUsername='fixtureowner',Password=password,PasswordSalt='',PasswordHash='',SafeDiagnosticsMode=False,SecureCookies=False);file.write_text(json.dumps(web))
 f=folder/'NewfiesServerEssentialsFeatures.json';features=json.loads(f.read_text());features['WebDashboard']=True;f.write_text(json.dumps(features))
+# Synthetic incident histories exercise overview/detail separation, never player/world state.
+compact_fixtures=[]
+if os.environ.get('NSS_TEST_COMPACT_OVERVIEW'):
+    stamp=int(time.time()*1000)-60000
+    for n in range(40):
+        start=stamp-n*1000
+        compact_fixtures.append(dict(Id='fixture-'+str(n),StartUnixMilliseconds=start,EndUnixMilliseconds=start,DurationSeconds=1,Severity='Watch',PrimaryCategory='Synthetic validation archive',AttributionVersion=6,
+            Before=[dict(UnixMilliseconds=start-45000+i*1000,Players=0,ManagedHeapMb=100) for i in range(45)]))
+    (folder/'NewfiesPerformanceCenter.json').write_text(json.dumps(dict(SchemaVersion=3,Incidents=compact_fixtures)))
 process=subprocess.Popen([dotnet,str(game/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port','42601'],cwd=game,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
 lines=[]
 def reader():
@@ -77,8 +86,16 @@ try:
         status,page=request('/api/performance/page-snapshot?window=1800');assert status==200
         assert page['conflicts'].get('requiresManualInspection') is True
         checks.append('opening performance page does not enumerate Harmony patches')
+        if compact_fixtures:
+            overview_rows=page['overview']['incidents']
+            assert len(overview_rows)==40 and all('hasTickEvidence' in row and 'before' not in row and 'webServer' not in row for row in overview_rows)
+            status,detail=request('/api/performance/incident?start='+str(compact_fixtures[0]['StartUnixMilliseconds']))
+            assert status==200 and detail['found'] and len(detail['incident']['before'])==45
+            checks.append('forty compact incident rows retain independently fetched 45-observation detail')
+
         status,timeline=request('/api/performance/timeline?window=61');assert status==200
         assert 'samplingGaps' in timeline and 'rawSampleCount' in timeline and 'worldSaves' in timeline
+        assert all(set(row)<=set(['startUnixMilliseconds','endUnixMilliseconds','severity']) for row in timeline['incidents'])
         assert all(len(row)==6 for row in timeline['samples'])
         checks.append('timeline exposes compact metric points, raw gaps and save observations')
         process.stdin.write('/autosavenow\n');process.stdin.flush()

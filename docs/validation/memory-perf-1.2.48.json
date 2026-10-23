@@ -1,0 +1,608 @@
+{
+  "success": true,
+  "suiteVersion": "1.2.48",
+  "optimizerVersion": "0.9.1",
+  "checks": [
+    "opening performance page does not enumerate Harmony patches",
+    "forty compact incident rows retain independently fetched 45-observation detail",
+    "timeline exposes compact metric points, raw gaps and save observations",
+    "actual copied-world save emits a timeline marker",
+    "twelve warm page requests share one snapshot generation",
+    "per-rule Off/custom generation policies saved and visible in authenticated API and disk config",
+    "older rule updates preserve saved generation overrides",
+    "invalid generation threshold rejected without changing rule",
+    "inherit/reset and rule deletion remove stored generation overrides",
+    "new optimizer defaults visible through authenticated Suite bridge",
+    "despawn packet optimization independently toggled through Suite",
+    "physics packet reuse independently toggled through Suite",
+    "nearest search switch independently applied",
+    "invalid path budget refused",
+    "running capture cannot be discarded",
+    "stopped capture released through Suite",
+    "stock dequeue-before-limit behavior reproduced on real terrain",
+    "worker leaves capped request queued",
+    "101 of 101 actual A* requests complete",
+    "real main-thread assistance respects search count",
+    "assisted path equals direct official A* for this terrain case",
+    "probe restores original optimizer settings"
+  ],
+  "modules": [
+    {
+      "name": "despawnPacketProjection",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "physicsPacketListReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "onlinePlayerSnapshots",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "nearbyPlayerQueries",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "bulkStreamReads",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "assetCompressionCache",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathQueueLimitFix",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathMainThreadBudget",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nearestEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "interactableEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiTaskStartDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiFilterDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "repulseDelegateReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "worldgenRequestReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "saveSnapshotRelease",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "counters": {
+    "despawnPacketCalls": 0,
+    "despawnPacketEntities": 0,
+    "physicsPacketPasses": 704,
+    "physicsPacketBuffersCreated": 7,
+    "physicsPacketOversizedBuffersReleased": 0,
+    "pathAssistanceFailures": 0,
+    "pathWorkerLimitStops": 1,
+    "pathMainSearches": 1,
+    "pathDeferredTicks": 0,
+    "nearestEntitySearchCalls": 4,
+    "interactableEntitySearchCalls": 0,
+    "entitySearchContextsCreated": 1,
+    "saveSnapshotReferencesReleased": 392,
+    "saveSnapshotCompletions": 1,
+    "onlineSnapshotCalls": 1398,
+    "nearbyQueryCalls": 0,
+    "snapshotFallbacks": 0,
+    "nearbyFallbacks": 0,
+    "snapshotFailures": 0,
+    "nearbyFailures": 0,
+    "assetCacheHits": 0,
+    "assetCacheMisses": 0,
+    "assetCacheBytes": 0,
+    "assetCacheFailures": 0,
+    "bulkReadCalls": 0,
+    "bulkReadBytes": 0,
+    "bulkReadFallbacks": 0,
+    "bulkReadFailures": 0
+  },
+  "loadedMods": [
+    {
+      "modId": "creative",
+      "version": "1.22.7",
+      "systems": 4,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "game",
+      "version": "1.22.7",
+      "systems": 55,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "survival",
+      "version": "1.22.7",
+      "systems": 89,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "attributerenderinglibrary",
+      "version": "3.2.0",
+      "systems": 4,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "draconis",
+      "version": "1.6.1",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "facore",
+      "version": "1.3.0",
+      "systems": 3,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "fagothic",
+      "version": "2.1.2",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescaperegion",
+      "version": "1.0.38",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescaribbeanregion",
+      "version": "1.0.30",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescentralaustralianregion",
+      "version": "1.0.28",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescircumborealregion",
+      "version": "1.0.4",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescosmopolitanregion",
+      "version": "1.0.14",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzoneseastasiaticregion",
+      "version": "1.0.25",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonesmediterraneanregion",
+      "version": "1.0.25",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonesneozeylandicregion",
+      "version": "1.0.26",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "jaunt",
+      "version": "3.3.1",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesanticheatclient",
+      "version": "1.1.28",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfieschatguard",
+      "version": "2.1.4",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiescommunitymotd",
+      "version": "2.1.6",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesplayerlist",
+      "version": "1.1.2",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveressentialsdiscord",
+      "version": "1.0.13",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveressentialssuite",
+      "version": "1.2.48",
+      "systems": 4,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveroptimizer",
+      "version": "0.9.1",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "nosentitysuiteprobe",
+      "version": "1.0.0",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "primitivesurvival",
+      "version": "5.1.4",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "vsimgui",
+      "version": "1.2.7",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "xlibfork",
+      "version": "1.0.41",
+      "systems": 3,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "xskillsfork",
+      "version": "1.1.9",
+      "systems": 6,
+      "side": "Universal",
+      "core": false
+    }
+  ],
+  "packZipCount": 25,
+  "requestMeasurements": [
+    {
+      "path": "/api/login",
+      "status": 200,
+      "elapsedMs": 317.632,
+      "responseBytes": 205
+    },
+    {
+      "path": "/api/profiler/enabled",
+      "status": 200,
+      "elapsedMs": 39.925,
+      "responseBytes": 58
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 133.218,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/incident?start=1792719464520",
+      "status": 200,
+      "elapsedMs": 40.729,
+      "responseBytes": 22964
+    },
+    {
+      "path": "/api/performance/timeline?window=61",
+      "status": 200,
+      "elapsedMs": 19.17,
+      "responseBytes": 3939
+    },
+    {
+      "path": "/api/performance/timeline?window=60",
+      "status": 200,
+      "elapsedMs": 21.068,
+      "responseBytes": 211
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.153,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.609,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.007,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.056,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.382,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.765,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.723,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.609,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.203,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.772,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.843,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.986,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.975,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 6.639,
+      "responseBytes": 36755
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 10.102,
+      "responseBytes": 143
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 36.411,
+      "responseBytes": 325
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 25.511,
+      "responseBytes": 143
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 33.012,
+      "responseBytes": 343
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 32.968,
+      "responseBytes": 142
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 32.927,
+      "responseBytes": 342
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 400,
+      "elapsedMs": 1177.906,
+      "responseBytes": 74
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 29.868,
+      "responseBytes": 342
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 29.428,
+      "responseBytes": 142
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 32.642,
+      "responseBytes": 328
+    },
+    {
+      "path": "/api/animals/rules/remove",
+      "status": 200,
+      "elapsedMs": 28.795,
+      "responseBytes": 77
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 44.582,
+      "responseBytes": 5459
+    },
+    {
+      "path": "/api/server/mods",
+      "status": 200,
+      "elapsedMs": 26.329,
+      "responseBytes": 13012
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 71.346,
+      "responseBytes": 5431
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 74.313,
+      "responseBytes": 5510
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 56.976,
+      "responseBytes": 5431
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 77.464,
+      "responseBytes": 5510
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 71.118,
+      "responseBytes": 5433
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 64.797,
+      "responseBytes": 5512
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 33.046,
+      "responseBytes": 5474
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 35.934,
+      "responseBytes": 5588
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 23.62,
+      "responseBytes": 5509
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 52.5,
+      "responseBytes": 5566
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 4.268,
+      "responseBytes": 5639
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 8.938,
+      "responseBytes": 5517
+    }
+  ],
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims."
+}

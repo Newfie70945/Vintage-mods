@@ -1724,7 +1724,7 @@ public sealed partial class WebDashboardService : IDisposable
             return;
 
         TrimPerformanceCenterStore();
-        BlockLogger.Services.SuiteConfigStorage.Store(api, performanceCenterStore, PerformanceCenterFile);
+        AtomicJsonStateStore.Store(SuiteConfigStorage.GetConfigPath(api, PerformanceCenterFile), performanceCenterStore);
     }
 
     private void TrimPerformanceCenterStore()
@@ -1780,9 +1780,7 @@ public sealed partial class WebDashboardService : IDisposable
         lock (operationsLock)
         {
             TrimOperationsCenterStore();
-            BlockLogger.Services.SuiteConfigStorage.Store(api, 
-                operationsCenterStore,
-                OperationsCenterFile);
+            AtomicJsonStateStore.Store(SuiteConfigStorage.GetConfigPath(api, OperationsCenterFile), operationsCenterStore);
         }
     }
 
@@ -2073,7 +2071,7 @@ public sealed partial class WebDashboardService : IDisposable
         if (healthService == null || !healthService.Enabled)
             return;
 
-        var snapshot = healthService.GetSnapshot(300, 1800);
+        var snapshot = healthService.GetMonitoringSnapshot(300, 1800);
         if (snapshot.Samples.Count == 0)
             return;
 
@@ -2450,8 +2448,7 @@ public sealed partial class WebDashboardService : IDisposable
 
     private MemoryInspectorSnapshot CaptureMemoryInspectorSnapshot(string label, ServerHealthSnapshot? health = null)
     {
-        health ??= module.ServerHealth?.GetSnapshot(600, 1800);
-        var current = health?.Current ?? new ServerHealthSample();
+        var current = health?.Current ?? module.ServerHealth?.GetLatestObservation() ?? new ServerHealthSample();
         using var process = Process.GetCurrentProcess();
         process.Refresh();
         var gc = GC.GetGCMemoryInfo();
@@ -2510,6 +2507,7 @@ public sealed partial class WebDashboardService : IDisposable
         {
             Id = Guid.NewGuid().ToString("N"),
             UnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            ProcessStartedUnixMilliseconds = new DateTimeOffset(process.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds(),
             Label = string.IsNullOrWhiteSpace(label) ? "Memory snapshot" : label.Trim(),
             ManagedHeapMb = managed,
             WorkingSetMb = workingMb,
@@ -11431,7 +11429,7 @@ public sealed partial class WebDashboardService : IDisposable
 
         // Internal black-box archiving asks for the native 1-second rolling
         // history. Public web graph endpoints still cap requested points at 600.
-        var snapshot = healthService.GetSnapshot(1800, 1800);
+        var snapshot = healthService.GetMonitoringSnapshot(1800, 1800);
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         bool changed = false;
 
@@ -11995,10 +11993,12 @@ public sealed partial class WebDashboardService : IDisposable
             incidents = performanceCenterStore.Incidents
                 .Where(x => x.StartUnixMilliseconds >= cutoff)
                 .OrderBy(x => x.StartUnixMilliseconds)
+                .Select(x => new { x.StartUnixMilliseconds, x.EndUnixMilliseconds, x.Severity })
                 .ToList(),
             environmentChanges = performanceCenterStore.EnvironmentHistory
                 .Where(x => x.DetectedUnixMilliseconds >= cutoff)
                 .OrderBy(x => x.DetectedUnixMilliseconds)
+                .Select(x => new { x.DetectedUnixMilliseconds })
                 .ToList(),
             entityScans = performanceCenterStore.EntityScans
                 .Where(x => x.UnixMilliseconds >= cutoff)
@@ -12075,6 +12075,17 @@ public sealed partial class WebDashboardService : IDisposable
         };
     }
 
+    // Lists and comparison use scalar summaries. Full retained evidence is fetched
+    // only by the incident drawer/export endpoint, not on every overview refresh.
+    private static object BuildIncidentListRow(PerformanceIncidentArchive x) => new
+    {
+        x.Id, x.StartUnixMilliseconds, x.EndUnixMilliseconds, x.DurationSeconds,
+        x.Severity, x.PrimaryCategory, x.Confidence, x.Evidence, x.NextAction,
+        x.LikelyModId, x.LikelyModName, x.ModConfidence, x.WorstDelayMs, x.MaxCpuPercent,
+        x.AssessmentStatus,
+        hasTickEvidence = x.ProfileEvidence?.Ticks?.Count > 0
+    };
+
     private object BuildPerformanceOverview(int windowSeconds)
     {
         var health = module.ServerHealth?.GetSnapshot(360, windowSeconds);
@@ -12115,7 +12126,7 @@ public sealed partial class WebDashboardService : IDisposable
             current = health.Current,
             diagnosticSummary = health.DiagnosticSummary,
             smart = health.SmartAnalysis,
-            incidents,
+            incidents = incidents.Select(BuildIncidentListRow).ToList(),
             incidentCount = incidents.Count,
             archivedIncidentCount = performanceCenterStore.Incidents.Count,
             entityScan = lastPerformanceEntityScan,

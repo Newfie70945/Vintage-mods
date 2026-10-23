@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.9.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.9.1";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -158,20 +158,41 @@ public sealed class EngineOptimizations : IDisposable
         catch (Exception error) { return "Engine identity could not be verified: " + error.GetType().Name; }
         return null;
     }
-    private static string? Conflict(Entry entry)
+    private static string? ForeignOwner(Patches? patches)
+    {
+        if (patches == null) return null;
+        static string? Find(IList<Patch> list)
+        {
+            for (int i = 0; i < list.Count; i++) if (list[i].owner != HarmonyId) return list[i].owner;
+            return null;
+        }
+        return Find(patches.Prefixes) ?? Find(patches.Postfixes) ?? Find(patches.Transpilers) ?? Find(patches.Finalizers);
+    }
+    private static bool HasOwnPatch(Patches? patches)
+    {
+        if (patches == null) return false;
+        static bool Find(IList<Patch> list)
+        {
+            for (int i = 0; i < list.Count; i++) if (list[i].owner == HarmonyId) return true;
+            return false;
+        }
+        return Find(patches.Prefixes) || Find(patches.Postfixes) || Find(patches.Transpilers) || Find(patches.Finalizers);
+    }
+    private static string? Conflict(Entry entry, Patches? targetInfo = null, bool targetInspected = false)
     {
         foreach (var method in entry.DependencyMethods)
         {
-            var foreign = Harmony.GetPatchInfo(method)?.Owners.Where(x => x != HarmonyId).ToArray();
-            if (foreign is { Length: > 0 }) return "Foreign Harmony owner on " + method.Name + ": " + string.Join(", ", foreign);
+            var owner = ForeignOwner(targetInspected && method == entry.TargetMethod ? targetInfo : Harmony.GetPatchInfo(method));
+            if (owner != null) return "Foreign Harmony owner on " + method.Name + ": " + owner;
         }
         return null;
     }
+    private FieldInfo? assetsPacketField, assetsBufferField;
     private void RefreshAssets()
     {
         var world = api.World as ServerMain;
-        var packet = world == null ? null : AccessTools.Field(typeof(ServerMain), "serverAssetsPacket")?.GetValue(world);
-        var buffer = packet == null ? null : AccessTools.Field(packet.GetType(), "buffer")?.GetValue(packet) as byte[];
+        var packet = world == null ? null : (assetsPacketField ??= AccessTools.Field(typeof(ServerMain), "serverAssetsPacket"))?.GetValue(world);
+        var buffer = packet == null ? null : (assetsBufferField ??= AccessTools.Field(packet.GetType(), "buffer"))?.GetValue(packet) as byte[];
         AssetCompressionOptimizations.Track(buffer, assetCacheBytes);
     }
     private void Check()
@@ -179,8 +200,9 @@ public sealed class EngineOptimizations : IDisposable
         lock (gate)
         {
             if (disposed) return;
-            foreach (var entry in entries.Where(x => x.Installed || x.State == "standby").ToArray())
+            foreach (var entry in entries)
             {
+                if (!entry.Installed && entry.State != "standby") continue;
                 try
                 {
                     if (entry.Name == "nearbyPlayerQueries")
@@ -195,10 +217,11 @@ public sealed class EngineOptimizations : IDisposable
                         if (count < Math.Max(0, minimumNearbyClients - 32))
                         { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
                     }
-                    if (entry.Installed && Harmony.GetPatchInfo(entry.TargetMethod)?.Owners.Contains(HarmonyId) != true)
+                    var targetInfo = entry.Installed ? Harmony.GetPatchInfo(entry.TargetMethod) : null;
+                    if (entry.Installed && !HasOwnPatch(targetInfo))
                     { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
                     if(entry.Name == "assetCompressionCache") RefreshAssets();
-                    string? conflict = Conflict(entry);
+                    string? conflict = Conflict(entry, targetInfo, entry.Installed);
                     if (conflict != null) { Disable(entry, "conflict", conflict); continue; }
                     if (Failures(entry.Name) > entry.FailureBaseline)
                         Disable(entry, "failed", "A new failure was observed during this activation. Stock behavior retained; reapply settings to retry.");
@@ -209,9 +232,8 @@ public sealed class EngineOptimizations : IDisposable
     }
     private static long Failures(string name)
     {
-        var query = PlayerQueryOptimizations.GetCounters();
-        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => query.SnapshotFailures,
-            "nearbyPlayerQueries" => query.AroundFailures,
+        return name switch { "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
+            "nearbyPlayerQueries" => PlayerQueryOptimizations.GetCounters().AroundFailures,
             "assetCompressionCache" => AssetCompressionOptimizations.Counters.Failures,
             _ => StreamCopyOptimizations.Snapshot.Failures };
     }
