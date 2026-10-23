@@ -1,0 +1,127 @@
+{
+  "checks": 89,
+  "measurements": [
+    {
+      "trial": 0,
+      "enabled": false,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 47.206
+      },
+      "barrelPairing": {
+        "bytesPerCall": 384,
+        "nsPerCall": 396.844
+      },
+      "emptyBush": {
+        "bytesPerCall": 32,
+        "nsPerCall": 12.331
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 568,
+        "nsPerCall": 469.273
+      }
+    },
+    {
+      "trial": 0,
+      "enabled": true,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 47.772
+      },
+      "barrelPairing": {
+        "bytesPerCall": 88,
+        "nsPerCall": 122.852
+      },
+      "emptyBush": {
+        "bytesPerCall": 0,
+        "nsPerCall": 9.868
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 472,
+        "nsPerCall": 465.79
+      }
+    },
+    {
+      "trial": 1,
+      "enabled": false,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 49.931
+      },
+      "barrelPairing": {
+        "bytesPerCall": 384,
+        "nsPerCall": 321.64
+      },
+      "emptyBush": {
+        "bytesPerCall": 32,
+        "nsPerCall": 12.933
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 568,
+        "nsPerCall": 476.155
+      }
+    },
+    {
+      "trial": 1,
+      "enabled": true,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 51.121
+      },
+      "barrelPairing": {
+        "bytesPerCall": 88,
+        "nsPerCall": 129.103
+      },
+      "emptyBush": {
+        "bytesPerCall": 0,
+        "nsPerCall": 9.278
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 472,
+        "nsPerCall": 495.237
+      }
+    },
+    {
+      "trial": 2,
+      "enabled": false,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 53.742
+      },
+      "barrelPairing": {
+        "bytesPerCall": 384,
+        "nsPerCall": 319.559
+      },
+      "emptyBush": {
+        "bytesPerCall": 32,
+        "nsPerCall": 12.904
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 568,
+        "nsPerCall": 542.992
+      }
+    },
+    {
+      "trial": 2,
+      "enabled": true,
+      "coldFirepit": {
+        "bytesPerCall": 0,
+        "nsPerCall": 44.097
+      },
+      "barrelPairing": {
+        "bytesPerCall": 88,
+        "nsPerCall": 126.979
+      },
+      "emptyBush": {
+        "bytesPerCall": 0,
+        "nsPerCall": 10.138
+      },
+      "activeBushBatch": {
+        "bytesPerCall": 472,
+        "nsPerCall": 446.982
+      }
+    }
+  ],
+  "tieredCompilation": "0",
+  "scope": "Actual official callbacks with isolated native containers/recipes and custom collectible hooks. No player workload or production TPS claim."
+}

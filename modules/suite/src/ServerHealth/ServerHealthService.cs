@@ -2323,6 +2323,9 @@ public sealed class ServerHealthService : IDisposable
 
     private ModAttribution ResolveModAttributionCore(string path)
     {
+        if (NativeBlockCallbackIdentity.IsSurvivalRoot(path))
+            return new ModAttribution("survival", "Survival Mode", "High", true, true);
+
         if (string.IsNullOrWhiteSpace(path))
             return ModAttribution.Unattributed;
 

@@ -239,3 +239,7 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 ### Native build-log guard (0.17.0-preview)
 
 `EngineOptimizations.NativeBuildLogGuard` defaults to `false`. It guards only the official block-break audit formatting against missing block codes/null actors, preserving the numeric ID, position and normal logger call. It changes no terrain or inventories. The Suite safety group exposes the switch; the actual-state table reports compatibility/failure fallback. Diagnostics export `nativeBuildLogMissingCodes`, `nativeBuildLogSystemPlayers` and `nativeBuildLogFailures`. Enable only when evaluating this specific exception path; it is not a general GC or lag fix.
+
+### Block ticks and private unload staging (0.18.0-preview)
+
+`IdleFirepitFastPath`, `BarrelIngredientPairing`, `WildBushCallbackFlatten` and `ChunkUnloadStagingReuse` each default to `false` under `EngineOptimizations`. Configure independently through the Suite and verify actual module state. They reduce narrow native work/allocations while retaining active cooking, fermentation, growth and unload/save behavior. [Detailed compatibility and measurement boundaries](performance-0.18.0.md).

@@ -4,13 +4,13 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 
 | Module | Version | Source |
 | --- | --- | --- |
-| Server Essentials Suite | 1.2.48 | [modules/suite](modules/suite) |
+| Server Essentials Suite | 1.2.49 | [modules/suite](modules/suite) |
 | Community MOTD | 2.1.6 | [modules/motd](modules/motd) |
 | AntiCheat Client / Client Integrity | 1.1.28 | [modules/anticheat-client](modules/anticheat-client) |
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.16.1-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.18.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
@@ -72,7 +72,7 @@ Install **both inner mod ZIPs** from the paired download into the game server's 
 
 Build the pair with `python tools/build.py --module suite --with-optimizer` after setting VINTAGE_STORY and installing the documented .NET SDK. NOS remains independently disableable and works without the Suite; the Suite reports when the matching NOS bridge is unavailable.
 
-Current Suite build: **1.2.48 · ms11-optimization-ui2**. See [NOS controls and validation](docs/VALIDATION-NOS-DISTANCE-1.2.48.md), [memory/performance validation](docs/VALIDATION-MEMORY-PERF-1.2.48.md), [timeline and web validation](docs/VALIDATION-TIMELINE-WEB-1.2.48.md) and [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
+Current Suite build: **1.2.49 · ms11-block-ticks1**. See [NOS controls and validation](docs/VALIDATION-NOS-DISTANCE-1.2.48.md), [memory/performance validation](docs/VALIDATION-MEMORY-PERF-1.2.48.md), [timeline and web validation](docs/VALIDATION-TIMELINE-WEB-1.2.48.md) and [incident attribution validation](docs/VALIDATION-INCIDENT-EVIDENCE-1.2.46.md) for measured GC pauses, matching tick profiles and evidence limits.
 
 NOS 0.10.0 adds independent, opt-in distant AI/wander/stationary repulsion scheduling, waypoint candidate-node pooling and missing-attribute resync suppression. Configure these in Suite → Optimizations and review the [validation and limits](modules/optimizer/docs/performance-0.10.0.md).
 

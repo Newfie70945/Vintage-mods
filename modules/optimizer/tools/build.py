@@ -35,6 +35,7 @@ def main() -> int:
     official_hashes = {
         "VintagestoryAPI.dll": "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296",
         "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
+        "Mods/VSSurvivalMod.dll": "d67b48a321403b2052b33c7d0caa99611f92350ffac73ea72672901dd87ccd7a",
         "Mods/VSEssentials.dll": "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e",
     }
     for relative, expected in official_hashes.items():
@@ -76,14 +77,14 @@ def main() -> int:
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
-        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md", "docs/performance-0.9.1.md", "docs/performance-0.10.0.md", "docs/performance-0.11.0.md", "docs/performance-0.12.0.md", "docs/performance-0.13.0.md", "docs/performance-0.14.0.md", "docs/performance-0.15.0.md", "docs/performance-0.16.0.md", "docs/performance-0.16.1.md", "docs/performance-0.17.0.md", "docs/replacement-coverage.md"):
+        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md", "docs/performance-0.9.1.md", "docs/performance-0.10.0.md", "docs/performance-0.11.0.md", "docs/performance-0.12.0.md", "docs/performance-0.13.0.md", "docs/performance-0.14.0.md", "docs/performance-0.15.0.md", "docs/performance-0.16.0.md", "docs/performance-0.16.1.md", "docs/performance-0.17.0.md", "docs/performance-0.18.0.md", "docs/replacement-coverage.md"):
             path = ROOT / name
             if path.is_file():
                 archive.write(path, "guides/" + path.name)
         if (ROOT / "config/optimizer.json").is_file():
             archive.write(ROOT / "config/optimizer.json", "guides/optimizer.example.json")
     dependencies = {}
-    for relative in ("VintagestoryAPI.dll", "VintagestoryLib.dll", "Mods/VSEssentials.dll", "Lib/0Harmony.dll"):
+    for relative in ("VintagestoryAPI.dll", "VintagestoryLib.dll", "Mods/VSEssentials.dll", "Mods/VSSurvivalMod.dll", "Lib/0Harmony.dll"):
         p = game / relative
         if p.exists():
             dependencies[relative] = hashlib.sha256(p.read_bytes()).hexdigest()

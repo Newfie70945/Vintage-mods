@@ -16,6 +16,10 @@ public sealed partial class OptimizerMod
         captureAvailable = profiler?.Session != null,
         capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
+            idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
+            barrelIngredientPairing = currentConfig.EngineOptimizations.BarrelIngredientPairing,
+            wildBushCallbackFlatten = currentConfig.EngineOptimizations.WildBushCallbackFlatten,
+            chunkUnloadStagingReuse = currentConfig.EngineOptimizations.ChunkUnloadStagingReuse,
             nativeBuildLogGuard = currentConfig.EngineOptimizations.NativeBuildLogGuard,
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
             collisionGenerationReuse=currentConfig.EngineOptimizations.CollisionGenerationReuse,cachedCollisionGenerationReuse=currentConfig.EngineOptimizations.CachedCollisionGenerationReuse,animationCollisionFlagScan=currentConfig.EngineOptimizations.AnimationCollisionFlagScan,
@@ -121,6 +125,10 @@ public sealed partial class OptimizerMod
                 case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
+                case "idleFirepitFastPath": candidate.EngineOptimizations.IdleFirepitFastPath=B(); break;
+                case "barrelIngredientPairing": candidate.EngineOptimizations.BarrelIngredientPairing=B(); break;
+                case "wildBushCallbackFlatten": candidate.EngineOptimizations.WildBushCallbackFlatten=B(); break;
+                case "chunkUnloadStagingReuse": candidate.EngineOptimizations.ChunkUnloadStagingReuse=B(); break;
                 case "nativeBuildLogGuard": candidate.EngineOptimizations.NativeBuildLogGuard=B(); break;
                 case "collisionGenerationReuse": candidate.EngineOptimizations.CollisionGenerationReuse=B(); break;
                 case "cachedCollisionGenerationReuse": candidate.EngineOptimizations.CachedCollisionGenerationReuse=B(); break;
