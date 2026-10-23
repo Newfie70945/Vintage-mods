@@ -72,6 +72,22 @@
     "PathMainThreadBudget": false,
     "PathMainThreadBudgetMs": 2,
     "PathMainThreadMaxSearches": 1,
-    "PathMainThreadGraceMs": 300
+    "PathMainThreadGraceMs": 300,
+    "AiDistanceThrottle": false,
+    "DistantWanderThrottle": false,
+    "RepulsionDistanceThrottle": false,
+    "WaypointNodePooling": false,
+    "AttributeNoOpSkip": false,
+    "EntityProtectionRadius": 64,
+    "AiDistanceIntervalMs": 250,
+    "DistantWanderIntervalMs": 1500,
+    "RepulsionDistanceIntervalMs": 100,
+    "EntityPolicyInclude": [
+      "game:*"
+    ],
+    "EntityPolicyExclude": [
+      "game:player",
+      "game:trader-*"
+    ]
   }
 }

@@ -11,12 +11,23 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.9.1", success = true,
+        available = true, protocol = 1, version = "0.10.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection" },
+        capabilities = new[] { "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
+            aiDistanceThrottle = currentConfig.EngineOptimizations.AiDistanceThrottle,
+            distantWanderThrottle = currentConfig.EngineOptimizations.DistantWanderThrottle,
+            repulsionDistanceThrottle = currentConfig.EngineOptimizations.RepulsionDistanceThrottle,
+            attributeNoOpSkip = currentConfig.EngineOptimizations.AttributeNoOpSkip,
+            waypointNodePooling = currentConfig.EngineOptimizations.WaypointNodePooling,
+            entityProtectionRadius = currentConfig.EngineOptimizations.EntityProtectionRadius,
+            aiDistanceIntervalMs = currentConfig.EngineOptimizations.AiDistanceIntervalMs,
+            distantWanderIntervalMs = currentConfig.EngineOptimizations.DistantWanderIntervalMs,
+            repulsionDistanceIntervalMs = currentConfig.EngineOptimizations.RepulsionDistanceIntervalMs,
+            entityPolicyInclude = currentConfig.EngineOptimizations.EntityPolicyInclude,
+            entityPolicyExclude = currentConfig.EngineOptimizations.EntityPolicyExclude,
             onlinePlayerSnapshots = currentConfig.EngineOptimizations.OnlinePlayerSnapshots,
             worldgenRequestReuse = currentConfig.EngineOptimizations.WorldgenRequestReuse,
             saveSnapshotRelease = currentConfig.EngineOptimizations.SaveSnapshotRelease,
@@ -63,6 +74,19 @@ public sealed partial class OptimizerMod
         tree.SetString("snapshot",JsonSerializer.Serialize(ControlSnapshot(),WebJson));
         tree.SetBool("success",success); tree.SetString("message",message);
     }
+    private static string[] Patterns(JsonElement value)
+    {
+        if(value.ValueKind!=JsonValueKind.Array||value.GetArrayLength()>64)throw new ArgumentException("Entity code patterns must be an array of at most 64 strings.");
+        var list=new List<string>();
+        foreach(var pattern in value.EnumerateArray())
+        {
+            if(pattern.ValueKind!=JsonValueKind.String)throw new ArgumentException("Entity patterns must be strings.");
+            string text=pattern.GetString()!.Trim();
+            if(text.Length==0||text.Length>160||text.Any(c=>char.IsControl(c)||char.IsWhiteSpace(c))||!text.Contains(':'))throw new ArgumentException("Use qualified entity code patterns such as game:hare-*.");
+            list.Add(text);
+        }
+        return list.ToArray();
+    }
     // Called synchronously on the game thread by the authenticated Suite bridge.
     private void ApplySettings(string json)
     {
@@ -78,6 +102,17 @@ public sealed partial class OptimizerMod
             switch(item.Name)
             {
                 case "enabled": candidate.Enabled=B(); break;
+                case "aiDistanceThrottle": candidate.EngineOptimizations.AiDistanceThrottle=B(); break;
+                case "distantWanderThrottle": candidate.EngineOptimizations.DistantWanderThrottle=B(); break;
+                case "repulsionDistanceThrottle": candidate.EngineOptimizations.RepulsionDistanceThrottle=B(); break;
+                case "attributeNoOpSkip": candidate.EngineOptimizations.AttributeNoOpSkip=B(); break;
+                case "waypointNodePooling": candidate.EngineOptimizations.WaypointNodePooling=B(); break;
+                case "entityProtectionRadius": candidate.EngineOptimizations.EntityProtectionRadius=N(48,256); break;
+                case "aiDistanceIntervalMs": candidate.EngineOptimizations.AiDistanceIntervalMs=N(100,1000); break;
+                case "distantWanderIntervalMs": candidate.EngineOptimizations.DistantWanderIntervalMs=N(250,10000); break;
+                case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
+                case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
+                case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
                 case "safeMode": candidate.Compatibility.SafeMode=B(); break;
                 case "worldgenRequestReuse": candidate.EngineOptimizations.WorldgenRequestReuse=B(); break;
                 case "saveSnapshotRelease": candidate.EngineOptimizations.SaveSnapshotRelease=B(); break;

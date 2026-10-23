@@ -21,6 +21,12 @@ public sealed class OptimizerConfig
         Profiling ??= new(); EngineOptimizations ??= new(); EntityOptimization ??= new(); ChunkOptimization ??= new(); BlockEntities ??= new();
         MemoryManagement ??= new(); Networking ??= new(); Scheduling ??= new(); Logging ??= new();
         Dashboard ??= new(); Compatibility ??= new(); Benchmarking ??= new();
+        EngineOptimizations.EntityProtectionRadius = Math.Clamp(EngineOptimizations.EntityProtectionRadius, 48, 256);
+        EngineOptimizations.AiDistanceIntervalMs = Math.Clamp(EngineOptimizations.AiDistanceIntervalMs, 100, 1000);
+        EngineOptimizations.DistantWanderIntervalMs = Math.Clamp(EngineOptimizations.DistantWanderIntervalMs, 250, 10000);
+        EngineOptimizations.RepulsionDistanceIntervalMs = Math.Clamp(EngineOptimizations.RepulsionDistanceIntervalMs, 50, 500);
+        EngineOptimizations.EntityPolicyInclude = (EngineOptimizations.EntityPolicyInclude ?? ["game:*"]).Where(x=>!string.IsNullOrWhiteSpace(x)).Select(x=>x.Trim()).Take(64).ToArray();
+        EngineOptimizations.EntityPolicyExclude = (EngineOptimizations.EntityPolicyExclude ?? []).Where(x=>!string.IsNullOrWhiteSpace(x)).Select(x=>x.Trim()).Take(64).ToArray();
         EngineOptimizations.PathMainThreadBudgetMs = Math.Clamp(EngineOptimizations.PathMainThreadBudgetMs, 1, 10);
         EngineOptimizations.PathMainThreadMaxSearches = Math.Clamp(EngineOptimizations.PathMainThreadMaxSearches, 1, 8);
         EngineOptimizations.PathMainThreadGraceMs = Math.Clamp(EngineOptimizations.PathMainThreadGraceMs, 0, 5000);
@@ -79,9 +85,20 @@ public sealed class BenchmarkOptions
     public string RunId { get; set; } = "";
 }
 
-// Each semantics-preserving API patch is independently switchable. SafeMode disables every engine module.
+// Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool AiDistanceThrottle { get; set; }
+    public bool DistantWanderThrottle { get; set; }
+    public bool RepulsionDistanceThrottle { get; set; }
+    public bool WaypointNodePooling { get; set; }
+    public bool AttributeNoOpSkip { get; set; }
+    public int EntityProtectionRadius { get; set; } = 64;
+    public int AiDistanceIntervalMs { get; set; } = 250;
+    public int DistantWanderIntervalMs { get; set; } = 1500;
+    public int RepulsionDistanceIntervalMs { get; set; } = 100;
+    public string[] EntityPolicyInclude { get; set; } = ["game:*"];
+    public string[] EntityPolicyExclude { get; set; } = ["game:player", "game:trader-*"];
     public bool DespawnPacketProjection { get; set; } = true;
     public bool PhysicsPacketListReuse { get; set; } = true;
     public bool WorldgenRequestReuse { get; set; } = true;

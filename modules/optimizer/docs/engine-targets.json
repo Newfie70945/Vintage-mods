@@ -542,6 +542,97 @@
       "staticVerified": true,
       "performanceBenefitProven": false,
       "componentEvidence": "Reference retention fix; no disk throughput or production memory delta claimed"
+    },
+    {
+      "id": "ai-new-task-distance",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskManager",
+      "method": "StartNewTasks",
+      "category": "opt-in-optimization",
+      "observed": "Selects new tasks; ProcessRunningTasks is separate.",
+      "caveats": "Opt-in policy preserves full ticks and running tasks; distant decisions become less frequent.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "ai-hurt-safety",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskManager",
+      "method": "OnEntityHurt",
+      "category": "opt-in-optimization",
+      "observed": "Forwards damage to registered tasks.",
+      "caveats": "Shared safety observer must remain installed for distance policies.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "distant-wander-check",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.AiTaskWander",
+      "method": "ShouldExecute",
+      "category": "opt-in-optimization",
+      "observed": "Decides whether to begin wandering.",
+      "caveats": "No running-task continuation is skipped.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "distant-stationary-repulsion",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.GameContent.EntityBehaviorRepulseAgents",
+      "method": "OnGameTick",
+      "category": "opt-in-optimization",
+      "observed": "Searches neighbors and applies repulsion.",
+      "caveats": "Moving/nearby/exempt animals retain stock frequency; shares target with allocation module.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "waypoint-pool-scope",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.Essentials.AStar",
+      "method": "FindPathAsWaypoints",
+      "category": "opt-in-optimization",
+      "observed": "Converts internal path nodes to independent waypoint values.",
+      "caveats": "Raw node-returning APIs outside this exact official scope are unpooled.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "waypoint-pool-candidates",
+      "assembly": "Mods/VSEssentials.dll",
+      "type": "Vintagestory.Essentials.AStar",
+      "method": "FindPathOrEscapePath",
+      "category": "opt-in-optimization",
+      "observed": "Clears open/closed sets before constructing neighbor candidates.",
+      "caveats": "Only the nearest/cardinal constructor is replaced inside an eligible waypoint lease.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
+    },
+    {
+      "id": "attribute-noop-removal",
+      "assembly": "VintagestoryAPI.dll",
+      "type": "Vintagestory.API.Datastructures.SyncedTreeAttribute",
+      "method": "RemoveAttribute",
+      "category": "opt-in-optimization",
+      "observed": "Calls base removal and MarkAllDirty even for absent keys.",
+      "caveats": "Opt-in suppression changes that invalidation side effect; real removals/subclasses stay stock.",
+      "classification": "implemented-preview",
+      "staticVerified": true,
+      "performanceBenefitProven": false,
+      "auditDateUtc": "2026-10-23"
     }
   ]
 }

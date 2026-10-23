@@ -144,6 +144,21 @@ try:
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
     checks.append('new optimizer defaults visible through authenticated Suite bridge')
+    for flag in ('aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
+        assert settings[flag] is False
+        status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
+        assert next(m for m in enabled['optimizer']['modules'] if m['name']==flag)['status']=='active'
+        status,disabled=control('set',{flag:False});assert status==200 and disabled['success']
+        assert next(m for m in disabled['optimizer']['modules'] if m['name']==flag)['status']=='disabled'
+    checks.append('five new opt-in modules default off and independently activate/disable on official server')
+    status,patterns=control('set',dict(entityPolicyInclude=['game:wolf*'],entityPolicyExclude=['game:wolf-baby*'],entityProtectionRadius=96));assert status==200 and patterns['success']
+    persisted=json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']
+    assert persisted['EntityPolicyInclude']==['game:wolf*'] and persisted['EntityProtectionRadius']==96
+    status,rejected=control('set',dict(entityPolicyInclude=['invalid unqualified pattern']));assert status>=400 or not rejected['success']
+    assert json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']['EntityPolicyInclude']==['game:wolf*']
+    status,restored=control('set',dict(entityPolicyInclude=['game:*'],entityPolicyExclude=['game:player','game:trader-*'],entityProtectionRadius=64));assert status==200 and restored['success']
+    checks.append('entity patterns/radius persist, reject invalid patterns without altering saved settings, and restore defaults')
+
     assert settings['physicsPacketListReuse'] and settings['despawnPacketProjection']
     assert next(m for m in nos['modules'] if m['name']=='despawnPacketProjection')['status']=='active'
     status,despawn_off=control('set',dict(despawnPacketProjection=False));assert status==200 and despawn_off['success']
@@ -167,9 +182,10 @@ try:
     offset=len(lines);process.stdin.write('/nosentitycheck\n');process.stdin.flush()
     line=wait('NOS_ENTITY_INTEGRATION ',offset);terrain=json.loads(line.split('NOS_ENTITY_INTEGRATION ',1)[1]);assert terrain['success'],terrain
     checks.extend(terrain['checks'])
+    measurement=wait('NOS_WAYPOINT_MEASUREMENTS ',offset);waypoint_measurements=json.loads(measurement.split('NOS_WAYPOINT_MEASUREMENTS ',1)[1])
     state=request('/api/optimizations/newfies')[1]['optimizer']
     assert not state['settings']['pathMainThreadBudget'];checks.append('probe restores original optimizer settings')
-    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),requestMeasurements=request_measurements,scope='Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
+    (root/'result.json').write_text(json.dumps(dict(success=True,suiteVersion=suite_version,optimizerVersion=optimizer_semver,checks=checks,modules=state['modules'],counters=state['counters'],waypointMeasurements=waypoint_measurements,loadedMods=loaded_mods,packZipCount=len(list(mods.glob('*.zip'))),requestMeasurements=request_measurements,scope='Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.'),indent=2)+'\n')
     print('PASS '+str(len(checks))+' official server/Suite/real-terrain integration checks; '+str(root/'result.json'),flush=True)
 finally:
     if process.poll() is None:
