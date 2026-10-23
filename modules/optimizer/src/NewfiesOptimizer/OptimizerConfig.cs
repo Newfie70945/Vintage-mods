@@ -88,6 +88,9 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool DelayedCallbackSnapshotReuse { get; set; }
+    public bool SpawnOpportunityListReuse { get; set; }
+    public bool SpawnColumnArrayReuse { get; set; }
     public bool BlockUpdateListReuse { get; set; }
     public bool ChunkLoadRequestListReuse { get; set; }
     public bool ChunkUnloadListReuse { get; set; }

@@ -11,13 +11,15 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.12.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.13.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
     private readonly object gate = new();
     private long listener = -1;
     private bool disposed;
+    private bool checking;
+    private readonly Dictionary<MethodBase,Patches?> patchSnapshots = new();
     private readonly int minimumNearbyClients;
     private readonly int assetCacheBytes;
     private readonly Func<int> clientCount;
@@ -66,6 +68,17 @@ public sealed class EngineOptimizations : IDisposable
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
         entries.Add(new("entityDespawnLists",options.EntityLifecycleListReuse,()=>EntityLifecycleOptimizations.DespawnTarget,()=>EntityLifecycleOptimizations.Dependencies(1),AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.DespawnPrefix)),EntityLifecycleOptimizations.ConfigureDespawns)
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
+
+        string[] workNames = ["callbackSnapshotReuse", "callbackDebugSnapshotReuse", "spawnOpportunityListReuse", "spawnColumnArrayReuse"];
+        bool[] workSwitches = [options.DelayedCallbackSnapshotReuse, options.DelayedCallbackSnapshotReuse, options.SpawnOpportunityListReuse, options.SpawnColumnArrayReuse];
+        string[] workPrefixes = [nameof(CallbackSpawnOptimizations.TickPrefix), nameof(CallbackSpawnOptimizations.DebugPrefix), nameof(CallbackSpawnOptimizations.SpawnPrefix), nameof(CallbackSpawnOptimizations.ColumnPrefix)];
+        for (int i = 0; i < workNames.Length; i++)
+        {
+            int kind = i; CallbackSpawnOptimizations.Configure(kind, false);
+            entries.Add(new(workNames[i], workSwitches[i], () => CallbackSpawnOptimizations.Target(kind), () => CallbackSpawnOptimizations.Dependencies(kind),
+                AccessTools.Method(typeof(CallbackSpawnOptimizations), workPrefixes[i]), value => CallbackSpawnOptimizations.Configure(kind, value))
+                { Transpiler = AccessTools.Method(typeof(CallbackSpawnOptimizations), nameof(CallbackSpawnOptimizations.Transpiler)), Finalizer = AccessTools.Method(typeof(CallbackSpawnOptimizations), nameof(CallbackSpawnOptimizations.Finalizer)) });
+        }
 
         string[] scratchNames = ["blockUpdateListReuse", "chunkLoadRequestListReuse", "chunkUnloadCandidateListReuse", "chunkUnloadNotificationReuse"];
         bool[] scratchSwitches = [options.BlockUpdateListReuse, options.ChunkLoadRequestListReuse, options.ChunkUnloadListReuse, options.ChunkUnloadListReuse];
@@ -141,7 +154,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = WorkKind(entry.Name) is int workKind ? CallbackSpawnOptimizations.ValidateContract(workKind, out why) : ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -165,6 +178,7 @@ public sealed class EngineOptimizations : IDisposable
     {
         string? conflict = Conflict(entry);
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
+        patchSnapshots.Remove(entry.TargetMethod);
         harmony.Patch(entry.TargetMethod, prefix: entry.Prefix == null ? null : new HarmonyMethod(entry.Prefix), transpiler: entry.Transpiler == null ? null : new HarmonyMethod(entry.Transpiler), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix), finalizer: entry.Finalizer == null ? null : new HarmonyMethod(entry.Finalizer));
         if(entry.Name == "assetCompressionCache") RefreshAssets();
         entry.FailureBaseline = Failures(entry.Name);
@@ -237,14 +251,20 @@ public sealed class EngineOptimizations : IDisposable
         return Find(patches.Prefixes,entry.Prefix) && Find(patches.Postfixes,entry.Postfix) &&
             Find(patches.Transpilers,entry.Transpiler) && Find(patches.Finalizers,entry.Finalizer);
     }
-    private static string? Conflict(Entry entry, Patches? targetInfo = null, bool targetInspected = false)
+    private string? Conflict(Entry entry, Patches? targetInfo = null, bool targetInspected = false)
     {
         foreach (var method in entry.DependencyMethods)
         {
-            var owner = ForeignOwner(targetInspected && method == entry.TargetMethod ? targetInfo : Harmony.GetPatchInfo(method));
+            var owner = ForeignOwner(targetInspected && method == entry.TargetMethod ? targetInfo : Inspect(method));
             if (owner != null) return "Foreign Harmony owner on " + method.Name + ": " + owner;
         }
         return null;
+    }
+    private Patches? Inspect(MethodBase method)
+    {
+        if (!checking) return Harmony.GetPatchInfo(method);
+        if (patchSnapshots.TryGetValue(method, out var snapshot)) return snapshot;
+        snapshot = Harmony.GetPatchInfo(method); patchSnapshots.Add(method, snapshot); return snapshot;
     }
     private FieldInfo? assetsPacketField, assetsBufferField;
     private void RefreshAssets()
@@ -258,40 +278,47 @@ public sealed class EngineOptimizations : IDisposable
     {
         lock (gate)
         {
-            if (disposed) return;
-            foreach (var entry in entries)
+            if (disposed || checking) return;
+            checking = true;
+            try
             {
-                if (!entry.Installed && entry.State != "standby") continue;
-                try
+                foreach (var entry in entries)
                 {
-                    if (entry.Name == "nearbyPlayerQueries")
+                    if (!entry.Installed && entry.State != "standby") continue;
+                    try
                     {
-                        int count = clientCount();
-                        if (!entry.Installed)
+                        if (entry.Name == "nearbyPlayerQueries")
                         {
-                            if (count >= minimumNearbyClients) Activate(entry);
-                            continue;
+                            int count = clientCount();
+                            if (!entry.Installed)
+                            {
+                                if (count >= minimumNearbyClients) Activate(entry);
+                                continue;
+                            }
+                            // Hysteresis avoids patch churn when clients fluctuate around activation.
+                            if (count < Math.Max(0, minimumNearbyClients - 32))
+                            { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
                         }
-                        // Hysteresis avoids patch churn when clients fluctuate around activation.
-                        if (count < Math.Max(0, minimumNearbyClients - 32))
-                        { Disable(entry, "standby", "Population below active threshold; original method unpatched."); continue; }
+                        var targetInfo = entry.Installed ? Inspect(entry.TargetMethod) : null;
+                        if (entry.Installed && !HasOwnPatch(entry,targetInfo))
+                        { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
+                        if(entry.Name == "assetCompressionCache") RefreshAssets();
+                        string? conflict = Conflict(entry, targetInfo, entry.Installed);
+                        if (conflict != null) { Disable(entry, "conflict", conflict); continue; }
+                        if (Failures(entry.Name) > entry.FailureBaseline)
+                            Disable(entry, "failed", "A new failure was observed during this activation. Stock behavior retained; reapply settings to retry.");
                     }
-                    var targetInfo = entry.Installed ? Harmony.GetPatchInfo(entry.TargetMethod) : null;
-                    if (entry.Installed && !HasOwnPatch(entry,targetInfo))
-                    { Disable(entry, "failed", "Own runtime patch was removed; stock behavior retained. Reapply settings to retry."); continue; }
-                    if(entry.Name == "assetCompressionCache") RefreshAssets();
-                    string? conflict = Conflict(entry, targetInfo, entry.Installed);
-                    if (conflict != null) { Disable(entry, "conflict", conflict); continue; }
-                    if (Failures(entry.Name) > entry.FailureBaseline)
-                        Disable(entry, "failed", "A new failure was observed during this activation. Stock behavior retained; reapply settings to retry.");
+                    catch (Exception error) { Disable(entry, "failed", "Compatibility monitor failed: " + error.GetType().Name); }
                 }
-                catch (Exception error) { Disable(entry, "failed", "Compatibility monitor failed: " + error.GetType().Name); }
             }
+            finally { checking = false; patchSnapshots.Clear(); }
         }
     }
+    private static int? WorkKind(string name) => name switch { "callbackSnapshotReuse" => 0, "callbackDebugSnapshotReuse" => 1, "spawnOpportunityListReuse" => 2, "spawnColumnArrayReuse" => 3, _ => null };
     private static int? ScratchKind(string name) => name switch { "blockUpdateListReuse" => 0, "chunkLoadRequestListReuse" => 1, "chunkUnloadCandidateListReuse" => 2, "chunkUnloadNotificationReuse" => 3, _ => null };
     private static long Failures(string name)
     {
+        if (WorkKind(name) is int workKind) return CallbackSpawnOptimizations.Counters(workKind).Failures;
         if (ScratchKind(name) is int kind) return BlockChunkScratchOptimizations.Counters(kind).Failures;
         return name switch { "broadcastRawFilter" or "broadcastPacketFilter" or "broadcastUdpFilter"=>0, "entityTickCleanupLists" or "entityDespawnLists"=>EntityLifecycleOptimizations.Counters.Failures, "waypointNodePooling" or "waypointNodePoolScope" => PathNodePoolOptimizations.Failures, "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" => EntityDistanceOptimizations.Counters.Failures, "attributeNoOpSkip" => 0, "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
             "nearbyPlayerQueries" => PlayerQueryOptimizations.GetCounters().AroundFailures,
@@ -303,6 +330,7 @@ public sealed class EngineOptimizations : IDisposable
         entry.Enable(false);
         try
         {
+            patchSnapshots.Remove(entry.TargetMethod);
             // Several independent modules can share one engine method. Remove only
             // this entry's patch methods, preserving other NOS and foreign patches.
             foreach(var method in new[]{entry.Prefix,entry.Postfix,entry.Transpiler,entry.Finalizer})
@@ -325,7 +353,14 @@ public sealed class EngineOptimizations : IDisposable
         var broadcasts=BroadcastOptimizations.Counters;var lifecycle=EntityLifecycleOptimizations.Counters;
         var blockScratch = BlockChunkScratchOptimizations.Counters(0); var loadScratch = BlockChunkScratchOptimizations.Counters(1);
         var candidateScratch = BlockChunkScratchOptimizations.Counters(2); var notifyScratch = BlockChunkScratchOptimizations.Counters(3);
-        return new Dictionary<string,long> { ["blockUpdatePasses"] = blockScratch.Calls, ["chunkRequestPasses"] = loadScratch.Calls,
+        var callback = CallbackSpawnOptimizations.Counters(0); var callbackDebug = CallbackSpawnOptimizations.Counters(1);
+        var spawn = CallbackSpawnOptimizations.Counters(2); var column = CallbackSpawnOptimizations.Counters(3);
+        return new Dictionary<string,long> { ["callbackSnapshotPasses"] = callback.Calls, ["callbackDebugSnapshotPasses"] = callbackDebug.Calls,
+            ["callbackPositionsCopied"] = callback.Items + callbackDebug.Items, ["spawnOpportunityPasses"] = spawn.Calls,
+            ["spawnColumnPasses"] = column.Calls, ["spawnColumnArraysCreated"] = column.ArraysCreated, ["spawnColumnArraysReused"] = column.ArraysReused,
+            ["callbackSpawnBuffersCreated"] = callback.Created + callbackDebug.Created + spawn.Created + column.Created,
+            ["callbackSpawnOversizedReleased"] = callback.Released + callbackDebug.Released + spawn.Released + column.Released,
+            ["callbackSpawnFailures"] = callback.Failures + callbackDebug.Failures + spawn.Failures + column.Failures, ["blockUpdatePasses"] = blockScratch.Calls, ["chunkRequestPasses"] = loadScratch.Calls,
             ["chunkUnloadCandidatePasses"] = candidateScratch.Calls, ["chunkUnloadNotificationPasses"] = notifyScratch.Calls,
             ["chunkRequestCoordinatesReused"] = loadScratch.Coordinates, ["chunkUnloadCoordinatesReused"] = notifyScratch.Coordinates,
             ["blockChunkBuffersCreated"] = blockScratch.Created + loadScratch.Created + candidateScratch.Created + notifyScratch.Created,

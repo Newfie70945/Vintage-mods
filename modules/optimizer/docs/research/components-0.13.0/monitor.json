@@ -1,0 +1,15 @@
+{
+  "before": {
+    "iterations": 1000,
+    "bytesPerCheck": 91472,
+    "nsPerCheck": 278932.7,
+    "scope": "Actual Harmony module monitor with all modules active, 200 synthetic client count, no gameplay or network workload."
+  },
+  "after": {
+    "iterations": 1000,
+    "bytesPerCheck": 73504.832,
+    "nsPerCheck": 283515.4,
+    "scope": "Actual Harmony module monitor with all modules active, 200 synthetic client count, no gameplay or network workload."
+  },
+  "scope": "Same enabled module set in synthetic API/Harmony monitor fixture, per-pass metadata deduplication only. Timing trials are not a production benchmark."
+}

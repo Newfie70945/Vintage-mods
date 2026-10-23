@@ -1,0 +1,114 @@
+{
+  "checks": 51,
+  "trials": [
+    {
+      "context": {
+        "kind": "callback",
+        "enabled": false,
+        "positions": 1342
+      },
+      "bytesPerCall": 10880,
+      "nsPerCall": 26080.1
+    },
+    {
+      "context": {
+        "kind": "callback",
+        "enabled": true,
+        "positions": 1342
+      },
+      "bytesPerCall": 88,
+      "nsPerCall": 23534.68
+    },
+    {
+      "context": {
+        "kind": "callback",
+        "enabled": false,
+        "positions": 1342
+      },
+      "bytesPerCall": 10880,
+      "nsPerCall": 25356.73
+    },
+    {
+      "context": {
+        "kind": "callback",
+        "enabled": true,
+        "positions": 1342
+      },
+      "bytesPerCall": 88,
+      "nsPerCall": 23366.15
+    },
+    {
+      "context": {
+        "kind": "spawn-search",
+        "enabled": false,
+        "states": 0
+      },
+      "bytesPerCall": 32,
+      "nsPerCall": 171.64
+    },
+    {
+      "context": {
+        "kind": "spawn-search",
+        "enabled": true,
+        "states": 0
+      },
+      "bytesPerCall": 0,
+      "nsPerCall": 205.97
+    },
+    {
+      "context": {
+        "kind": "spawn-search",
+        "enabled": false,
+        "states": 0
+      },
+      "bytesPerCall": 32,
+      "nsPerCall": 157.16
+    },
+    {
+      "context": {
+        "kind": "spawn-search",
+        "enabled": true,
+        "states": 0
+      },
+      "bytesPerCall": 0,
+      "nsPerCall": 178.42
+    },
+    {
+      "context": {
+        "kind": "spawn-column",
+        "enabled": false,
+        "chunks": 8
+      },
+      "bytesPerCall": 888.0224,
+      "nsPerCall": 771.75
+    },
+    {
+      "context": {
+        "kind": "spawn-column",
+        "enabled": true,
+        "chunks": 8
+      },
+      "bytesPerCall": 800,
+      "nsPerCall": 666.9
+    },
+    {
+      "context": {
+        "kind": "spawn-column",
+        "enabled": false,
+        "chunks": 8
+      },
+      "bytesPerCall": 888.0224,
+      "nsPerCall": 638.54
+    },
+    {
+      "context": {
+        "kind": "spawn-column",
+        "enabled": true,
+        "chunks": 8
+      },
+      "bytesPerCall": 800,
+      "nsPerCall": 724.57
+    }
+  ],
+  "scope": "Official methods and seeded synthetic fixtures; spawn-position/chunk access intercepted. No production TPS or player-capacity claim."
+}

@@ -1,4 +1,4 @@
-# Implementation status: 0.12.0 preview
+# Implementation status: 0.13.0 preview
 
 NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 
@@ -35,3 +35,5 @@ See [replacement coverage](replacement-coverage.md) before removing an external 
 0.11.0 adds optional empty-exclusion broadcast fast paths and bounded local entity cleanup/despawn lists. The complete original broadcast send bodies and full entity ticking remain. See performance-0.11.0.md for validation and limits.
 
 0.12.0 adds independently controlled block-update list reuse, chunk-request staging/coordinate reuse and unload candidate/notification scratch reuse. No random-tick reduction, chunk delivery cap, I/O rewrite or autosave change. See [validation](performance-0.12.0.md).
+
+0.13.0 adds normal/debug callback key snapshots, private spawn-opportunity scratch and exact-length spawn chunk-read arrays, all independently controlled with bounded retention. Shared compatibility inspections are deduplicated within each monitor pass. [Validation](performance-0.13.0.md).
