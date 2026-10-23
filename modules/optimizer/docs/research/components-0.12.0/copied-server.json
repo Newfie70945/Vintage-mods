@@ -1,0 +1,914 @@
+{
+  "success": true,
+  "suiteVersion": "1.2.48",
+  "optimizerVersion": "0.12.0",
+  "checks": [
+    "opening performance page does not enumerate Harmony patches",
+    "forty compact incident rows retain independently fetched 45-observation detail",
+    "timeline exposes compact metric points, raw gaps and save observations",
+    "actual copied-world save emits a timeline marker",
+    "twelve warm page requests share one snapshot generation",
+    "per-rule Off/custom generation policies saved and visible in authenticated API and disk config",
+    "older rule updates preserve saved generation overrides",
+    "invalid generation threshold rejected without changing rule",
+    "inherit/reset and rule deletion remove stored generation overrides",
+    "new optimizer defaults visible through authenticated Suite bridge",
+    "five new opt-in modules default off and independently activate/disable on official server",
+    "entity patterns/radius persist, reject invalid patterns without altering saved settings, and restore defaults",
+    "despawn packet optimization independently toggled through Suite",
+    "physics packet reuse independently toggled through Suite",
+    "nearest search switch independently applied",
+    "invalid path budget refused",
+    "running capture cannot be discarded",
+    "stopped capture released through Suite",
+    "block/chunk, broadcast and cleanup groups independently activate/disable nine actual targets",
+    "new allocation controls enabled through Suite for real-server validation",
+    "actual server entity cleanup passes use bounded scopes",
+    "block/chunk control enabled: blockUpdateListReuse",
+    "block/chunk control enabled: chunkLoadRequestListReuse",
+    "block/chunk control enabled: chunkUnloadListReuse",
+    "normal copied-server work executes blockUpdatePasses",
+    "normal copied-server work executes chunkRequestPasses",
+    "normal copied-server work executes chunkUnloadCandidatePasses",
+    "three stock broadcast overloads execute empty-exclusion fast paths on copied server",
+    "stock dequeue-before-limit behavior reproduced on real terrain",
+    "worker leaves capped request queued",
+    "101 of 101 actual A* requests complete",
+    "real main-thread assistance respects search count",
+    "assisted path equals direct official A* for this terrain case",
+    "arena floor resolved",
+    "nontrivial real waypoint path found",
+    "raw official path retained for ownership check",
+    "both pool components activate on official server",
+    "repeated pooled waypoints preserve route geometry",
+    "held raw-node path unchanged by later pooled searches",
+    "pooled repeated waypoint search reduces measured thread allocation in this arena",
+    "repeat allocation comparison 0",
+    "repeat allocation comparison 1",
+    "held raw path unchanged after repeated pool recreation",
+    "streamed diagnostic ZIP contains valid JSON plus NOS actual state and retained tick-debug evidence, without starting profiling",
+    "probe restores original optimizer settings"
+  ],
+  "modules": [
+    {
+      "name": "broadcastRawFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "broadcastPacketFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "broadcastUdpFilter",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityTickCleanupLists",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityDespawnLists",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "blockUpdateListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkLoadRequestListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkUnloadCandidateListReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "chunkUnloadNotificationReuse",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "waypointNodePoolScope",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "waypointNodePooling",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "entityHurtSafety",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "aiDistanceThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "distantWanderThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "repulsionDistanceThrottle",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "attributeNoOpSkip",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "despawnPacketProjection",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "physicsPacketListReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "onlinePlayerSnapshots",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "nearbyPlayerQueries",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "bulkStreamReads",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "assetCompressionCache",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathQueueLimitFix",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "pathMainThreadBudget",
+      "status": "disabled",
+      "reason": "Independent module switch is off."
+    },
+    {
+      "name": "nearestEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "interactableEntitySearch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiTaskStartDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "aiFilterDispatch",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "repulseDelegateReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "worldgenRequestReuse",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    },
+    {
+      "name": "saveSnapshotRelease",
+      "status": "active",
+      "reason": "Verified official 1.22.7; independently controlled runtime patch installed."
+    }
+  ],
+  "counters": {
+    "blockUpdatePasses": 27,
+    "chunkRequestPasses": 141,
+    "chunkUnloadCandidatePasses": 2,
+    "chunkUnloadNotificationPasses": 16,
+    "chunkRequestCoordinatesReused": 0,
+    "chunkUnloadCoordinatesReused": 0,
+    "blockChunkBuffersCreated": 20,
+    "blockChunkOversizedReleased": 0,
+    "blockChunkFailures": 0,
+    "broadcastRawCalls": 1,
+    "broadcastPacketCalls": 5,
+    "broadcastUdpCalls": 1,
+    "entityCleanupPasses": 131,
+    "entityCleanupBuffersCreated": 6,
+    "entityCleanupOversizedReleased": 0,
+    "waypointNodesReused": 1204640,
+    "waypointNodesCreated": 240,
+    "waypointPoolOverflow": 0,
+    "aiChecksDeferred": 0,
+    "wanderChecksDeferred": 0,
+    "repulsionChecksDeferred": 0,
+    "entityPolicyFailures": 0,
+    "attributeNoOpSkips": 0,
+    "despawnPacketCalls": 0,
+    "despawnPacketEntities": 0,
+    "physicsPacketPasses": 1621,
+    "physicsPacketBuffersCreated": 31,
+    "physicsPacketOversizedBuffersReleased": 0,
+    "pathAssistanceFailures": 0,
+    "pathWorkerLimitStops": 1,
+    "pathMainSearches": 1,
+    "pathDeferredTicks": 0,
+    "nearestEntitySearchCalls": 4,
+    "interactableEntitySearchCalls": 0,
+    "entitySearchContextsCreated": 1,
+    "saveSnapshotReferencesReleased": 392,
+    "saveSnapshotCompletions": 1,
+    "onlineSnapshotCalls": 3077,
+    "nearbyQueryCalls": 0,
+    "snapshotFallbacks": 0,
+    "nearbyFallbacks": 0,
+    "snapshotFailures": 0,
+    "nearbyFailures": 0,
+    "assetCacheHits": 0,
+    "assetCacheMisses": 0,
+    "assetCacheBytes": 0,
+    "assetCacheFailures": 0,
+    "bulkReadCalls": 0,
+    "bulkReadBytes": 0,
+    "bulkReadFallbacks": 0,
+    "bulkReadFailures": 0
+  },
+  "waypointMeasurements": {
+    "searches": 5000,
+    "trials": [
+      {
+        "order": "stock/pooled",
+        "stock": 29440040,
+        "pooled": 4120496,
+        "stockMs": 79.5992,
+        "pooledMs": 79.2084
+      },
+      {
+        "order": "pooled/stock",
+        "stock": 29440040,
+        "pooled": 4120040,
+        "stockMs": 74.3884,
+        "pooledMs": 71.33
+      },
+      {
+        "order": "stock/pooled",
+        "stock": 29440040,
+        "pooled": 4120040,
+        "stockMs": 73.7944,
+        "pooledMs": 79.7131
+      }
+    ],
+    "scope": "Repeated controlled-arena path searches on copied server; not production TPS evidence."
+  },
+  "loadedMods": [
+    {
+      "modId": "creative",
+      "version": "1.22.7",
+      "systems": 4,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "game",
+      "version": "1.22.7",
+      "systems": 55,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "survival",
+      "version": "1.22.7",
+      "systems": 89,
+      "side": "Universal",
+      "core": true
+    },
+    {
+      "modId": "attributerenderinglibrary",
+      "version": "3.2.0",
+      "systems": 4,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "draconis",
+      "version": "1.6.1",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "facore",
+      "version": "1.3.0",
+      "systems": 3,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "fagothic",
+      "version": "2.1.2",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescaperegion",
+      "version": "1.0.38",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescaribbeanregion",
+      "version": "1.0.30",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescentralaustralianregion",
+      "version": "1.0.28",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescircumborealregion",
+      "version": "1.0.4",
+      "systems": 0,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonescosmopolitanregion",
+      "version": "1.0.14",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzoneseastasiaticregion",
+      "version": "1.0.25",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonesmediterraneanregion",
+      "version": "1.0.25",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "floralzonesneozeylandicregion",
+      "version": "1.0.26",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "jaunt",
+      "version": "3.3.1",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesanticheatclient",
+      "version": "1.1.28",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfieschatguard",
+      "version": "2.1.4",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiescommunitymotd",
+      "version": "2.1.6",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesplayerlist",
+      "version": "1.1.2",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveressentialsdiscord",
+      "version": "1.0.13",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveressentialssuite",
+      "version": "1.2.48",
+      "systems": 4,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "newfiesserveroptimizer",
+      "version": "0.12.0",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "nosentitysuiteprobe",
+      "version": "1.0.0",
+      "systems": 1,
+      "side": "Server",
+      "core": false
+    },
+    {
+      "modId": "primitivesurvival",
+      "version": "5.1.4",
+      "systems": 2,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "vsimgui",
+      "version": "1.2.7",
+      "systems": 1,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "xlibfork",
+      "version": "1.0.41",
+      "systems": 3,
+      "side": "Universal",
+      "core": false
+    },
+    {
+      "modId": "xskillsfork",
+      "version": "1.1.9",
+      "systems": 6,
+      "side": "Universal",
+      "core": false
+    }
+  ],
+  "packZipCount": 25,
+  "requestMeasurements": [
+    {
+      "path": "/api/login",
+      "status": 200,
+      "elapsedMs": 368.597,
+      "responseBytes": 205
+    },
+    {
+      "path": "/api/profiler/enabled",
+      "status": 200,
+      "elapsedMs": 28.433,
+      "responseBytes": 58
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 127.752,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/incident?start=1792726138654",
+      "status": 200,
+      "elapsedMs": 39.015,
+      "responseBytes": 24893
+    },
+    {
+      "path": "/api/performance/timeline?window=61",
+      "status": 200,
+      "elapsedMs": 19.587,
+      "responseBytes": 3939
+    },
+    {
+      "path": "/api/performance/timeline?window=60",
+      "status": 200,
+      "elapsedMs": 17.269,
+      "responseBytes": 212
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.224,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 6.624,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.894,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.889,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.282,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.32,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 4.719,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.527,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.374,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.136,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.793,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 3.142,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 1.792,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/performance/page-snapshot?window=1800",
+      "status": 200,
+      "elapsedMs": 2.854,
+      "responseBytes": 42028
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 20.45,
+      "responseBytes": 143
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 34.572,
+      "responseBytes": 325
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 27.935,
+      "responseBytes": 143
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 33.554,
+      "responseBytes": 343
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 35.053,
+      "responseBytes": 142
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 33.152,
+      "responseBytes": 342
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 400,
+      "elapsedMs": 1124.236,
+      "responseBytes": 74
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 33.478,
+      "responseBytes": 342
+    },
+    {
+      "path": "/api/animals/rules/set",
+      "status": 200,
+      "elapsedMs": 29.998,
+      "responseBytes": 142
+    },
+    {
+      "path": "/api/animals/rules",
+      "status": 200,
+      "elapsedMs": 32.849,
+      "responseBytes": 328
+    },
+    {
+      "path": "/api/animals/rules/remove",
+      "status": 200,
+      "elapsedMs": 29.787,
+      "responseBytes": 77
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 48.068,
+      "responseBytes": 9408
+    },
+    {
+      "path": "/api/server/mods",
+      "status": 200,
+      "elapsedMs": 23.582,
+      "responseBytes": 13014
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 167.76,
+      "responseBytes": 9618
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 123.809,
+      "responseBytes": 9459
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 127.154,
+      "responseBytes": 9618
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 125.169,
+      "responseBytes": 9459
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 141.421,
+      "responseBytes": 9620
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 125.094,
+      "responseBytes": 9461
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 124.953,
+      "responseBytes": 9620
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 118.045,
+      "responseBytes": 9461
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 123.324,
+      "responseBytes": 9540
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 119.249,
+      "responseBytes": 9462
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 122.413,
+      "responseBytes": 9454
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 28.984,
+      "responseBytes": 9432
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 126.615,
+      "responseBytes": 9462
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 115.383,
+      "responseBytes": 9383
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 117.703,
+      "responseBytes": 9462
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 114.467,
+      "responseBytes": 9383
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 133.793,
+      "responseBytes": 9462
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 122.429,
+      "responseBytes": 9383
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 135.129,
+      "responseBytes": 9462
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 30.366,
+      "responseBytes": 9425
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 34.896,
+      "responseBytes": 9539
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 27.34,
+      "responseBytes": 9460
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 53.308,
+      "responseBytes": 9517
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 1.658,
+      "responseBytes": 9590
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 130.381,
+      "responseBytes": 9598
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 132.984,
+      "responseBytes": 9519
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 132.339,
+      "responseBytes": 9598
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 141.72,
+      "responseBytes": 9520
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 135.205,
+      "responseBytes": 9679
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 117.606,
+      "responseBytes": 9520
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 129.163,
+      "responseBytes": 9759
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 152.898,
+      "responseBytes": 9520
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 148.817,
+      "responseBytes": 9679
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 146.258,
+      "responseBytes": 9521
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 138.576,
+      "responseBytes": 10236
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 112.881,
+      "responseBytes": 9534
+    },
+    {
+      "path": "/api/optimizations/newfies",
+      "status": 200,
+      "elapsedMs": 28.312,
+      "responseBytes": 9483
+    }
+  ],
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.",
+  "testedCodeRevision": "51a71ef922803deab61258e179f63da46984c0e9",
+  "suiteAssemblySha256": "4681820d8a7ac5eadb40a8eb24406e608f22bb50334f1ebd8a5736e199d4272c",
+  "optimizerAssemblySha256": "ea950a416dde09fd59c44e76a13b177caad55a6cd826a88fa0e7b157b1b99039"
+}
