@@ -94,6 +94,10 @@
     "BlockUpdateListReuse": false,
     "ChunkLoadRequestListReuse": false,
     "ChunkUnloadListReuse": false,
+    "NearbyEntityListReuse": false,
+    "CuboidEntityListReuse": false,
+    "ShapelessStackMerge": false,
+    "ShapelessWildcardMatch": false,
     "DelayedCallbackSnapshotReuse": false,
     "SpawnOpportunityListReuse": false,
     "SpawnColumnArrayReuse": false

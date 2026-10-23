@@ -10,7 +10,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.13 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.13.0-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.14.0-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 
@@ -81,3 +81,5 @@ NOS 0.11.0 adds optional empty-exclusion broadcast fast paths and bounded entity
 NOS 0.12.0 adds optional block-update, chunk-request staging and chunk-unload scratch reuse with independent Suite controls. It preserves simulation, chunk delivery and save policies. See [validation](modules/optimizer/docs/performance-0.12.0.md).
 
 NOS 0.13.0 adds optional callback-snapshot and mob-spawn scratch reuse, reduces repeated compatibility inspection allocations, and groups/searches module controls in the Suite. See [validation](modules/optimizer/docs/performance-0.13.0.md).
+
+NOS 0.14.0 adds independently controlled nearby/cuboid entity-query scratch reuse and shapeless recipe allocation reductions. Suite 1.2.48 NOS Recipes1 exposes their controls, actual counters and failure/conflict status. See [validation](modules/optimizer/docs/performance-0.14.0.md).

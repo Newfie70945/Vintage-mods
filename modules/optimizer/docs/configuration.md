@@ -1,6 +1,6 @@
 # Configuration and profiler coverage
 
-Newfie's Server Optimizer **0.13.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
+Newfie's Server Optimizer **0.14.0 engine-patch preview** reads `ModConfig/optimizer.json` and writes defaults on first launch. A ready-to-copy example is in `config/optimizer.json`. Restart after file edits, or apply supported switches live through Suite → Optimizations. Each engine module is independently controlled; exact compatibility and conflict guards retain stock behavior when needed.
 
 ## Capture controls
 
@@ -200,3 +200,20 @@ Each target checks the official engine and inspected allocation layout, detects 
 Scopes isolate nested calls and threads, clear references on success/failure and retain at most one idle buffer per target/thread. List retention is capped at 4,096 slots. Exact column length is preserved across height changes; oversized arrays are not retained. Configuration changes invalidate old scopes before reuse.
 
 The Suite provides grouped controls, module search and All/Needs attention/Active/Disabled-standby filters. Filtering is local, preserves edits and makes no configuration requests. Runtime counters report passes, copied callback positions, column arrays created/reused, buffers, oversized releases and failures; counts do not equal time or bytes saved. Compatibility metadata is shared only within one monitor pass, invalidated after NOS patch changes and cleared in finally. Late conflicts remain checked every second.
+
+## Entity-query and shapeless recipe switches (0.14.0)
+
+| EngineOptimizations setting | Default | Runtime behavior |
+| --- | --- | --- |
+| `NearbyEntityListReuse` | false | Reuse the private GetEntitiesAround accumulation list on the server. |
+| `CuboidEntityListReuse` | false | Reuse the private GetEntitiesInsideCuboid accumulation list on the server. |
+| `ShapelessStackMerge` | false | Replace base MergeStacks iterator/captured-predicate work with ordered loops. |
+| `ShapelessWildcardMatch` | false | Replace base wildcard-ingredient LINQ enumeration with an ordered loop. |
+
+The Suite's **Entity queries and shapeless recipes** group supports live save/apply. Inspect each target's actual state, compatibility reason and counters. New fields are disabled when connected to an older NOS. Safe Mode/master disable removes these patches; capture must be stopped to change configuration. Existing config files gain defaults when deserialized; these additions do not silently activate.
+
+Entity query scratch clears all entity references in a finalizer; recursion and threads use separate scopes. Only one idle list per target/thread is retained and capacity above 4,096 is discarded. Returned arrays are never reused. Original chunk traversal, dimensions, filtering order, bounds and null-tail handling stay in the game method.
+
+Recipe scratch remains owned by its caller; NOS pools no inventory, item stack or ingredient. First-match order, cloning, attributes, quantity behavior, wildcard/tag/allowed-variant checks and collectible hooks are preserved, including hooks invoked on preliminary mismatches. Virtual overrides remain virtual. No consumption, output or recipe registry is replaced.
+
+On an exception the affected gate disables immediately and the one-second compatibility monitor removes its own target patch. The exception is not swallowed and work is never replayed; a mod hook may already have had side effects. Failure counters describe observed errors, not automatic proof of an NOS bug. Fix the cause before applying settings again.
