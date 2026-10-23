@@ -26,3 +26,13 @@ Suite version is 1.2.49 (`ms11-block-ticks1`). The Optimizations page exposes ea
 Allocation comparisons use actual official methods with isolated fixtures. Barrel pairing removes temporary allocations; berry setup removes a redundant wrapper. Chunk staging reuse reduces allocation pressure but adds scope/cleanup overhead, including on empty unload passes. It should be evaluated separately under real chunk churn, not enabled as a general CPU or disk-speed fix. Component nanosecond measurements are sensitive to tiering, JIT warmup and host contention.
 
 These changes do not explain or fix every recorded stall. Entity animation, entity behaviors and network processing remain substantial in these captures. Catch-up growth and entity unload callbacks can legitimately consume time. No growth throttling, deferred saving, forced GC or more aggressive terrain unloading is introduced.
+
+## Validation results
+
+- Official 1.22.7 / .NET 10: 28 optimizer test suites pass, including 89 block callback checks, 13 unload staging checks and 115 module lifecycle/conflict checks.
+- Suite 1.2.49 builds with zero warnings/errors. 22 root checks and 8 exact native-marker identity checks pass. Browser checks cover new switches, independent saved settings, older-NOS omission, locks and mobile layout.
+- Copied official server with 25 mod ZIPs: 101 checks pass. Barrel pairing, berry flattening and unload staging activate independently. ARL's firepit overlap stays blocked; no guard is bypassed. Actual registry items/terrain and A* are exercised, with no authenticated-player workload.
+- Three additional sequential component trials with tiered compilation disabled: matching two-slot barrel pairing allocates 384 -> 88 bytes/call; bush setup with behavior saves 96 bytes/batch (568 -> 472 in the proxy fixture), and empty bush setup 32 -> 0. Native empty unload passes allocate 88 -> 24 bytes; private staging helper components with 256 records/list allocate 28,848 -> 0 after warmup. Remaining allocations, including owned recipe results and native downstream work, are retained.
+- Empty/cold firepit CPU comparisons are mixed; no reliable firepit CPU improvement is claimed. Unload staging also has CPU tradeoffs. Do not translate these component allocations/timings into a production TPS or disk-I/O claim.
+
+[Sanitized validation and assembly hashes](research/block-ticks-0.18.0/validation.json), [block component trials](research/block-ticks-0.18.0/block-components.json), [unload component trials](research/block-ticks-0.18.0/unload-components.json), and [copied-server checks](research/block-ticks-0.18.0/copied-server.json). The user's raw profiler exports are excluded.

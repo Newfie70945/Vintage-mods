@@ -1,0 +1,65 @@
+{
+  "testedRuntimeRevision": "b4cddbdc5fdd3ce1e67460a15664b6626201e687",
+  "optimizerCompiledRevision": "2d8072bd25e859e0fef6edd4928dd1f25ea90512",
+  "suiteCompiledRevision": "f1d1a27d5c6bb0284ec3b7989cd950c9309af9d9",
+  "assemblyInformationalVersions": {
+    "NewfiesServerEssentialsSuite.dll": "1.2.49+f1d1a27d5c6bb0284ec3b7989cd950c9309af9d9",
+    "NewfiesServerOptimizer.dll": "0.18.0+2d8072bd25e859e0fef6edd4928dd1f25ea90512"
+  },
+  "assemblySha256": {
+    "NewfiesServerEssentialsSuite.dll": "0785e2f0a9776e04c7574f2394ce18100608617dd1a51858ccfb4ebe90fb5736",
+    "NewfiesServerOptimizer.dll": "2e699a000062b582f288705ca0652abf55b65f97bde6d38a0003a8e93274ded0"
+  },
+  "officialDependencies": {
+    "VintagestoryAPI.dll": "034283e7e9d98eae45ee63005576fd89badc3c995b531cc4c3fe46f3eb2d3296",
+    "VintagestoryLib.dll": "e08f22b493b92feaf0aaeb79d22437ea0f7efc38aa7f72a04a47f98bc0e40df0",
+    "Mods/VSEssentials.dll": "a28565c5c9181f8cc84b98a2b7457ab824b8ecb7763714448da1f7c245aecd6e",
+    "Mods/VSSurvivalMod.dll": "d67b48a321403b2052b33c7d0caa99611f92350ffac73ea72672901dd87ccd7a",
+    "Lib/0Harmony.dll": "64b8b8f926efe5b926b832aaedb93e73de34af2e84d9f8f5d51c6fb70ab61149"
+  },
+  "optimizerTestSuites": [
+    "tests/AiTaskStartTests/AiTaskStartTests.csproj",
+    "tests/AssetCacheTests/AssetCacheTests.csproj",
+    "tests/BlockChunkTests/BlockChunkTests.csproj",
+    "tests/BlockTickTests/BlockTickTests.csproj",
+    "tests/BroadcastLifecycleTests/BroadcastLifecycleTests.csproj",
+    "tests/CallbackSpawnTests/CallbackSpawnTests.csproj",
+    "tests/CaptureReleaseTests/CaptureReleaseTests.csproj",
+    "tests/ChunkUnloadStagingTests/ChunkUnloadStagingTests.csproj",
+    "tests/CollisionAnimationTests/CollisionAnimationTests.csproj",
+    "tests/DespawnPacketTests/DespawnPacketTests.csproj",
+    "tests/DistancePolicyTests/DistancePolicyTests.csproj",
+    "tests/EngineHookTests/EngineHookTests.csproj",
+    "tests/EngineModuleTests/EngineModuleTests.csproj",
+    "tests/EntityHotPathTests/EntityHotPathTests.csproj",
+    "tests/EntitySearchTests/EntitySearchTests.csproj",
+    "tests/NativeBuildLogTests/NativeBuildLogTests.csproj",
+    "tests/PathQueueTests/PathQueueTests.csproj",
+    "tests/PhysicsPacketTests/PhysicsPacketTests.csproj",
+    "tests/PlayerQueryTests/PlayerQueryTests.csproj",
+    "tests/ProfilerTests/ProfilerTests.csproj",
+    "tests/RecipeQueryTests/RecipeQueryTests.csproj",
+    "tests/StreamCopyTests/StreamCopyTests.csproj",
+    "tests/TraversalTests/TraversalTests.csproj",
+    "tests/WorldStorageTests/WorldStorageTests.csproj",
+    "tools/stress-tester/tests",
+    "tools/benchmark/tests",
+    "tools/dashboard/tests",
+    "tools/probe/tests"
+  ],
+  "blockCallbackChecks": 89,
+  "unloadStagingChecks": 13,
+  "engineLifecycleChecks": 115,
+  "nativeCallbackIdentityChecks": 8,
+  "rootChecks": 22,
+  "browserChecks": [
+    "optimizer settings/state/locks/mobile, new switches and older-NOS omission"
+  ],
+  "copiedServerChecks": 101,
+  "copiedServerModZips": 25,
+  "observedCompatibility": "ARL 3.2.0 canHeatInput patch blocks idleFirepitFastPath; guard retained. Barrel pairing, bush flattening and unload staging independently activate.",
+  "componentMeasurementMode": "Additional sequential runs with DOTNET_TieredCompilation=0; full suite tests also run with default tiering. Fixtures are not a representative player workload.",
+  "scope": "Copied official server, real terrain, optional animal/timeline API checks and actual A*; no clients or production TPS claims.",
+  "productionPerformanceClaims": false,
+  "privateProfilerUploadsIncluded": false
+}

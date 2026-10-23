@@ -1,0 +1,88 @@
+{
+  "checks": 13,
+  "measurements": [
+    {
+      "trial": 0,
+      "enabled": false,
+      "bytesPerPass": 88,
+      "nsPerPass": 76.816
+    },
+    {
+      "trial": 0,
+      "enabled": true,
+      "bytesPerPass": 24,
+      "nsPerPass": 58.466
+    },
+    {
+      "trial": 1,
+      "enabled": false,
+      "bytesPerPass": 88,
+      "nsPerPass": 74.776
+    },
+    {
+      "trial": 1,
+      "enabled": true,
+      "bytesPerPass": 24,
+      "nsPerPass": 98.248
+    },
+    {
+      "trial": 2,
+      "enabled": false,
+      "bytesPerPass": 88,
+      "nsPerPass": 52.19
+    },
+    {
+      "trial": 2,
+      "enabled": true,
+      "bytesPerPass": 24,
+      "nsPerPass": 52.636
+    }
+  ],
+  "stagingMeasurements": [
+    {
+      "trial": 0,
+      "enabled": false,
+      "recordsPerList": 256,
+      "bytesPerPass": 28848,
+      "nsPerPass": 2112.96
+    },
+    {
+      "trial": 0,
+      "enabled": true,
+      "recordsPerList": 256,
+      "bytesPerPass": 0,
+      "nsPerPass": 1044.01
+    },
+    {
+      "trial": 1,
+      "enabled": false,
+      "recordsPerList": 256,
+      "bytesPerPass": 28848,
+      "nsPerPass": 2259.67
+    },
+    {
+      "trial": 1,
+      "enabled": true,
+      "recordsPerList": 256,
+      "bytesPerPass": 0,
+      "nsPerPass": 1108.98
+    },
+    {
+      "trial": 2,
+      "enabled": false,
+      "recordsPerList": 256,
+      "bytesPerPass": 28848,
+      "nsPerPass": 2317.04
+    },
+    {
+      "trial": 2,
+      "enabled": true,
+      "recordsPerList": 256,
+      "bytesPerPass": 0,
+      "nsPerPass": 1029.18
+    }
+  ],
+  "tieredCompilation": "0",
+  "stagingScope": "Private constructor-helper components with 256 records per list, not native disk or chunk disposal work.",
+  "scope": "Actual official unload-staging body with isolated map chunks and intercepted neighbor/event callbacks; no disk-I/O or player performance claim."
+}
