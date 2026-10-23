@@ -8102,10 +8102,7 @@ public sealed partial class WebDashboardService : IDisposable
 
         if (request.Method == "GET" && path == "/api/performance/overview")
         {
-            int windowSeconds = Math.Clamp(
-                GetQueryInt(request, "window", 1800),
-                60,
-                3600);
+            int windowSeconds = NormalizePerformanceWindow(GetQueryInt(request, "window", 1800));
 
             var overview = await GetCachedMainThreadReadAsync(
                 "performance-overview:" + windowSeconds, 1000,
@@ -8122,10 +8119,7 @@ public sealed partial class WebDashboardService : IDisposable
 
         if (request.Method == "GET" && path == "/api/performance/page-snapshot")
         {
-            int windowSeconds = Math.Clamp(
-                GetQueryInt(request, "window", 1800),
-                60,
-                3600);
+            int windowSeconds = NormalizePerformanceWindow(GetQueryInt(request, "window", 1800));
 
             var snapshot = await GetCachedMainThreadReadAsync(
                 "performance-page-snapshot:" + windowSeconds, 5000,
@@ -8159,10 +8153,10 @@ public sealed partial class WebDashboardService : IDisposable
                                 .ToList()
                         },
                         providers = BuildOptimizationProviders(),
-                        conflicts = BuildPatchConflictSnapshot()
+                        conflicts = GetLastPatchConflictSnapshot()
                     };
                 },
-                "web-performance-page-snapshot").ConfigureAwait(false);
+                "web-performance-page-snapshot", serializeOnce: true).ConfigureAwait(false);
 
             await WriteJsonAsync(
                 stream,
@@ -8190,15 +8184,12 @@ public sealed partial class WebDashboardService : IDisposable
 
         if (request.Method == "GET" && path == "/api/performance/timeline")
         {
-            int windowSeconds = Math.Clamp(
-                GetQueryInt(request, "window", 1800),
-                60,
-                3600);
+            int windowSeconds = NormalizePerformanceWindow(GetQueryInt(request, "window", 1800));
 
             var timeline = await GetCachedMainThreadReadAsync(
-                "performance-timeline:" + windowSeconds, 1000,
+                "performance-timeline:" + windowSeconds, 5000,
                 () => BuildPerformanceTimeline(windowSeconds),
-                "web-performance-timeline").ConfigureAwait(false);
+                "web-performance-timeline", serializeOnce: true).ConfigureAwait(false);
 
             await WriteJsonAsync(
                 stream,
@@ -11641,7 +11632,7 @@ public sealed partial class WebDashboardService : IDisposable
         bool betterProfile = (incoming.HasMeasuredTicks || incoming.State == "After-spike capture") &&
             incoming.CompletedUnixMilliseconds > archived.ProfileEvidence.CompletedUnixMilliseconds &&
             (!archived.ProfileEvidence.HasMeasuredTicks || incoming.HasMeasuredTicks);
-        if (archived.AttributionVersion >= 5 && !betterProfile) return false;
+        if (archived.AttributionVersion >= 6 && !betterProfile) return false;
         if (archived.AttributionVersion == 0) archived.OriginalPrimaryCategory = archived.PrimaryCategory;
         if (betterProfile) archived.ProfileEvidence = incoming;
         var retained = archived.Before.Concat(archived.During).OrderBy(x => x.UnixMilliseconds).ToList();
@@ -11661,7 +11652,7 @@ public sealed partial class WebDashboardService : IDisposable
         };
         archived.CauseScores = BuildIncidentCauseScores(group, archived.During, archived.WebServer, archived.Database, archived.NetworkHandlers);
         ApplyIncidentVerdict(archived);
-        archived.AttributionVersion = 5;
+        archived.AttributionVersion = 6;
         return true;
     }
 
@@ -11979,9 +11970,11 @@ public sealed partial class WebDashboardService : IDisposable
         return doc.RootElement.TryGetProperty("settings", out var settings) ? settings.GetRawText() : "{}";
     }
 
+    private static int NormalizePerformanceWindow(int seconds) => seconds is 60 or 300 or 900 or 1800 or 3600 ? seconds : 1800;
+
     private object BuildPerformanceTimeline(int windowSeconds)
     {
-        var health = module.ServerHealth?.GetSnapshot(600, windowSeconds);
+        var health = module.ServerHealth?.GetTimelineSnapshot(600, windowSeconds);
         if (health == null)
             return new
             {
@@ -11997,6 +11990,8 @@ public sealed partial class WebDashboardService : IDisposable
         {
             available = true,
             samples = health.Samples,
+            health.SamplingGaps, health.RawSampleCount,
+            worldSaves = health.WorldSaves,
             incidents = performanceCenterStore.Incidents
                 .Where(x => x.StartUnixMilliseconds >= cutoff)
                 .OrderBy(x => x.StartUnixMilliseconds)
@@ -12728,7 +12723,18 @@ public sealed partial class WebDashboardService : IDisposable
         };
     }
 
+    private object? lastPatchConflictSnapshot;
+    private object GetLastPatchConflictSnapshot() => lastPatchConflictSnapshot ?? new {
+        available = false, requiresManualInspection = true, conflicts = Array.Empty<object>(),
+        message = "Run Inspect Harmony Patches to capture overlap information. Page refreshes reuse the last inspection and do not walk patched methods." };
     private object BuildPatchConflictSnapshot()
+    {
+        var result = InspectPatchConflicts();
+        lastPatchConflictSnapshot = result;
+        return result;
+    }
+
+    private object InspectPatchConflicts()
     {
         if (IsFeatureCircuitOpen(
                 "harmony-inspector",
@@ -13965,10 +13971,10 @@ public sealed partial class WebDashboardService : IDisposable
         if (status <= 0)
             status = failed ? 500 : 200;
 
-        SuiteTimingRegistry.Record("Web Dashboard request", totalMs);
-        if (queueWait > 0) SuiteTimingRegistry.Record("Web Dashboard worker queue wait", queueWait);
-        if (mainWait > 0) SuiteTimingRegistry.Record("Web Dashboard main-thread wait", mainWait);
-        if (mainWork > 0) SuiteTimingRegistry.Record("Web Dashboard main-thread work", mainWork);
+        SuiteTimingRegistry.Record("Web request elapsed (includes waiting)", totalMs);
+        if (queueWait > 0) SuiteTimingRegistry.Record("Web worker queue wait (not tick work)", queueWait);
+        if (mainWait > 0) SuiteTimingRegistry.Record("Web game-thread queue wait (not execution)", mainWait);
+        if (mainWork > 0) SuiteTimingRegistry.Record("Web game-thread callback wall time", mainWork);
 
         var row = new WebRequestDiagnostic
         {

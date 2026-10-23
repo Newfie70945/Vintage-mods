@@ -1,11 +1,18 @@
 # Current release changes
 
-## Server Essentials Suite 1.2.47
+## Server Essentials Suite 1.2.48
+
+- Fix timeline traces disappearing in longer ranges: distinguish raw sampling gaps from graph downsampling, show isolated observations, redraw on panel reveal/resize and ignore outdated range responses.
+- Add cyan world-save/autosave markers and a top legend; shade genuine missing-observation intervals without inventing data through stalls.
+- Use compact timeline-only snapshots, bounded/coalesced window caches and shared serialized responses. Opening Performance Center reuses the last manual Harmony inspection instead of enumerating patches.
+- Prevent busy/error page snapshots from triggering a fallback request burst. Clarify elapsed/queued web timings versus actual callback intervals; clip incident work evidence to overlap and conservatively discount GC.
 
 - AnimalGeneration1: per-population-rule generation protection: inherit global settings, ignore generation protection, or protect generation N and above. Overrides also replace generic farm/bred protection for that rule; pet/name/exclusion/player-distance safeguards remain.
 - Add generation settings to the web rule editor and `/animallimit generationrule`, with persisted settings and rule summaries. Existing rules inherit previous behavior.
 - Add Create/Edit rule actions to each population-scan entity type, search/filter, height-limited scrolling totals and collapsible scrolling regional detail. Scan actions populate the editor for review before saving.
-- Suite stays 1.2.47, build `ms11-animal-generation1`; optimizer stays 0.9.0 preview.
+- Suite advances to 1.2.48, build `ms11-timeline-web1`; optimizer stays 0.9.0 preview.
+
+## Server Essentials Suite 1.2.47
 
 - OptimizerNetwork2: add NOS 0.9.0 despawn packet allocation switch, actual status and packet/entry counters. Preserve Physics1 and Entity1 controls; build `ms11-optimizer-network2`.
 

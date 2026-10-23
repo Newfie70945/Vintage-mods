@@ -119,6 +119,8 @@ var overlapping = Request(9500, 10300, 800, 600);
 Check(WebIncidentEvidence.WorkMilliseconds(overlapping, 10000, 11000, 500) == 200, "coincident GC must be discounted from callback evidence");
 Check(WebIncidentEvidence.WorkMilliseconds(Request(20000, 21000, 1000), 10000, 11000, 500) == 0, "unrelated callback must not be blamed");
 Check(WebIncidentEvidence.WorkMilliseconds(new() { MainThreadWorkMilliseconds = 10000 }, 10000, 11000, 500) == 0, "old aggregate-only work must remain correlation, not measured overlap");
+Check(WebIncidentEvidence.WorkMilliseconds(Request(0, 10000, 10000), 10000, 11000, 500) == 1500, "partial callback overlap must be clipped to the incident window");
+Check(WebIncidentEvidence.WorkMilliseconds(Request(0, 10000, 10000, 9000), 10000, 11000, 500) == 0, "partial overlap cannot assume GC occurred outside the overlapping interval");
 var spanning = new WebRequestDiagnostic { UnixMilliseconds = 100, EndUnixMilliseconds = 11000, QueueWaitMilliseconds = 10900 };
 Check(WebIncidentEvidence.Select(new[] { spanning }, 10000, 11000, 500).Count == 1, "long-running request must match by interval, not start proximity");
 Check(WebIncidentEvidence.WorkMilliseconds(spanning, 10000, 11000, 500) == 0, "queue wait must not be executing work");

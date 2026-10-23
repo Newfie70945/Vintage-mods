@@ -29,6 +29,6 @@ internal static class WebIncidentEvidence
         // Use the largest recorded callback, discounted for coincident process GC.
         // Do not add overlapping measurements or treat queue time as executing work.
         return (request.WorkWindows ?? new()).Where(w => w.StartUnixMilliseconds <= end && w.EndUnixMilliseconds >= from)
-            .Select(w => Math.Max(0, w.WallMilliseconds - w.GcPauseMilliseconds)).DefaultIfEmpty().Max();
+            .Select(w => Math.Max(0, Math.Min(w.WallMilliseconds, Math.Max(0, Math.Min(w.EndUnixMilliseconds, end) - Math.Max(w.StartUnixMilliseconds, from))) - Math.Max(0, w.GcPauseMilliseconds))).DefaultIfEmpty().Max();
     }
 }
