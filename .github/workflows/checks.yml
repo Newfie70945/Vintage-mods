@@ -33,6 +33,8 @@ jobs:
           dotnet run --project modules/suite/tests/state-persistence -c Release
       - name: Check incident profiler matching and GC evidence
         run: dotnet run --project modules/suite/tests/IncidentEvidenceChecks/IncidentEvidenceChecks.csproj -c Release
+      - name: Check exact native block callback identity
+        run: dotnet run --project modules/suite/tests/NativeCallbackChecks -c Release
       - name: Check stack origins and bounded live error counts
         run: dotnet run --project modules/suite/tests/LogEvidenceChecks/LogEvidenceChecks.csproj -c Release
       - name: Check save correlation and retention query work

@@ -6,6 +6,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.Essentials;
+using Vintagestory.GameContent;
 
 // Disposable validation only. Isolated queues and actual official A* on loaded terrain.
 public sealed class EntitySuiteProbe:ModSystem
@@ -33,6 +34,7 @@ public sealed class EntitySuiteProbe:ModSystem
   try
   {
    original=Control("get").GetProperty("settings").GetRawText();
+   Control("set","{\"idleFirepitFastPath\":true,\"barrelIngredientPairing\":true,\"wildBushCallbackFlatten\":true,\"chunkUnloadStagingReuse\":true}");
    var before=Control("get");
    Assert(before.GetProperty("settings").GetProperty("broadcastFilterReuse").GetBoolean()&&before.GetProperty("settings").GetProperty("entityLifecycleListReuse").GetBoolean(),"new allocation controls enabled through Suite for real-server validation");
    Assert(before.GetProperty("counters").GetProperty("entityCleanupPasses").GetInt64()>0,"actual server entity cleanup passes use bounded scopes");
@@ -41,6 +43,18 @@ public sealed class EntitySuiteProbe:ModSystem
    foreach(var key in new[]{"delayedCallbackSnapshotReuse","spawnOpportunityListReuse","spawnColumnArrayReuse"})Assert(before.GetProperty("settings").GetProperty(key).GetBoolean(),"callback/spawn control enabled: "+key);
    Assert(before.GetProperty("counters").GetProperty("callbackSnapshotPasses").GetInt64()+before.GetProperty("counters").GetProperty("callbackDebugSnapshotPasses").GetInt64()>0,"copied-server normal/debug callbacks use snapshot scopes");
    var world=api.World;const BindingFlags networkFlags=BindingFlags.NonPublic|BindingFlags.Instance;
+   foreach(var key in new[]{"idleFirepitFastPath","barrelIngredientPairing","wildBushCallbackFlatten","chunkUnloadStagingReuse"})Assert(before.GetProperty("modules").EnumerateArray().Single(m=>m.GetProperty("name").GetString()==key).GetProperty("status").GetString()=="active","new block/unload module activates independently: "+key);
+   var nativeFireBlock=world.GetBlock(new AssetLocation("game:firepit-cold"));Assert(nativeFireBlock!=null,"native cold firepit block resolves");
+   var idleFire=new BlockEntityFirepit{Api=api,Block=nativeFireBlock!,Pos=new BlockPos(0,0,0),furnaceTemperature=20,inputStackCookingTime=7};
+   typeof(BlockEntityFirepit).GetMethod("OnBurnTick",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(idleFire,[.1f]);
+   Assert(idleFire.inputStackCookingTime==0&&idleFire.furnaceTemperature==20&&Control("get").GetProperty("counters").GetProperty("idleFirepitFastPathCalls").GetInt64()>0,"real registry firepit uses idle path without world mutation");
+   var nativePairRecipe=new BarrelRecipe{Ingredients=[new BarrelRecipeIngredient{Code=new AssetLocation("game:stick"),Type=EnumItemClass.Item,Quantity=1,MatchingType=EnumRecipeMatchType.Wildcard}]};
+   var nativePairSlots=new[]{new ItemSlot(null){Itemstack=new ItemStack(world.GetItem(new AssetLocation("game:stick")))}};
+   var paired=(System.Collections.IList)typeof(BarrelRecipe).GetMethod("PairInput",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(nativePairRecipe,[nativePairSlots])!;
+   Assert(paired.Count==1&&nativePairSlots[0].StackSize==1&&Control("get").GetProperty("counters").GetProperty("barrelIngredientPairingCalls").GetInt64()>0,"barrel pairing preserves real item stack and native match");
+   var bushFixture=new BlockEntityWildFruitingBush();object?[] berryArgs=[null,null];typeof(BlockEntityWildFruitingBush).GetMethod("beginIntervalledUpdate",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(bushFixture,berryArgs);
+   Assert(berryArgs.All(x=>x==null)&&Control("get").GetProperty("counters").GetProperty("wildBushCallbackFlattenCalls").GetInt64()>0,"native empty bush batch removes only redundant wrapper");
+
    var rawBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(byte[]),typeof(IServerPlayer[])},null)!;
    var packetBroadcast=world.GetType().GetMethod("BroadcastArbitraryPacket",networkFlags,null,new[]{typeof(Packet_Server),typeof(IServerPlayer[])},null)!;
    var udpBroadcast=world.GetType().GetMethod("BroadcastArbitraryUdpPacket",networkFlags,null,new[]{typeof(Packet_UdpPacket),typeof(IServerPlayer[])},null)!;

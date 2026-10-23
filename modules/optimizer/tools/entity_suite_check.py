@@ -159,13 +159,13 @@ try:
     assert native['likelyModName']=='Vintage Story native build logger' and native['recentOccurrences']>=1
     checks.append('same-message exceptions split by stack origin; native logger attributed correctly with recent counts')
 
-    for flag in ('nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
+    for flag in ('idleFirepitFastPath','barrelIngredientPairing','wildBushCallbackFlatten','chunkUnloadStagingReuse','nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
         assert settings[flag] is False
         status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
         assert next(m for m in enabled['optimizer']['modules'] if m['name']==flag)['status']=='active'
         status,disabled=control('set',{flag:False});assert status==200 and disabled['success']
         assert next(m for m in disabled['optimizer']['modules'] if m['name']==flag)['status']=='disabled'
-    checks.append('six opt-in modules default off and independently activate/disable on official server')
+    checks.append('independent opt-in modules default off and independently activate/disable on official server')
     status,patterns=control('set',dict(entityPolicyInclude=['game:wolf*'],entityPolicyExclude=['game:wolf-baby*'],entityProtectionRadius=96));assert status==200 and patterns['success']
     persisted=json.loads((data/'ModConfig/optimizer.json').read_text())['EngineOptimizations']
     assert persisted['EntityPolicyInclude']==['game:wolf*'] and persisted['EntityProtectionRadius']==96
