@@ -41,3 +41,7 @@ See [replacement coverage](replacement-coverage.md) before removing an external 
 0.14.0 adds four independent opt-in modules: nearby/cuboid entity query scratch and base shapeless merge/wildcard allocation reductions. Returned arrays and item clones remain independently owned; crafting hooks and native query traversal remain. [Validation](performance-0.14.0.md).
 
 0.15.0 adds independently controlled method-local struct traversal for native collision, InWorldContainer transition scans and InWorldContainer ticks. It preserves custom inventory enumerators and adds no stationary collision bypass. [Validation](performance-0.15.0.md).
+
+## Collision generation and animation (0.16.0)
+
+Three independent controls default off: `CollisionGenerationReuse`, `CachedCollisionGenerationReuse` and `AnimationCollisionFlagScan`. Collision callbacks reuse cleared thread-local context only with the verified synchronous official walker; custom walkers retain native allocation and ownership. Animation scans use a struct dictionary enumerator without skipping frames, poses or triggers. Collision fixtures allocate less but show mixed CPU timings, including slower warm cache hits. See [evidence and limits](docs/performance-0.16.0.md).

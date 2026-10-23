@@ -11,12 +11,13 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.15.0", success = true,
+        available = true, protocol = 1, version = "0.16.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
         capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
+            collisionGenerationReuse=currentConfig.EngineOptimizations.CollisionGenerationReuse,cachedCollisionGenerationReuse=currentConfig.EngineOptimizations.CachedCollisionGenerationReuse,animationCollisionFlagScan=currentConfig.EngineOptimizations.AnimationCollisionFlagScan,
             collisionTraversalReuse=currentConfig.EngineOptimizations.CollisionTraversalReuse, containerTransitionScan=currentConfig.EngineOptimizations.ContainerTransitionScan, containerTickTraversal=currentConfig.EngineOptimizations.ContainerTickTraversal,
             nearbyEntityListReuse=currentConfig.EngineOptimizations.NearbyEntityListReuse, cuboidEntityListReuse=currentConfig.EngineOptimizations.CuboidEntityListReuse,
             shapelessStackMerge=currentConfig.EngineOptimizations.ShapelessStackMerge, shapelessWildcardMatch=currentConfig.EngineOptimizations.ShapelessWildcardMatch,
@@ -119,6 +120,9 @@ public sealed partial class OptimizerMod
                 case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
+                case "collisionGenerationReuse": candidate.EngineOptimizations.CollisionGenerationReuse=B(); break;
+                case "cachedCollisionGenerationReuse": candidate.EngineOptimizations.CachedCollisionGenerationReuse=B(); break;
+                case "animationCollisionFlagScan": candidate.EngineOptimizations.AnimationCollisionFlagScan=B(); break;
                 case "collisionTraversalReuse": candidate.EngineOptimizations.CollisionTraversalReuse=B(); break;
                 case "containerTransitionScan": candidate.EngineOptimizations.ContainerTransitionScan=B(); break;
                 case "containerTickTraversal": candidate.EngineOptimizations.ContainerTickTraversal=B(); break;
