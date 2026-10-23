@@ -9294,11 +9294,15 @@ public sealed partial class WebDashboardService : IDisposable
             string pattern = GetJsonString(request.Body, "pattern", "").Trim();
             int limit = Math.Clamp(GetJsonInt(request.Body, "limit", 0), 0, 1000000);
             int radius = Math.Clamp(GetJsonInt(request.Body, "radiusChunks", 0), 0, 32);
+            string? generationMode = GetJsonString(request.Body, "generationMode", "").Trim();
+            if (generationMode.Length == 0) generationMode = null; // Older clients preserve saved overrides.
+            int protectedGeneration = GetJsonInt(request.Body, "minimumProtectedGeneration", 1);
             string message = await RunOnMainThreadAsync(
-                () => AnimalLimiterSystem.Current?.SetRuleFromGui(pattern, limit, radius) ?? "Animal Limiter is not available.",
+                () => AnimalLimiterSystem.Current?.SetRuleFromGui(pattern, limit, radius, generationMode, protectedGeneration) ?? "Animal Limiter is not available.",
                 "web-animal-rule-set").ConfigureAwait(false);
             bool success = !message.Contains("not available", StringComparison.OrdinalIgnoreCase) &&
                            !message.StartsWith("Enter", StringComparison.OrdinalIgnoreCase);
+            success = success && !message.StartsWith("Invalid", StringComparison.OrdinalIgnoreCase);
             RecordWebAudit("animal-rule-set", pattern, success ? "Success" : message, remoteText, requestActor);
             await WriteJsonAsync(stream, success ? 200 : 400, new { success, message }, cancellationToken).ConfigureAwait(false);
             return;

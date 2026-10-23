@@ -67,6 +67,32 @@ def wait(marker,start=0,timeout=240):
 try:
     wait('Dedicated Server now running on Port')
     status,auth=request('/api/login',dict(username='fixtureowner',password=password));assert status==200;csrf=auth['csrfToken']
+    if os.environ.get('NSS_TEST_ANIMAL_RULES'):
+        # Use an unregistered fixture namespace; never target live/modpack creatures.
+        fixture_pattern='nosvalidation:nonexistent-animal-*'
+        def animal_write(path,payload):
+            time.sleep(1.1)
+            return request(path,payload)
+        def animal_rule():
+            code,result=request('/api/animals/rules');assert code==200
+            return next(r for r in result['rules'] if r['pattern']==fixture_pattern)
+        for mode,threshold in [('Off',1),('ProtectFromGeneration',5)]:
+            code,result=animal_write('/api/animals/rules/set',dict(pattern=fixture_pattern,limit=1000000,radiusChunks=0,generationMode=mode,minimumProtectedGeneration=threshold));assert code==200 and result['success']
+            row=animal_rule();assert row['generationMode']==mode and row['minimumProtectedGeneration']==threshold
+        persisted=json.loads((data/'ModConfig/NewfiesServerEssentialsSuite/NewfiesAnimalLimiter.json').read_text())
+        assert persisted['RuleGenerationPolicies'][fixture_pattern]['MinimumProtectedGeneration']==5
+        checks.append('per-rule Off/custom generation policies saved and visible in authenticated API and disk config')
+        code,result=animal_write('/api/animals/rules/set',dict(pattern=fixture_pattern,limit=999999,radiusChunks=0));assert code==200
+        assert animal_rule()['generationMode']=='ProtectFromGeneration'
+        checks.append('older rule updates preserve saved generation overrides')
+        code,result=animal_write('/api/animals/rules/set',dict(pattern=fixture_pattern,limit=1,radiusChunks=0,generationMode='ProtectFromGeneration',minimumProtectedGeneration=0));assert code==400
+        assert animal_rule()['limit']==999999
+        checks.append('invalid generation threshold rejected without changing rule')
+        code,result=animal_write('/api/animals/rules/set',dict(pattern=fixture_pattern,limit=999999,radiusChunks=0,generationMode='Inherit'));assert code==200
+        assert animal_rule()['generationMode']=='Inherit'
+        code,result=animal_write('/api/animals/rules/remove',dict(pattern=fixture_pattern));assert code==200
+        persisted=json.loads((data/'ModConfig/NewfiesServerEssentialsSuite/NewfiesAnimalLimiter.json').read_text());assert fixture_pattern not in persisted['Rules'] and fixture_pattern not in persisted['RuleGenerationPolicies']
+        checks.append('inherit/reset and rule deletion remove stored generation overrides')
     status,state=request('/api/optimizations/newfies');assert status==200 and state['available'];nos=state['optimizer'];assert nos['version']==optimizer_semver
     status,catalog=request('/api/server/mods');assert status==200
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]

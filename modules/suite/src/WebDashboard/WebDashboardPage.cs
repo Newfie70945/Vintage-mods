@@ -2869,13 +2869,15 @@ __NSS_RETENTION_HTML__
         <label for="animalRulePattern">Entity / wildcard</label><input id="animalRulePattern" placeholder="game:hare-* or modid:entity">
         <label for="animalRuleLimit">Limit per region</label><input id="animalRuleLimit" type="number" min="0" max="1000000" value="20">
         <label for="animalRuleRadius">Radius (chunks)</label><input id="animalRuleRadius" type="number" min="0" max="32" value="3">
+        <label for="animalRuleGeneration">Generation protection</label><select id="animalRuleGeneration"><option value="Inherit">Inherit global protections</option><option value="Off">Ignore generation protection</option><option value="ProtectFromGeneration">Protect generation N and above</option></select>
+        <label for="animalRuleGenerationMin">Protected from generation</label><input id="animalRuleGenerationMin" type="number" min="1" max="1000000" value="1" disabled>
       </div>
       <div class="quickActions" style="margin-top:12px"><button id="animalRuleSave" class="primary">Add / Update Rule</button></div>
-      <div class="small" style="margin-top:10px">Rules save immediately. Radius 0 means one chunk; radius 1 means a 3×3 chunk region. Exact entity codes are safest when applying a recommendation.</div>
+      <div class="small" style="margin-top:10px">Save applies the rule immediately. Ignoring generation lets the population cap include wild-born offspring; it does not exempt animals from the cap. Custom generation protection replaces global generation and farm/bred protection for this rule. Owned pets, names, exclusions and nearby-player protection still apply. Radius 0 means one chunk; radius 1 means a 3×3 chunk region. Exact entity codes are safest when applying a recommendation.</div>
     </div>
     <div class="card">
       <div class="cardHeader"><h3>Current Rules</h3><div class="spacer"></div><span id="animalRulesSummary" class="small">Not loaded.</span></div>
-      <div class="tableWrap dataScroll"><table><thead><tr><th>Pattern</th><th>Limit</th><th>Radius</th><th>Registered matches</th><th>Actions</th></tr></thead><tbody id="animalRuleRows"><tr><td colspan="5" class="muted">Open this page to load Animal Limiter rules.</td></tr></tbody></table></div>
+      <div class="tableWrap dataScroll"><table><thead><tr><th>Pattern</th><th>Limit</th><th>Radius</th><th>Generation protection</th><th>Registered matches</th><th>Actions</th></tr></thead><tbody id="animalRuleRows"><tr><td colspan="6" class="muted">Open this page to load Animal Limiter rules.</td></tr></tbody></table></div>
     </div>
     <div class="card">
       <div class="cardHeader"><div><h3>Exclusions</h3><div class="small">Entities matching an exclusion are never removed by Animal Limiter, including while universal limiting is enabled.</div></div><div class="spacer"></div><span id="animalExclusionSummary" class="small">Not loaded.</span></div>
@@ -7209,8 +7211,9 @@ async function loadAnimalStatus(showLoading=true){
 
 function clearAnimalRuleEditor(){
   $('animalRulePattern').value='';
-  $('animalRuleLimit').value=String(Number(animalRulesData.defaultLimit||20));
-  $('animalRuleRadius').value=String(Number(animalRulesData.defaultRadiusChunks||3));
+  $('animalRuleLimit').value=String(Number(animalRulesData.defaultLimit??20));
+  $('animalRuleRadius').value=String(Number(animalRulesData.defaultRadiusChunks??3));
+  $('animalRuleGeneration').value='Inherit';$('animalRuleGenerationMin').value='1';$('animalRuleGenerationMin').disabled=true;
   $('animalRuleSave').textContent='Add / Update Rule';
 }
 
@@ -7222,9 +7225,10 @@ function renderAnimalRules(){
     <td><b>${esc(r.pattern)}</b>${r.usesDefaultRadius?'<div class="small">inherits default radius</div>':''}</td>
     <td><b>${Number(r.limit||0)}</b></td>
     <td>${Number(r.radiusChunks||0)} ch</td>
+    <td>${r.generationMode==='Off'?'Ignore generation':r.generationMode==='ProtectFromGeneration'?`Protect generation ${Number(r.minimumProtectedGeneration||1)}+`:'Inherit global'}</td>
     <td>${Number(r.registeredMatches||0).toLocaleString()}</td>
     <td><div class="rowActions"><button class="iconBtn" data-animal-edit="${esc(r.pattern)}">Edit</button><button class="iconBtn danger" data-animal-remove="${esc(r.pattern)}">Remove</button></div></td>
-  </tr>`).join(''):'<tr><td colspan="5" class="muted">No explicit Animal Limiter rules are configured.</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="6" class="muted">No explicit Animal Limiter rules are configured.</td></tr>';
   if($('animalExclusionSummary'))$('animalExclusionSummary').textContent=`${exclusions.length} exclusion(s)`;
   if($('animalExclusionRows'))$('animalExclusionRows').innerHTML=exclusions.length?exclusions.map(pattern=>`<tr>
     <td><code>${esc(pattern)}</code>${String(pattern).toLowerCase()==='game:player'?'<div class="small">Built-in safety exclusion</div>':''}</td>
@@ -7232,7 +7236,7 @@ function renderAnimalRules(){
   </tr>`).join(''):'<tr><td colspan="2" class="muted">No exclusions are configured.</td></tr>';
   document.querySelectorAll('[data-animal-edit]').forEach(b=>b.onclick=()=>{
     const r=(animalRulesData.rules||[]).find(x=>String(x.pattern)===String(b.dataset.animalEdit));if(!r)return;
-    $('animalRulePattern').value=r.pattern||'';$('animalRuleLimit').value=String(Number(r.limit||0));$('animalRuleRadius').value=String(Number(r.radiusChunks||0));$('animalRuleSave').textContent='Update Rule';$('animalRulePattern').focus();
+    $('animalRulePattern').value=r.pattern||'';$('animalRuleLimit').value=String(Number(r.limit||0));$('animalRuleRadius').value=String(Number(r.radiusChunks||0));$('animalRuleGeneration').value=r.generationMode||'Inherit';$('animalRuleGenerationMin').value=String(r.minimumProtectedGeneration||1);$('animalRuleGenerationMin').disabled=$('animalRuleGeneration').value!=='ProtectFromGeneration';$('animalRuleSave').textContent='Update Rule';$('animalRulePattern').focus();
   });
   document.querySelectorAll('[data-animal-remove]').forEach(b=>b.onclick=()=>removeAnimalRule(b.dataset.animalRemove));
   document.querySelectorAll('[data-animal-exclusion-remove]').forEach(b=>b.onclick=()=>removeAnimalExclusion(b.dataset.animalExclusionRemove));
@@ -7241,17 +7245,20 @@ function renderAnimalRules(){
 async function loadAnimalRules(showLoading=true){
   if(showLoading)$('animalRulesSummary').textContent='Loading…';
   try{animalRulesData=await api('/api/animals/rules');renderAnimalRules();}
-  catch(e){$('animalRulesSummary').textContent='Load failed';$('animalRuleRows').innerHTML=`<tr><td colspan="5" class="bad">${esc(e.message)}</td></tr>`;}
+  catch(e){$('animalRulesSummary').textContent='Load failed';$('animalRuleRows').innerHTML=`<tr><td colspan="6" class="bad">${esc(e.message)}</td></tr>`;}
 }
 
 async function saveAnimalRule(pattern=null,limit=null,radius=null){
+  const fromEditor=pattern===null;
+  const generation=fromEditor?{generationMode:$('animalRuleGeneration').value,minimumProtectedGeneration:Number($('animalRuleGenerationMin').value)}:{};
+  if(fromEditor&&generation.generationMode==='ProtectFromGeneration'&&(!Number.isInteger(generation.minimumProtectedGeneration)||generation.minimumProtectedGeneration<1||generation.minimumProtectedGeneration>1000000)){toast('Protected generation must be a whole number from 1 to 1000000.','error');return false;}
   pattern=pattern??$('animalRulePattern').value.trim();
   limit=limit??Math.max(0,Math.min(1000000,Math.floor(Number($('animalRuleLimit').value||0))));
   radius=radius??Math.max(0,Math.min(32,Math.floor(Number($('animalRuleRadius').value||0))));
   if(!pattern){toast('Enter an entity code or wildcard pattern.','error');return false;}
-  if((pattern.includes('*')||Number(limit)===0)&&!confirm(`Apply Animal Limiter rule?\n\n${pattern}\nLimit: ${limit}\nRadius: ${radius} chunks\n\nWildcard and zero-limit rules can affect many entities immediately.`))return false;
+  if((pattern.includes('*')||Number(limit)===0||(fromEditor&&generation.generationMode!=='Inherit'))&&!confirm(`Apply Animal Limiter rule?\n\n${pattern}\nLimit: ${limit}\nRadius: ${radius} chunks\n\nWildcard and zero-limit rules can affect many entities immediately.`))return false;
   try{
-    const d=await api('/api/animals/rules/set',{method:'POST',body:JSON.stringify({pattern,limit,radiusChunks:radius})});
+    const d=await api('/api/animals/rules/set',{method:'POST',body:JSON.stringify({pattern,limit,radiusChunks:radius,...generation})});
     toast(d.message||'Animal Limiter rule saved.','success');await Promise.all([loadAnimalRules(false),loadAnimalStatus(false)]);return true;
   }catch(e){toast(e.message,'error');return false;}
 }
@@ -7281,6 +7288,7 @@ async function removeAnimalExclusion(pattern){
 
 $('animalRefresh').onclick=()=>Promise.all([loadAnimalStatus(true),loadAnimalRules(true)]);
 $('animalRuleClear').onclick=clearAnimalRuleEditor;
+$('animalRuleGeneration').onchange=()=>{$('animalRuleGenerationMin').disabled=$('animalRuleGeneration').value!=='ProtectFromGeneration';};
 $('animalRuleSave').onclick=()=>saveAnimalRule();
 if($('animalExclusionAdd'))$('animalExclusionAdd').onclick=addAnimalExclusion;
 if($('animalExclusionPattern'))$('animalExclusionPattern').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addAnimalExclusion();}});
@@ -7315,19 +7323,30 @@ function renderAnimalScanResult(d){
   $('animalPopulation').innerHTML=
     `<div class="small" style="margin-bottom:10px">${summary}</div>`+truncNote+
     `<div class="small" style="margin:4px 0 6px"><b>Totals by Mob</b> — aggregate counts across all scanned regions.</div>`+
-    `<div class="tableWrap" style="margin-bottom:14px"><table><thead><tr><th>Mob</th><th>Total</th><th>Protected</th><th>Eligible</th><th>Regions</th><th>Over-limit Regions</th></tr></thead><tbody>`+
+    `<input id="animalPopulationFilter" type="search" placeholder="Find an entity type…" aria-label="Filter population entity types" style="width:100%;margin-bottom:8px"><div class="tableWrap" style="max-height:320px;overflow:auto;margin-bottom:14px" tabindex="0" aria-label="Population totals, scroll for more entity types"><table><thead><tr><th>Mob</th><th>Total</th><th>Protected</th><th>Eligible</th><th>Regions</th><th>Over-limit Regions</th><th>Rule</th></tr></thead><tbody>`+
     (totals.length?totals.map(r=>{
       const total=Number(r[2]||0),prot=Number(r[3]||0),eligible=Number(r[4]||0),regions=Number(r[5]||0),overRegions=Number(r[6]||0);
-      return `<tr><td><b>${esc(r[1])}</b></td><td><b>${total}</b></td><td>${prot}</td><td>${eligible}</td><td>${regions}</td><td class="${overRegions>0?'bad':'good'}"><b>${overRegions}</b></td></tr>`;
-    }).join(''):'<tr><td colspan="6" class="muted">No matching tracked population was found.</td></tr>')+'</tbody></table></div>'+ 
-    `<div class="small" style="margin:4px 0 6px"><b>Regional Breakdown</b> — over-limit regions are shown first.</div>`+
-    `<div class="tableWrap"><table><thead><tr><th>Mob</th><th>Region</th><th>Rule</th><th>Tracked</th><th>Mob Total</th><th>Limit</th><th>Radius</th><th>Protected</th><th>Status</th></tr></thead><tbody>`+
+      return `<tr data-animal-pop-code="${esc(r[1])}"><td><b>${esc(r[1])}</b></td><td><b>${total}</b></td><td>${prot}</td><td>${eligible}</td><td>${regions}</td><td class="${overRegions>0?'bad':'good'}"><b>${overRegions}</b></td><td><button class="iconBtn" data-animal-pop-rule="${esc(r[1])}">${(animalRulesData.rules||[]).some(x=>x.pattern===r[1])?'Edit rule':'Create rule'}</button></td></tr>`;
+    }).join(''):'<tr><td colspan="7" class="muted">No matching tracked population was found.</td></tr>')+'</tbody></table></div>'+
+    `<details><summary>Regional breakdown (${rows.length.toLocaleString()} regions) — over-limit first</summary>`+
+    `<div class="tableWrap" style="max-height:260px;overflow:auto" tabindex="0"><table><thead><tr><th>Mob</th><th>Region</th><th>Rule</th><th>Tracked</th><th>Mob Total</th><th>Limit</th><th>Radius</th><th>Protected</th><th>Status</th></tr></thead><tbody>`+
     (rows.length?rows.map(r=>{
       const tracked=Number(r[4]||0),limit=Number(r[5]||0),prot=Number(r[7]||0),eligible=Number(r[8]||0);
       const over=Math.max(0,eligible-limit);
       const mobTotal=(totals.find(t=>String(t[1]).toLowerCase()===String(r[1]).toLowerCase())||[])[2]||tracked;
       return `<tr><td><b>${esc(r[1])}</b></td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${tracked}</td><td><b>${esc(mobTotal)}</b></td><td>${limit}</td><td>${esc(r[6])} ch</td><td>${prot}</td><td class="${over>0?'bad':'good'}"><b>${over>0?'OVER +'+over:'OK'}</b></td></tr>`;
-    }).join(''):'<tr><td colspan="9" class="muted">No regional rows.</td></tr>')+'</tbody></table></div>';
+    }).join(''):'<tr><td colspan="9" class="muted">No regional rows.</td></tr>')+'</tbody></table></div></details>';
+  $('animalPopulationFilter').oninput=()=>{const q=$('animalPopulationFilter').value.trim().toLowerCase();document.querySelectorAll('[data-animal-pop-code]').forEach(row=>row.hidden=!row.dataset.animalPopCode.toLowerCase().includes(q));};
+  document.querySelectorAll('[data-animal-pop-rule]').forEach(button=>button.onclick=()=>{
+    clearAnimalRuleEditor();const pattern=button.dataset.animalPopRule;
+    const rule=(animalRulesData.rules||[]).find(r=>r.pattern===pattern);
+    $('animalRulePattern').value=pattern;
+    if(rule){$('animalRuleLimit').value=String(rule.limit);$('animalRuleRadius').value=String(rule.radiusChunks);$('animalRuleGeneration').value=rule.generationMode||'Inherit';$('animalRuleGenerationMin').value=String(rule.minimumProtectedGeneration||1);$('animalRuleGenerationMin').disabled=$('animalRuleGeneration').value!=='ProtectFromGeneration';}
+    $('animalRuleSave').textContent=rule?'Update Rule':'Save new rule';
+    $('animalRulePattern').scrollIntoView({behavior:'smooth',block:'center'});$('animalRulePattern').focus({preventScroll:true});
+    toast('Review the population limit and generation protection, then save.');
+  });
+
 }
 
 $('animalScan').onclick=async()=>{
@@ -7368,7 +7387,7 @@ function renderAnimalRecommendations(d){
     const conf=String(r.confidence||'Low');
     return `<tr><td><b>${esc(r.pattern)}</b>${current}</td><td>${observed}</td><td><b>${Number(r.suggestedLimit||0)}</b></td><td>${Number(r.radiusChunks||0)} ch</td><td class="${Number(r.estimatedWouldRemoveNow||0)>0?'warn':'good'}"><b>${Number(r.estimatedWouldRemoveNow||0)}</b> would be over cap now</td><td><span class="badge ${conf==='High'?'low':conf==='Medium'?'medium':'muted'}">${esc(conf)}</span></td><td class="small" style="white-space:normal;min-width:260px">${esc(r.reason||'')}</td><td><div class="rowActions"><button class="iconBtn" data-animal-rec-edit="${esc(r.pattern)}" data-limit="${Number(r.suggestedLimit||0)}" data-radius="${Number(r.radiusChunks||0)}">Use in editor</button><button class="iconBtn primary" data-animal-rec-apply="${esc(r.pattern)}" data-limit="${Number(r.suggestedLimit||0)}" data-radius="${Number(r.radiusChunks||0)}">Apply</button></div></td></tr>`;
   }).join(''):`<tr><td colspan="8" class="muted">${esc(d.note||'No strong recommendation candidates were found in currently loaded player areas.')}</td></tr>`;
-  document.querySelectorAll('[data-animal-rec-edit]').forEach(b=>b.onclick=()=>{$('animalRulePattern').value=b.dataset.animalRecEdit||'';$('animalRuleLimit').value=b.dataset.limit||'0';$('animalRuleRadius').value=b.dataset.radius||'0';$('animalRuleSave').textContent='Add / Update Rule';$('animalRulePattern').focus();});
+  document.querySelectorAll('[data-animal-rec-edit]').forEach(b=>b.onclick=()=>{clearAnimalRuleEditor();const saved=(animalRulesData.rules||[]).find(r=>r.pattern===b.dataset.animalRecEdit);if(saved){$('animalRuleGeneration').value=saved.generationMode||'Inherit';$('animalRuleGenerationMin').value=String(saved.minimumProtectedGeneration||1);$('animalRuleGenerationMin').disabled=$('animalRuleGeneration').value!=='ProtectFromGeneration';}$('animalRulePattern').value=b.dataset.animalRecEdit||'';$('animalRuleLimit').value=b.dataset.limit||'0';$('animalRuleRadius').value=b.dataset.radius||'0';$('animalRuleSave').textContent='Add / Update Rule';$('animalRulePattern').focus();});
   document.querySelectorAll('[data-animal-rec-apply]').forEach(b=>b.onclick=async()=>{
     const pattern=b.dataset.animalRecApply||'',limit=Number(b.dataset.limit||0),radius=Number(b.dataset.radius||0);
     if(!confirm(`Apply recommended rule?\n\n${pattern}\nLimit: ${limit}\nRadius: ${radius} chunks\n\nThis changes the live Animal Limiter configuration immediately.`))return;
