@@ -21,3 +21,11 @@ Collision regeneration still avoids 96 bytes per call in the fixture, and cache 
 Settings search expands matching groups and restores the previous open groups when cleared. Expand/collapse, search, pending-edit review and execution cards are local DOM operations with no extra server polling or automatic settings changes. Pending edits show server and draft values; returning to saved values clears dirty state. Empty/out-of-range numeric settings are rejected before a request, and capture/permission/compatibility locks remain. Actual module states have clearer badges. Cumulative execution cards distinguish observed work from latency or bytes saved; full counters remain available.
 
 The autosave guide and native save transactions are unchanged in behavior. Save snapshot release reduces retained references after successful background saves; it does not implement incremental autosave or shorten serialization/disk I/O.
+
+## Final validation
+
+All 25 optimizer build/test suites, 54 collision/animation component checks, 105 lifecycle/conflict checks, 22 root checks, browser/mobile/draft/validation regressions and source consistency pass. Both mods compile with zero warnings/errors.
+
+The [copied-server result](research/components-0.16.1/copied-server.json) passes 90 checks with 25 mod ZIPs. Both tester types execute bounds-cache hits on actual terrain, native NewTick invalidates them, native collision/animation work and Suite controls run, failures stay zero, settings are restored and shutdown is graceful. Tiered compilation is disabled in this correctness run; no authenticated clients or player-performance comparison is represented.
+
+[Before](research/components-0.16.1/baseline-0.16.0.json), [initial after](research/components-0.16.1/initial-0.16.1.json) and [final component trials](research/components-0.16.1/collision-animation.json) are all retained. Final enabled cache hits range from 13.26 to 21.07 ns/call, including the slower third trial; pre-change enabled results range from 25.65 to 26.03 ns/call. Regeneration remains mixed against native. This supports a targeted component improvement, not a production percentage claim. Exact [runtime revisions and assembly hashes](research/components-0.16.1/validation.json) are recorded. Guides may be repackaged after validation; tested DLLs remain unchanged.
