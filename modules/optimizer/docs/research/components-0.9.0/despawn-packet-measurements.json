@@ -1,0 +1,54 @@
+{
+  "checks": 40,
+  "trials": [
+    {
+      "enabled": false,
+      "entities": 1,
+      "bytesPerCall": 936,
+      "nsPerCall": 494.12
+    },
+    {
+      "enabled": true,
+      "entities": 1,
+      "bytesPerCall": 720,
+      "nsPerCall": 60.71
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 1936,
+      "nsPerCall": 865.53
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1720,
+      "nsPerCall": 337.92333333333335
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 1936,
+      "nsPerCall": 963.6
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1720,
+      "nsPerCall": 432.92333333333335
+    },
+    {
+      "enabled": false,
+      "entities": 64,
+      "bytesPerCall": 1936,
+      "nsPerCall": 1070.7866666666666
+    },
+    {
+      "enabled": true,
+      "entities": 64,
+      "bytesPerCall": 1720,
+      "nsPerCall": 400.11
+    }
+  ],
+  "scope": "Actual official packet factory, synthetic inputs; transport/player workload not benchmarked."
+}
