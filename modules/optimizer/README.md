@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.13.0 preview
+# Newfie's Server Optimizer 0.14.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -141,3 +141,9 @@ This does not pool positions queued for block ticks, alter growth simulation, sp
 Three new opt-in switches default off: `DelayedCallbackSnapshotReuse`, `SpawnOpportunityListReuse` and `SpawnColumnArrayReuse`. They reuse single-delayed-block-callback snapshots, private mob-spawn search lists and chunk-read arrays. Callback timing, spawn selection/caps, RNG and block locks remain native. Already queued spawn results retain separate lists. All retained chunk/position/entity-property references clear on scope completion, including failures; list retention caps at 4,096 and column arrays at 256 entries.
 
 The Suite groups callback/spawn and block/chunk controls separately and adds local module search/state filters. Compatibility checks now deduplicate shared patch inspection within each pass and release those snapshots afterward. [Validation and limits](docs/performance-0.13.0.md).
+
+## Entity-query and recipe allocation pass (0.14.0)
+
+Four new switches default off: `NearbyEntityListReuse`, `CuboidEntityListReuse`, `ShapelessStackMerge` and `ShapelessWildcardMatch`. Enable them individually in Suite → Optimizations → Entity queries and shapeless recipes. Query traversal stays native and each result keeps its own array; cleared scratch lists retain at most 4,096 slots per target/thread. Shapeless helpers eliminate temporary iterators/delegates while preserving stack attributes/clones and collectible crafting hooks. No inventories, recipes or results are cached.
+
+Failures preserve the original exception without replaying a partially completed operation, disable the affected gate and appear in the module status/counters. Reapply settings to retry after resolving the cause. Foreign target patches and unsupported official binaries retain native behavior. [Validation and remaining Synergy/Tungsten gaps](docs/performance-0.14.0.md).

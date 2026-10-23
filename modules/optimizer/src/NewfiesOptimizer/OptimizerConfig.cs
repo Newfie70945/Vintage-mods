@@ -88,6 +88,10 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool NearbyEntityListReuse { get; set; }
+    public bool CuboidEntityListReuse { get; set; }
+    public bool ShapelessStackMerge { get; set; }
+    public bool ShapelessWildcardMatch { get; set; }
     public bool DelayedCallbackSnapshotReuse { get; set; }
     public bool SpawnOpportunityListReuse { get; set; }
     public bool SpawnColumnArrayReuse { get; set; }

@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.13.0";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.14.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -68,6 +68,22 @@ public sealed class EngineOptimizations : IDisposable
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
         entries.Add(new("entityDespawnLists",options.EntityLifecycleListReuse,()=>EntityLifecycleOptimizations.DespawnTarget,()=>EntityLifecycleOptimizations.Dependencies(1),AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.DespawnPrefix)),EntityLifecycleOptimizations.ConfigureDespawns)
             {Transpiler=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Transpiler)),Finalizer=AccessTools.Method(typeof(EntityLifecycleOptimizations),nameof(EntityLifecycleOptimizations.Finalizer))});
+
+        string[] queryNames = ["nearbyEntityListReuse", "cuboidEntityListReuse"];
+        string[] recipeNames = ["shapelessStackMerge", "shapelessWildcardMatch"];
+        bool[] queryFlags = [options.NearbyEntityListReuse, options.CuboidEntityListReuse];
+        bool[] recipeFlags = [options.ShapelessStackMerge, options.ShapelessWildcardMatch];
+        for (int i = 0; i < 2; i++)
+        {
+            int kind = i;
+            EntityQueryScratchOptimizations.Configure(kind, false); RecipeOptimizations.Configure(kind, false);
+            entries.Add(new(queryNames[i], queryFlags[i], () => EntityQueryScratchOptimizations.Target(kind), () => EntityQueryScratchOptimizations.Dependencies(kind),
+                AccessTools.Method(typeof(EntityQueryScratchOptimizations), kind == 0 ? nameof(EntityQueryScratchOptimizations.AroundPrefix) : nameof(EntityQueryScratchOptimizations.CuboidPrefix)), value => EntityQueryScratchOptimizations.Configure(kind, value))
+                { Transpiler = AccessTools.Method(typeof(EntityQueryScratchOptimizations), nameof(EntityQueryScratchOptimizations.Transpiler)), Finalizer = AccessTools.Method(typeof(EntityQueryScratchOptimizations), nameof(EntityQueryScratchOptimizations.Finalizer)) });
+            entries.Add(new(recipeNames[i], recipeFlags[i], () => RecipeOptimizations.Target(kind), () => [RecipeOptimizations.Target(kind)],
+                AccessTools.Method(typeof(RecipeOptimizations), kind == 0 ? nameof(RecipeOptimizations.MergePrefix) : nameof(RecipeOptimizations.WildcardPrefix)), value => RecipeOptimizations.Configure(kind, value))
+                { Finalizer = AccessTools.Method(typeof(RecipeOptimizations), kind == 0 ? nameof(RecipeOptimizations.MergeFinalizer) : nameof(RecipeOptimizations.WildcardFinalizer)) });
+        }
 
         string[] workNames = ["callbackSnapshotReuse", "callbackDebugSnapshotReuse", "spawnOpportunityListReuse", "spawnColumnArrayReuse"];
         bool[] workSwitches = [options.DelayedCallbackSnapshotReuse, options.DelayedCallbackSnapshotReuse, options.SpawnOpportunityListReuse, options.SpawnColumnArrayReuse];
@@ -154,7 +170,7 @@ public sealed class EngineOptimizations : IDisposable
             try
             {
                 string why;
-                bool contract = WorkKind(entry.Name) is int workKind ? CallbackSpawnOptimizations.ValidateContract(workKind, out why) : ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
+                bool contract = RecipeKind(entry.Name) is int recipeKind ? RecipeOptimizations.ValidateContract(recipeKind, out why) : QueryKind(entry.Name) is int queryKind ? EntityQueryScratchOptimizations.ValidateContract(queryKind, out why) : WorkKind(entry.Name) is int workKind ? CallbackSpawnOptimizations.ValidateContract(workKind, out why) : ScratchKind(entry.Name) is int scratchKind ? BlockChunkScratchOptimizations.ValidateContract(scratchKind, out why) : entry.Name.StartsWith("broadcast",StringComparison.Ordinal) ? BroadcastOptimizations.ValidateContract(out why) : entry.Name is "entityTickCleanupLists" or "entityDespawnLists" ? EntityLifecycleOptimizations.ValidateContract(out why) : entry.Name is "waypointNodePooling" or "waypointNodePoolScope" ? PathNodePoolOptimizations.ValidateContract(out why) : entry.Name is "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" ? EntityDistanceOptimizations.ValidateContract(out why) : entry.Name == "attributeNoOpSkip" ? AttributeSyncOptimizations.ValidateContract(out why) : entry.Name == "despawnPacketProjection" ? DespawnPacketOptimizations.ValidateContract(out why) : entry.Name == "physicsPacketListReuse" ? PhysicsPacketOptimizations.ValidateContract(out why) : entry.Name is "pathQueueLimitFix" or "pathMainThreadBudget" ? PathQueueOptimizations.ValidateContract(out why) : entry.Name is "nearestEntitySearch" or "interactableEntitySearch" ? EntitySearchOptimizations.ValidateContract(out why) : entry.Name == "aiTaskStartDispatch" ? AiTaskStartOptimizations.ValidateContract(out why) : entry.Name == "worldgenRequestReuse" ? WorldgenRequestOptimizations.ValidateContract(out why) :
                     entry.Name == "saveSnapshotRelease" ? SaveSnapshotOptimizations.ValidateContract(out why) : entry.Name == "aiFilterDispatch" ? AiFilterOptimizations.ValidateContract(out why) :
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
@@ -314,10 +330,14 @@ public sealed class EngineOptimizations : IDisposable
             finally { checking = false; patchSnapshots.Clear(); }
         }
     }
+    private static int? RecipeKind(string name) => name switch { "shapelessStackMerge" => 0, "shapelessWildcardMatch" => 1, _ => null };
+    private static int? QueryKind(string name) => name switch { "nearbyEntityListReuse" => 0, "cuboidEntityListReuse" => 1, _ => null };
     private static int? WorkKind(string name) => name switch { "callbackSnapshotReuse" => 0, "callbackDebugSnapshotReuse" => 1, "spawnOpportunityListReuse" => 2, "spawnColumnArrayReuse" => 3, _ => null };
     private static int? ScratchKind(string name) => name switch { "blockUpdateListReuse" => 0, "chunkLoadRequestListReuse" => 1, "chunkUnloadCandidateListReuse" => 2, "chunkUnloadNotificationReuse" => 3, _ => null };
     private static long Failures(string name)
     {
+        if (RecipeKind(name) is int recipeKind) return RecipeOptimizations.Counters(recipeKind).Failures;
+        if (QueryKind(name) is int queryKind) return EntityQueryScratchOptimizations.Counters(queryKind).Failures;
         if (WorkKind(name) is int workKind) return CallbackSpawnOptimizations.Counters(workKind).Failures;
         if (ScratchKind(name) is int kind) return BlockChunkScratchOptimizations.Counters(kind).Failures;
         return name switch { "broadcastRawFilter" or "broadcastPacketFilter" or "broadcastUdpFilter"=>0, "entityTickCleanupLists" or "entityDespawnLists"=>EntityLifecycleOptimizations.Counters.Failures, "waypointNodePooling" or "waypointNodePoolScope" => PathNodePoolOptimizations.Failures, "entityHurtSafety" or "aiDistanceThrottle" or "distantWanderThrottle" or "repulsionDistanceThrottle" => EntityDistanceOptimizations.Counters.Failures, "attributeNoOpSkip" => 0, "pathMainThreadBudget" => PathQueueOptimizations.MainFailures, "despawnPacketProjection" or "physicsPacketListReuse" or "pathQueueLimitFix" or "nearestEntitySearch" or "interactableEntitySearch" or "aiTaskStartDispatch" or "worldgenRequestReuse" or "saveSnapshotRelease" or "aiFilterDispatch" or "repulseDelegateReuse" => 0, "onlinePlayerSnapshots" => PlayerQueryOptimizations.GetCounters().SnapshotFailures,
@@ -355,7 +375,12 @@ public sealed class EngineOptimizations : IDisposable
         var candidateScratch = BlockChunkScratchOptimizations.Counters(2); var notifyScratch = BlockChunkScratchOptimizations.Counters(3);
         var callback = CallbackSpawnOptimizations.Counters(0); var callbackDebug = CallbackSpawnOptimizations.Counters(1);
         var spawn = CallbackSpawnOptimizations.Counters(2); var column = CallbackSpawnOptimizations.Counters(3);
-        return new Dictionary<string,long> { ["callbackSnapshotPasses"] = callback.Calls, ["callbackDebugSnapshotPasses"] = callbackDebug.Calls,
+        var around = EntityQueryScratchOptimizations.Counters(0); var cuboid = EntityQueryScratchOptimizations.Counters(1);
+        var merge = RecipeOptimizations.Counters(0); var wildcard = RecipeOptimizations.Counters(1);
+        return new Dictionary<string,long> { ["nearbyEntityListPasses"] = around.Calls, ["cuboidEntityListPasses"] = cuboid.Calls,
+            ["entityQueryBuffersCreated"] = around.Created + cuboid.Created, ["entityQueryOversizedReleased"] = around.Oversized + cuboid.Oversized,
+            ["entityQueryFailures"] = around.Failures + cuboid.Failures, ["shapelessMergeCalls"] = merge.Calls, ["shapelessWildcardCalls"] = wildcard.Calls,
+            ["shapelessMergeFailures"] = merge.Failures, ["shapelessWildcardFailures"] = wildcard.Failures, ["callbackSnapshotPasses"] = callback.Calls, ["callbackDebugSnapshotPasses"] = callbackDebug.Calls,
             ["callbackPositionsCopied"] = callback.Items + callbackDebug.Items, ["spawnOpportunityPasses"] = spawn.Calls,
             ["spawnColumnPasses"] = column.Calls, ["spawnColumnArraysCreated"] = column.ArraysCreated, ["spawnColumnArraysReused"] = column.ArraysReused,
             ["callbackSpawnBuffersCreated"] = callback.Created + callbackDebug.Created + spawn.Created + column.Created,

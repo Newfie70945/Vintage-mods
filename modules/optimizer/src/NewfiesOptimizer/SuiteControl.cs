@@ -11,12 +11,14 @@ public sealed partial class OptimizerMod
     public const string ControlEvent = "newfiesse:optimizer-control-v1";
     private static readonly JsonSerializerOptions WebJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private object ControlSnapshot() => new {
-        available = true, protocol = 1, version = "0.13.0", success = true,
+        available = true, protocol = 1, version = "0.14.0", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
+        capabilities = new[] { "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             enabled = currentConfig.Enabled, safeMode = currentConfig.Compatibility.SafeMode,
+            nearbyEntityListReuse=currentConfig.EngineOptimizations.NearbyEntityListReuse, cuboidEntityListReuse=currentConfig.EngineOptimizations.CuboidEntityListReuse,
+            shapelessStackMerge=currentConfig.EngineOptimizations.ShapelessStackMerge, shapelessWildcardMatch=currentConfig.EngineOptimizations.ShapelessWildcardMatch,
             delayedCallbackSnapshotReuse=currentConfig.EngineOptimizations.DelayedCallbackSnapshotReuse, spawnOpportunityListReuse=currentConfig.EngineOptimizations.SpawnOpportunityListReuse, spawnColumnArrayReuse=currentConfig.EngineOptimizations.SpawnColumnArrayReuse,
             blockUpdateListReuse=currentConfig.EngineOptimizations.BlockUpdateListReuse, chunkLoadRequestListReuse=currentConfig.EngineOptimizations.ChunkLoadRequestListReuse, chunkUnloadListReuse=currentConfig.EngineOptimizations.ChunkUnloadListReuse,
             broadcastFilterReuse=currentConfig.EngineOptimizations.BroadcastFilterReuse, entityLifecycleListReuse=currentConfig.EngineOptimizations.EntityLifecycleListReuse,
@@ -116,6 +118,10 @@ public sealed partial class OptimizerMod
                 case "repulsionDistanceIntervalMs": candidate.EngineOptimizations.RepulsionDistanceIntervalMs=N(50,500); break;
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
+                case "nearbyEntityListReuse": candidate.EngineOptimizations.NearbyEntityListReuse=B(); break;
+                case "cuboidEntityListReuse": candidate.EngineOptimizations.CuboidEntityListReuse=B(); break;
+                case "shapelessStackMerge": candidate.EngineOptimizations.ShapelessStackMerge=B(); break;
+                case "shapelessWildcardMatch": candidate.EngineOptimizations.ShapelessWildcardMatch=B(); break;
                 case "delayedCallbackSnapshotReuse": candidate.EngineOptimizations.DelayedCallbackSnapshotReuse=B(); break;
                 case "spawnOpportunityListReuse": candidate.EngineOptimizations.SpawnOpportunityListReuse=B(); break;
                 case "spawnColumnArrayReuse": candidate.EngineOptimizations.SpawnColumnArrayReuse=B(); break;

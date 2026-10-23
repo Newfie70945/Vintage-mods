@@ -1,4 +1,4 @@
-# Implementation status: 0.13.0 preview
+# Implementation status: 0.14.0 preview
 
 NOS is a server-only mod for the official Vintage Story 1.22.7 server. It applies reversible Harmony patches in memory and does not replace the server runtime or permanently rewrite DLLs.
 
@@ -24,7 +24,7 @@ Implemented independent engine modules:
 
 Each has a separate switch and runtime status, exact official-assembly guards, contract/conflict checks, disposal and stock fallback. Suite controls use the versioned event bridge. Profiling can remain off while engine modules operate.
 
-[Current validation](performance-0.11.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
+[Current validation](performance-0.14.0.md) separates component measurements from the full Suite/selected-modpack laboratory workload. Neither establishes production player capacity, complete mod compatibility or superiority to another runtime. Loaded modules are not equivalent to every feature being actively exercised.
 
 Deferred: full entity activation/sleep, broad pathfinder algorithm/cache replacements, activation ranges, chunk backpressure, network batching, incremental autosave, chunk I/O and terrain algorithm changes. These require representative profiles plus gameplay/equivalence validation before implementation.
 
@@ -37,3 +37,5 @@ See [replacement coverage](replacement-coverage.md) before removing an external 
 0.12.0 adds independently controlled block-update list reuse, chunk-request staging/coordinate reuse and unload candidate/notification scratch reuse. No random-tick reduction, chunk delivery cap, I/O rewrite or autosave change. See [validation](performance-0.12.0.md).
 
 0.13.0 adds normal/debug callback key snapshots, private spawn-opportunity scratch and exact-length spawn chunk-read arrays, all independently controlled with bounded retention. Shared compatibility inspections are deduplicated within each monitor pass. [Validation](performance-0.13.0.md).
+
+0.14.0 adds four independent opt-in modules: nearby/cuboid entity query scratch and base shapeless merge/wildcard allocation reductions. Returned arrays and item clones remain independently owned; crafting hooks and native query traversal remain. [Validation](performance-0.14.0.md).

@@ -1,18 +1,18 @@
-# NOS replacement coverage — 0.13.0 preview
+# NOS replacement coverage — 0.14.0 preview
 
-Public feature catalogs checked at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
+Public feature catalogs rechecked on 2026-10-23 at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
 
 | Area documented by the other mods | Current NOS coverage | Remaining difference |
 | --- | --- | --- |
 | Online/nearby-player queries and ServerMain LINQ | Independent online/nearby queries plus optional empty-exclusion broadcast fast paths | No blanket replacement of all ServerMain/broadcast LINQ |
-| Entity proximity searches | Nearest/interactable query state reuse | Does not replace every GetEntitiesAround overload |
+| Entity proximity searches | Nearest/interactable query state plus optional official GetEntitiesAround/GetEntitiesInsideCuboid private list reuse | No replacement of traversal algorithms or entity tracking |
 | AI and repulsion | Allocation reductions plus opt-in distant task/wander/stationary repulsion scheduling | Full entity sleep remains absent |
 | Physics packet temporary collections | Bounded independent temporary-list reuse | Does not cover every physics simulation/method list or stationary collision shortcut |
 | Entity despawn packets | Direct stock-equivalent projections with packet-owned arrays | Optional stock lifecycle despawn-list reuse added; bulk-attribute paths remain native; inspected official packet helpers already use direct ToArray copies |
 | Generation requests and save retention | Request lookup and staging/coordinate allocation reductions, unload candidate/notification scratch reuse; completed save snapshot reference release | No general chunk I/O/load/unload rewrite, incremental autosave or GenTerra noise/BitArray/native-noise replacement |
 | Asset compression and stream reads | Bounded server-assets cache and guarded bulk reads | No chunk packet pooling or altered terrain/send budgets |
 | Inventory dirty scan | No NOS patch | Official 1.22.7 already checks InventoryBase.IsDirty before scanning dirty slots; mod-specific overrides and whole-inventory iteration require separate evidence |
-| Inventory/cooking/recipes/drop lists/propick | Not implemented | No container, grid recipe, RecipeBase, drop-list or prospecting replacement |
+| Inventory/cooking/recipes/drop lists/propick | Optional base shapeless stack-merge and wildcard-check iterator/delegate elimination | No general container/cooking, shaped-grid, consumption, recipe-registry, drop-list or prospecting replacement |
 | General list/registry optimizations | Targeted modules above only | Block-update batching, delayed-callback key snapshots and private spawn-opportunity/chunk-read scratch now reused. Published spawn-area/state lists, registry placeholders/frozen lookup and wildcard paths remain native. Random-tick working positions are already reused by official 1.22.7; queued copies are not pooled |
 | Pathfinding | Worker cap correction and optional bounded main-thread assistance | Optional waypoint candidate-node pooling; no general path scheduling by distance or raw-node pooling |
 | Network fluidity | Missing-attribute removal resync suppression added; stock transports and entity update cadence | No TCP flush consolidation, distance send-frequency reduction, tracking hysteresis or spawn priority |
@@ -31,3 +31,9 @@ Removing Synergy/Tungsten can remove benefits in the remaining areas. NOS cannot
 ## Current memory report
 
 The supplied run has 54,564 chunks, 3,374 entities and 27 players, about 16,092 MB managed heap, 23,568 MB committed and 7,384 MB fragmented. The recent post-Gen2 floor falls by 1,673 MB. This shows substantial fragmentation/allocation pressure, not proof of a growing leak in that interval. The older snapshot's allocation delta implies roughly 75 MB/s over 234 minutes, but does not identify a mod. Match workload and process identity when comparing; no collection or heap compaction is forced by NOS.
+
+## Newly closed allocation gaps in 0.14.0
+
+Tungsten's catalog includes broad GetEntitiesAround and RecipeBase LINQ areas. NOS now implements independently tested targeted reductions in those areas. This does not establish that the algorithms or benefits are equivalent. Synergy's remaining entity sleep, stationary collision, flush consolidation, tracking/send policies and client protocol features remain absent; enabling NOS recipe/query work does not add them.
+
+No redundant idle-inventory/random-position patch was added: the inspected official 1.22.7 already has an IsDirty guard and reused working BlockPos objects. Published or queued objects must not be pooled just to match another mod's checklist. Deeper collision, networking, worldgen and save changes still require representative cost/queue profiles and behavior validation.
