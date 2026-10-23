@@ -72,7 +72,12 @@ try:
     loaded_mods=[{k:m.get(k) for k in ('modId','version','systems','side','core')} for m in catalog['mods']]
     settings=nos['settings'];assert settings['nearestEntitySearch'] and settings['interactableEntitySearch'] and settings['pathQueueLimitFix'] and not settings['pathMainThreadBudget']
     checks.append('new optimizer defaults visible through authenticated Suite bridge')
-    assert settings['physicsPacketListReuse']
+    assert settings['physicsPacketListReuse'] and settings['despawnPacketProjection']
+    assert next(m for m in nos['modules'] if m['name']=='despawnPacketProjection')['status']=='active'
+    status,despawn_off=control('set',dict(despawnPacketProjection=False));assert status==200 and despawn_off['success']
+    assert next(m for m in despawn_off['optimizer']['modules'] if m['name']=='despawnPacketProjection')['status']=='disabled'
+    status,despawn_on=control('set',dict(despawnPacketProjection=True));assert status==200 and despawn_on['success']
+    checks.append('despawn packet optimization independently toggled through Suite')
     assert next(m for m in nos['modules'] if m['name']=='physicsPacketListReuse')['status']=='active'
     status,physics_off=control('set',dict(physicsPacketListReuse=False));assert status==200 and physics_off['success']
     assert next(m for m in physics_off['optimizer']['modules'] if m['name']=='physicsPacketListReuse')['status']=='disabled'

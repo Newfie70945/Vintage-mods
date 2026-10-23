@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.8.0 preview
+# Newfie's Server Optimizer 0.9.0 preview
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.
 
@@ -6,6 +6,7 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 
 | Module | Change | Correctness boundary |
 | --- | --- | --- |
+| Despawn packet projection | Removes three LINQ projection iterators per despawn packet | Same IDs, reasons, damage sources, order and independently owned output arrays |
 | Physics packet list reuse | Bounded per-thread temporary lists | Original packet arrays, filtering, batching and sends; references cleared on failure and success |
 | Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
 | Interactable-entity search reuse | Reuses composed search/filter state | Same interactability and caller-filter order; independently switchable |
@@ -98,3 +99,5 @@ See [modpack validation and measurements](docs/performance-0.6.0.md). All six Su
 See [0.7.0 validation and limits](docs/performance-0.7.0.md) for component measurements, real-terrain tests and the Opttage Path review.
 
 See [0.8.0 validation](docs/performance-0.8.0.md) for physics allocation measurements and test limits.
+
+See [0.9.0 validation](docs/performance-0.9.0.md) for despawn packet equivalence and allocation measurements.

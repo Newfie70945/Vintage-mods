@@ -54,6 +54,7 @@
   },
   "EngineOptimizations": {
     "PhysicsPacketListReuse": true,
+    "DespawnPacketProjection": true,
     "OnlinePlayerSnapshots": true,
     "NearbyPlayerQueries": false,
     "BulkStreamReads": true,

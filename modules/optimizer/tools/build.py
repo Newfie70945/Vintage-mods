@@ -76,7 +76,7 @@ def main() -> int:
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
-        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.8.0.md"):
+        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md"):
             path = ROOT / name
             if path.is_file():
                 archive.write(path, "guides/" + path.name)

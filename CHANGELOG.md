@@ -2,6 +2,8 @@
 
 ## Server Essentials Suite 1.2.47
 
+- OptimizerNetwork2: add NOS 0.9.0 despawn packet allocation switch, actual status and packet/entry counters. Preserve Physics1 and Entity1 controls; build `ms11-optimizer-network2`.
+
 - OptimizerPhysics1: add independent NOS 0.8.0 physics packet list reuse controls and pass/buffer counters. Build `ms11-optimizer-physics1`; preserves all Entity1 features.
 - Explain when external optimizer controls require an uninstalled mod or an unsupported command; unavailable controls stay disabled.
 
@@ -201,3 +203,10 @@
 - Clear references after successful and failed sends; isolate nested/parallel calls and discard oversized buffers.
 - Add independent configuration, actual activation/conflict reporting and Suite controls.
 - Allocation measurements and real-server integration scope are documented in performance-0.8.0.md; no production TPS claim.
+
+## Newfies Server Optimizer 0.9.0 preview
+
+- Advance optimizer release identity from 0.8.0 to 0.9.0 as requested, retaining previous physics list improvements.
+- Remove temporary LINQ projection iterators from despawn packet construction. Preserve IDs, reason/source defaults, order and independent packet array ownership.
+- Add independent Suite controls, compatibility/conflict checks and packet/entry counters. No entity despawn policy, simulation or network frequency changes.
+- See performance-0.9.0.md for component allocation results and validation scope.

@@ -5,8 +5,8 @@
   "authors": [
     "Newfie's Community"
   ],
-  "description": "Guarded official-server performance patches: physics packet temporary-list reuse, entity search allocation reduction, AI/repulsion delegate reuse, path queue limit fix, optional bounded main-thread path assistance, player queries, stream reads and asset compression. Independent Suite controls and compatibility checks.",
-  "version": "0.8.0",
+  "description": "Guarded official-server performance patches: despawn packet projection, physics packet temporary-list reuse, entity search allocation reduction, AI/repulsion delegate reuse, path queue limit fix, optional bounded main-thread path assistance, player queries, stream reads and asset compression. Independent Suite controls and compatibility checks.",
+  "version": "0.9.0",
   "side": "Server",
   "requiredOnClient": false,
   "requiredOnServer": true,

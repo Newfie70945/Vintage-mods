@@ -1,3 +1,10 @@
+# NOS 0.9.0 preview
+
+- Retain all 0.8.0 physics list improvements and advance release identity to 0.9.0.
+- Remove three LINQ projection iterators per entity-despawn packet while preserving payload arrays, defaults, ordering and send behavior.
+- Add independent DespawnPacketProjection switch and Suite 1.2.47 Network2 controls, activation/conflict state and counters.
+- See performance-0.9.0.md for allocation results and validation limits.
+
 # NOS 0.8.0 preview
 
 - Reuse physics position/animation/tag temporary lists with bounded thread-local storage, nested-call isolation and exception cleanup. Outgoing packet arrays are never pooled.
