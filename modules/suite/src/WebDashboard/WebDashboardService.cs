@@ -12017,6 +12017,11 @@ public sealed partial class WebDashboardService : IDisposable
 
     private object BuildPerformanceWindowSummary(ServerHealthSnapshot health, int windowSeconds)
     {
+        long windowEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long windowStart = windowEnd - windowSeconds * 1000L;
+        var retainedInWindow = performanceCenterStore.Incidents
+            .Where(x => x.EndUnixMilliseconds >= windowStart && x.StartUnixMilliseconds <= windowEnd)
+            .ToList();
         var rows = (health.Samples ?? new List<ServerHealthSample>())
             .OrderBy(x => x.UnixMilliseconds)
             .ToList();
@@ -12026,7 +12031,9 @@ public sealed partial class WebDashboardService : IDisposable
             return new
             {
                 available = false,
-                sampleCount = 0
+                sampleCount = 0,
+                retainedIncidentPeakDelayMs = retainedInWindow.Select(x => x.WorstDelayMs).DefaultIfEmpty(0).Max(),
+                retainedIncidentCountInWindow = retainedInWindow.Count
             };
         }
 
@@ -12051,11 +12058,6 @@ public sealed partial class WebDashboardService : IDisposable
         var first = rows[0];
         var last = rows[^1];
         double durationSeconds = Math.Max(0, (last.UnixMilliseconds - first.UnixMilliseconds) / 1000d);
-        long windowEnd = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        long windowStart = windowEnd - windowSeconds * 1000L;
-        var retainedInWindow = performanceCenterStore.Incidents
-            .Where(x => x.EndUnixMilliseconds >= windowStart && x.StartUnixMilliseconds <= windowEnd)
-            .ToList();
         long droppedIncrease = Math.Max(0, last.BlockLoggerDropped - first.BlockLoggerDropped);
         int gen2Increase = Math.Max(0, last.Gen2Collections - first.Gen2Collections);
 

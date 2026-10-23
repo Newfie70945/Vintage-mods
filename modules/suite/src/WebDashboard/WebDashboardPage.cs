@@ -8935,7 +8935,7 @@ function renderPerformanceQuickRead(d){
     <div class="card smartSignal ${memClass}"><div class="signalMeta"><b>Memory pressure</b></div><div class="signalTitle">${Math.round(Number(cur.privateMemoryMb||0)).toLocaleString()} MB private</div><div class="small">Managed ${Math.round(Number(cur.managedHeapMb||0)).toLocaleString()} MB · GC fragmentation ${fragPct.toFixed(1)}% · native estimate ${Math.round(Number(cur.estimatedNativeMb||0)).toLocaleString()} MB</div></div>
     <div class="card smartSignal ${autoProfile&&autoAttr.likelyModId?'watch':'info'}"><div class="signalMeta"><b>Automatic mod attribution</b></div><div class="signalTitle">${esc(autoMod)}</div><div class="small">${esc(autoSub)}</div></div>`;
 
-  if(!w.available){windowHost.innerHTML='';return;}
+  if(!w.available){windowHost.innerHTML=Number(w.retainedIncidentCountInWindow||0)>0?metric('Retained incident peak',`${Number(w.retainedIncidentPeakDelayMs||0).toFixed(0)} ms`,'',`${Number(w.retainedIncidentCountInWindow||0)} retained incident(s); sampled window statistics not yet available`):'';return;}
   const signed=(v,digits=0,unit='')=>{const n=Number(v||0);return `${n>0?'+':''}${n.toFixed(digits)}${unit}`;};
   windowHost.innerHTML=
     metric('Window',`${Math.max(1,Math.round(Number(w.durationSeconds||0)/60))} min`,'',`${Number(w.sampleCount||0).toLocaleString()} samples`)+
