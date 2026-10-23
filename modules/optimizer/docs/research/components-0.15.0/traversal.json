@@ -1,0 +1,135 @@
+{
+  "checks": 43,
+  "measurements": [
+    {
+      "trial": 0,
+      "stock": {
+        "scan": {
+          "bytesPerCall": 424,
+          "nsPerCall": 749.4633333333334
+        },
+        "tick": {
+          "bytesPerCall": 568,
+          "nsPerCall": 636.0566666666666
+        },
+        "collision": {
+          "bytesPerCall": 144,
+          "nsPerCall": 88.24666666666667
+        }
+      },
+      "optimized": {
+        "scan": {
+          "bytesPerCall": 384,
+          "nsPerCall": 349.09
+        },
+        "tick": {
+          "bytesPerCall": 528,
+          "nsPerCall": 480.61333333333334
+        },
+        "collision": {
+          "bytesPerCall": 104,
+          "nsPerCall": 103.64
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "scan": {
+          "bytesPerCall": 424,
+          "nsPerCall": 430.8233333333333
+        },
+        "tick": {
+          "bytesPerCall": 568,
+          "nsPerCall": 575.1833333333333
+        },
+        "collision": {
+          "bytesPerCall": 144,
+          "nsPerCall": 91.98
+        }
+      },
+      "optimized": {
+        "scan": {
+          "bytesPerCall": 384,
+          "nsPerCall": 365.88
+        },
+        "tick": {
+          "bytesPerCall": 528,
+          "nsPerCall": 487.06666666666666
+        },
+        "collision": {
+          "bytesPerCall": 104,
+          "nsPerCall": 101.25333333333333
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "scan": {
+          "bytesPerCall": 424,
+          "nsPerCall": 415.55
+        },
+        "tick": {
+          "bytesPerCall": 568,
+          "nsPerCall": 642.4433333333334
+        },
+        "collision": {
+          "bytesPerCall": 144,
+          "nsPerCall": 95.39333333333333
+        }
+      },
+      "optimized": {
+        "scan": {
+          "bytesPerCall": 384,
+          "nsPerCall": 348.6333333333333
+        },
+        "tick": {
+          "bytesPerCall": 528,
+          "nsPerCall": 508.92
+        },
+        "collision": {
+          "bytesPerCall": 104,
+          "nsPerCall": 96.27666666666667
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "scan": {
+          "bytesPerCall": 424,
+          "nsPerCall": 415.3933333333333
+        },
+        "tick": {
+          "bytesPerCall": 568,
+          "nsPerCall": 558.51
+        },
+        "collision": {
+          "bytesPerCall": 144,
+          "nsPerCall": 83.03
+        }
+      },
+      "optimized": {
+        "scan": {
+          "bytesPerCall": 384,
+          "nsPerCall": 352.9266666666667
+        },
+        "tick": {
+          "bytesPerCall": 528,
+          "nsPerCall": 476.07
+        },
+        "collision": {
+          "bytesPerCall": 104,
+          "nsPerCall": 88.66333333333333
+        }
+      }
+    }
+  ],
+  "scope": "Actual native loop bodies, synthetic geometry/inventories and intercepted room lookup; no player-workload claim.",
+  "testedCodeRevision": "3fe0e16c3d84efcd2899c60fabcd7e4c383cf2d1",
+  "tieredCompilation": false,
+  "iterationsPerMeasurement": 30000,
+  "warmupIterations": 4000,
+  "timingLimit": "Synthetic components only. Retain all timing trials, including slower collision results; no aggregate/production CPU claim."
+}

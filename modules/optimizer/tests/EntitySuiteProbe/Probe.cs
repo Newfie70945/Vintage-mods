@@ -69,13 +69,22 @@ public sealed class EntitySuiteProbe:ModSystem
    var recipeCounters=Control("get").GetProperty("counters");
    foreach(var key in new[]{"nearbyEntityListPasses","cuboidEntityListPasses","shapelessMergeCalls","shapelessWildcardCalls"})Assert(recipeCounters.GetProperty(key).GetInt64()>0,"copied-server query/recipe helper executes: "+key);
    foreach(var key in new[]{"entityQueryFailures","shapelessMergeFailures","shapelessWildcardFailures"})Assert(recipeCounters.GetProperty(key).GetInt64()==0,"copied-server query/recipe failure counter remains zero: "+key);
+   // Enclosed room wholly inside the already loaded spawn column. The open-world
+   // fixture can legitimately return before ticking when a room reaches unloaded chunks.
+   int roomX=(int)spawn.X/32*32+20,roomZ=(int)spawn.Z/32*32+20;
+   int roomY=world.BlockAccessor.GetTerrainMapheightAt(new BlockPos(roomX,0,roomZ))+8;
+   var roomRock=world.GetBlock(new AssetLocation("game:rock-granite"));Assert(roomRock!=null,"container fixture wall resolved");
+   for(int rx=roomX-2;rx<=roomX+2;rx++)for(int rz=roomZ-2;rz<=roomZ+2;rz++)for(int ry=roomY-1;ry<=roomY+2;ry++)
+    world.BlockAccessor.SetBlock(rx==roomX-2||rx==roomX+2||rz==roomZ-2||rz==roomZ+2||ry==roomY-1||ry==roomY+2?roomRock!.Id:0,new BlockPos(rx,ry,rz));
    var containerInventory=new InventoryGeneric(4,"nos-fixture-0",api);containerInventory[0].Itemstack=new ItemStack(stick!,2);
    var containerFixture=new Vintagestory.GameContent.InWorldContainer(()=>containerInventory,"nos-fixture");
-   containerFixture.Init(api,()=>new BlockPos((int)spawn.X,(int)spawn.Y,(int)spawn.Z),()=>{});containerFixture.OnTick(1);
+   containerFixture.Init(api,()=>new BlockPos(roomX,roomY,roomZ),()=>{});containerFixture.OnTick(1);
    Assert(containerInventory[0].Itemstack!.StackSize==2,"native nonperishable container tick leaves real inventory unchanged");
    // Exercise the native transition loop with a real perishable item if resolved.
    var food=world.GetItem(new AssetLocation("game:vegetable-cabbage"));
-   Assert(food!=null,"real perishable item resolved");containerInventory[0].Itemstack=new ItemStack(food!,1);containerFixture.OnTick(1);
+   Assert(food!=null,"real perishable item resolved");containerInventory[0].Itemstack=new ItemStack(food!,1);
+   Assert(food!.RequiresTransitionableTicking(world,containerInventory[0].Itemstack),"real perishable item requests a transition tick");containerFixture.OnTick(1);
+   Assert(containerFixture.Room!=null&&containerFixture.Room.AnyChunkUnloaded==0,"enclosed room passes native chunk-loading guard");
    var collisionEntity=new Vintagestory.API.Common.EntityAgent{World=world,CollisionBox=new Cuboidf(-.2f,0,-.2f,.2f,.8f,.2f)};
    var collisionPosition=new Vintagestory.API.Common.Entities.EntityPos(spawn.X,spawn.Y,spawn.Z);var collidedPosition=new Vec3d();
    new CollisionTester().ApplyTerrainCollision(collisionEntity,collisionPosition,1,ref collidedPosition);
