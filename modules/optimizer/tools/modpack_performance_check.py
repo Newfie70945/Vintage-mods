@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Repeated full-suite/modpack worldgen, active NPC AI, save and profiler-cost laboratory test. No clients or player-capacity claims."""
 from __future__ import annotations
-import argparse, hashlib, json, os, shutil, sqlite3, subprocess, threading, time
+import argparse, hashlib, json, os, shutil, sqlite3, subprocess, threading, time, zipfile
 from pathlib import Path
 
 
@@ -20,12 +20,13 @@ def run(args, mode, trial):
     config['WorldConfig']['SaveFileLocation']=str(data/'Saves'/save)
     (data/'serverconfig.json').write_text(json.dumps(config,indent=2))
     mods=data/'Mods';mods.mkdir()
-    for source in (args.suitezip,args.optimizerzip,args.fixture,*args.pack.glob('*.zip')):shutil.copy2(source,mods/source.name)
+    for source in (args.suitezip,*(() if mode=='absent' else (args.optimizerzip,)),args.fixture,*args.pack.glob('*.zip')):shutil.copy2(source,mods/source.name)
     cfg=data/'ModConfig';cfg.mkdir(exist_ok=True)
     (cfg/'NewfiesWebServer.json').write_text('{"Enabled":false,"BindAddress":"127.0.0.1","Port":9465}')
     suite_cfg=cfg/'NewfiesServerEssentialsSuite';suite_cfg.mkdir(exist_ok=True)
     (suite_cfg/'NewfiesWebServer.json').write_text('{"Enabled":false,"BindAddress":"127.0.0.1","Port":9465}')
-    optimizer=json.loads((args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
+    selected_config=args.reference_config if mode=='reference' else args.optimizer_config
+    optimizer=json.loads((selected_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
     optimizer['Profiling'].update(AutoStart=False,MaxSamples=3600,MainThreadCpu=False,SystemTimings=False,PhaseTimings=False,CallbackTimings=False)
     if mode in ('stock','storage'):
         for key,value in optimizer['EngineOptimizations'].items():
@@ -37,7 +38,7 @@ def run(args, mode, trial):
     # are identical in both arms; all other template magic numbers stay unchanged.
     magic=json.loads((data/'servermagicnumbers.json').read_text());magic['ServerAutoSave']=3600
     (data/'servermagicnumbers.json').write_text(json.dumps(magic,indent=2))
-    env=os.environ.copy();env['DOTNET_ROOT']=str(args.dotnet.parent);env['NOS_LAB_NPC_COUNT']=str(args.npc_count)
+    env=os.environ.copy();env['DOTNET_ROOT']=str(args.dotnet.parent);env['NOS_LAB_NPC_COUNT']=str(args.npc_count);env['NOS_LAB_BLOCK_COUNT']=str(args.block_count);env['NOS_LAB_SPECIES']=','.join(args.species_prefix)
     process=subprocess.Popen([str(args.dotnet),str(args.game_dir/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port',str(args.port)],cwd=args.game_dir,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
     events=[];samples=[];done=threading.Event()
     def reader():
@@ -74,7 +75,9 @@ def run(args, mode, trial):
         prep=wait('Autosave completed',index)[0];last=wait('Offthread save of savegame done.',index)[0]
         time.sleep(.25)
         return dict(totalWallMs=(max(prep,last)-t0)*1000,mainPreparationWallMs=(prep-t0)*1000,state=state())
-    result=dict(mode=mode,trial=trial,authenticationVerification=True,authenticatedPlayers=0,columns=64,saveCycles=5,magicNumbers=magic)
+    installed=mode!='absent'
+    capturing=installed and not args.no_nos_capture
+    result=dict(mode=mode,trial=trial,optimizerInstalled=installed,nosCaptureEnabled=capturing,authenticationVerification=True,authenticatedPlayers=0,columns=64,saveCycles=5,magicNumbers=magic)
     try:
         wait('Dedicated Server now running on Port',timeout=300)
         result['loadedMods']=payload_load('MODS',send('/nosloadmods'))
@@ -83,17 +86,23 @@ def run(args, mode, trial):
         for mod in expected:
             if mod['side'].lower()!='client' and enabled.get(mod['id'])!=mod['version']:
                 raise RuntimeError('Pack member absent or disabled: '+str(mod))
+        if args.keep_workload_world:result['spawnPreparationCheck']=payload_load('SPAWN_CHECK',send('/nosloadspawncheck'))
+        with zipfile.ZipFile(args.optimizerzip) as archive:optimizer_id=json.loads(archive.read('modinfo.json'))['modid']
+        if (optimizer_id in enabled)!=installed:raise RuntimeError('Optimizer presence does not match requested mode.')
         payload_load('HEALTH',send('/nosloadhealth'))
         result['profileCancellation']=payload_load('CANCEL_PASS',send('/nosloadcanceltest'))
         time.sleep(args.warmup)
         payload('WARM',send('/nosbenchwarm'));time.sleep(3);result['baselineGc']=collect()
-        wait('Capture started.',send('/optimizer profile start'))
+        if capturing:wait('Capture started.',send('/optimizer profile start'))
         result['beforeGeneration']=state();start=time.monotonic()
         result['generation']=payload('GENERATED',send('/nosbenchgenerate'))
         result['afterGeneration']=state();result['generationObserverWallSeconds']=time.monotonic()-start
         result['blockWorkload']=payload_load('BLOCKS',send('/nosloadblocks')) if args.block_workload else None
         result['animals']=payload_load('ENTITIES',send('/nosloadentities'))
         time.sleep(10)
+        if args.no_nos_capture:
+            result['optimizerBefore']=payload_load('OPTIMIZER_STATE',send('/nosloadoptimizer'))
+            if result['optimizerBefore']['profileRunning']:raise RuntimeError('Unexpected NOS capture in capture-disabled comparison.')
         result['entityBefore']=payload_load('STATE',send('/nosloadstate'))
         if result['entityBefore']['engineProfilerEnabled'] or result['entityBefore']['slowTickProfilingEnabled']:raise RuntimeError('Unexpected full engine profiling before steady workload.')
         payload_load('RESET',send('/nosloadreset'));entityStart=time.monotonic();time.sleep(args.entity_seconds)
@@ -116,6 +125,7 @@ def run(args, mode, trial):
                 after=payload_load('STATE',send('/nosloadstate'))
                 pair[window_mode]=dict(before=before,after=after,wallSeconds=time.monotonic()-stamp)
             result['profilerPairs'].append(pair)
+        result['engineProfile']=payload_load('PROFILE_DATA',send('/nosloadprofiledata'))
         # Give the worker a fixed settling interval, not a different delay per arm.
         time.sleep(3)
         result['saves']=[]
@@ -124,7 +134,13 @@ def run(args, mode, trial):
             if dirty['chunks']!=512:raise RuntimeError('Expected 512 loaded benchmark chunks: '+str(dirty))
             result['saves'].append(save_once());time.sleep(1)
         time.sleep(5);result['afterSaves']=state()
-        wait('Capture stopped.',send('/optimizer profile stop'))
+        if args.keep_workload_world:
+            result['workloadSpawn']=payload_load('SPAWN',send('/nosloadsetspawn'));result['workloadSave']=save_once()
+            workload=out/'workload-world.vcdbs'
+            with sqlite3.connect('file:'+str(data/'Saves'/save)+'?mode=ro',uri=True) as source,sqlite3.connect(workload) as target:source.backup(target)
+            result['workloadWorld']=dict(path=workload.name,sha256=sha(workload))
+        if capturing:wait('Capture stopped.',send('/optimizer profile stop'))
+        if not capturing:result['optimizerState']=payload_load('OPTIMIZER_STATE',send('/nosloadoptimizer'))
         result['unloaded']=payload('UNLOADED',send('/nosbenchunload'));time.sleep(3)
         result['afterUnloadGc']=collect()
         # Counterfactual within each process: a new snapshot should release old
@@ -135,11 +151,14 @@ def run(args, mode, trial):
         errors=[line for _,line in events if '[Server Error]' in line or '[Error]' in line or 'NOSBENCH_FAIL' in line or 'Exception' in line]
         result['errors']=errors
         with sqlite3.connect('file:'+str(data/'Saves'/save)+'?mode=ro',uri=True) as db:result['saveIntegrity']=db.execute('PRAGMA integrity_check').fetchone()[0]
-        result['profile']=json.loads((data/'NewfiesOptimizer/latest.json').read_text())
-        result['passed']=not errors and process.returncode==0 and result['saveIntegrity']=='ok' and result['profile']['tick']['count']>0
+        result['profile']=json.loads((data/'NewfiesOptimizer/latest.json').read_text()) if capturing else None
+        result['passed']=not errors and process.returncode==0 and result['saveIntegrity']=='ok' and result['entityAfter']['tickCount']>0
+        if capturing and result['profile']['tick']['count']==0:raise RuntimeError('No NOS tick capture recorded.')
         wanted={'worldgenRequestReuse','saveSnapshotRelease'}
-        states={m['name']:m['status'] for m in result['profile']['modules'] if m['name'] in wanted}
-        if states!={name:'disabled' if mode=='stock' else 'active' for name in wanted}:raise RuntimeError('Unexpected module activation: '+str(states))
+        module_rows=result['profile']['modules'] if capturing else result['optimizerState']['modules']
+        module_rows=[{k.lower():v for k,v in m.items()} for m in module_rows]
+        states={m['name']:m['status'] for m in module_rows if m['name'] in wanted}
+        if installed and states!={name:'disabled' if mode=='stock' else 'active' for name in wanted}:raise RuntimeError('Unexpected module activation: '+str(states))
     except Exception as error:
         result.update(passed=False,failure=str(error))
         if process.poll() is None:process.terminate()
@@ -156,6 +175,11 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('game-dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--optimizer-config',type=Path,help='Explicit optimizer configuration for the NOS arm; copied and hashed in the report.')
+    p.add_argument('--reference-config',type=Path,help='Configuration for reference NOS arms, without disabling engine switches.')
+    p.add_argument('--block-count',type=int,default=100,help='Each of barrels and firepits, 1-1000 when block workload is enabled.')
+    p.add_argument('--species-prefix',action='append',help='Adult entity code prefix; repeat for equal population groups.')
+    p.add_argument('--keep-workload-world',action='store_true',help='Keep a consistent SQLite backup of the populated workload before forced unload.')
+    p.add_argument('--no-nos-capture',action='store_true',help='Keep NOS telemetry stopped; compare actual installed optimization overhead.')
     p.add_argument('--resume',action='store_true',help='Resume complete recorded runs only when input hashes and workload parameters match.')
     p.add_argument('--block-workload',action='store_true',help='Place 100 mismatch-input barrels and 100 mixed burning/cold firepits.')
     p.add_argument('--npc-count',type=int,default=128,help='Fixture NPCs, 128-4096; no authenticated players.')
@@ -163,25 +187,33 @@ def main():
     p.add_argument('--warmup',type=int,default=15);p.add_argument('--port',type=int,default=42579)
     p.add_argument('--order',default='stock,nos,nos,stock,stock,nos')
     args=p.parse_args()
+    args.species_prefix=args.species_prefix or ['game:pig-eurasian-adult-']
+    if not 1<=args.block_count<=1000:p.error('--block-count must be 1-1000')
+    if len(args.species_prefix)>16 or any(not x or ',' in x or len(x)>128 for x in args.species_prefix):p.error('Invalid species prefix')
     if not 128<=args.npc_count<=4096:p.error('--npc-count must be between 128 and 4096')
     for key in ('game_dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):setattr(args,key,getattr(args,key).resolve())
     if (args.output.exists() and not args.resume) or args.output.is_relative_to(args.snapshot) or args.output.is_relative_to(args.game_dir):p.error('Use a fresh output outside the game and stopped disposable snapshot.')
     if any(x.is_symlink() for x in args.snapshot.rglob('*')):p.error('Snapshot symlinks refused.')
     modes=args.order.split(',')
-    if any(x not in ('stock','nos','storage') for x in modes):p.error('Order must contain stock, nos and/or storage.')
+    if any(x not in ('stock','nos','storage','reference','absent') for x in modes):p.error('Order must contain stock, nos, reference, absent and/or storage.')
     save=Path(json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['SaveFileLocation']).name
     with sqlite3.connect('file:'+str(args.snapshot/'Saves'/save)+'?mode=ro',uri=True) as db:
         if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':p.error('Snapshot integrity failed.')
     args.output.mkdir(parents=True,exist_ok=args.resume)
     manifest=dict(kind='Disposable official-server generation/save/unload A/B laboratory workload',gameVersion='1.22.7',order=modes,worldSeed=json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['Seed'],worldSha256=sha(args.snapshot/'Saves'/save),artifacts={x.name:sha(x) for x in (args.suitezip,args.optimizerzip,args.fixture)},dotnet=str(args.dotnet),cpuQuota=Path('/sys/fs/cgroup/cpu.max').read_text().strip(),memoryLimit=Path('/sys/fs/cgroup/memory.max').read_text().strip(),warmupSeconds=args.warmup,entitySeconds=args.entity_seconds,profileBursts=args.profile_bursts,pack=json.loads((args.pack/'manifest.json').read_text()),limits=['No authenticated clients or bots; selected modpack is recorded, not the owner production world. Forced-active, fixture-locally-tracked real NPCs and pass-through AI filter/task-start subscribers are lab controls. Normal physics workers run; no fake client records are created.','Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.','NOS arm uses the recorded optimizer configuration; storage arm enables only WorldgenRequestReuse and SaveSnapshotRelease. Controlled fixture NPC population is recorded separately; NPC count/lifecycle still varies.','Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.','Save timings are observed console-log wall intervals on local container storage, not physical disk latency.'])
     manifest['npcCount']=args.npc_count
+    manifest['nosCaptureEnabled']=not args.no_nos_capture
     manifest['blockWorkload']=args.block_workload
+    manifest['blockCount']=args.block_count
+    manifest['speciesPrefixes']=args.species_prefix
+    manifest['keepWorkloadWorld']=args.keep_workload_world
+    manifest['referenceConfigurationSha256']=sha(args.reference_config) if args.reference_config else None
     manifest['optimizerConfigurationSha256']=sha(args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json'))
     manifest['optimizerConfiguration']=json.loads((args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
     manifest_path=args.output/'manifest.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','npcCount','blockWorkload'):
+        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','npcCount','nosCaptureEnabled','blockWorkload','blockCount','speciesPrefixes','keepWorkloadWorld','referenceConfigurationSha256'):
             if manifest[key]!=previous.get(key):p.error('Resume inputs differ: '+key)
         manifest=previous
     (args.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

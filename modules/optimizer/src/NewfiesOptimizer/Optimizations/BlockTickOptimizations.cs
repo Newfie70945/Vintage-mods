@@ -26,7 +26,7 @@ public static class BlockTickOptimizations
     public static MethodBase[] Dependencies(int kind) => kind switch
     {
         0 => [Target(0), AccessTools.Method(typeof(BlockEntityFirepit), "enviromentTemperature"), AccessTools.Method(typeof(BlockEntityFirepit), "changeTemperature"), AccessTools.PropertyGetter(typeof(BlockEntityFirepit), "fuelStack"), AccessTools.PropertyGetter(typeof(BlockEntityFirepit), "inputStack"), AccessTools.PropertyGetter(typeof(BlockEntityFirepit), "outputStack"), AccessTools.Method(typeof(BlockEntityFirepit), "getCombustibleOpts"), AccessTools.Method(typeof(BlockEntityFirepit), "canHeatInput"), AccessTools.Method(typeof(BlockEntityFirepit), "canHeatOutput"), AccessTools.Method(typeof(BlockEntityFirepit), "canSmeltInput"), AccessTools.Method(typeof(BlockEntityFirepit), "canSmelt"), AccessTools.PropertyGetter(typeof(BlockEntityFirepit), "IsBurning"), AccessTools.PropertyGetter(typeof(BlockEntityFirepit), "Inventory")],
-        1 => [Target(1), Match],
+        1 => [Target(1), Match, AccessTools.PropertyGetter(typeof(ItemSlot),nameof(ItemSlot.Empty)), AccessTools.PropertyGetter(typeof(ItemSlot),nameof(ItemSlot.Itemstack))],
         2 => [Target(2), AccessTools.Method(typeof(BlockEntityFastForwardGrowth), "beginIntervalledUpdate"), AccessTools.Method(typeof(BEBehaviorFruitingBush), "onUpdate")],
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
@@ -35,6 +35,9 @@ public static class BlockTickOptimizations
     public static bool ValidateContract(int kind, out string reason)
     {
         bool valid = Dependencies(kind).All(m => m != null) && Target(kind).GetMethodBody()?.GetILAsByteArray() is { } il && Convert.ToHexString(SHA256.HashData(il)) == OfficialIlHashes[kind];
+        if(kind==1)valid &= new[]{typeof(ItemSlot),typeof(ItemSlotLiquidOnly),typeof(ItemSlotBarrelInput)}.All(t=>
+            AccessTools.PropertyGetter(t,nameof(ItemSlot.Empty))?.DeclaringType==typeof(ItemSlot) &&
+            AccessTools.PropertyGetter(t,nameof(ItemSlot.Itemstack))?.DeclaringType==typeof(ItemSlot));
         if (kind == 2)
         {
             // Flatten only the official no-op base callback, never a mod override.
@@ -65,7 +68,7 @@ public static class BlockTickOptimizations
         __state = Volatile.Read(ref enabled[1]);
         if (!__state) return true;
         var ingredients = __instance.Ingredients;
-        if (__instance.GetType() != typeof(BarrelRecipe) || inputSlots == null || inputSlots.Length > 2 || ingredients == null || ingredients.Length > 2 || !HasNativeIngredients(ingredients))
+        if (__instance.GetType() != typeof(BarrelRecipe) || inputSlots == null || inputSlots.Length > 2 || !HasNativeSlots(inputSlots) || ingredients == null || ingredients.Length > 2 || !HasNativeIngredients(ingredients))
         { Interlocked.Increment(ref fallbacks[1]); return true; }
         int count = 0;
         foreach (var slot in inputSlots) if (!slot.Empty) count++;
@@ -92,6 +95,17 @@ public static class BlockTickOptimizations
             if (pairs > 1) __result.Add((slot1!, item1!));
         }
         Interlocked.Increment(ref calls[1]); return false;
+    }
+    // Custom accessors can mutate recipe ingredients during the native initial
+    // occupancy pass. Do not read any such getter before falling back.
+    private static bool HasNativeSlots(ItemSlot[] slots)
+    {
+        foreach(var slot in slots)
+        {
+            var type=slot?.GetType();
+            if(type!=typeof(ItemSlot)&&type!=typeof(ItemSlotLiquidOnly)&&type!=typeof(ItemSlotBarrelInput))return false;
+        }
+        return true;
     }
     // Only zero to two entries reach this check. Avoid a generic predicate scan
     // on every recipe attempt; retain exact-type fallback for mod ingredients.

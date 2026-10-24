@@ -1,0 +1,44 @@
+{
+  "optimizerMode": "off",
+  "optimizerState": {
+    "installed": false,
+    "modules": [],
+    "counters": {},
+    "profileRunning": false
+  },
+  "exitCode": 0,
+  "resumed": {
+    "animals": 3000,
+    "loaded": 3060
+  },
+  "state": {
+    "engineProfilerEnabled": false,
+    "slowTickProfilingEnabled": false,
+    "aiEnabled": true,
+    "spawned": 3000,
+    "alive": 2991,
+    "active": 3000,
+    "loaded": 3029,
+    "moves": 65643,
+    "vetoCalls": 0,
+    "taskStarts": 0,
+    "filterCalls": 0,
+    "barrelTicks": 5000,
+    "firepitTicks": 111229,
+    "blockEntities": 0,
+    "tickCount": 0,
+    "tickAverageMs": 0,
+    "tickP95Ms": null,
+    "tickP99Ms": null,
+    "tickWorstMs": 0,
+    "allocatedBytes": 13030940784,
+    "cpuMs": 93033.66,
+    "rssBytes": 1590804480,
+    "heapBytes": 1327875112,
+    "gcCommittedBytes": 1344040960,
+    "gcFragmentedBytes": 346272,
+    "gcPauseMs": 10255.872
+  },
+  "saveIntegrity": "ok",
+  "authenticatedPlayers": 0
+}

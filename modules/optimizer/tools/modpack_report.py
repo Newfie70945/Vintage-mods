@@ -30,7 +30,10 @@ def main():
     directory=args.directory;raw=json.loads((directory/'summary.json').read_text());results=raw['results']
     if not results or any(not r.get('passed')for r in results):raise ValueError('Only completed passing comparisons may be summarized.')
     measured={r['trial']:observations(r,json.loads((directory/f"{r['trial']:02d}-{r['mode']}"/'process-samples.json').read_text()))for r in results}
-    if not {'stock','nos'}.issubset({r['mode']for r in results}):raise ValueError('This report requires both stock and NOS arms; setup-only runs are not comparisons.')
+    modes={r['mode']for r in results};baseline='absent' if 'absent'in modes else 'reference' if 'reference'in modes else 'stock'
+    candidate='nos' if 'nos'in modes else 'reference'
+    if baseline==candidate or not {baseline,candidate}.issubset(modes):raise ValueError('This report requires a stock/reference arm and NOS arm; setup-only runs are not comparisons.')
+    baseline_label='NOS not installed' if baseline=='absent' else 'NOS reference settings' if baseline=='reference' else 'NOS switches off'
     groups={}
     for mode in sorted(set(r['mode']for r in results)):
         rows=[measured[r['trial']]for r in results if r['mode']==mode]
@@ -47,8 +50,8 @@ def main():
                 'cpuPercent':statistics.median(rate(w['before'],w['after'],w['wallSeconds'],'cpuMs',10)for w in windows)})
         profiler[mode]={key:summary([r[key]for r in per_run])for key in per_run[0]}
     analysis=dict(groups=groups,profilerWindows=profiler,perRun=[dict(trial=r['trial'],mode=r['mode'],**measured[r['trial']])for r in results],
-        scope='Disposable official server, identical stopped seed/world copies, same full Suite and selected mods in both arms; NOS engine switches off versus shipping defaults. No authenticated clients or player-capacity evidence.',
-        caveats=['Two runs per arm are descriptive observations, not significance or production guarantees.',
+        scope=f'Disposable official server, identical stopped seed/world copies and selected mods in both arms; {baseline_label} versus recorded candidate settings. No authenticated clients or player-capacity evidence.',
+        caveats=['Run counts are recorded per arm; observations are descriptive, not significance or production guarantees.',
           'Tick work is the official integer-millisecond pre-sleep sample, observed once per tick. It is not the frame-profiler root duration and cannot resolve small sub-millisecond differences.',
           'NPCs are forced-active and fixture-locally-tracked for stock physics without clients; pass-through AI subscribers are test controls. Modules not exercised by this workload require their separate native-method fixtures; activation alone is not measured benefit.',
           'World/NPC randomness, shared 2-vCPU container scheduling, caches and incidental entities remain confounders.',
@@ -62,10 +65,11 @@ def main():
     optimizerArtifact=next((name for name in raw['manifest']['artifacts'] if name.startswith('NewfiesServerOptimizer-')), 'Unknown optimizer')
     version=optimizerArtifact.removeprefix('NewfiesServerOptimizer-').removesuffix('.zip')
     settingsLabel='NOS recorded settings' if 'optimizerConfiguration' in raw['manifest'] else 'NOS defaults'
-    lines=[f'# NOS {version} selected-modpack laboratory comparison','',f"{len(results)} passing runs; order: {', '.join(raw['manifest']['order'])}. {raw['manifest']['entitySeconds']} seconds of steady moving-NPC AI/physics per run. Each value is the median of per-run observations, followed by the observed range. This is not a player-capacity benchmark.",'',f'| Measurement | NOS switches off | {settingsLabel} | Unit |','| --- | ---: | ---: | --- |']
-    for title,key,unit in metrics:lines.append(f"| {title} | {show(groups['stock'],key)} | {show(groups['nos'],key)} | {unit} |")
+    lines=[f'# NOS {version} selected-modpack laboratory comparison','',f"{len(results)} passing runs; order: {', '.join(raw['manifest']['order'])}. {raw['manifest']['entitySeconds']} seconds of steady moving-NPC AI/physics per run. Each value is the median of per-run observations, followed by the observed range. This is not a player-capacity benchmark.",'',f'| Measurement | {baseline_label} | {settingsLabel} | Unit |','| --- | ---: | ---: | --- |']
+    for title,key,unit in metrics:lines.append(f"| {title} | {show(groups[baseline],key)} | {show(groups[candidate],key)} | {unit} |")
     if raw['manifest'].get('blockWorkload'):
-        lines+=['','## Mixed block workload','','Each arm placed 100 mismatch-input barrels and 100 firepits (50 initialized burning, 50 cold). These observations do not establish successful fermentation or active cooking performance.','', '| Arm | Barrel callbacks in steady window | Firepit callbacks in steady window |','| --- | ---: | ---: |']
+        count=raw['manifest'].get('blockCount',100)
+        lines+=['','## Mixed block workload','',f'Each arm placed {count} mismatch-input barrels and {count} firepits. These observations do not establish successful fermentation or active cooking performance.','', '| Arm | Barrel callbacks in steady window | Firepit callbacks in steady window |','| --- | ---: | ---: |']
         for r in results:
             a,b=r['entityBefore'],r['entityAfter']
             lines.append(f"| {r['trial']} {r['mode']} | {b['barrelTicks']-a['barrelTicks']} | {b['firepitTicks']-a['firepitTicks']} |")

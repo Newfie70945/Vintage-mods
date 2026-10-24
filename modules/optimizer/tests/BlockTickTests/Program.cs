@@ -36,6 +36,11 @@ public class HookItem:Item
  public override bool MatchesForCrafting(ItemStack stack,IRecipeBase recipe,IRecipeIngredient ingredient){Hook?.Invoke();return Accept;}
 }
 public class CustomBarrelRecipe:BarrelRecipe {}
+public class HookSlot:ItemSlot
+{
+ public Action? Hook;public HookSlot():base(null){}
+ public override bool Empty {get{Hook?.Invoke();return base.Empty;}}
+}
 public class CustomFirepit:BlockEntityFirepit {}
 public class CustomBush:BlockEntityWildFruitingBush {}
 static class Checks
@@ -119,6 +124,16 @@ static class Checks
   }
   string nativeMutation=MutationResult(false),optimizedMutation=MutationResult(true);
   Assert(optimizedMutation==nativeMutation,"recipe array replacement during collectible hook preserves native final count check");
+  Mode(true);
+  string CustomSlotResult(bool optimized)
+  {
+   recipe.Ingredients=savedIngredients;Mode(optimized);int emptyReads=0;
+   var hooked=new HookSlot{Itemstack=new ItemStack(a)};
+   hooked.Hook=()=>{emptyReads++;recipe.Ingredients=[Ingredient("test:never"),Ingredient("test:never")];};
+   try{return Describe(pair(recipe,[hooked,Slot(b)]))+":"+emptyReads;}finally{recipe.Ingredients=savedIngredients;}
+  }
+  string nativeCustomSlot=CustomSlotResult(false),optimizedCustomSlot=CustomSlotResult(true);
+  Assert(nativeCustomSlot==optimizedCustomSlot,"custom slot mutation preserves native ingredient snapshot and getter count");
   Mode(true);
   bool nested=false;a.Hook=()=>{if(nested)return;nested=true;Assert(pair(recipe,new[]{Slot(a),Slot(b)}).Count==2,"recursive pairing isolated");nested=false;};pair(recipe,slots);a.Hook=null;
   int attempts=0;a.Hook=()=>{attempts++;throw new InvalidOperationException("barrel-sentinel");};Assert(Error(()=>pair(recipe,slots))=="InvalidOperationException:barrel-sentinel"&&attempts==1,"hook failure preserved once");

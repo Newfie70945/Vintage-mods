@@ -25,6 +25,7 @@ public sealed class ModpackProbe:ModSystem
  private int lastIndex;
  private bool collecting;
  private Harmony? laboratoryHooks;
+ private static int BlockCount=>int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_BLOCK_COUNT"),out int n)?Math.Clamp(n,1,1000):100;
 
  public override bool ShouldLoad(EnumAppSide side)=>side==EnumAppSide.Server;
  public override void StartServerSide(ICoreServerAPI api)
@@ -39,6 +40,12 @@ public sealed class ModpackProbe:ModSystem
   object Field(object o,string n)=>o.GetType().GetField(n,BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic)!.GetValue(o)!;
   object Health(){var t=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("BlockLogger.BlockLoggerModSystem")).First(x=>x!=null)!;var system=api.ModLoader.GetModSystem(t.FullName!);var module=Field(system,"module");return module.GetType().GetProperty("ServerHealth")!.GetValue(module)!;}
   void Add(string name,System.Func<TextCommandResult> handler)=>api.ChatCommands.Create(name).RequiresPrivilege(Privilege.controlserver).HandleWith(_=>{try{return handler();}catch(Exception e){api.Logger.Error("NOSLOAD_FAIL "+e);return TextCommandResult.Error(e.Message);}});
+  Add("nosloadoptimizer",()=>{
+   var type=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("NewfiesOptimizer.OptimizerMod")).FirstOrDefault(t=>t!=null);
+   if(type==null){Emit("OPTIMIZER_STATE",new{installed=false,modules=Array.Empty<object>(),counters=new Dictionary<string,long>(),profileRunning=false});return TextCommandResult.Success();}
+   var system=api.ModLoader.GetModSystem(type.FullName!);var engine=Field(system,"optimizations");var profiler=Field(system,"profiler");
+   Emit("OPTIMIZER_STATE",new{installed=true,modules=engine.GetType().GetMethod("Modules")!.Invoke(engine,null),counters=engine.GetType().GetMethod("Counters")!.Invoke(engine,null),profileRunning=(bool)profiler.GetType().GetProperty("IsRunning")!.GetValue(profiler)!});return TextCommandResult.Success();
+  });
   Add("nosloadmods",()=>{Emit("MODS",api.ModLoader.Mods.Where(m=>m.Info!=null).Select(m=>new{id=m.Info.ModID,version=m.Info.Version,enabled=api.ModLoader.IsModEnabled(m.Info.ModID)}).ToArray());return TextCommandResult.Success();});
   Add("nosloadblocks",()=>{
    var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+8,z=(int)(spawn.Z/32)*32+160*32+8;
@@ -46,28 +53,33 @@ public sealed class ModpackProbe:ModSystem
    var barrel=api.World.Blocks.First(b=>b?.EntityClass=="Barrel"&&b.Code.Domain=="game");
    var fire=api.World.GetBlock(new AssetLocation("game:firepit-cold"));
    if(fire==null||fire.Id==0)throw new Exception("Official firepit absent");
-   for(int i=0;i<200;i++){
-    var p=new BlockPos(x+(i%20)*2,0,z+(i/20)*2);p.Y=api.World.BlockAccessor.GetTerrainMapheightAt(p)+1;
-    api.World.BlockAccessor.SetBlock((i<100?barrel:fire).Id,p);
+   int blockCount=BlockCount,grid=(int)Math.Ceiling(Math.Sqrt(blockCount*2));
+   for(int i=0;i<blockCount*2;i++){
+    var p=new BlockPos(x+(i%grid)*2,0,z+(i/grid)*2);p.Y=api.World.BlockAccessor.GetTerrainMapheightAt(p)+1;
+    api.World.BlockAccessor.SetBlock((i<blockCount?barrel:fire).Id,p);
     var be=api.World.BlockAccessor.GetBlockEntity(p)??throw new Exception("Placed block entity absent");laboratoryBlocks.Add(be);
     if(be is BlockEntityBarrel b){b.Inventory[0].Itemstack=new ItemStack(stone);}
     if(be is BlockEntityFirepit f&&i%2==0){f.fuelBurnTime=600;f.maxFuelBurnTime=600;f.maxTemperature=700;f.furnaceTemperature=600;}
    }
    laboratoryHooks!.Patch(AccessTools.Method(typeof(BlockEntityBarrel),"OnEvery3Second"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveBarrel)));
    laboratoryHooks.Patch(AccessTools.Method(typeof(BlockEntityFirepit),"OnBurnTick"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveFirepit)));
-   Emit("BLOCKS",new{barrels=100,firepits=100,burningFirepits=50,coldFirepits=50,barrelInput="rock-granite (intentional recipe mismatch)"});return TextCommandResult.Success();
+   Emit("BLOCKS",new{barrels=blockCount,firepits=blockCount,burningFirepits=blockCount/2,coldFirepits=(blockCount+1)/2,barrelInput="rock-granite (intentional recipe mismatch)"});return TextCommandResult.Success();
   });
   Add("nosloadentities",()=>{
    api.World.Config.SetBool("runAiTasks",true);
    var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+64,z=(int)(spawn.Z/32)*32+160*32+64;
-   var types=api.World.EntityTypes.Where(t=>t.Code.Domain=="game"&&t.Code.Path.StartsWith("pig-eurasian-adult-")).ToArray();
-   if(types.Length==0)throw new Exception("Stock wild-pig type absent");
+   var prefixes=(Environment.GetEnvironmentVariable("NOS_LAB_SPECIES")??"game:pig-eurasian-adult-").Split(',',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries);
+   var groups=prefixes.Select(prefix=>api.World.EntityTypes.Where(t=>t.Code.ToString().StartsWith(prefix,StringComparison.Ordinal)&&t.Code.Path.Contains("adult")).OrderBy(t=>t.Code.ToString(),StringComparer.Ordinal).ToArray()).ToArray();
+   if(groups.Any(g=>g.Length==0))throw new Exception("Requested adult species prefix absent");
+   var types=groups.SelectMany(g=>g).ToArray();
+   if(BlockCount>100){x+=64;z+=64;}
    int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,4096):128;
    int columns=requested==128?16:(int)Math.Ceiling(Math.Sqrt(requested));
    for(int i=0;i<requested;i++){
     double px=x+(i%columns)*2+.5,pz=z+(i/columns)*2+.5;
     var pos=new BlockPos((int)px,0,(int)pz);int height=api.World.BlockAccessor.GetTerrainMapheightAt(pos);
-    var entity=api.World.ClassRegistry.CreateEntity(types[i%types.Length]);entity.Pos.SetPos(px,height+1,pz);entity.AlwaysActive=true;entity.Attributes.SetBool("nosLaboratoryNpc",true);api.World.SpawnEntity(entity);
+    var group=groups[i%groups.Length];
+    var entity=api.World.ClassRegistry.CreateEntity(group[(i/groups.Length)%group.Length]);entity.Pos.SetPos(px,height+1,pz);entity.AlwaysActive=true;entity.Attributes.SetBool("nosLaboratoryNpc",true);api.World.SpawnEntity(entity);
     if(entity.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager is {} manager)
     {
      manager.OnExecuteTask+=(task,previous)=>{Interlocked.Increment(ref vetoCalls);return true;};
@@ -77,6 +89,41 @@ public sealed class ModpackProbe:ModSystem
     animals.Add(entity);positions.Add((entity.Pos.X,entity.Pos.Y,entity.Pos.Z));
    }
    Emit("ENTITIES",new{spawned=animals.Count,types=types.Select(t=>t.Code.ToString()).ToArray(),aiEnabled=AiRuntimeConfig.RunAiTasks,behaviors=animals[0].SidedProperties.Behaviors.Select(b=>b.GetType().FullName).ToArray(),tasks=animals[0].GetBehavior<EntityBehaviorTaskAI>()?.TaskManager.AllTasks.Count});return TextCommandResult.Success();
+  });
+  Add("nosloadprofiledata",()=>{
+   var health=Health();var snapshot=health.GetType().GetMethod("GetSnapshot")!.Invoke(health,[32,1800])!;
+   var values=new Dictionary<string,object?>();foreach(string name in new[]{"Hotspots","ModHotspots","Phases","ProfileSlowCauses","LastProfile","ProfileRunning"})values[name]=snapshot.GetType().GetProperty(name)!.GetValue(snapshot);
+   Emit("PROFILE_DATA",values);return TextCommandResult.Success();
+  });
+  Add("nosloadresume",()=>{
+   if(animals.Count!=0)throw new Exception("Workload already attached; refusing duplicate resume");
+   var spawn=api.World.DefaultSpawnPosition;int cx=(int)(spawn.X/32)-4,cz=(int)(spawn.Z/32)-4,completed=0;
+   for(int dx=0;dx<8;dx++)for(int dz=0;dz<8;dz++)api.WorldManager.LoadChunkColumnPriority(cx+dx,cz+dz,new ChunkLoadOptions{KeepLoaded=true,OnLoaded=()=>{
+    if(Interlocked.Increment(ref completed)!=64)return;
+    api.Event.RegisterCallback(_=>{
+     foreach(var entity in api.World.LoadedEntities.Values.Where(e=>e.Attributes.GetBool("nosLaboratoryNpc"))){entity.AlwaysActive=true;var before=entity.State;entity.State=EnumEntityState.Active;if(before!=EnumEntityState.Active)entity.OnStateChanged(before);animals.Add(entity);positions.Add((entity.Pos.X,entity.Pos.Y,entity.Pos.Z));}
+     laboratoryHooks!.Patch(AccessTools.Method(typeof(BlockEntityBarrel),"OnEvery3Second"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveBarrel)));
+     laboratoryHooks.Patch(AccessTools.Method(typeof(BlockEntityFirepit),"OnBurnTick"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveFirepit)));
+     Emit("RESUMED",new{animals=animals.Count,loaded=api.World.LoadedEntities.Count});
+    },5000);
+   }});
+   return TextCommandResult.Success("Saved workload loading; no new animals are spawned");
+  });
+  Add("nosloadspawncheck",()=>{
+   var position=api.World.DefaultSpawnPosition;var savegame=Field(api.World,"SaveGameData");var spawnField=AccessTools.Property(savegame.GetType(),"DefaultSpawn")??throw new MissingMemberException(savegame.GetType().FullName,"DefaultSpawn");var saved=spawnField.GetValue(savegame);
+   try{if(saved==null)spawnField.SetValue(savegame,Activator.CreateInstance(spawnField.PropertyType));api.WorldManager.SetDefaultSpawnPosition((int)position.X,(int)position.Y,(int)position.Z);}
+   finally{spawnField.SetValue(savegame,saved);}
+   Emit("SPAWN_CHECK",new{success=true});return TextCommandResult.Success();
+  });
+  Add("nosloadsetspawn",()=>{
+   var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+128,z=(int)(spawn.Z/32)*32+160*32+128;
+   int y=api.World.BlockAccessor.GetTerrainMapheightAt(new BlockPos(x,0,z))+1;
+   // The official API writes through DefaultSpawn without constructing it in a
+   // never-joined world. Initialize only this disposable world's spawn object.
+   var savegame=Field(api.World,"SaveGameData");var spawnField=AccessTools.Property(savegame.GetType(),"DefaultSpawn")??throw new MissingMemberException(savegame.GetType().FullName,"DefaultSpawn");
+   if(spawnField.GetValue(savegame)==null)spawnField.SetValue(savegame,Activator.CreateInstance(spawnField.PropertyType));
+   api.WorldManager.SetDefaultSpawnPosition(x,y,z);
+   Emit("SPAWN",new{x,y,z});return TextCommandResult.Success();
   });
   Add("nosloadstate",()=>{
    using var process=Process.GetCurrentProcess();var gc=GC.GetGCMemoryInfo();

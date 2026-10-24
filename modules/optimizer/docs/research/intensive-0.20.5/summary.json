@@ -1,0 +1,1656 @@
+{
+  "suiteVersion": "1.2.50",
+  "optimizerVersion": "0.20.5",
+  "gameVersion": "1.22.7",
+  "initialAnimals": 3000,
+  "animalGroups": [
+    "pig",
+    "sheep",
+    "goat",
+    "deer"
+  ],
+  "barrels": 500,
+  "firepits": 500,
+  "authenticatedPlayers": 0,
+  "exactOwnerModpack": false,
+  "cpuQuota": "2 vCPU",
+  "memoryLimit": "8 GiB",
+  "nativePhysicsThreads": 1,
+  "nativeWorldgenThreads": 1,
+  "experiments": {
+    "barrel": {
+      "changed": "BarrelMatchCountGuard",
+      "steadySeconds": 180,
+      "order": [
+        "reference",
+        "nos"
+      ],
+      "groups": {
+        "nos": {
+          "entityPeakRssMiB": {
+            "median": 1746.6015625,
+            "minimum": 1746.6015625,
+            "maximum": 1746.6015625,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1477.34765625,
+            "minimum": 1477.34765625,
+            "maximum": 1477.34765625,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 27.90918731689453,
+            "minimum": 27.90918731689453,
+            "maximum": 27.90918731689453,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 9.980675699999999,
+            "minimum": 9.980675699999999,
+            "maximum": 9.980675699999999,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 48.00835354351927,
+            "minimum": 48.00835354351927,
+            "maximum": 48.00835354351927,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 61,
+            "minimum": 61,
+            "maximum": 61,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 73,
+            "minimum": 73,
+            "maximum": 73,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 98,
+            "minimum": 98,
+            "maximum": 98,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 20.609727621667286,
+            "minimum": 20.609727621667286,
+            "maximum": 20.609727621667286,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 115.66220571774981,
+            "minimum": 115.66220571774981,
+            "maximum": 115.66220571774981,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 46.49539585275318,
+            "minimum": 46.49539585275318,
+            "maximum": 46.49539585275318,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 15.912270309608013,
+            "minimum": 15.912270309608013,
+            "maximum": 15.912270309608013,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1747.08203125,
+            "minimum": 1747.08203125,
+            "maximum": 1747.08203125,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1437.7851104736328,
+            "minimum": 1437.7851104736328,
+            "maximum": 1437.7851104736328,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 29,
+            "minimum": 29,
+            "maximum": 29,
+            "runs": 1
+          },
+          "movements": {
+            "median": 275978,
+            "minimum": 275978,
+            "maximum": 275978,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 64640,
+            "minimum": 64640,
+            "maximum": 64640,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 317.58911994984373,
+            "minimum": 317.58911994984373,
+            "maximum": 317.58911994984373,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 168.4385514818132,
+            "minimum": 168.4385514818132,
+            "maximum": 168.4385514818132,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 78.98288103751838,
+            "minimum": 78.98288103751838,
+            "maximum": 78.98288103751838,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 7,
+            "minimum": 7,
+            "maximum": 7,
+            "runs": 1
+          }
+        },
+        "reference": {
+          "entityPeakRssMiB": {
+            "median": 1773.76953125,
+            "minimum": 1773.76953125,
+            "maximum": 1773.76953125,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1505.87890625,
+            "minimum": 1505.87890625,
+            "maximum": 1505.87890625,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 105.78089904785156,
+            "minimum": 105.78089904785156,
+            "maximum": 105.78089904785156,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 10.4505728,
+            "minimum": 10.4505728,
+            "maximum": 10.4505728,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 50.03031153522313,
+            "minimum": 50.03031153522313,
+            "maximum": 50.03031153522313,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 63,
+            "minimum": 63,
+            "maximum": 63,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 74,
+            "minimum": 74,
+            "maximum": 74,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 136,
+            "minimum": 136,
+            "maximum": 136,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 19.78779124772231,
+            "minimum": 19.78779124772231,
+            "maximum": 19.78779124772231,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 116.3102538664821,
+            "minimum": 116.3102538664821,
+            "maximum": 116.3102538664821,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 49.182501727556236,
+            "minimum": 49.182501727556236,
+            "maximum": 49.182501727556236,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 17.705035971465414,
+            "minimum": 17.705035971465414,
+            "maximum": 17.705035971465414,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1773.21484375,
+            "minimum": 1773.21484375,
+            "maximum": 1773.21484375,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1393.7128372192383,
+            "minimum": 1393.7128372192383,
+            "maximum": 1393.7128372192383,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 53,
+            "minimum": 53,
+            "maximum": 53,
+            "runs": 1
+          },
+          "movements": {
+            "median": 274301,
+            "minimum": 274301,
+            "maximum": 274301,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 63952,
+            "minimum": 63952,
+            "maximum": 63952,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 231.88548302277923,
+            "minimum": 231.88548302277923,
+            "maximum": 231.88548302277923,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 170.25012202793732,
+            "minimum": 170.25012202793732,
+            "maximum": 170.25012202793732,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 77.98049203120172,
+            "minimum": 77.98049203120172,
+            "maximum": 77.98049203120172,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 8,
+            "minimum": 8,
+            "maximum": 8,
+            "runs": 1
+          }
+        }
+      },
+      "runs": [
+        {
+          "mode": "reference",
+          "passed": true,
+          "optimizerInstalled": true,
+          "nosCaptureEnabled": true,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2997,
+          "barrelCallbacks": 29500,
+          "firepitCallbacks": 712422,
+          "engineCounters": {
+            "blockSimulationPasses": 0,
+            "blockSimulationDeferredPasses": 0,
+            "blockSimulationFailures": 0,
+            "blockSimulationQueueDepth": 0,
+            "blockSimulationQueuePeak": 0,
+            "barrelMatchCountGuardCalls": 0,
+            "barrelMatchCountGuardFallbacks": 0,
+            "barrelMatchCountGuardFailures": 0,
+            "idleFirepitFastPathCalls": 0,
+            "idleFirepitFastPathFallbacks": 0,
+            "idleFirepitFastPathFailures": 0,
+            "barrelIngredientPairingCalls": 21276000,
+            "barrelIngredientPairingFallbacks": 0,
+            "barrelIngredientPairingFailures": 0,
+            "wildBushCallbackFlattenCalls": 0,
+            "wildBushCallbackFlattenFallbacks": 0,
+            "wildBushCallbackFlattenFailures": 0,
+            "chunkUnloadStagingCalls": 0,
+            "chunkUnloadStagingBuffersCreated": 0,
+            "chunkUnloadStagingOversizedReleased": 0,
+            "chunkUnloadStagingFailures": 0,
+            "nativeBuildLogMissingCodes": 0,
+            "nativeBuildLogSystemPlayers": 0,
+            "nativeBuildLogFailures": 0,
+            "collisionGenerationCalls": 0,
+            "cachedCollisionGenerationCalls": 0,
+            "collisionGenerationCacheHits": 0,
+            "collisionGenerationContextsCreated": 0,
+            "collisionGenerationFallbacks": 0,
+            "collisionGenerationFailures": 0,
+            "animationCollisionScans": 12597095,
+            "animationScanFallbacks": 0,
+            "animationScanFailures": 0,
+            "collisionTraversalCalls": 0,
+            "containerTransitionScans": 0,
+            "containerTickTraversals": 0,
+            "traversalIteratorsAvoided": 0,
+            "customInventoryTraversalFallbacks": 0,
+            "collisionTraversalFailures": 0,
+            "containerScanFailures": 0,
+            "containerTickFailures": 0,
+            "nearbyEntityListPasses": 314994,
+            "cuboidEntityListPasses": 0,
+            "entityQueryBuffersCreated": 1,
+            "entityQueryOversizedReleased": 0,
+            "entityQueryFailures": 0,
+            "shapelessMergeCalls": 0,
+            "shapelessWildcardCalls": 0,
+            "shapelessMergeFailures": 0,
+            "shapelessWildcardFailures": 0,
+            "callbackSnapshotPasses": 0,
+            "callbackDebugSnapshotPasses": 0,
+            "callbackPositionsCopied": 0,
+            "spawnOpportunityPasses": 0,
+            "spawnColumnPasses": 0,
+            "spawnColumnArraysCreated": 0,
+            "spawnColumnArraysReused": 0,
+            "callbackSpawnBuffersCreated": 0,
+            "callbackSpawnOversizedReleased": 0,
+            "callbackSpawnFailures": 0,
+            "blockUpdatePasses": 0,
+            "chunkRequestPasses": 0,
+            "chunkUnloadCandidatePasses": 0,
+            "chunkUnloadNotificationPasses": 0,
+            "chunkRequestCoordinatesReused": 0,
+            "chunkUnloadCoordinatesReused": 0,
+            "blockChunkBuffersCreated": 0,
+            "blockChunkOversizedReleased": 0,
+            "blockChunkFailures": 0,
+            "broadcastRawCalls": 0,
+            "broadcastPacketCalls": 0,
+            "broadcastUdpCalls": 0,
+            "entityCleanupPasses": 0,
+            "entityCleanupBuffersCreated": 0,
+            "entityCleanupOversizedReleased": 0,
+            "waypointNodesReused": 0,
+            "waypointNodesCreated": 0,
+            "waypointPoolOverflow": 0,
+            "aiChecksDeferred": 0,
+            "wanderChecksDeferred": 0,
+            "repulsionChecksDeferred": 0,
+            "entityPolicyFailures": 0,
+            "attributeNoOpSkips": 0,
+            "despawnPacketCalls": 0,
+            "despawnPacketEntities": 0,
+            "physicsPacketPasses": 5352,
+            "physicsPacketBuffersCreated": 1,
+            "physicsPacketOversizedBuffersReleased": 0,
+            "pathAssistanceFailures": 0,
+            "pathWorkerLimitStops": 0,
+            "pathMainSearches": 0,
+            "pathDeferredTicks": 0,
+            "nearestEntitySearchCalls": 1820111,
+            "interactableEntitySearchCalls": 0,
+            "entitySearchContextsCreated": 1,
+            "saveSnapshotReferencesReleased": 3312,
+            "saveSnapshotCompletions": 6,
+            "onlineSnapshotCalls": 14329,
+            "nearbyQueryCalls": 0,
+            "snapshotFallbacks": 0,
+            "nearbyFallbacks": 0,
+            "snapshotFailures": 0,
+            "nearbyFailures": 0,
+            "assetCacheHits": 0,
+            "assetCacheMisses": 0,
+            "assetCacheBytes": 0,
+            "assetCacheFailures": 0,
+            "bulkReadCalls": 0,
+            "bulkReadBytes": 0,
+            "bulkReadFallbacks": 0,
+            "bulkReadFailures": 0
+          },
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3053 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 334.23973299999994,
+              "Calls": 120000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 115.94484800000002,
+              "Calls": 75000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3053 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 97.76438599999999,
+              "Calls": 61020
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 69.61949700000002,
+              "Calls": 318375
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-seekentity",
+              "TotalMs": 67.57801900000001,
+              "Calls": 131250
+            }
+          ]
+        },
+        {
+          "mode": "nos",
+          "passed": true,
+          "optimizerInstalled": true,
+          "nosCaptureEnabled": true,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2991,
+          "barrelCallbacks": 29500,
+          "firepitCallbacks": 695889,
+          "engineCounters": {
+            "blockSimulationPasses": 0,
+            "blockSimulationDeferredPasses": 0,
+            "blockSimulationFailures": 0,
+            "blockSimulationQueueDepth": 0,
+            "blockSimulationQueuePeak": 0,
+            "barrelMatchCountGuardCalls": 19891500,
+            "barrelMatchCountGuardFallbacks": 0,
+            "barrelMatchCountGuardFailures": 0,
+            "idleFirepitFastPathCalls": 0,
+            "idleFirepitFastPathFallbacks": 0,
+            "idleFirepitFastPathFailures": 0,
+            "barrelIngredientPairingCalls": 1384500,
+            "barrelIngredientPairingFallbacks": 0,
+            "barrelIngredientPairingFailures": 0,
+            "wildBushCallbackFlattenCalls": 0,
+            "wildBushCallbackFlattenFallbacks": 0,
+            "wildBushCallbackFlattenFailures": 0,
+            "chunkUnloadStagingCalls": 0,
+            "chunkUnloadStagingBuffersCreated": 0,
+            "chunkUnloadStagingOversizedReleased": 0,
+            "chunkUnloadStagingFailures": 0,
+            "nativeBuildLogMissingCodes": 0,
+            "nativeBuildLogSystemPlayers": 0,
+            "nativeBuildLogFailures": 0,
+            "collisionGenerationCalls": 0,
+            "cachedCollisionGenerationCalls": 0,
+            "collisionGenerationCacheHits": 0,
+            "collisionGenerationContextsCreated": 0,
+            "collisionGenerationFallbacks": 0,
+            "collisionGenerationFailures": 0,
+            "animationCollisionScans": 13116076,
+            "animationScanFallbacks": 0,
+            "animationScanFailures": 0,
+            "collisionTraversalCalls": 0,
+            "containerTransitionScans": 0,
+            "containerTickTraversals": 0,
+            "traversalIteratorsAvoided": 0,
+            "customInventoryTraversalFallbacks": 0,
+            "collisionTraversalFailures": 0,
+            "containerScanFailures": 0,
+            "containerTickFailures": 0,
+            "nearbyEntityListPasses": 314844,
+            "cuboidEntityListPasses": 0,
+            "entityQueryBuffersCreated": 1,
+            "entityQueryOversizedReleased": 0,
+            "entityQueryFailures": 0,
+            "shapelessMergeCalls": 0,
+            "shapelessWildcardCalls": 0,
+            "shapelessMergeFailures": 0,
+            "shapelessWildcardFailures": 0,
+            "callbackSnapshotPasses": 0,
+            "callbackDebugSnapshotPasses": 0,
+            "callbackPositionsCopied": 0,
+            "spawnOpportunityPasses": 0,
+            "spawnColumnPasses": 0,
+            "spawnColumnArraysCreated": 0,
+            "spawnColumnArraysReused": 0,
+            "callbackSpawnBuffersCreated": 0,
+            "callbackSpawnOversizedReleased": 0,
+            "callbackSpawnFailures": 0,
+            "blockUpdatePasses": 0,
+            "chunkRequestPasses": 0,
+            "chunkUnloadCandidatePasses": 0,
+            "chunkUnloadNotificationPasses": 0,
+            "chunkRequestCoordinatesReused": 0,
+            "chunkUnloadCoordinatesReused": 0,
+            "blockChunkBuffersCreated": 0,
+            "blockChunkOversizedReleased": 0,
+            "blockChunkFailures": 0,
+            "broadcastRawCalls": 0,
+            "broadcastPacketCalls": 0,
+            "broadcastUdpCalls": 0,
+            "entityCleanupPasses": 0,
+            "entityCleanupBuffersCreated": 0,
+            "entityCleanupOversizedReleased": 0,
+            "waypointNodesReused": 0,
+            "waypointNodesCreated": 0,
+            "waypointPoolOverflow": 0,
+            "aiChecksDeferred": 0,
+            "wanderChecksDeferred": 0,
+            "repulsionChecksDeferred": 0,
+            "entityPolicyFailures": 0,
+            "attributeNoOpSkips": 0,
+            "despawnPacketCalls": 0,
+            "despawnPacketEntities": 0,
+            "physicsPacketPasses": 5504,
+            "physicsPacketBuffersCreated": 1,
+            "physicsPacketOversizedBuffersReleased": 0,
+            "pathAssistanceFailures": 0,
+            "pathWorkerLimitStops": 0,
+            "pathMainSearches": 0,
+            "pathDeferredTicks": 0,
+            "nearestEntitySearchCalls": 1875152,
+            "interactableEntitySearchCalls": 0,
+            "entitySearchContextsCreated": 1,
+            "saveSnapshotReferencesReleased": 3312,
+            "saveSnapshotCompletions": 6,
+            "onlineSnapshotCalls": 14466,
+            "nearbyQueryCalls": 0,
+            "snapshotFallbacks": 0,
+            "nearbyFallbacks": 0,
+            "snapshotFailures": 0,
+            "nearbyFailures": 0,
+            "assetCacheHits": 0,
+            "assetCacheMisses": 0,
+            "assetCacheBytes": 0,
+            "assetCacheFailures": 0,
+            "bulkReadCalls": 0,
+            "bulkReadBytes": 0,
+            "bulkReadFallbacks": 0,
+            "bulkReadFailures": 0
+          },
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3029 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 375.899745,
+              "Calls": 126000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 131.03644,
+              "Calls": 72000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3029 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 108.095367,
+              "Calls": 63609
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 69.75031999999999,
+              "Calls": 304944
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-meleeattack",
+              "TotalMs": 65.67616899999999,
+              "Calls": 99504
+            }
+          ]
+        }
+      ]
+    },
+    "collision": {
+      "changed": "CachedCollisionGenerationReuse",
+      "steadySeconds": 120,
+      "order": [
+        "nos",
+        "reference"
+      ],
+      "groups": {
+        "nos": {
+          "entityPeakRssMiB": {
+            "median": 1727.7578125,
+            "minimum": 1727.7578125,
+            "maximum": 1727.7578125,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1456.6796875,
+            "minimum": 1456.6796875,
+            "maximum": 1456.6796875,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 23.80047607421875,
+            "minimum": 23.80047607421875,
+            "maximum": 23.80047607421875,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 10.4690459,
+            "minimum": 10.4690459,
+            "maximum": 10.4690459,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 48.59100204498978,
+            "minimum": 48.59100204498978,
+            "maximum": 48.59100204498978,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 61,
+            "minimum": 61,
+            "maximum": 61,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 72,
+            "minimum": 72,
+            "maximum": 72,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 90,
+            "minimum": 90,
+            "maximum": 90,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 20.368111094577216,
+            "minimum": 20.368111094577216,
+            "maximum": 20.368111094577216,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 116.96637461619048,
+            "minimum": 116.96637461619048,
+            "maximum": 116.96637461619048,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 44.56419690018452,
+            "minimum": 44.56419690018452,
+            "maximum": 44.56419690018452,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 16.542779898636777,
+            "minimum": 16.542779898636777,
+            "maximum": 16.542779898636777,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1728.42578125,
+            "minimum": 1728.42578125,
+            "maximum": 1728.42578125,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1418.158187866211,
+            "minimum": 1418.158187866211,
+            "maximum": 1418.158187866211,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 36,
+            "minimum": 36,
+            "maximum": 36,
+            "runs": 1
+          },
+          "movements": {
+            "median": 204188,
+            "minimum": 204188,
+            "maximum": 204188,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 47795,
+            "minimum": 47795,
+            "maximum": 47795,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 342.2764600254595,
+            "minimum": 342.2764600254595,
+            "maximum": 342.2764600254595,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 296.7241629958153,
+            "minimum": 296.7241629958153,
+            "maximum": 296.7241629958153,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 212.74297800846398,
+            "minimum": 212.74297800846398,
+            "maximum": 212.74297800846398,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 8,
+            "minimum": 8,
+            "maximum": 8,
+            "runs": 1
+          }
+        },
+        "reference": {
+          "entityPeakRssMiB": {
+            "median": 1750.35546875,
+            "minimum": 1750.35546875,
+            "maximum": 1750.35546875,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1473.51171875,
+            "minimum": 1473.51171875,
+            "maximum": 1473.51171875,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 19.167945861816406,
+            "minimum": 19.167945861816406,
+            "maximum": 19.167945861816406,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 10.3166256,
+            "minimum": 10.3166256,
+            "maximum": 10.3166256,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 49.62698412698413,
+            "minimum": 49.62698412698413,
+            "maximum": 49.62698412698413,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 62,
+            "minimum": 62,
+            "maximum": 62,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 72,
+            "minimum": 72,
+            "maximum": 72,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 94,
+            "minimum": 94,
+            "maximum": 94,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 19.943208543083056,
+            "minimum": 19.943208543083056,
+            "maximum": 19.943208543083056,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 116.32759498683708,
+            "minimum": 116.32759498683708,
+            "maximum": 116.32759498683708,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 50.61998912647603,
+            "minimum": 50.61998912647603,
+            "maximum": 50.61998912647603,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 17.342527511901764,
+            "minimum": 17.342527511901764,
+            "maximum": 17.342527511901764,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1750.875,
+            "minimum": 1750.875,
+            "maximum": 1750.875,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1441.5820999145508,
+            "minimum": 1441.5820999145508,
+            "maximum": 1441.5820999145508,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 25,
+            "minimum": 25,
+            "maximum": 25,
+            "runs": 1
+          },
+          "movements": {
+            "median": 204858,
+            "minimum": 204858,
+            "maximum": 204858,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 47859,
+            "minimum": 47859,
+            "maximum": 47859,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 334.67133197700605,
+            "minimum": 334.67133197700605,
+            "maximum": 334.67133197700605,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 246.54370950884186,
+            "minimum": 246.54370950884186,
+            "maximum": 246.54370950884186,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 160.71513103088364,
+            "minimum": 160.71513103088364,
+            "maximum": 160.71513103088364,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 8,
+            "minimum": 8,
+            "maximum": 8,
+            "runs": 1
+          }
+        }
+      },
+      "runs": [
+        {
+          "mode": "nos",
+          "passed": true,
+          "optimizerInstalled": true,
+          "nosCaptureEnabled": true,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2997,
+          "barrelCallbacks": 20000,
+          "firepitCallbacks": 461922,
+          "engineCounters": {
+            "blockSimulationPasses": 0,
+            "blockSimulationDeferredPasses": 0,
+            "blockSimulationFailures": 0,
+            "blockSimulationQueueDepth": 0,
+            "blockSimulationQueuePeak": 0,
+            "barrelMatchCountGuardCalls": 0,
+            "barrelMatchCountGuardFallbacks": 0,
+            "barrelMatchCountGuardFailures": 0,
+            "idleFirepitFastPathCalls": 0,
+            "idleFirepitFastPathFallbacks": 0,
+            "idleFirepitFastPathFailures": 0,
+            "barrelIngredientPairingCalls": 15366000,
+            "barrelIngredientPairingFallbacks": 0,
+            "barrelIngredientPairingFailures": 0,
+            "wildBushCallbackFlattenCalls": 0,
+            "wildBushCallbackFlattenFallbacks": 0,
+            "wildBushCallbackFlattenFailures": 0,
+            "chunkUnloadStagingCalls": 0,
+            "chunkUnloadStagingBuffersCreated": 0,
+            "chunkUnloadStagingOversizedReleased": 0,
+            "chunkUnloadStagingFailures": 0,
+            "nativeBuildLogMissingCodes": 0,
+            "nativeBuildLogSystemPlayers": 0,
+            "nativeBuildLogFailures": 0,
+            "collisionGenerationCalls": 0,
+            "cachedCollisionGenerationCalls": 14114377,
+            "collisionGenerationCacheHits": 4437928,
+            "collisionGenerationContextsCreated": 1,
+            "collisionGenerationFallbacks": 0,
+            "collisionGenerationFailures": 0,
+            "animationCollisionScans": 9288082,
+            "animationScanFallbacks": 0,
+            "animationScanFailures": 0,
+            "collisionTraversalCalls": 0,
+            "containerTransitionScans": 0,
+            "containerTickTraversals": 0,
+            "traversalIteratorsAvoided": 0,
+            "customInventoryTraversalFallbacks": 0,
+            "collisionTraversalFailures": 0,
+            "containerScanFailures": 0,
+            "containerTickFailures": 0,
+            "nearbyEntityListPasses": 227003,
+            "cuboidEntityListPasses": 0,
+            "entityQueryBuffersCreated": 1,
+            "entityQueryOversizedReleased": 0,
+            "entityQueryFailures": 0,
+            "shapelessMergeCalls": 0,
+            "shapelessWildcardCalls": 0,
+            "shapelessMergeFailures": 0,
+            "shapelessWildcardFailures": 0,
+            "callbackSnapshotPasses": 0,
+            "callbackDebugSnapshotPasses": 0,
+            "callbackPositionsCopied": 0,
+            "spawnOpportunityPasses": 0,
+            "spawnColumnPasses": 0,
+            "spawnColumnArraysCreated": 0,
+            "spawnColumnArraysReused": 0,
+            "callbackSpawnBuffersCreated": 0,
+            "callbackSpawnOversizedReleased": 0,
+            "callbackSpawnFailures": 0,
+            "blockUpdatePasses": 0,
+            "chunkRequestPasses": 0,
+            "chunkUnloadCandidatePasses": 0,
+            "chunkUnloadNotificationPasses": 0,
+            "chunkRequestCoordinatesReused": 0,
+            "chunkUnloadCoordinatesReused": 0,
+            "blockChunkBuffersCreated": 0,
+            "blockChunkOversizedReleased": 0,
+            "blockChunkFailures": 0,
+            "broadcastRawCalls": 0,
+            "broadcastPacketCalls": 0,
+            "broadcastUdpCalls": 0,
+            "entityCleanupPasses": 0,
+            "entityCleanupBuffersCreated": 0,
+            "entityCleanupOversizedReleased": 0,
+            "waypointNodesReused": 0,
+            "waypointNodesCreated": 0,
+            "waypointPoolOverflow": 0,
+            "aiChecksDeferred": 0,
+            "wanderChecksDeferred": 0,
+            "repulsionChecksDeferred": 0,
+            "entityPolicyFailures": 0,
+            "attributeNoOpSkips": 0,
+            "despawnPacketCalls": 0,
+            "despawnPacketEntities": 0,
+            "physicsPacketPasses": 4227,
+            "physicsPacketBuffersCreated": 1,
+            "physicsPacketOversizedBuffersReleased": 0,
+            "pathAssistanceFailures": 0,
+            "pathWorkerLimitStops": 0,
+            "pathMainSearches": 0,
+            "pathDeferredTicks": 0,
+            "nearestEntitySearchCalls": 1331918,
+            "interactableEntitySearchCalls": 0,
+            "entitySearchContextsCreated": 1,
+            "saveSnapshotReferencesReleased": 2760,
+            "saveSnapshotCompletions": 5,
+            "onlineSnapshotCalls": 11067,
+            "nearbyQueryCalls": 0,
+            "snapshotFallbacks": 0,
+            "nearbyFallbacks": 0,
+            "snapshotFailures": 0,
+            "nearbyFailures": 0,
+            "assetCacheHits": 0,
+            "assetCacheMisses": 0,
+            "assetCacheBytes": 0,
+            "assetCacheFailures": 0,
+            "bulkReadCalls": 0,
+            "bulkReadBytes": 0,
+            "bulkReadFallbacks": 0,
+            "bulkReadFailures": 0
+          },
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3036 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 358.76235099999997,
+              "Calls": 126000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 115.508856,
+              "Calls": 69000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3036 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 110.32614,
+              "Calls": 63756
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 65.757757,
+              "Calls": 292951
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-seekentity",
+              "TotalMs": 62.452124,
+              "Calls": 120681
+            }
+          ]
+        },
+        {
+          "mode": "reference",
+          "passed": true,
+          "optimizerInstalled": true,
+          "nosCaptureEnabled": true,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2999,
+          "barrelCallbacks": 19500,
+          "firepitCallbacks": 470940,
+          "engineCounters": {
+            "blockSimulationPasses": 0,
+            "blockSimulationDeferredPasses": 0,
+            "blockSimulationFailures": 0,
+            "blockSimulationQueueDepth": 0,
+            "blockSimulationQueuePeak": 0,
+            "barrelMatchCountGuardCalls": 0,
+            "barrelMatchCountGuardFallbacks": 0,
+            "barrelMatchCountGuardFailures": 0,
+            "idleFirepitFastPathCalls": 0,
+            "idleFirepitFastPathFallbacks": 0,
+            "idleFirepitFastPathFailures": 0,
+            "barrelIngredientPairingCalls": 15366000,
+            "barrelIngredientPairingFallbacks": 0,
+            "barrelIngredientPairingFailures": 0,
+            "wildBushCallbackFlattenCalls": 0,
+            "wildBushCallbackFlattenFallbacks": 0,
+            "wildBushCallbackFlattenFailures": 0,
+            "chunkUnloadStagingCalls": 0,
+            "chunkUnloadStagingBuffersCreated": 0,
+            "chunkUnloadStagingOversizedReleased": 0,
+            "chunkUnloadStagingFailures": 0,
+            "nativeBuildLogMissingCodes": 0,
+            "nativeBuildLogSystemPlayers": 0,
+            "nativeBuildLogFailures": 0,
+            "collisionGenerationCalls": 0,
+            "cachedCollisionGenerationCalls": 0,
+            "collisionGenerationCacheHits": 0,
+            "collisionGenerationContextsCreated": 0,
+            "collisionGenerationFallbacks": 0,
+            "collisionGenerationFailures": 0,
+            "animationCollisionScans": 8997062,
+            "animationScanFallbacks": 0,
+            "animationScanFailures": 0,
+            "collisionTraversalCalls": 0,
+            "containerTransitionScans": 0,
+            "containerTickTraversals": 0,
+            "traversalIteratorsAvoided": 0,
+            "customInventoryTraversalFallbacks": 0,
+            "collisionTraversalFailures": 0,
+            "containerScanFailures": 0,
+            "containerTickFailures": 0,
+            "nearbyEntityListPasses": 227293,
+            "cuboidEntityListPasses": 0,
+            "entityQueryBuffersCreated": 1,
+            "entityQueryOversizedReleased": 0,
+            "entityQueryFailures": 0,
+            "shapelessMergeCalls": 0,
+            "shapelessWildcardCalls": 0,
+            "shapelessMergeFailures": 0,
+            "shapelessWildcardFailures": 0,
+            "callbackSnapshotPasses": 0,
+            "callbackDebugSnapshotPasses": 0,
+            "callbackPositionsCopied": 0,
+            "spawnOpportunityPasses": 0,
+            "spawnColumnPasses": 0,
+            "spawnColumnArraysCreated": 0,
+            "spawnColumnArraysReused": 0,
+            "callbackSpawnBuffersCreated": 0,
+            "callbackSpawnOversizedReleased": 0,
+            "callbackSpawnFailures": 0,
+            "blockUpdatePasses": 0,
+            "chunkRequestPasses": 0,
+            "chunkUnloadCandidatePasses": 0,
+            "chunkUnloadNotificationPasses": 0,
+            "chunkRequestCoordinatesReused": 0,
+            "chunkUnloadCoordinatesReused": 0,
+            "blockChunkBuffersCreated": 0,
+            "blockChunkOversizedReleased": 0,
+            "blockChunkFailures": 0,
+            "broadcastRawCalls": 0,
+            "broadcastPacketCalls": 0,
+            "broadcastUdpCalls": 0,
+            "entityCleanupPasses": 0,
+            "entityCleanupBuffersCreated": 0,
+            "entityCleanupOversizedReleased": 0,
+            "waypointNodesReused": 0,
+            "waypointNodesCreated": 0,
+            "waypointPoolOverflow": 0,
+            "aiChecksDeferred": 0,
+            "wanderChecksDeferred": 0,
+            "repulsionChecksDeferred": 0,
+            "entityPolicyFailures": 0,
+            "attributeNoOpSkips": 0,
+            "despawnPacketCalls": 0,
+            "despawnPacketEntities": 0,
+            "physicsPacketPasses": 4168,
+            "physicsPacketBuffersCreated": 1,
+            "physicsPacketOversizedBuffersReleased": 0,
+            "pathAssistanceFailures": 0,
+            "pathWorkerLimitStops": 0,
+            "pathMainSearches": 0,
+            "pathDeferredTicks": 0,
+            "nearestEntitySearchCalls": 1304370,
+            "interactableEntitySearchCalls": 0,
+            "entitySearchContextsCreated": 1,
+            "saveSnapshotReferencesReleased": 2760,
+            "saveSnapshotCompletions": 5,
+            "onlineSnapshotCalls": 10896,
+            "nearbyQueryCalls": 0,
+            "snapshotFallbacks": 0,
+            "nearbyFallbacks": 0,
+            "snapshotFailures": 0,
+            "nearbyFailures": 0,
+            "assetCacheHits": 0,
+            "assetCacheMisses": 0,
+            "assetCacheBytes": 0,
+            "assetCacheFailures": 0,
+            "bulkReadCalls": 0,
+            "bulkReadBytes": 0,
+            "bulkReadFallbacks": 0,
+            "bulkReadFailures": 0
+          },
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3024 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 386.85317200000003,
+              "Calls": 120000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 132.749106,
+              "Calls": 69000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3024 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 104.10730900000001,
+              "Calls": 60480
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3024 entities, single-threaded) (3 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 65.805769,
+              "Calls": 18000
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 65.62157499999999,
+              "Calls": 293135
+            }
+          ]
+        }
+      ]
+    },
+    "presence": {
+      "changed": "Optimizer ZIP present/absent; NOS capture stopped in both arms",
+      "steadySeconds": 180,
+      "order": [
+        "absent",
+        "reference"
+      ],
+      "groups": {
+        "absent": {
+          "entityPeakRssMiB": {
+            "median": 1759.44140625,
+            "minimum": 1759.44140625,
+            "maximum": 1759.44140625,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1494.03125,
+            "minimum": 1494.03125,
+            "maximum": 1494.03125,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 22.507408142089844,
+            "minimum": 22.507408142089844,
+            "maximum": 22.507408142089844,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 10.516606,
+            "minimum": 10.516606,
+            "maximum": 10.516606,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 49.382654474923804,
+            "minimum": 49.382654474923804,
+            "maximum": 49.382654474923804,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 62,
+            "minimum": 62,
+            "maximum": 62,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 73,
+            "minimum": 73,
+            "maximum": 73,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 141,
+            "minimum": 141,
+            "maximum": 141,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 20.047738823331585,
+            "minimum": 20.047738823331585,
+            "maximum": 20.047738823331585,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 114.58746961273664,
+            "minimum": 114.58746961273664,
+            "maximum": 114.58746961273664,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 61.72392726949132,
+            "minimum": 61.72392726949132,
+            "maximum": 61.72392726949132,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 17.61094144653819,
+            "minimum": 17.61094144653819,
+            "maximum": 17.61094144653819,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1759.9296875,
+            "minimum": 1759.9296875,
+            "maximum": 1759.9296875,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1455.7848815917969,
+            "minimum": 1455.7848815917969,
+            "maximum": 1455.7848815917969,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 51,
+            "minimum": 51,
+            "maximum": 51,
+            "runs": 1
+          },
+          "movements": {
+            "median": 271505,
+            "minimum": 271505,
+            "maximum": 271505,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 64395,
+            "minimum": 64395,
+            "maximum": 64395,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 397.47019996866584,
+            "minimum": 397.47019996866584,
+            "maximum": 397.47019996866584,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 170.8598794939462,
+            "minimum": 170.8598794939462,
+            "maximum": 170.8598794939462,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 82.96872396022081,
+            "minimum": 82.96872396022081,
+            "maximum": 82.96872396022081,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 512,
+            "minimum": 512,
+            "maximum": 512,
+            "runs": 1
+          }
+        },
+        "reference": {
+          "entityPeakRssMiB": {
+            "median": 1749.34765625,
+            "minimum": 1749.34765625,
+            "maximum": 1749.34765625,
+            "runs": 1
+          },
+          "entityEndCommittedMiB": {
+            "median": 1480.77734375,
+            "minimum": 1480.77734375,
+            "maximum": 1480.77734375,
+            "runs": 1
+          },
+          "entityEndFragmentedMiB": {
+            "median": 36.62129211425781,
+            "minimum": 36.62129211425781,
+            "maximum": 36.62129211425781,
+            "runs": 1
+          },
+          "generationSeconds": {
+            "median": 10.1345367,
+            "minimum": 10.1345367,
+            "maximum": 10.1345367,
+            "runs": 1
+          },
+          "entityTickAverageMs": {
+            "median": 49.45643729189789,
+            "minimum": 49.45643729189789,
+            "maximum": 49.45643729189789,
+            "runs": 1
+          },
+          "entityTickP95Ms": {
+            "median": 62,
+            "minimum": 62,
+            "maximum": 62,
+            "runs": 1
+          },
+          "entityTickP99Ms": {
+            "median": 73,
+            "minimum": 73,
+            "maximum": 73,
+            "runs": 1
+          },
+          "entityTickWorstMs": {
+            "median": 111,
+            "minimum": 111,
+            "maximum": 111,
+            "runs": 1
+          },
+          "entityTps": {
+            "median": 20.01772165631717,
+            "minimum": 20.01772165631717,
+            "maximum": 20.01772165631717,
+            "runs": 1
+          },
+          "entityCpuPercent": {
+            "median": 115.67415308680498,
+            "minimum": 115.67415308680498,
+            "maximum": 115.67415308680498,
+            "runs": 1
+          },
+          "entityAllocMiBPerSecond": {
+            "median": 49.84995090678063,
+            "minimum": 49.84995090678063,
+            "maximum": 49.84995090678063,
+            "runs": 1
+          },
+          "entityGcPauseMsPerSecond": {
+            "median": 16.432611026768125,
+            "minimum": 16.432611026768125,
+            "maximum": 16.432611026768125,
+            "runs": 1
+          },
+          "entityEndRssMiB": {
+            "median": 1749.84375,
+            "minimum": 1749.84375,
+            "maximum": 1749.84375,
+            "runs": 1
+          },
+          "entityEndHeapMiB": {
+            "median": 1425.276351928711,
+            "minimum": 1425.276351928711,
+            "maximum": 1425.276351928711,
+            "runs": 1
+          },
+          "entityEndActive": {
+            "median": 3000,
+            "minimum": 3000,
+            "maximum": 3000,
+            "runs": 1
+          },
+          "otherLoadedEntities": {
+            "median": 28,
+            "minimum": 28,
+            "maximum": 28,
+            "runs": 1
+          },
+          "movements": {
+            "median": 273229,
+            "minimum": 273229,
+            "maximum": 273229,
+            "runs": 1
+          },
+          "taskStarts": {
+            "median": 65376,
+            "minimum": 65376,
+            "maximum": 65376,
+            "runs": 1
+          },
+          "firstSaveMs": {
+            "median": 237.25192400161177,
+            "minimum": 237.25192400161177,
+            "maximum": 237.25192400161177,
+            "runs": 1
+          },
+          "repeatSaveMs": {
+            "median": 157.99796851933934,
+            "minimum": 157.99796851933934,
+            "maximum": 157.99796851933934,
+            "runs": 1
+          },
+          "savePreparationMs": {
+            "median": 83.3573029958643,
+            "minimum": 83.3573029958643,
+            "maximum": 83.3573029958643,
+            "runs": 1
+          },
+          "unloadedTrackedAlive": {
+            "median": 8,
+            "minimum": 8,
+            "maximum": 8,
+            "runs": 1
+          }
+        }
+      },
+      "runs": [
+        {
+          "mode": "absent",
+          "passed": true,
+          "optimizerInstalled": false,
+          "nosCaptureEnabled": false,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2999,
+          "barrelCallbacks": 29500,
+          "firepitCallbacks": 701901,
+          "engineCounters": {},
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3051 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 300.108948,
+              "Calls": 108000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 143.924535,
+              "Calls": 66000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3051 entities, single-threaded) (3 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 101.73337800000002,
+              "Calls": 27000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3051 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 99.34822199999998,
+              "Calls": 54918
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 67.84864700000001,
+              "Calls": 280390
+            }
+          ]
+        },
+        {
+          "mode": "reference",
+          "passed": true,
+          "optimizerInstalled": true,
+          "nosCaptureEnabled": false,
+          "saveIntegrity": "ok",
+          "activeAnimalsAtEnd": 3000,
+          "aliveAnimalsAtEnd": 2998,
+          "barrelCallbacks": 29500,
+          "firepitCallbacks": 703404,
+          "engineCounters": {
+            "blockSimulationPasses": 0,
+            "blockSimulationDeferredPasses": 0,
+            "blockSimulationFailures": 0,
+            "blockSimulationQueueDepth": 0,
+            "blockSimulationQueuePeak": 0,
+            "barrelMatchCountGuardCalls": 0,
+            "barrelMatchCountGuardFallbacks": 0,
+            "barrelMatchCountGuardFailures": 0,
+            "idleFirepitFastPathCalls": 0,
+            "idleFirepitFastPathFallbacks": 0,
+            "idleFirepitFastPathFailures": 0,
+            "barrelIngredientPairingCalls": 21276000,
+            "barrelIngredientPairingFallbacks": 0,
+            "barrelIngredientPairingFailures": 0,
+            "wildBushCallbackFlattenCalls": 0,
+            "wildBushCallbackFlattenFallbacks": 0,
+            "wildBushCallbackFlattenFailures": 0,
+            "chunkUnloadStagingCalls": 0,
+            "chunkUnloadStagingBuffersCreated": 0,
+            "chunkUnloadStagingOversizedReleased": 0,
+            "chunkUnloadStagingFailures": 0,
+            "nativeBuildLogMissingCodes": 0,
+            "nativeBuildLogSystemPlayers": 0,
+            "nativeBuildLogFailures": 0,
+            "collisionGenerationCalls": 0,
+            "cachedCollisionGenerationCalls": 0,
+            "collisionGenerationCacheHits": 0,
+            "collisionGenerationContextsCreated": 0,
+            "collisionGenerationFallbacks": 0,
+            "collisionGenerationFailures": 0,
+            "animationCollisionScans": 12642068,
+            "animationScanFallbacks": 0,
+            "animationScanFailures": 0,
+            "collisionTraversalCalls": 0,
+            "containerTransitionScans": 0,
+            "containerTickTraversals": 0,
+            "traversalIteratorsAvoided": 0,
+            "customInventoryTraversalFallbacks": 0,
+            "collisionTraversalFailures": 0,
+            "containerScanFailures": 0,
+            "containerTickFailures": 0,
+            "nearbyEntityListPasses": 314127,
+            "cuboidEntityListPasses": 0,
+            "entityQueryBuffersCreated": 1,
+            "entityQueryOversizedReleased": 0,
+            "entityQueryFailures": 0,
+            "shapelessMergeCalls": 0,
+            "shapelessWildcardCalls": 0,
+            "shapelessMergeFailures": 0,
+            "shapelessWildcardFailures": 0,
+            "callbackSnapshotPasses": 0,
+            "callbackDebugSnapshotPasses": 0,
+            "callbackPositionsCopied": 0,
+            "spawnOpportunityPasses": 0,
+            "spawnColumnPasses": 0,
+            "spawnColumnArraysCreated": 0,
+            "spawnColumnArraysReused": 0,
+            "callbackSpawnBuffersCreated": 0,
+            "callbackSpawnOversizedReleased": 0,
+            "callbackSpawnFailures": 0,
+            "blockUpdatePasses": 0,
+            "chunkRequestPasses": 0,
+            "chunkUnloadCandidatePasses": 0,
+            "chunkUnloadNotificationPasses": 0,
+            "chunkRequestCoordinatesReused": 0,
+            "chunkUnloadCoordinatesReused": 0,
+            "blockChunkBuffersCreated": 0,
+            "blockChunkOversizedReleased": 0,
+            "blockChunkFailures": 0,
+            "broadcastRawCalls": 0,
+            "broadcastPacketCalls": 0,
+            "broadcastUdpCalls": 0,
+            "entityCleanupPasses": 0,
+            "entityCleanupBuffersCreated": 0,
+            "entityCleanupOversizedReleased": 0,
+            "waypointNodesReused": 0,
+            "waypointNodesCreated": 0,
+            "waypointPoolOverflow": 0,
+            "aiChecksDeferred": 0,
+            "wanderChecksDeferred": 0,
+            "repulsionChecksDeferred": 0,
+            "entityPolicyFailures": 0,
+            "attributeNoOpSkips": 0,
+            "despawnPacketCalls": 0,
+            "despawnPacketEntities": 0,
+            "physicsPacketPasses": 5343,
+            "physicsPacketBuffersCreated": 1,
+            "physicsPacketOversizedBuffersReleased": 0,
+            "pathAssistanceFailures": 0,
+            "pathWorkerLimitStops": 0,
+            "pathMainSearches": 0,
+            "pathDeferredTicks": 0,
+            "nearestEntitySearchCalls": 1824773,
+            "interactableEntitySearchCalls": 0,
+            "entitySearchContextsCreated": 1,
+            "saveSnapshotReferencesReleased": 2760,
+            "saveSnapshotCompletions": 5,
+            "onlineSnapshotCalls": 14234,
+            "nearbyQueryCalls": 0,
+            "snapshotFallbacks": 0,
+            "nearbyFallbacks": 0,
+            "snapshotFailures": 0,
+            "nearbyFailures": 0,
+            "assetCacheHits": 0,
+            "assetCacheMisses": 0,
+            "assetCacheBytes": 0,
+            "assetCacheFailures": 0,
+            "bulkReadCalls": 0,
+            "bulkReadBytes": 0,
+            "bulkReadFallbacks": 0,
+            "bulkReadFailures": 0
+          },
+          "hotspots": [
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3028 entities, single-threaded) (2 physics ticks to do) / physicstick-oneentity",
+              "TotalMs": 390.65923799999996,
+              "Calls": 138000
+            },
+            {
+              "Code": "tickentities / entity-animation-ticking",
+              "TotalMs": 125.782787,
+              "Calls": 72000
+            },
+            {
+              "Code": "physicsmanager-servertick / entityphysics-mainthread (3028 entities, single-threaded) (2 physics ticks to do) / done-behavior-repulseagents",
+              "TotalMs": 123.723872,
+              "Calls": 69644
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+              "TotalMs": 70.32390699999999,
+              "Calls": 305760
+            },
+            {
+              "Code": "tickentities / behaviors / ai-tasks / task-startexecute-seekentity",
+              "TotalMs": 64.87489900000001,
+              "Calls": 126000
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
