@@ -118,6 +118,10 @@ public sealed class AntiCheatService : IDisposable
                 modDbEstimatedBytes = modDbVerificationCacheEstimatedBytes,
                 modDbByteBudget = ModDbCacheMemoryBudget.MaximumEstimatedBytes,
                 pendingVerifications = modDbVerificationPending.Count,
+                verificationCacheDirtyUpdates = modDbVerificationCacheDirtyCount,
+                verificationCacheWriterActive = verificationWriteTask is { IsCompleted: false },
+                verificationCacheLastSavedUtc = modDbVerificationCacheLastSavedUtc,
+                verificationCacheLastWriteError = verificationCacheLastWriteError,
                 cleanup = "Bounded cache eviction, expiring diagnostics and disconnected session cleanup; estimated bytes are not whole-heap attribution." };
     }
 
@@ -175,6 +179,7 @@ public sealed class AntiCheatService : IDisposable
         CleanupExpiredEvidencePackages(NowMs(), logSummary: true);
         if (evidenceRetentionCleanupTickId == 0)
             evidenceRetentionCleanupTickId = api.Event.RegisterGameTickListener(_ => CleanupExpiredEvidencePackages(NowMs(), logSummary: true), EvidenceRetentionCleanupIntervalMs, EvidenceRetentionCleanupIntervalMs);
+        modDbVerificationCachePath = SuiteConfigStorage.GetConfigPath(api, ModDbVerificationCacheFile);
         LoadModDbVerificationCache();
         LoadApprovedClientModFingerprints();
 
@@ -1579,32 +1584,70 @@ public sealed class AntiCheatService : IDisposable
         }
     }
 
-    private void SaveModDbVerificationCache(bool force = false)
+    private readonly object verificationWriteLock = new();
+    private string modDbVerificationCachePath = "";
+    private Task? verificationWriteTask;
+    private string verificationCacheLastWriteError = "";
+    private void QueueVerificationCacheSave()
     {
-        long now = NowMs();
         lock (modDbVerificationLock)
         {
-            if (!force && (modDbVerificationCacheDirtyCount == 0 || now - modDbVerificationCacheLastSavedUtc < 5000)) return;
+            if (modDbVerificationCts.IsCancellationRequested || verificationWriteTask is { IsCompleted: false }) return;
+            verificationWriteTask = Task.Run(async () =>
+            {
+                while (!modDbVerificationCts.IsCancellationRequested)
+                {
+                    await Task.Delay(5000).ConfigureAwait(false);
+                    if (modDbVerificationCts.IsCancellationRequested) return;
+                    SaveModDbVerificationCache(force: true);
+                    lock (modDbVerificationLock)
+                    {
+                        if (modDbVerificationCacheDirtyCount == 0 || modDbVerificationCts.IsCancellationRequested)
+                        {
+                            verificationWriteTask = null;
+                            return;
+                        }
+                    }
+                }
+            });
         }
-        try
+    }
+
+    private void SaveModDbVerificationCache(bool force = false)
+    {
+        // Serialization and disk I/O are worker work, except for the final shutdown flush.
+        // Serialize writes so a stale worker snapshot can never overwrite the final flush.
+        lock (verificationWriteLock)
         {
-            List<AntiCheatModDbVerificationCacheEntry> entries;
             int savedDirtyCount;
+            List<AntiCheatModDbVerificationCacheEntry> entries;
             lock (modDbVerificationLock)
             {
+                if (modDbVerificationCacheDirtyCount == 0 || string.IsNullOrEmpty(modDbVerificationCachePath)) return;
                 entries = modDbVerificationCache.Values.OrderByDescending(x => x.CheckedUtc).Take(1024).ToList();
                 savedDirtyCount = modDbVerificationCacheDirtyCount;
             }
-            SuiteConfigStorage.Store(api, new AntiCheatModDbVerificationCacheStore { Entries = entries }, ModDbVerificationCacheFile);
-            lock (modDbVerificationLock)
+            string temporary = modDbVerificationCachePath + ".pending";
+            try
             {
-                modDbVerificationCacheDirtyCount = Math.Max(0, modDbVerificationCacheDirtyCount - savedDirtyCount);
-                modDbVerificationCacheLastSavedUtc = now;
+                // Published cache entries are immutable; only their dictionary membership changes.
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(new AntiCheatModDbVerificationCacheStore { Entries = entries });
+                File.WriteAllText(temporary, json);
+                File.Move(temporary, modDbVerificationCachePath, overwrite: true);
+                lock (modDbVerificationLock)
+                {
+                    modDbVerificationCacheDirtyCount = Math.Max(0, modDbVerificationCacheDirtyCount - savedDirtyCount);
+                    modDbVerificationCacheLastSavedUtc = NowMs();
+                    verificationCacheLastWriteError = "";
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            api.Logger.Warning("[ServerEssentials/AntiCheat] Could not save Mod DB verification cache: {0}", ex.Message);
+            catch (Exception ex)
+            {
+                lock (modDbVerificationLock) verificationCacheLastWriteError = ex.GetType().Name + ": " + ex.Message;
+                // Keep dirty state and the last good cache; retry on the worker's next pass.
+                api.Logger.Warning("[ServerEssentials/AntiCheat] Could not save Mod DB verification cache: {0}", ex.Message);
+                try { File.Delete(temporary); } catch { }
+            }
         }
     }
 
@@ -1804,14 +1847,12 @@ public sealed class AntiCheatService : IDisposable
                         modDbVerificationCacheDirtyCount++;
                     }
     
+                    QueueVerificationCacheSave();
                     try
                     {
                         api.Event.EnqueueMainThreadTask(() =>
                         {
                             if (!started) return;
-                            var cacheTimer = System.Diagnostics.Stopwatch.StartNew();
-                            try { SaveModDbVerificationCache(); }
-                            finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification cache persistence", cacheTimer.Elapsed.TotalMilliseconds); }
                             var refreshTimer = System.Diagnostics.Stopwatch.StartNew();
                             try { RefreshSessionsAfterModDbVerification(modId, version); }
                             finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification session refresh", refreshTimer.Elapsed.TotalMilliseconds); }
@@ -1864,21 +1905,48 @@ public sealed class AntiCheatService : IDisposable
         {
             api.Event.EnqueueMainThreadTask(() =>
             {
-                verificationRefreshQueued = false;
                 var keys = new HashSet<string>(pendingVerificationRefreshKeys, StringComparer.OrdinalIgnoreCase);
                 pendingVerificationRefreshKeys.Clear();
                 if (!started) return;
-                var timer = System.Diagnostics.Stopwatch.StartNew();
-                try
+                var candidates = new Queue<string>(sessions.Snapshot()
+                    .Where(session => session.LastScanUtc > 0 && session.LastMods != null &&
+                        session.LastMods.Any(m => keys.Contains(ModDbVerificationKey(m.ModId, m.Version))))
+                    .Select(session => session.PlayerUid));
+                void ScheduleNext()
                 {
-                    foreach (var session in sessions.Snapshot())
+                    try { api.Event.RegisterCallback(RefreshNext, 1); }
+                    catch
                     {
-                        if (session.LastScanUtc <= 0 || session.LastMods == null) continue;
-                        if (!session.LastMods.Any(m => keys.Contains(ModDbVerificationKey(m.ModId, m.Version)))) continue;
-                        RefreshSessionAfterModDbVerification(session.PlayerUid);
+                        verificationRefreshQueued = false;
+                        pendingVerificationRefreshKeys.UnionWith(keys);
+                        throw;
                     }
                 }
-                finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification batch refresh", timer.Elapsed.TotalMilliseconds); }
+                void RefreshNext(float _)
+                {
+                    if (!started) { verificationRefreshQueued = false; return; }
+                    var batchTimer = System.Diagnostics.Stopwatch.StartNew();
+                    try { RefreshSessionAfterModDbVerification(candidates.Dequeue()); }
+                    finally
+                    {
+                        BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification batch refresh", batchTimer.Elapsed.TotalMilliseconds);
+                        // A callback, rather than another main-thread task: the native task queue
+                        // drains in the same tick. Never burst all players into that drain loop.
+                        if (started && candidates.Count > 0) ScheduleNext();
+                        else
+                        {
+                            verificationRefreshQueued = false;
+                            if (started && pendingVerificationRefreshKeys.Count > 0)
+                            {
+                                string next = pendingVerificationRefreshKeys.First();
+                                int separator = next.IndexOf('@');
+                                RefreshSessionsAfterModDbVerification(next[..separator], next[(separator + 1)..]);
+                            }
+                        }
+                    }
+                }
+                if (candidates.Count > 0) ScheduleNext();
+                else verificationRefreshQueued = false;
             }, "nses-anticheat-verification-batch-refresh");
         }
         catch { verificationRefreshQueued = false; pendingVerificationRefreshKeys.Clear(); throw; }
@@ -7006,8 +7074,8 @@ public sealed class AntiCheatService : IDisposable
         if (!started) return;
         started = false;
 
-        SaveModDbVerificationCache(force: true);
         modDbVerificationCts.Cancel();
+        SaveModDbVerificationCache(force: true);
         lock (modDbVerificationLock)
         {
             modDbVerificationCache.Clear();

@@ -1,4 +1,14 @@
-# NOS 0.20.8 preview validation
+# NOS 0.20.9 preview validation
+
+All 31 automated validation suites completed with none skipped against official Vintage Story 1.22.7. The block callback suite passed 106 checks, including the exact public Steep & Brew 0.7.1 postfix, unchanged mismatch results, its tea/decoction restrictions, and rejection of an unknown postfix using the same owner string. Existing dependency conflict and engine lifecycle checks remain enabled.
+
+Suite 1.2.50 verification scheduling tests exercise extracted production methods: failed-write preservation/retry, 100 concurrent updates, burst coalescing, final shutdown flush, 40-session staggered scheduling, mid-pass arrivals, callback-registration failure and shutdown no-ops. Consequence tests pass for kick deduplication, stronger bans, expiry and failed-action retry. The Suite builds without warnings. These are functional/component tests, not a new timed full-server comparison; component timings in this validation run are not controlled production performance evidence.
+
+[Changes and limits](performance-0.20.9.md).
+
+## Previous validation
+
+### NOS 0.20.8 preview validation
 
 The current pass adds opt-in full-batch crafting candidate acceleration and the Suite 1.2.50 control. Native four-stack outputs/consumption/callbacks match, and two alternating comparisons demonstrate lower elapsed work and allocation in a large synthetic recipe index. [Current measurements, exact scope and limitations](performance-0.20.8.md). All 31 current automated validation suites completed with none skipped. Crafting coverage includes 62 functional checks; engine lifecycle/conflict coverage includes 136 checks. The updated Suite builds without warnings and its extracted web script passes Node syntax validation. Full current validation results are recorded in the build manifest.
 

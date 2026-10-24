@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.8 preview
+# Newfie's Server Optimizer 0.20.9 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -183,4 +183,6 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 
 0.20.7 reduces CPU cost in despawn packet projection while retaining native packet bytes and independent output ownership. It also detects foreign patches on the LINQ operators that replacement bypasses. [Component measurements and limits](docs/performance-0.20.7.md).
 
-0.20.8 adds opt-in faster duplicate membership in server crafting recipe searches. Full shift-click batches, ingredient checks, recipe ranking, output and XP hooks remain native. Enable `CraftingCandidateDedup` under Suite → Optimizations → Crafting recipe search. [Evidence and limits](docs/performance-0.20.8.md).
+0.20.8 adds opt-in faster duplicate membership in server crafting recipe searches. Full shift-click batches, ingredient checks, recipe ranking, output and XP hooks remain native. Enable `CraftingCandidateDedup` under Suite → Optimizations → Crafting recipe search. [Evidence and limits](docs/performance-0.20.9.md).
+
+0.20.9 supports the exact audited Steep & Brew 0.7.1 barrel postfix without removing its recipe restrictions. Unknown patches remain conflicts. The count guard stays opt-in. [Compatibility and Suite changes](docs/performance-0.20.9.md).

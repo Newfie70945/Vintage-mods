@@ -57,6 +57,7 @@ static class Checks
   var api=Proxy.Make<ICoreServerAPI>((m,a)=>m.Name=="get_Side"?EnumAppSide.Server:null);
   var fire=new BlockEntityFirepit{Api=api,Block=block,furnaceTemperature=20,inputStackCookingTime=7};return fire;
  }
+ public static void ForeignPostfix() {}
  public static void Run()
  {
   for(int i=0;i<3;i++)Assert(BlockTickOptimizations.ValidateContract(i,out var why),why);
@@ -89,6 +90,29 @@ static class Checks
   BarrelCountOptimizations.Configure(true);long actualCalls=BarrelCountOptimizations.Counters.Calls;
   Assert(recipe.Matches(actualBarrelSlots,out int actualFastOutput)==actualNative&&actualFastOutput==actualNativeOutput,"actual barrel slot count mismatch preserves native output");
   Assert(BarrelCountOptimizations.Counters.Calls==actualCalls+1,"actual native barrel input slot reaches count guard");
+  string? steepPath=Environment.GetEnvironmentVariable("NOS_STEEP_DLL");
+  if(steepPath!=null)
+  {
+   var assembly=AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(steepPath));
+   var postfix=assembly.GetType("SteepAndBrew.JarOnlyBarrelRecipePatch",true)!.GetMethod("Postfix")!;
+   var steep=new Harmony("steepandbrew.patches");
+   steep.Patch(BarrelCountOptimizations.Target,postfix:new HarmonyMethod(postfix));
+   Assert(BarrelPatchCompatibility.Allows(Harmony.GetPatchInfo(BarrelCountOptimizations.Target),countHarmony.Id),"audited Steep postfix compatible");
+   BarrelCountOptimizations.Configure(false);bool steepBefore=recipe.Matches(actualBarrelSlots,out int beforeSize);
+   BarrelCountOptimizations.Configure(true);bool after=recipe.Matches(actualBarrelSlots,out int afterSize);
+   Assert(steepBefore==after&&beforeSize==afterSize,"real Steep postfix retains impossible-count result");
+   foreach(string code in new[]{"steepandbrew:tea-test","steepandbrew:decoct-test","game:planks"})
+   {
+    var r=new BarrelRecipe{Output=new(){Code=new(code)}};
+    object?[] args={r,true,7};postfix.Invoke(null,args);
+    Assert((bool)args[1]! ==code.StartsWith("game:")&&(int)args[2]! == (code.StartsWith("game:")?7:0),"audited postfix output contract");
+   }
+   steep.UnpatchAll(steep.Id);
+   // Same owner string alone is insufficient: an unknown implementation stays blocked.
+   steep.Patch(BarrelCountOptimizations.Target,postfix:new HarmonyMethod(typeof(Checks),nameof(ForeignPostfix)));
+   Assert(!BarrelPatchCompatibility.Allows(Harmony.GetPatchInfo(BarrelCountOptimizations.Target),countHarmony.Id),"unknown same-owner postfix blocked");
+   steep.UnpatchAll(steep.Id);
+  }
   var mismatch=actualBarrelSlots;
   var countMeasurements=new List<object>();
   foreach(bool mode in new[]{false,true,false,true})

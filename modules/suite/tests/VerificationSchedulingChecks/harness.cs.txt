@@ -1,0 +1,80 @@
+using System.Diagnostics;
+using Newtonsoft.Json;
+class Program
+{
+ static void Check(bool ok,string message) { if(!ok) throw new Exception(message); }
+ static void Main()
+ {
+  string root=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString()); Directory.CreateDirectory(root);
+  try {
+   var writer=new Writer { modDbVerificationCachePath=Path.Combine(root,"cache.json") };
+   writer.Add("first",1); writer.Save();
+   Check(File.ReadAllText(writer.modDbVerificationCachePath).Contains("first"),"initial persistence");
+   string good=File.ReadAllText(writer.modDbVerificationCachePath);
+   Directory.CreateDirectory(writer.modDbVerificationCachePath+".pending");
+   writer.Add("second",2); writer.Save();
+   Check(writer.Dirty==1 && File.ReadAllText(writer.modDbVerificationCachePath)==good,"write fault must retain dirty state and last good cache");
+   Directory.Delete(writer.modDbVerificationCachePath+".pending"); writer.Save();
+   Check(writer.Dirty==0 && File.ReadAllText(writer.modDbVerificationCachePath).Contains("second"),"retry persistence");
+   Parallel.For(0,100,i=> { writer.Add("item"+i,i); writer.Save(); });
+   Check(writer.Dirty==0 && JsonConvert.DeserializeObject<AntiCheatModDbVerificationCacheStore>(File.ReadAllText(writer.modDbVerificationCachePath))!.Entries.Count==102,"concurrent writes must not lose entries");
+   writer.Add("worker",1000); writer.Queue(); var task=writer.TaskRef;
+   for(int i=0;i<100;i++) {writer.Queue();Check(ReferenceEquals(task,writer.TaskRef),"burst must share the same worker");} writer.Stop();
+   Thread.Sleep(5200);
+   Check(File.ReadAllText(writer.modDbVerificationCachePath).Contains("worker"),"shutdown flush preserved after worker wakes");
+   var refresh=new Refresh();
+   for(int i=0;i<40;i++) refresh.sessions.Items.Add(new Session{PlayerUid=i.ToString(),LastMods=new(){new Mod{ModId="a",Version="1"}}});
+   refresh.Request("a","1"); refresh.api.Event.DrainMain();
+   Check(refresh.Done.Count==0 && refresh.api.Event.Callbacks.Count==1,"main queue must not execute session refreshes");
+   refresh.api.Event.Tick(); Check(refresh.Done.Count==1,"one session per scheduled callback");
+   refresh.Request("b","1"); refresh.sessions.Items[0].LastMods.Add(new Mod{ModId="b",Version="1"});
+   while(refresh.api.Event.Callbacks.Count>0 || refresh.api.Event.Main.Count>0) {refresh.api.Event.DrainMain(); refresh.api.Event.Tick();}
+   Check(refresh.Done.Count==41 && refresh.Done.Last()=="0","results arriving during refresh must get another pass");
+   refresh.api.Event.FailNext=true; refresh.Request("a","1");
+   try {refresh.api.Event.DrainMain();} catch(IOException) {}
+   refresh.Request("a","1");refresh.api.Event.DrainMain();refresh.api.Event.Tick();
+   Check(refresh.Done.Count==42,"failed callback registration must allow retry");
+   refresh.Stop();refresh.api.Event.Tick();
+   Check(refresh.Done.Count==42,"shutdown callbacks are inert");
+   Console.WriteLine("PASS: atomic-write failure/retry, 100 concurrent updates, coalescing, shutdown, 40-session tick scheduling and mid-pass arrivals");
+  } finally { Directory.Delete(root,true); }
+ }
+}
+class Writer {
+ readonly object modDbVerificationLock=new();
+ readonly Dictionary<string,AntiCheatModDbVerificationCacheEntry> modDbVerificationCache=new();
+ readonly CancellationTokenSource modDbVerificationCts=new();
+ int modDbVerificationCacheDirtyCount; long modDbVerificationCacheLastSavedUtc;
+ readonly Api api=new(); static long NowMs()=>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+ public int Dirty=>modDbVerificationCacheDirtyCount;
+ public Task? TaskRef=>verificationWriteTask;
+ public void Add(string key,long time){lock(modDbVerificationLock){modDbVerificationCache[key]=new(){ModId=key,CheckedUtc=time};modDbVerificationCacheDirtyCount++;}}
+ public void Save()=>SaveModDbVerificationCache(true);
+ public void Queue()=>QueueVerificationCacheSave();
+ public void Stop(){modDbVerificationCts.Cancel();Save();}
+/*WRITER*/
+}
+class Refresh {
+ bool started=true; public Api api=new();public Sessions sessions=new();public List<string> Done=new();
+ static string ModDbVerificationKey(string mod,string version)=>mod+"@"+version;
+ void RefreshSessionAfterModDbVerification(string uid)=>Done.Add(uid);
+ public void Request(string mod,string version)=>RefreshSessionsAfterModDbVerification(mod,version);
+ public void Stop()=>started=false;
+/*REFRESH*/
+}
+class AntiCheatModDbVerificationCacheStore {public List<AntiCheatModDbVerificationCacheEntry> Entries {get;set;}=new();}
+class AntiCheatModDbVerificationCacheEntry {public string ModId {get;set;}="";public long CheckedUtc {get;set;}}
+class Mod {public string ModId="";public string Version="";}
+class Session {public long LastScanUtc=1;public string PlayerUid="";public List<Mod> LastMods=new();}
+class Sessions {public List<Session> Items=new();public Session[] Snapshot()=>Items.ToArray();}
+class Api {public Events Event=new();public Logger Logger=new();}
+class Logger {public void Warning(string format,params object[] values) {}}
+class Events {
+ public bool FailNext;
+ public Queue<Action> Main=new();public Queue<Action<float>> Callbacks=new();
+ public void EnqueueMainThreadTask(Action action,string name)=>Main.Enqueue(action);
+ public long RegisterCallback(Action<float> action,int delay){if(FailNext){FailNext=false;throw new IOException("scheduler failure");}Callbacks.Enqueue(action);return 1;}
+ public void DrainMain(){while(Main.Count>0) Main.Dequeue()();}
+ public void Tick(){int n=Callbacks.Count;while(n-->0) Callbacks.Dequeue()(0);}
+}
+namespace BlockLogger.Services {static class SuiteTimingRegistry {public static void Record(string name,double time){}}}

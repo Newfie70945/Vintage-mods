@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.8";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.9";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -312,7 +312,10 @@ public sealed class EngineOptimizations : IDisposable
     {
         foreach (var method in entry.DependencyMethods)
         {
-            var owner = ForeignOwner(targetInspected && method == entry.TargetMethod ? targetInfo : Inspect(method));
+            var patches = targetInspected && method == entry.TargetMethod ? targetInfo : Inspect(method);
+            if (entry.Name == "barrelMatchCountGuard" && method == entry.TargetMethod &&
+                BarrelPatchCompatibility.Allows(patches, HarmonyId)) continue;
+            var owner = ForeignOwner(patches);
             if (owner != null) return "Foreign Harmony owner on " + method.Name + ": " + owner;
         }
         return null;
