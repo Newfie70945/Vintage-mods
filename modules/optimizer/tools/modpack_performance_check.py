@@ -91,13 +91,15 @@ def run(args, mode, trial):
         result['beforeGeneration']=state();start=time.monotonic()
         result['generation']=payload('GENERATED',send('/nosbenchgenerate'))
         result['afterGeneration']=state();result['generationObserverWallSeconds']=time.monotonic()-start
+        result['blockWorkload']=payload_load('BLOCKS',send('/nosloadblocks')) if args.block_workload else None
         result['animals']=payload_load('ENTITIES',send('/nosloadentities'))
         time.sleep(10)
         result['entityBefore']=payload_load('STATE',send('/nosloadstate'))
         if result['entityBefore']['engineProfilerEnabled'] or result['entityBefore']['slowTickProfilingEnabled']:raise RuntimeError('Unexpected full engine profiling before steady workload.')
         payload_load('RESET',send('/nosloadreset'));entityStart=time.monotonic();time.sleep(args.entity_seconds)
         result['entityAfter']=payload_load('STATE',send('/nosloadstate'));result['entityWallSeconds']=time.monotonic()-entityStart;result['entityWindow']={'start':entityStart,'end':time.monotonic()}
-        if result['entityAfter']['active']<100 or result['entityAfter']['moves']<=result['entityBefore']['moves'] or result['entityAfter']['filterCalls']<=result['entityBefore']['filterCalls'] or result['entityAfter']['taskStarts']<=result['entityBefore']['taskStarts']:
+        if args.block_workload and (result['entityAfter']['barrelTicks']<=result['entityBefore']['barrelTicks'] or result['entityAfter']['firepitTicks']<=result['entityBefore']['firepitTicks']):raise RuntimeError('Block callbacks did not advance.')
+        if result['entityAfter']['active']<int(args.npc_count*.8) or result['entityAfter']['moves']<=result['entityBefore']['moves'] or result['entityAfter']['filterCalls']<=result['entityBefore']['filterCalls'] or result['entityAfter']['taskStarts']<=result['entityBefore']['taskStarts']:
             raise RuntimeError('Active/moving NPC workload not established.')
         result['profilerPairs']=[]
         for burst in range(args.profile_bursts):
@@ -155,12 +157,13 @@ def main():
     for key in ('game-dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--optimizer-config',type=Path,help='Explicit optimizer configuration for the NOS arm; copied and hashed in the report.')
     p.add_argument('--resume',action='store_true',help='Resume complete recorded runs only when input hashes and workload parameters match.')
-    p.add_argument('--npc-count',type=int,default=128,help='Fixture NPCs, 128-2048; no authenticated players.')
+    p.add_argument('--block-workload',action='store_true',help='Place 100 mismatch-input barrels and 100 mixed burning/cold firepits.')
+    p.add_argument('--npc-count',type=int,default=128,help='Fixture NPCs, 128-4096; no authenticated players.')
     p.add_argument('--entity-seconds',type=int,default=90);p.add_argument('--profile-bursts',type=int,default=5)
     p.add_argument('--warmup',type=int,default=15);p.add_argument('--port',type=int,default=42579)
     p.add_argument('--order',default='stock,nos,nos,stock,stock,nos')
     args=p.parse_args()
-    if not 128<=args.npc_count<=2048:p.error('--npc-count must be between 128 and 2048')
+    if not 128<=args.npc_count<=4096:p.error('--npc-count must be between 128 and 4096')
     for key in ('game_dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):setattr(args,key,getattr(args,key).resolve())
     if (args.output.exists() and not args.resume) or args.output.is_relative_to(args.snapshot) or args.output.is_relative_to(args.game_dir):p.error('Use a fresh output outside the game and stopped disposable snapshot.')
     if any(x.is_symlink() for x in args.snapshot.rglob('*')):p.error('Snapshot symlinks refused.')
@@ -172,12 +175,13 @@ def main():
     args.output.mkdir(parents=True,exist_ok=args.resume)
     manifest=dict(kind='Disposable official-server generation/save/unload A/B laboratory workload',gameVersion='1.22.7',order=modes,worldSeed=json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['Seed'],worldSha256=sha(args.snapshot/'Saves'/save),artifacts={x.name:sha(x) for x in (args.suitezip,args.optimizerzip,args.fixture)},dotnet=str(args.dotnet),cpuQuota=Path('/sys/fs/cgroup/cpu.max').read_text().strip(),memoryLimit=Path('/sys/fs/cgroup/memory.max').read_text().strip(),warmupSeconds=args.warmup,entitySeconds=args.entity_seconds,profileBursts=args.profile_bursts,pack=json.loads((args.pack/'manifest.json').read_text()),limits=['No authenticated clients or bots; selected modpack is recorded, not the owner production world. Forced-active, fixture-locally-tracked real NPCs and pass-through AI filter/task-start subscribers are lab controls. Normal physics workers run; no fake client records are created.','Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.','NOS arm uses the recorded optimizer configuration; storage arm enables only WorldgenRequestReuse and SaveSnapshotRelease. Controlled fixture NPC population is recorded separately; NPC count/lifecycle still varies.','Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.','Save timings are observed console-log wall intervals on local container storage, not physical disk latency.'])
     manifest['npcCount']=args.npc_count
+    manifest['blockWorkload']=args.block_workload
     manifest['optimizerConfigurationSha256']=sha(args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json'))
     manifest['optimizerConfiguration']=json.loads((args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
     manifest_path=args.output/'manifest.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','npcCount'):
+        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','npcCount','blockWorkload'):
             if manifest[key]!=previous.get(key):p.error('Resume inputs differ: '+key)
         manifest=previous
     (args.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

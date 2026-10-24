@@ -1,0 +1,296 @@
+{
+  "testedOptimizerVersion": "0.20.1",
+  "npcCount": 3000,
+  "barrels": 100,
+  "firepits": 100,
+  "authenticatedBots": 0,
+  "requestedBotsNotRun": 25,
+  "runs": [
+    {
+      "mode": "stock",
+      "passed": true,
+      "saveIntegrity": "ok",
+      "barrelCallbacks": 4000,
+      "firepitCallbacks": 94233,
+      "activeAnimalsAtEnd": 3000
+    },
+    {
+      "mode": "nos",
+      "passed": true,
+      "saveIntegrity": "ok",
+      "barrelCallbacks": 3900,
+      "firepitCallbacks": 93930,
+      "activeAnimalsAtEnd": 3000
+    }
+  ],
+  "measurements": {
+    "nos": {
+      "entityPeakRssMiB": {
+        "median": 1734.35546875,
+        "minimum": 1734.35546875,
+        "maximum": 1734.35546875,
+        "runs": 1
+      },
+      "entityEndCommittedMiB": {
+        "median": 1470.43359375,
+        "minimum": 1470.43359375,
+        "maximum": 1470.43359375,
+        "runs": 1
+      },
+      "entityEndFragmentedMiB": {
+        "median": 51.80310821533203,
+        "minimum": 51.80310821533203,
+        "maximum": 51.80310821533203,
+        "runs": 1
+      },
+      "generationSeconds": {
+        "median": 9.964958699999999,
+        "minimum": 9.964958699999999,
+        "maximum": 9.964958699999999,
+        "runs": 1
+      },
+      "entityTickAverageMs": {
+        "median": 46.21954067730635,
+        "minimum": 46.21954067730635,
+        "maximum": 46.21954067730635,
+        "runs": 1
+      },
+      "entityTickP95Ms": {
+        "median": 61,
+        "minimum": 61,
+        "maximum": 61,
+        "runs": 1
+      },
+      "entityTickP99Ms": {
+        "median": 71,
+        "minimum": 71,
+        "maximum": 71,
+        "runs": 1
+      },
+      "entityTickWorstMs": {
+        "median": 119,
+        "minimum": 119,
+        "maximum": 119,
+        "runs": 1
+      },
+      "entityTps": {
+        "median": 21.401124403632576,
+        "minimum": 21.401124403632576,
+        "maximum": 21.401124403632576,
+        "runs": 1
+      },
+      "entityCpuPercent": {
+        "median": 106.90445442961379,
+        "minimum": 106.90445442961379,
+        "maximum": 106.90445442961379,
+        "runs": 1
+      },
+      "entityAllocMiBPerSecond": {
+        "median": 39.52496587507291,
+        "minimum": 39.52496587507291,
+        "maximum": 39.52496587507291,
+        "runs": 1
+      },
+      "entityGcPauseMsPerSecond": {
+        "median": 9.559321626621417,
+        "minimum": 9.559321626621417,
+        "maximum": 9.559321626621417,
+        "runs": 1
+      },
+      "entityEndRssMiB": {
+        "median": 1734.1171875,
+        "minimum": 1734.1171875,
+        "maximum": 1734.1171875,
+        "runs": 1
+      },
+      "entityEndHeapMiB": {
+        "median": 1412.5800476074219,
+        "minimum": 1412.5800476074219,
+        "maximum": 1412.5800476074219,
+        "runs": 1
+      },
+      "entityEndActive": {
+        "median": 3000,
+        "minimum": 3000,
+        "maximum": 3000,
+        "runs": 1
+      },
+      "otherLoadedEntities": {
+        "median": 38,
+        "minimum": 38,
+        "maximum": 38,
+        "runs": 1
+      },
+      "movements": {
+        "median": 138736,
+        "minimum": 138736,
+        "maximum": 138736,
+        "runs": 1
+      },
+      "taskStarts": {
+        "median": 14219,
+        "minimum": 14219,
+        "maximum": 14219,
+        "runs": 1
+      },
+      "firstSaveMs": {
+        "median": 405.2886220160872,
+        "minimum": 405.2886220160872,
+        "maximum": 405.2886220160872,
+        "runs": 1
+      },
+      "repeatSaveMs": {
+        "median": 240.54139098734595,
+        "minimum": 240.54139098734595,
+        "maximum": 240.54139098734595,
+        "runs": 1
+      },
+      "savePreparationMs": {
+        "median": 168.39614300988615,
+        "minimum": 168.39614300988615,
+        "maximum": 168.39614300988615,
+        "runs": 1
+      },
+      "unloadedTrackedAlive": {
+        "median": 8,
+        "minimum": 8,
+        "maximum": 8,
+        "runs": 1
+      }
+    },
+    "stock": {
+      "entityPeakRssMiB": {
+        "median": 1739.8359375,
+        "minimum": 1739.8359375,
+        "maximum": 1739.8359375,
+        "runs": 1
+      },
+      "entityEndCommittedMiB": {
+        "median": 1467.64453125,
+        "minimum": 1467.64453125,
+        "maximum": 1467.64453125,
+        "runs": 1
+      },
+      "entityEndFragmentedMiB": {
+        "median": 46.18140411376953,
+        "minimum": 46.18140411376953,
+        "maximum": 46.18140411376953,
+        "runs": 1
+      },
+      "generationSeconds": {
+        "median": 11.1131258,
+        "minimum": 11.1131258,
+        "maximum": 11.1131258,
+        "runs": 1
+      },
+      "entityTickAverageMs": {
+        "median": 47.63392141138733,
+        "minimum": 47.63392141138733,
+        "maximum": 47.63392141138733,
+        "runs": 1
+      },
+      "entityTickP95Ms": {
+        "median": 61,
+        "minimum": 61,
+        "maximum": 61,
+        "runs": 1
+      },
+      "entityTickP99Ms": {
+        "median": 69,
+        "minimum": 69,
+        "maximum": 69,
+        "runs": 1
+      },
+      "entityTickWorstMs": {
+        "median": 89,
+        "minimum": 89,
+        "maximum": 89,
+        "runs": 1
+      },
+      "entityTps": {
+        "median": 20.779783701596777,
+        "minimum": 20.779783701596777,
+        "maximum": 20.779783701596777,
+        "runs": 1
+      },
+      "entityCpuPercent": {
+        "median": 107.28581245401952,
+        "minimum": 107.28581245401952,
+        "maximum": 107.28581245401952,
+        "runs": 1
+      },
+      "entityAllocMiBPerSecond": {
+        "median": 51.95255797545747,
+        "minimum": 51.95255797545747,
+        "maximum": 51.95255797545747,
+        "runs": 1
+      },
+      "entityGcPauseMsPerSecond": {
+        "median": 10.700888725876906,
+        "minimum": 10.700888725876906,
+        "maximum": 10.700888725876906,
+        "runs": 1
+      },
+      "entityEndRssMiB": {
+        "median": 1740.34765625,
+        "minimum": 1740.34765625,
+        "maximum": 1740.34765625,
+        "runs": 1
+      },
+      "entityEndHeapMiB": {
+        "median": 1408.1231842041016,
+        "minimum": 1408.1231842041016,
+        "maximum": 1408.1231842041016,
+        "runs": 1
+      },
+      "entityEndActive": {
+        "median": 3000,
+        "minimum": 3000,
+        "maximum": 3000,
+        "runs": 1
+      },
+      "otherLoadedEntities": {
+        "median": 40,
+        "minimum": 40,
+        "maximum": 40,
+        "runs": 1
+      },
+      "movements": {
+        "median": 142367,
+        "minimum": 142367,
+        "maximum": 142367,
+        "runs": 1
+      },
+      "taskStarts": {
+        "median": 15164,
+        "minimum": 15164,
+        "maximum": 15164,
+        "runs": 1
+      },
+      "firstSaveMs": {
+        "median": 314.107601006981,
+        "minimum": 314.107601006981,
+        "maximum": 314.107601006981,
+        "runs": 1
+      },
+      "repeatSaveMs": {
+        "median": 233.4225570084527,
+        "minimum": 233.4225570084527,
+        "maximum": 233.4225570084527,
+        "runs": 1
+      },
+      "savePreparationMs": {
+        "median": 163.75562601024285,
+        "minimum": 163.75562601024285,
+        "maximum": 163.75562601024285,
+        "runs": 1
+      },
+      "unloadedTrackedAlive": {
+        "median": 512,
+        "minimum": 512,
+        "maximum": 512,
+        "runs": 1
+      }
+    }
+  }
+}

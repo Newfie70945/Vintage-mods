@@ -16,6 +16,8 @@ public sealed class ModpackProbe:ModSystem
 {
  private readonly List<Entity> animals=[];
  private long moves,vetoCalls,taskStarts,filterCalls;
+ private static long barrelTicks,firepitTicks;
+ private readonly List<BlockEntity> laboratoryBlocks=[];
  private readonly List<(double X,double Y,double Z)> positions=[];
  private static ModpackProbe? active;
  private readonly List<double> ticks=new(18000);
@@ -38,12 +40,29 @@ public sealed class ModpackProbe:ModSystem
   object Health(){var t=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("BlockLogger.BlockLoggerModSystem")).First(x=>x!=null)!;var system=api.ModLoader.GetModSystem(t.FullName!);var module=Field(system,"module");return module.GetType().GetProperty("ServerHealth")!.GetValue(module)!;}
   void Add(string name,System.Func<TextCommandResult> handler)=>api.ChatCommands.Create(name).RequiresPrivilege(Privilege.controlserver).HandleWith(_=>{try{return handler();}catch(Exception e){api.Logger.Error("NOSLOAD_FAIL "+e);return TextCommandResult.Error(e.Message);}});
   Add("nosloadmods",()=>{Emit("MODS",api.ModLoader.Mods.Where(m=>m.Info!=null).Select(m=>new{id=m.Info.ModID,version=m.Info.Version,enabled=api.ModLoader.IsModEnabled(m.Info.ModID)}).ToArray());return TextCommandResult.Success();});
+  Add("nosloadblocks",()=>{
+   var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+8,z=(int)(spawn.Z/32)*32+160*32+8;
+   var stone=api.World.Blocks.First(b=>b?.Code?.ToString()=="game:rock-granite");
+   var barrel=api.World.Blocks.First(b=>b?.EntityClass=="Barrel"&&b.Code.Domain=="game");
+   var fire=api.World.GetBlock(new AssetLocation("game:firepit-cold"));
+   if(fire==null||fire.Id==0)throw new Exception("Official firepit absent");
+   for(int i=0;i<200;i++){
+    var p=new BlockPos(x+(i%20)*2,0,z+(i/20)*2);p.Y=api.World.BlockAccessor.GetTerrainMapheightAt(p)+1;
+    api.World.BlockAccessor.SetBlock((i<100?barrel:fire).Id,p);
+    var be=api.World.BlockAccessor.GetBlockEntity(p)??throw new Exception("Placed block entity absent");laboratoryBlocks.Add(be);
+    if(be is BlockEntityBarrel b){b.Inventory[0].Itemstack=new ItemStack(stone);}
+    if(be is BlockEntityFirepit f&&i%2==0){f.fuelBurnTime=600;f.maxFuelBurnTime=600;f.maxTemperature=700;f.furnaceTemperature=600;}
+   }
+   laboratoryHooks!.Patch(AccessTools.Method(typeof(BlockEntityBarrel),"OnEvery3Second"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveBarrel)));
+   laboratoryHooks.Patch(AccessTools.Method(typeof(BlockEntityFirepit),"OnBurnTick"),postfix:new HarmonyMethod(typeof(ModpackProbe),nameof(ObserveFirepit)));
+   Emit("BLOCKS",new{barrels=100,firepits=100,burningFirepits=50,coldFirepits=50,barrelInput="rock-granite (intentional recipe mismatch)"});return TextCommandResult.Success();
+  });
   Add("nosloadentities",()=>{
    api.World.Config.SetBool("runAiTasks",true);
    var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+64,z=(int)(spawn.Z/32)*32+160*32+64;
    var types=api.World.EntityTypes.Where(t=>t.Code.Domain=="game"&&t.Code.Path.StartsWith("pig-eurasian-adult-")).ToArray();
    if(types.Length==0)throw new Exception("Stock wild-pig type absent");
-   int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,2048):128;
+   int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,4096):128;
    int columns=requested==128?16:(int)Math.Ceiling(Math.Sqrt(requested));
    for(int i=0;i<requested;i++){
     double px=x+(i%columns)*2+.5,pz=z+(i/columns)*2+.5;
@@ -63,6 +82,7 @@ public sealed class ModpackProbe:ModSystem
    using var process=Process.GetCurrentProcess();var gc=GC.GetGCMemoryInfo();
    collecting=false;var sorted=ticks.Order().ToArray();double? Percent(double p)=>sorted.Length==0?null:sorted[(int)Math.Min(sorted.Length-1,Math.Ceiling(p*sorted.Length)-1)];
    Emit("STATE",new{engineProfilerEnabled=api.World.FrameProfiler.Enabled,slowTickProfilingEnabled=api.World.FrameProfiler.PrintSlowTicks,aiEnabled=AiRuntimeConfig.RunAiTasks,spawned=animals.Count,alive=animals.Count(e=>e.Alive),active=animals.Count(e=>e.State==EnumEntityState.Active),loaded=api.World.LoadedEntities.Count,moves,vetoCalls,taskStarts,filterCalls,
+    barrelTicks,firepitTicks,blockEntities=laboratoryBlocks.Count,
     tickCount=sorted.Length,tickAverageMs=sorted.Length==0?0:sorted.Average(),tickP95Ms=Percent(.95),tickP99Ms=Percent(.99),tickWorstMs=sorted.Length==0?0:sorted[^1],
     allocatedBytes=GC.GetTotalAllocatedBytes(false),cpuMs=process.TotalProcessorTime.TotalMilliseconds,rssBytes=process.WorkingSet64,heapBytes=GC.GetTotalMemory(false),gcCommittedBytes=gc.TotalCommittedBytes,gcFragmentedBytes=gc.FragmentedBytes,gcPauseMs=GC.GetTotalPauseDuration().TotalMilliseconds});return TextCommandResult.Success();
   });
@@ -97,6 +117,8 @@ public sealed class ModpackProbe:ModSystem
   if((owner.lastIndex!=index||owner.lastTick!=stats.ticksTotal)&&stats.ticksTotal>0&&owner.ticks.Count<18000){int last=(stats.tickTimeIndex+stats.tickTimes.Length-1)%stats.tickTimes.Length;owner.ticks.Add(stats.tickTimes[last]);}
   owner.lastIndex=index;owner.lastTick=stats.ticksTotal;
  }
+ public static void ObserveBarrel(){Interlocked.Increment(ref barrelTicks);}
+ public static void ObserveFirepit(){Interlocked.Increment(ref firepitTicks);}
  public static void TrackLabEntity(Entity entity){if(entity.Attributes.GetBool("nosLaboratoryNpc")){entity.IsTracked=2;entity.NearestPlayerDistance=0;}}
  public override void Dispose(){collecting=false;active=null;laboratoryHooks?.UnpatchAll(laboratoryHooks.Id);}
 }

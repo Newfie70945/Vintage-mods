@@ -79,7 +79,12 @@ static class Checks
   int guardOutput=99;bool result=true;BarrelCountOptimizations.Configure(true);
   Assert(BarrelCountOptimizations.Prefix(recipe,slots,ref guardOutput,ref result,out _)&&guardOutput==99&&result,"matching counts retain native hooks");
   Assert(BarrelCountOptimizations.Prefix(new CustomBarrelRecipe{Ingredients=recipe.Ingredients},new[]{Slot(a)},ref guardOutput,ref result,out _),"custom recipe count guard falls back");
-  var mismatch=new[]{Slot(a)};
+  var actualBarrelSlots=new ItemSlot[]{new ItemSlotBarrelInput(null){Itemstack=new ItemStack(a)},new ItemSlotLiquidOnly(null,50)};
+  BarrelCountOptimizations.Configure(false);bool actualNative=recipe.Matches(actualBarrelSlots,out int actualNativeOutput);
+  BarrelCountOptimizations.Configure(true);long actualCalls=BarrelCountOptimizations.Counters.Calls;
+  Assert(recipe.Matches(actualBarrelSlots,out int actualFastOutput)==actualNative&&actualFastOutput==actualNativeOutput,"actual barrel slot count mismatch preserves native output");
+  Assert(BarrelCountOptimizations.Counters.Calls==actualCalls+1,"actual native barrel input slot reaches count guard");
+  var mismatch=actualBarrelSlots;
   var countMeasurements=new List<object>();
   foreach(bool mode in new[]{false,true,false,true})
   {

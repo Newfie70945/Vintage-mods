@@ -253,7 +253,7 @@ These changes remove temporary allocations. They do not reduce animation frequen
 
 ## Barrel count guard (0.19.0)
 
-`EngineOptimizations.BarrelMatchCountGuard=false` controls rejection of impossible native barrel ingredient counts without allocating a failed-match list. Enable individually and verify actual state/counters. Matching recipes and custom types retain native behavior. See [evidence and limits](performance-0.19.0.md).
+`EngineOptimizations.BarrelMatchCountGuard=false` controls rejection of impossible native barrel ingredient counts without allocating a failed-match list. Enable individually and verify actual state/counters. From 0.20.2 the accepted exact native slot types include ItemSlotBarrelInput, with inherited getter verification and conflict checks. Matching recipes and custom types retain native behavior. See [evidence and limits](performance-0.19.0.md).
 
 ## Native block simulation scheduling (0.20.0)
 
