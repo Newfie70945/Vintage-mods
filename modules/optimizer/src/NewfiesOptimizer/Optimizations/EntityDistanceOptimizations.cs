@@ -66,11 +66,17 @@ public static class EntityDistanceOptimizations
     {
         if(safety&&___entity!=null)Interlocked.Exchange(ref states.GetValue(___entity,static _=>new()).HurtUntil,Environment.TickCount64+10000);
     }
+    private static bool BasicEligible(Entity entity)
+    {
+        return safety && entity is EntityAgent agent && entity is not EntityPlayer && entity.Api is ICoreServerAPI &&
+            entity.World is ServerMain && entity.Code!=null && entity.Properties?.Server!=null && entity.Alive &&
+            entity.IsInteractable && !entity.AlwaysActive && !entity.Swimming && !entity.InLava && !entity.IsOnFire &&
+            entity.OnGround && agent.MountedOn==null;
+    }
     private static bool Eligible(Entity entity,State state,AiTaskManager? manager)
     {
-        if(!safety||entity is not EntityAgent agent||entity is EntityPlayer||entity.Api is not ICoreServerAPI||entity.World is not ServerMain server||
-            entity.Code==null||entity.Properties?.Server==null||!entity.Alive||!entity.IsInteractable||entity.AlwaysActive||
-            entity.Swimming||entity.InLava||entity.IsOnFire||!entity.OnGround||agent.MountedOn!=null||Volatile.Read(ref state.HurtUntil)>Environment.TickCount64)return false;
+        if(Volatile.Read(ref state.HurtUntil)>Environment.TickCount64)return false;
+        var server=(ServerMain)entity.World;
         // Custom runtime entities/behaviors/tasks opt out automatically. Code filters
         // let owners narrow this further; they cannot override the safety exemptions.
         if(entity.GetType().Assembly!=typeof(EntityAgent).Assembly&&entity.GetType().Assembly!=typeof(AiTaskManager).Assembly)return false;
@@ -115,6 +121,14 @@ public static class EntityDistanceOptimizations
     {
         try
         {
+            ArgumentNullException.ThrowIfNull(entity);
+            // Most protected entities never need scheduler state. Still clear any
+            // earlier delay when a previously eligible entity becomes exempt.
+            if(!BasicEligible(entity))
+            {
+                if(states.TryGetValue(entity,out var previous))previous.AiDue=previous.WanderDue=previous.RepulsionDue=0;
+                return true;
+            }
             var state=states.GetValue(entity,static _=>new());
             if(!Eligible(entity,state,manager)){state.AiDue=state.WanderDue=state.RepulsionDue=0;return true;}
             if(kind==2&&entity.Pos.Motion.LengthSq()>0.000001)return true;

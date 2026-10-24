@@ -1,0 +1,62 @@
+{
+  "before": {
+    "exemptMeasurements": [
+      {
+        "trial": 0,
+        "bytesPerEntity": 144.78125,
+        "nsPerEntity": 224.609375
+      },
+      {
+        "trial": 1,
+        "bytesPerEntity": 144.78125,
+        "nsPerEntity": 280.859375
+      },
+      {
+        "trial": 2,
+        "bytesPerEntity": 144.78125,
+        "nsPerEntity": 237.890625
+      },
+      {
+        "trial": 3,
+        "bytesPerEntity": 144.78125,
+        "nsPerEntity": 387.890625
+      },
+      {
+        "trial": 4,
+        "bytesPerEntity": 144.78125,
+        "nsPerEntity": 244.53125
+      }
+    ],
+    "scope": "Enabled distance policies; first encounters of already-exempt native entities, no server TPS claim."
+  },
+  "after": {
+    "exemptMeasurements": [
+      {
+        "trial": 0,
+        "bytesPerEntity": 0,
+        "nsPerEntity": 39.84375
+      },
+      {
+        "trial": 1,
+        "bytesPerEntity": 0,
+        "nsPerEntity": 71.09375
+      },
+      {
+        "trial": 2,
+        "bytesPerEntity": 0,
+        "nsPerEntity": 371.875
+      },
+      {
+        "trial": 3,
+        "bytesPerEntity": 0,
+        "nsPerEntity": 36.328125
+      },
+      {
+        "trial": 4,
+        "bytesPerEntity": 0,
+        "nsPerEntity": 34.375
+      }
+    ],
+    "scope": "Enabled distance policies; first encounters of already-exempt native entities, no server TPS claim."
+  }
+}

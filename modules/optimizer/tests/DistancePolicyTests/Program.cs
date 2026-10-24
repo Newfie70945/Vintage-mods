@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Diagnostics;
+using System.Text.Json;
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using HarmonyLib;
@@ -76,6 +78,19 @@ static class Checks
   var start=EntityDistanceOptimizations.AiTarget.CreateDelegate<Action<AiTaskManager>>();long aiBefore=EntityDistanceOptimizations.Counters.Ai;
   start(f.Manager);start(f.Manager);Check(EntityDistanceOptimizations.Counters.Ai==aiBefore+1,"actual injected official task-start method defers eligible evaluations");
   Check(!(Harmony.GetPatchInfo(AccessTools.Method(typeof(AiTaskManager),"ProcessRunningTasks"))?.Owners.Contains(aiHarmony.Id)??false),"running-task method never patched");aiHarmony.UnpatchAll(aiHarmony.Id);
+  var exemptBatch=Enumerable.Range(0,256).Select(_=>Fixture()).ToArray();foreach(var entry in exemptBatch)entry.Entity.AlwaysActive=true;
+  Reset();foreach(var entry in exemptBatch)Ai(entry.Entity,entry.Manager); // JIT warmup outside measurement.
+  var exemptMeasurements=new List<object>();
+  for(int trial=0;trial<5;trial++){
+   Reset();long allocated=GC.GetAllocatedBytesForCurrentThread(),begin=Stopwatch.GetTimestamp();
+   foreach(var entry in exemptBatch)if(!Ai(entry.Entity,entry.Manager))throw new Exception("Exempt entity deferred");
+   exemptMeasurements.Add(new{trial,bytesPerEntity=(GC.GetAllocatedBytesForCurrentThread()-allocated)/256d,nsPerEntity=Stopwatch.GetElapsedTime(begin).TotalNanoseconds/256});
+  }
+  Reset();long exemptStart=GC.GetAllocatedBytesForCurrentThread();
+  foreach(var entry in exemptBatch){bool protectedResult=false;if(!Ai(entry.Entity,entry.Manager)||!EntityDistanceOptimizations.WanderPrefix(entry.Entity,ref protectedResult)||!EntityDistanceOptimizations.RepulsionPrefix(entry.Entity))throw new Exception("Protected path changed gameplay");}
+  Check(GC.GetAllocatedBytesForCurrentThread()==exemptStart,"all protected scheduler paths avoid new state allocations");
+  Console.WriteLine(JsonSerializer.Serialize(new{exemptMeasurements,scope="Enabled distance policies; first encounters of already-exempt native entities, no server TPS claim."}));
+  Reset();f=Fixture();Check(Ai(f.Entity,f.Manager)&&!Ai(f.Entity,f.Manager),"prior delay established before exemption change");f.Entity.AlwaysActive=true;Check(Ai(f.Entity,f.Manager),"new exemption runs stock immediately");f.Entity.AlwaysActive=false;Check(Ai(f.Entity,f.Manager),"removing exemption does not resurrect stale delay");
   // Actual Harmony injection into official attribute method, including stock behavior comparisons.
   var tree=new SyncedTreeAttribute();tree.RemoveAttribute("missing");Check(tree.AllDirty,"stock missing removal marks whole tree dirty");
   var harmony=new Harmony("test.nos.distance-policies");harmony.Patch(AttributeSyncOptimizations.Target,prefix:new HarmonyMethod(typeof(AttributeSyncOptimizations),nameof(AttributeSyncOptimizations.Prefix)));AttributeSyncOptimizations.Configure(true);
