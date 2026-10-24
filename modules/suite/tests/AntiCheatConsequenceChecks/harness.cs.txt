@@ -1,0 +1,20 @@
+var h=new Harness();var p=new IServerPlayer();var s=new AntiCheatSession();
+h.config.ConsequenceRules.Add(new Rule());
+if(!h.ApplyConsequences(p,s,"scan")||h.admin.Kicks!=1)throw new Exception("first kick");
+h.config.ConsequenceRules[0].Id="second";
+if(!h.ApplyConsequences(p,s,"verification")||h.admin.Kicks!=1)throw new Exception("duplicate kick");
+h.config.ConsequenceRules[0].Action="Log";h.ApplyConsequences(p,s,"verification");if(h.admin.Audits!=1)throw new Exception("logs suppressed");
+h.config.ConsequenceRules[0].Action="TempBan";h.config.ConsequenceRules[0].Id="ban";h.ApplyConsequences(p,s,"verification");if(h.admin.Bans!=1)throw new Exception("ban suppressed");
+h.now+=6000;h.config.ConsequenceRules[0].Action="Kick";h.config.ConsequenceRules[0].Id="retry";h.ApplyConsequences(p,s,"scan");if(h.admin.Kicks!=2)throw new Exception("expiry");
+var failed=new AntiCheatSession();h.admin.Fail=true;h.ApplyConsequences(p,failed,"scan");if(failed.ConsequenceDisconnectPendingUntilUtc!=0)throw new Exception("failed kick blocks retry");h.admin.Fail=false;h.config.ConsequenceRules[0].Id="afterfailure";if(!h.ApplyConsequences(p,failed,"scan"))throw new Exception("retry failed");
+Console.WriteLine("PASS: first kick, cross-pass deduplication, retained logging, stronger ban, expiry, failed action and retry.");
+class IServerPlayer {public string PlayerUID="p",PlayerName="player";}
+class AntiCheatSession {public HashSet<string> AppliedConsequenceKeys=new();public string LastConsequence="";public long LastConsequenceUtc,ConsequenceDisconnectPendingUntilUtc;}
+class Rule {public bool Enabled=true;public string Id="first",Action="Kick",Name="rule",Message="reason",Duration="1h";}
+class Finding {public string Scanner="";}
+record Match(bool Matched,string Fingerprint,Finding? Finding);
+class Config {public bool Enabled=true,ModDbAutomaticConsequencesEnabled=true;public List<Rule> ConsequenceRules=new();}
+class Logger {public void Warning(string f,params object[] a){} public void Error(string f,params object[] a){} public void Notification(string f,params object[] a){}}
+class Api {public Logger Logger=new();}
+class Admin {public int Kicks,Bans,Audits;public bool Fail;public string Kick(params object[] a){Kicks++;return Fail?"failed: test":"scheduled";}public string TempBan(params object[] a){Bans++;return "scheduled";}public string Freeze(params object[] a)=>"scheduled";public void Audit(params object[] a){Audits++;}}
+class Harness {public Config config=new();public Admin admin=new();Api api=new();public long now=10000;Admin adminProvider()=>admin;long NowMs()=>now;Match MatchConsequence(Rule r,AntiCheatSession s)=>new(true,"match",null);string ExpandConsequenceMessage(params object?[] a)=>"reason";

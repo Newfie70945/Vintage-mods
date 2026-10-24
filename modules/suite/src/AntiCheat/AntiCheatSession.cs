@@ -88,5 +88,6 @@ public sealed class AntiCheatSession
     public HashSet<string> AppliedConsequenceKeys { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string LastConsequence { get; set; } = "";
     public long LastConsequenceUtc { get; set; }
+    public long ConsequenceDisconnectPendingUntilUtc { get; set; }
     public string AdminSuiteVersionWarningKey { get; set; } = "";
 }

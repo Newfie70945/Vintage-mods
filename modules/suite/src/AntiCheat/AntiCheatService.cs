@@ -1256,6 +1256,7 @@ public sealed class AntiCheatService : IDisposable
         session.AppliedConsequenceKeys.Clear();
         session.LastConsequence = "";
         session.LastConsequenceUtc = 0;
+        session.ConsequenceDisconnectPendingUntilUtc = 0;
         session.AdminSuiteVersionWarningKey = "";
         PublishPlayer(session);
     }
@@ -1583,17 +1584,21 @@ public sealed class AntiCheatService : IDisposable
         long now = NowMs();
         lock (modDbVerificationLock)
         {
-            if (!force && modDbVerificationCacheDirtyCount < 10 && now - modDbVerificationCacheLastSavedUtc < 5000) return;
+            if (!force && (modDbVerificationCacheDirtyCount == 0 || now - modDbVerificationCacheLastSavedUtc < 5000)) return;
         }
         try
         {
             List<AntiCheatModDbVerificationCacheEntry> entries;
+            int savedDirtyCount;
             lock (modDbVerificationLock)
+            {
                 entries = modDbVerificationCache.Values.OrderByDescending(x => x.CheckedUtc).Take(1024).ToList();
+                savedDirtyCount = modDbVerificationCacheDirtyCount;
+            }
             SuiteConfigStorage.Store(api, new AntiCheatModDbVerificationCacheStore { Entries = entries }, ModDbVerificationCacheFile);
             lock (modDbVerificationLock)
             {
-                modDbVerificationCacheDirtyCount = 0;
+                modDbVerificationCacheDirtyCount = Math.Max(0, modDbVerificationCacheDirtyCount - savedDirtyCount);
                 modDbVerificationCacheLastSavedUtc = now;
             }
         }
@@ -1804,8 +1809,12 @@ public sealed class AntiCheatService : IDisposable
                         api.Event.EnqueueMainThreadTask(() =>
                         {
                             if (!started) return;
-                            SaveModDbVerificationCache();
-                            RefreshSessionsAfterModDbVerification(modId, version);
+                            var cacheTimer = System.Diagnostics.Stopwatch.StartNew();
+                            try { SaveModDbVerificationCache(); }
+                            finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification cache persistence", cacheTimer.Elapsed.TotalMilliseconds); }
+                            var refreshTimer = System.Diagnostics.Stopwatch.StartNew();
+                            try { RefreshSessionsAfterModDbVerification(modId, version); }
+                            finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification session refresh", refreshTimer.Elapsed.TotalMilliseconds); }
                         }, "nses-anticheat-moddb-verification");
                     }
                     catch { }
@@ -1842,15 +1851,37 @@ public sealed class AntiCheatService : IDisposable
                 QueueModDbVerification(session.PlayerUid, session.ClientGameVersion, session.LastMods);
     }
 
+    // Accessed only on the game thread. Completed results share one refresh
+    // task instead of rescanning/recomputing every session once per result.
+    private readonly HashSet<string> pendingVerificationRefreshKeys = new(StringComparer.OrdinalIgnoreCase);
+    private bool verificationRefreshQueued;
     private void RefreshSessionsAfterModDbVerification(string modId, string version)
     {
-        string key = ModDbVerificationKey(modId, version);
-        foreach (var session in sessions.Snapshot())
+        pendingVerificationRefreshKeys.Add(ModDbVerificationKey(modId, version));
+        if (verificationRefreshQueued) return;
+        verificationRefreshQueued = true;
+        try
         {
-            if (session.LastScanUtc <= 0) continue;
-            if (!(session.LastMods ?? new List<ClientModDto>()).Any(m => string.Equals(ModDbVerificationKey(m.ModId, m.Version), key, StringComparison.OrdinalIgnoreCase))) continue;
-            RefreshSessionAfterModDbVerification(session.PlayerUid);
+            api.Event.EnqueueMainThreadTask(() =>
+            {
+                verificationRefreshQueued = false;
+                var keys = new HashSet<string>(pendingVerificationRefreshKeys, StringComparer.OrdinalIgnoreCase);
+                pendingVerificationRefreshKeys.Clear();
+                if (!started) return;
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    foreach (var session in sessions.Snapshot())
+                    {
+                        if (session.LastScanUtc <= 0 || session.LastMods == null) continue;
+                        if (!session.LastMods.Any(m => keys.Contains(ModDbVerificationKey(m.ModId, m.Version)))) continue;
+                        RefreshSessionAfterModDbVerification(session.PlayerUid);
+                    }
+                }
+                finally { BlockLogger.Services.SuiteTimingRegistry.Record("Anti-Cheat verification batch refresh", timer.Elapsed.TotalMilliseconds); }
+            }, "nses-anticheat-verification-batch-refresh");
         }
+        catch { verificationRefreshQueued = false; pendingVerificationRefreshKeys.Clear(); throw; }
     }
 
     public (bool Success, string Message, int UniqueTargets, int Queued, int FreshCached, int AlreadyPending) ResolveAllClientModDbFingerprints(bool forceRefresh = false)
@@ -5927,6 +5958,13 @@ public sealed class AntiCheatService : IDisposable
             if (session.AppliedConsequenceKeys.Contains(executionKey)) continue;
 
             string action = rule.Action;
+            // Preserve log/ban rules, but do not queue another kick while an
+            // earlier successful consequence disconnect is still pending.
+            if (action == "Kick" && session.ConsequenceDisconnectPendingUntilUtc > NowMs())
+            {
+                disruptiveActionScheduled = true;
+                continue;
+            }
             bool modDbFinding = match.Finding != null && string.Equals(match.Finding.Scanner, "ModDbPolicy", StringComparison.OrdinalIgnoreCase);
             if (modDbFinding && action != "Log" && !config.ModDbAutomaticConsequencesEnabled)
             {
@@ -5978,6 +6016,7 @@ public sealed class AntiCheatService : IDisposable
                 disruptiveActionScheduled = admin != null &&
                     !result.StartsWith("failed", StringComparison.OrdinalIgnoreCase) &&
                     !result.Contains("must be online", StringComparison.OrdinalIgnoreCase);
+                if (disruptiveActionScheduled) session.ConsequenceDisconnectPendingUntilUtc = NowMs() + 5000;
                 break;
             }
         }
