@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.6";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.7";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -166,7 +166,7 @@ public sealed class EngineOptimizations : IDisposable
             ()=>AttributeSyncOptimizations.Dependencies,AccessTools.Method(typeof(AttributeSyncOptimizations),nameof(AttributeSyncOptimizations.Prefix)),AttributeSyncOptimizations.Configure));
 
         entries.Add(new("despawnPacketProjection", options.DespawnPacketProjection, () => DespawnPacketOptimizations.Target,
-            () => [DespawnPacketOptimizations.Target], DespawnPacketOptimizations.PrefixMethod, DespawnPacketOptimizations.Configure));
+            () => DespawnPacketOptimizations.Dependencies, DespawnPacketOptimizations.PrefixMethod, DespawnPacketOptimizations.Configure));
         entries.Add(new("physicsPacketListReuse", options.PhysicsPacketListReuse, () => PhysicsPacketOptimizations.Target,
             () => [PhysicsPacketOptimizations.Target], PhysicsPacketOptimizations.PrefixMethod, PhysicsPacketOptimizations.Configure)
             { Transpiler = PhysicsPacketOptimizations.TranspilerMethod, Finalizer = PhysicsPacketOptimizations.FinalizerMethod });

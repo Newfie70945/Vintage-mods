@@ -1,0 +1,574 @@
+{
+  "checks": 74,
+  "rows": [
+    {
+      "trial": 0,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 281.2753333333333,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 48.828,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 45.093333333333334,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 950.522,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 352.45666666666665,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 247.776,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 5434.94,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2511.8866666666668,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 0,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1862.7366666666667,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 43.946,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 43.96,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 274.95666666666665,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 196.48866666666666,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 292.78,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 839.4626666666667,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1881.94,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2671.483333333333,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 1,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 4879.503333333333,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 263.728,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 47.54066666666667,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 46.144666666666666,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 813.7853333333334,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 302.504,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 199.00266666666667,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 4891.583333333333,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2557.536666666667,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 2,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1942.4866666666667,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 46.62266666666667,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 47.382,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 272.882,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 192.75933333333333,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 302.462,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 842.4653333333333,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1987.2466666666667,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2502.6666666666665,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 3,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 5003.8,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 260.78133333333335,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 50.60333333333333,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 49.016,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 847.7566666666667,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 299.734,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 197.49533333333332,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 4989.38,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2563.8333333333335,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 4,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1935.91,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 49.566,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 52.907333333333334,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 263.2506666666667,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 206.80533333333332,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 300.756,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 819.3606666666667,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1953.72,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2650.93,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 5,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 4865.953333333333,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "official",
+        "count": 1,
+        "ns": 298.41133333333335,
+        "bytes": 936.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 1,
+        "ns": 54.94533333333333,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "candidate",
+        "count": 1,
+        "ns": 54.68333333333333,
+        "bytes": 720.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "official",
+        "count": 64,
+        "ns": 845.738,
+        "bytes": 1936.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 64,
+        "ns": 318.338,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "candidate",
+        "count": 64,
+        "ns": 207.21666666666667,
+        "bytes": 1720.00032
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "official",
+        "count": 512,
+        "ns": 4822.42,
+        "bytes": 9104.0016
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "nos0.20.6",
+        "count": 512,
+        "ns": 2602.06,
+        "bytes": 8888.0016
+      }
+    },
+    {
+      "trial": 6,
+      "result": {
+        "mode": "candidate",
+        "count": 512,
+        "ns": 1949.6633333333334,
+        "bytes": 8888.0016
+      }
+    }
+  ],
+  "tieredCompilation": "0",
+  "scope": "Alternating actual official packet factory and author-owned previous/current Harmony prefixes; synthetic lists, not network transport or server ticks."
+}

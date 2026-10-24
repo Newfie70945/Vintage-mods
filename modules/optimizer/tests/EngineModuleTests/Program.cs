@@ -73,6 +73,17 @@ static class Checks
    Assert(module.Modules().Where(x=>x.Name!="onlinePlayerSnapshots").All(x=>x.Status=="active"),"unrelated modules remain active");
   }
   foreign.UnpatchAll(foreign.Id);
+  // Closed LINQ hooks are observable in the stock projection and must not be bypassed.
+  foreach(var dependency in DespawnPacketOptimizations.Dependencies.Where(m=>m.DeclaringType==typeof(Enumerable)))
+  {
+   var packetApi=Api();using(var module=new EngineOptimizations(packetApi.Api,Config(),()=>200))
+   {
+    foreign.Patch(dependency,prefix:prefix);foreach(var tick in packetApi.Ticks)tick(1);
+    Assert(module.Modules().Single(x=>x.Name=="despawnPacketProjection").Status=="conflict","late LINQ hook disables despawn projection");
+    Assert(Harmony.GetPatchInfo(dependency)!.Owners.Contains(foreign.Id),"foreign LINQ hook survives fallback");
+   }
+   foreign.UnpatchAll(foreign.Id);
+  }
   Assert(!PlayerQueryOptimizations.AroundEnabled&&!StreamCopyOptimizations.ReadEnabled,"dispose disables gates");
   Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"dispose removes own patches");
   foreign.Patch(StreamCopyOptimizations.ReadConflictTargets[1],prefix:prefix);

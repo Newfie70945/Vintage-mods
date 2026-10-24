@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.6 preview
+# Newfie's Server Optimizer 0.20.7 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -179,3 +179,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.20.5 preserves native barrel matching with custom inventory-slot getters and expands repeatable intensive-world tests. [Validation and limits](docs/performance-0.20.5.md).
 
 0.20.6 bounds and reuses nested entity-search scratch without enlarging the ordinary query state. [Focused results and limitations](docs/performance-0.20.6.md).
+
+0.20.7 reduces CPU cost in despawn packet projection while retaining native packet bytes and independent output ownership. It also detects foreign patches on the LINQ operators that replacement bypasses. [Component measurements and limits](docs/performance-0.20.7.md).
