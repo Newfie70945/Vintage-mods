@@ -4,7 +4,7 @@ Credentials are random, private to ignored artifacts, and absent from the report
 """
 from pathlib import Path
 import concurrent.futures, http.cookiejar, json, os, re, secrets, shutil
-import subprocess, threading, time, urllib.error, urllib.request
+import sqlite3, subprocess, threading, time, urllib.error, urllib.request
 repo = Path(__file__).resolve().parents[4]
 suite_version = next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')
 build = re.search(r'BuildSuffix = "([^"]+)"', (repo/'modules/suite/src/SuiteRelease.cs').read_text()).group(1)
@@ -91,9 +91,18 @@ try:
     print(json.dumps(report, indent=2), flush=True)
 finally:
     if process.poll() is None:
-        process.stdin.write('stop\n'); process.stdin.flush()
+        process.stdin.write('/stop\n'); process.stdin.flush()
         try: process.wait(timeout=45)
         except subprocess.TimeoutExpired:
             process.terminate()
             try: process.wait(timeout=10)
             except subprocess.TimeoutExpired: process.kill(); process.wait()
+
+if process.returncode != 0:
+    raise RuntimeError(f'Disposable server did not stop cleanly: {process.returncode}')
+with sqlite3.connect('file:' + str(data / 'Saves' / save) + '?mode=ro', uri=True) as database:
+    integrity = database.execute('PRAGMA integrity_check').fetchone()[0]
+assert integrity == 'ok', integrity
+report.update(exitCode=process.returncode, saveIntegrity=integrity)
+(root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
+print('Clean shutdown and save integrity: ok', flush=True)
