@@ -1,0 +1,323 @@
+{
+  "scope": "Separate-process official native/prefix comparison; before assertion fails on warmed recursive reuse, after passes. Timing differences across these processes are not causal evidence.",
+  "before": {
+    "checks": 14,
+    "trials": [
+      {
+        "trial": 0,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1189.068,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 284.484,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 313.111,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1255.155,
+            "Bytes": 1288.00032
+          },
+          "nearest": {
+            "Nanoseconds": 279.74,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 280.694,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 1,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1211.292,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 289.472,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 303.743,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1192.895,
+            "Bytes": 1288.00032
+          },
+          "nearest": {
+            "Nanoseconds": 279.967,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 285.24,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1180.014,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 286.154,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 307.917,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1214.834,
+            "Bytes": 1288.00032
+          },
+          "nearest": {
+            "Nanoseconds": 281.577,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 283.172,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1184.987,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 287.143,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 308.515,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1216.657,
+            "Bytes": 1288.00032
+          },
+          "nearest": {
+            "Nanoseconds": 282.059,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 285.48,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1202.908,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 297.784,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 313.286,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1218.653,
+            "Bytes": 1288.00032
+          },
+          "nearest": {
+            "Nanoseconds": 283.774,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 278.349,
+            "Bytes": 288.00032
+          }
+        }
+      }
+    ]
+  },
+  "after": {
+    "checks": 14,
+    "trials": [
+      {
+        "trial": 0,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1259.266,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 295.572,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 314.337,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1232.024,
+            "Bytes": 1152.00032
+          },
+          "nearest": {
+            "Nanoseconds": 288.523,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 288.456,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 1,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1253.17,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 306.992,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 324.69,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1253.984,
+            "Bytes": 1152.00032
+          },
+          "nearest": {
+            "Nanoseconds": 286.821,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 292.196,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1259.045,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 297.926,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 315.894,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1244.262,
+            "Bytes": 1152.00032
+          },
+          "nearest": {
+            "Nanoseconds": 279.632,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 286.955,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1250.508,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 293.122,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 316.165,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1256.122,
+            "Bytes": 1152.00032
+          },
+          "nearest": {
+            "Nanoseconds": 279.021,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 281.572,
+            "Bytes": 288.00032
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "stock": {
+          "nestedNearest": {
+            "Nanoseconds": 1266.39,
+            "Bytes": 1600.00032
+          },
+          "nearest": {
+            "Nanoseconds": 314.764,
+            "Bytes": 400.00032
+          },
+          "interactable": {
+            "Nanoseconds": 331.357,
+            "Bytes": 488.00032
+          }
+        },
+        "optimized": {
+          "nestedNearest": {
+            "Nanoseconds": 1271.014,
+            "Bytes": 1152.00032
+          },
+          "nearest": {
+            "Nanoseconds": 287.838,
+            "Bytes": 288.00032
+          },
+          "interactable": {
+            "Nanoseconds": 290.924,
+            "Bytes": 288.00032
+          }
+        }
+      }
+    ]
+  }
+}

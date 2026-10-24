@@ -1,0 +1,223 @@
+{
+  "rows": [
+    {
+      "trial": 0,
+      "before": {
+        "nearest": {
+          "ns": 351.691,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 291.87,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1283.6025,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 299.236,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 298.089,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1282.252,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "before": {
+        "nearest": {
+          "ns": 297.446,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 299.2735,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1284.8155,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 297.857,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 293.8215,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1251.316,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "before": {
+        "nearest": {
+          "ns": 293.448,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 303.5805,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1363.476,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 327.424,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 296.657,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1335.9615,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "before": {
+        "nearest": {
+          "ns": 298.112,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 286.493,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1413.0725,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 299.5695,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 297.2175,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1277.0005,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 4,
+      "before": {
+        "nearest": {
+          "ns": 291.181,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 289.8235,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1234.4615,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 292.1705,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 287.8095,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1232.3155,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 5,
+      "before": {
+        "nearest": {
+          "ns": 310.629,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 306.0325,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1259.7335,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 286.249,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 300.168,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1247.443,
+          "bytes": 1152.00016
+        }
+      }
+    },
+    {
+      "trial": 6,
+      "before": {
+        "nearest": {
+          "ns": 290.0125,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 295.481,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1254.4515,
+          "bytes": 1288.00016
+        }
+      },
+      "after": {
+        "nearest": {
+          "ns": 293.743,
+          "bytes": 288.00016
+        },
+        "interactable": {
+          "ns": 290.7815,
+          "bytes": 288.00016
+        },
+        "nestedNearest": {
+          "ns": 1285.6915,
+          "bytes": 1152.00016
+        }
+      }
+    }
+  ],
+  "tieredCompilation": "0",
+  "scope": "Alternating same-process previous/current prefixes on official search methods/walker; synthetic entity/API fixtures, not server tick or player-capacity evidence."
+}

@@ -65,12 +65,41 @@ static class Checks
   EntitySearchOptimizations.ConfigureInteractable(false);harmony.UnpatchAll(harmony.Id);
   bool patched=false;
   void Mode(bool value){if(value&&!patched){harmony.Patch(EntitySearchOptimizations.NearestTarget,prefix:new HarmonyMethod(EntitySearchOptimizations.NearestPrefixMethod));harmony.Patch(EntitySearchOptimizations.InteractableTarget,prefix:new HarmonyMethod(EntitySearchOptimizations.InteractablePrefixMethod));}else if(!value&&patched)harmony.UnpatchAll(harmony.Id);patched=value;EntitySearchOptimizations.ConfigureNearest(value);EntitySearchOptimizations.ConfigureInteractable(value);}
-  object Trial(bool value){Mode(value);return new{nearest=Measure(()=>nearest(partition,position,8,allow,EnumEntitySearchType.Creatures)),interactable=Measure(()=>interactable(partition,position,8,allow))};}
+  ActionConsumable<Entity> nestedFilter=e=>{nearest(partition,position,8,allow,EnumEntitySearchType.Creatures);return e.EntityId>2;};
+  object Trial(bool value){Mode(value);return new{nestedNearest=Measure(()=>nearest(partition,position,8,nestedFilter,EnumEntitySearchType.Creatures)),nearest=Measure(()=>nearest(partition,position,8,allow,EnumEntitySearchType.Creatures)),interactable=Measure(()=>interactable(partition,position,8,allow))};}
   var trials=new List<object>();
   for(int i=0;i<5;i++){object a,b;if(i%2==0){a=Trial(false);b=Trial(true);}else{b=Trial(true);a=Trial(false);}trials.Add(new{trial=i,stock=a,optimized=b});}
   Mode(false);
   Console.WriteLine(JsonSerializer.Serialize(new{checks,trials}));
-  Console.WriteLine("PASS entity search behavior, recursion, exceptions, thread isolation, reference clearing and allocation comparison against actual stock walker.");
+  Mode(true);nearest(partition,position,8,nestedFilter,EnumEntitySearchType.Creatures);
+  long beforeNestedReuse=EntitySearchOptimizations.Counters.ContextsCreated;
+  for(int i=0;i<64;i++)nearest(partition,position,8,nestedFilter,EnumEntitySearchType.Creatures);
+  Assert(EntitySearchOptimizations.Counters.ContextsCreated==beforeNestedReuse,"warmed re-entrant queries reuse separate cleared contexts without repeated context allocation");
+  Assert(EntitySearchOptimizations.CurrentThreadCachedContexts==2&&!EntitySearchOptimizations.CurrentThreadRetainsInputs,"two warmed re-entrant contexts are cleared and retained");
+  Entity? Deep(int depth)=>nearest(partition,position,8,e=>{if(depth>0&&Deep(depth-1)?.EntityId!=1)throw new Exception("Deep result alias");return true;},EnumEntitySearchType.Creatures);
+  Assert(Deep(8)?.EntityId==1,"deep recursion preserves each active lease result");
+  Assert(EntitySearchOptimizations.CurrentThreadCachedContexts==EntitySearchOptimizations.MaximumCachedContexts&&!EntitySearchOptimizations.CurrentThreadRetainsInputs,"deep recursion respects retained pool bound and clears all references");
+  int attempts=0;try{nearest(partition,position,8,e=>{interactable(partition,position,8,null);attempts++;throw new InvalidOperationException("nested-sentinel");},EnumEntitySearchType.Creatures);throw new Exception("Missing nested exception");}catch(InvalidOperationException e){Assert(e.Message=="nested-sentinel"&&attempts==1&&!EntitySearchOptimizations.CurrentThreadRetainsInputs,"cross-kind nested exception propagated once and cached contexts cleared");}
+  Assert(nearest(partition,position,8,allow,EnumEntitySearchType.Creatures)?.EntityId==1,"query remains usable after nested exception");
+  bool changed=false;Assert(nearest(partition,position,8,e=>{if(!changed){changed=true;EntitySearchOptimizations.ConfigureInteractable(false);}return true;},EnumEntitySearchType.Creatures)?.EntityId==1,"configuration change during query preserves active result");
+  Assert(EntitySearchOptimizations.CurrentThreadCachedContexts==0&&!EntitySearchOptimizations.CurrentThreadRetainsInputs,"configuration epoch invalidation drops all idle and active returning contexts");
+  EntitySearchOptimizations.ConfigureInteractable(true);
+  Parallel.For(0,32,_=>{for(int i=0;i<8;i++){if(nearest(partition,position,8,nestedFilter,EnumEntitySearchType.Creatures)?.EntityId!=3||EntitySearchOptimizations.CurrentThreadRetainsInputs||EntitySearchOptimizations.CurrentThreadCachedContexts>EntitySearchOptimizations.MaximumCachedContexts)throw new Exception("Nested thread scratch leaked or aliased");}});Assert(true,"concurrent recursive queries remain thread-local and bounded");
+  string MutablePosition(bool enabled)
+  {
+   Mode(enabled);var moving=new Vec3d(64,64,64);var seen=new List<long>();
+   var result=nearest(partition,moving,8,e=>{seen.Add(e.EntityId);moving.X+=.25;return true;},EnumEntitySearchType.Creatures);
+   return $"{result?.EntityId}:{moving.X:R}:{string.Join(',',seen)}";
+  }
+  Assert(MutablePosition(true)==MutablePosition(false),"predicate mutation of query position preserves native selection/order");
+  string CrossKind(bool enabled)
+  {
+   Mode(enabled);var seen=new List<long>();var result=nearest(partition,position,8,e=>{seen.Add(interactable(partition,position,8,null)!.EntityId);return e.EntityId>2;},EnumEntitySearchType.Creatures);
+   return $"{result?.EntityId}:{string.Join(',',seen)}";
+  }
+  Assert(CrossKind(true)==CrossKind(false),"cross-kind nested queries preserve native outer selection and call order");
+  Mode(false);
+  Console.WriteLine($"PASS {checks} entity search behavior, recursion, exceptions, thread isolation, reference clearing and allocation checks against actual stock walker.");
  }
  public record Measurement(double Nanoseconds,double Bytes);
  static Measurement Measure(Action action){for(int i=0;i<10000;i++)action();const int count=100000;long allocated=GC.GetAllocatedBytesForCurrentThread(),start=Stopwatch.GetTimestamp();for(int i=0;i<count;i++)action();return new(Stopwatch.GetElapsedTime(start).TotalNanoseconds/count,(GC.GetAllocatedBytesForCurrentThread()-allocated)/(double)count);}

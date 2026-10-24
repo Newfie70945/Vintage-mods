@@ -14,7 +14,11 @@ public static class EntitySearchOptimizations
 {
     private static volatile bool nearestEnabled, interactableEnabled;
     private static long generation, nearestCalls, interactableCalls, created;
+    public const int MaximumCachedContexts = 4;
     [ThreadStatic] private static Search? idle;
+    [ThreadStatic] private static Search?[]? spares;
+    [ThreadStatic] private static int spareCount;
+    public static int CurrentThreadCachedContexts => (idle==null?0:1)+spareCount;
     public static MethodInfo NearestTarget => AccessTools.Method(typeof(EntityPartitioning), "GetNearestEntity",
         [typeof(Vec3d), typeof(double), typeof(ActionConsumable<Entity>), typeof(EnumEntitySearchType)]);
     public static MethodInfo InteractableTarget => AccessTools.Method(typeof(EntityPartitioning), "GetNearestInteractableEntity",
@@ -37,10 +41,30 @@ public static class EntitySearchOptimizations
 
     public static void ConfigureNearest(bool value) { nearestEnabled = value; if (!value) InvalidateScratch(); }
     public static void ConfigureInteractable(bool value) { interactableEnabled = value; if (!value) InvalidateScratch(); }
-    private static void InvalidateScratch() { Interlocked.Increment(ref generation); idle = null; }
+    private static void InvalidateScratch() { Interlocked.Increment(ref generation); idle = null; spares=null;spareCount=0; }
     public static (long NearestCalls, long InteractableCalls, long ContextsCreated) Counters =>
         (Interlocked.Read(ref nearestCalls), Interlocked.Read(ref interactableCalls), Interlocked.Read(ref created));
-    public static bool CurrentThreadRetainsInputs => idle != null && (idle.Position != null || idle.Matches != null || idle.Nearest != null);
+    public static bool CurrentThreadRetainsInputs
+    {
+        get
+        {
+            if(idle!=null&&(idle.Position!=null||idle.Matches!=null||idle.Nearest!=null))return true;
+            for(int i=0;i<spareCount;i++){var state=spares![i]!;if(state.Position!=null||state.Matches!=null||state.Nearest!=null)return true;}
+            return false;
+        }
+    }
+    private static Search? RentSpare(long epoch)
+    {
+        if(spareCount==0)return null;
+        var state=spares![--spareCount]!;spares[spareCount]=null;
+        if(state.Generation==epoch)return state;
+        spares=null;spareCount=0;return null;
+    }
+    private static void KeepSpare(Search state)
+    {
+        if(spareCount>=MaximumCachedContexts-1)return;
+        spares??=new Search?[MaximumCachedContexts-1];spares[spareCount++]=state;
+    }
 
     public static bool NearestPrefix(EntityPartitioning __instance, Vec3d position, double radius,
         ActionConsumable<Entity>? matches, EnumEntitySearchType searchType, ICoreAPI ___api, ref Entity? __result)
@@ -67,8 +91,9 @@ public static class EntitySearchOptimizations
         idle = null; // Recursive queries check out a different context.
         if (state == null || state.Generation != epoch)
         {
-            state = new Search(epoch);
-            Interlocked.Increment(ref created);
+            if(state!=null){spares=null;spareCount=0;}
+            state=RentSpare(epoch);
+            if(state==null){state = new Search(epoch);Interlocked.Increment(ref created);}
         }
         state.Position = position; state.Matches = matches;
         state.DistanceSq = radius * radius; state.Interactable = interactable;
@@ -82,7 +107,8 @@ public static class EntitySearchOptimizations
         finally
         {
             state.Position = null; state.Matches = null; state.Nearest = null;
-            if (Volatile.Read(ref generation) == epoch && idle == null) idle = state;
+            if (Volatile.Read(ref generation) == epoch)
+            { if(idle==null)idle=state;else KeepSpare(state); }
         }
     }
 

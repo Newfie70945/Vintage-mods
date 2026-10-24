@@ -7,10 +7,11 @@ if args.duration<0:p.error('--duration must be nonnegative')
 root=(args.data_dir or Path(__file__).resolve().parent).resolve();game=args.game_dir.resolve();dll=game/'VintagestoryServer.dll'
 if not dll.is_file():p.error('Use your own official 1.22.7 directory containing VintagestoryServer.dll')
 import shutil
-optimizer=root/'OptionalOptimizer/NewfiesServerOptimizer-0.20.5-preview.zip'
+optimizers=list((root/'OptionalOptimizer').glob('NewfiesServerOptimizer-*.zip'))
+if args.optimizer!='off' and len(optimizers)!=1:p.error('Keep exactly one optimizer ZIP in OptionalOptimizer before enabling it.')
 for current in (root/'Mods').glob('NewfiesServerOptimizer-*.zip'):current.unlink()
 if args.optimizer!='off':
- shutil.copy2(optimizer,root/'Mods'/optimizer.name)
+ optimizer=optimizers[0];shutil.copy2(optimizer,root/'Mods'/optimizer.name)
  profile={'reference':'reference.json','barrel':'barrel-candidate.json','collision':'collision-candidate.json'}[args.optimizer]
  settings=json.loads((root/'Profiles'/profile).read_text());settings['Profiling']['AutoStart']=False;(root/'ModConfig/optimizer.json').write_text(json.dumps(settings,indent=2)+'\n')
 config=json.loads((root/'serverconfig.json').read_text());config.update(Ip='127.0.0.1',Port=42579,AdvertiseServer=False,Upnp=False,VerifyPlayerAuth=True,ModPaths=['Mods',str(root/'Mods')]);config['WorldConfig']['SaveFileLocation']=str(root/'Saves/intensive.vcdbs');(root/'serverconfig.json').write_text(json.dumps(config,indent=2)+'\n')
