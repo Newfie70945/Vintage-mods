@@ -14,6 +14,7 @@ using Vintagestory.Server;
 // synthetic controls, not representative players or bot capacity evidence.
 public sealed class ModpackProbe:ModSystem
 {
+ private delegate bool VariantMatch(RecipeBase recipe,List<ItemStack> stacks,IRecipeIngredient?[] ingredients);
  private readonly List<Entity> animals=[];
  private long moves,vetoCalls,taskStarts,filterCalls;
  private static long barrelTicks,firepitTicks;
@@ -45,6 +46,29 @@ public sealed class ModpackProbe:ModSystem
    if(type==null){Emit("OPTIMIZER_STATE",new{installed=false,modules=Array.Empty<object>(),counters=new Dictionary<string,long>(),profileRunning=false});return TextCommandResult.Success();}
    var system=api.ModLoader.GetModSystem(type.FullName!);var engine=Field(system,"optimizations");var profiler=Field(system,"profiler");
    Emit("OPTIMIZER_STATE",new{installed=true,modules=engine.GetType().GetMethod("Modules")!.Invoke(engine,null),counters=engine.GetType().GetMethod("Counters")!.Invoke(engine,null),profileRunning=(bool)profiler.GetType().GetProperty("IsRunning")!.GetValue(profiler)!});return TextCommandResult.Success();
+  });
+  Add("nosloadvariantstress",()=>{
+   var type=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("NewfiesOptimizer.Optimizations.RecipeOptimizations")).First(t=>t!=null)!;
+   var configure=type.GetMethod("Configure")!;
+   var match=AccessTools.Method(typeof(RecipeBase),"MatchWildcardIngredients").CreateDelegate<VariantMatch>();
+   var item=api.World.GetItem(new AssetLocation("game:stick"));
+   var stack=new ItemStack(item,64);stack.Attributes.SetString("nosfixture","untouched");
+   var recipe=new GridRecipe();IRecipeIngredient?[] ingredients={new CraftingRecipeIngredient{Code=new("game:st*"),Type=EnumItemClass.Item,Quantity=1,MatchingType=EnumRecipeMatchType.Wildcard,AllowedVariants=new[]{"ick"}}};
+   var input=new List<ItemStack>(1);var measurements=new List<object>();
+   try
+   {
+    foreach(bool on in new[]{false,true,true,false})
+    {
+     configure.Invoke(null,new object[]{1,on});
+     void Check(){input.Clear();input.Add(stack);if(!match(recipe,input,ingredients)||input.Count!=0||stack.StackSize!=64||stack.Attributes.GetString("nosfixture")!="untouched")throw new Exception("Variant match changed input/result");}
+     for(int i=0;i<10000;i++)Check();
+     const int n=100000;long bytes=GC.GetAllocatedBytesForCurrentThread();var timer=Stopwatch.StartNew();
+     for(int i=0;i<n;i++)Check();
+     measurements.Add(new{enabled=on,queries=n,nsPerMatch=timer.Elapsed.TotalNanoseconds/n,bytesPerMatch=(GC.GetAllocatedBytesForCurrentThread()-bytes)/(double)n});
+    }
+   }
+   finally{configure.Invoke(null,new object[]{1,true});}
+   Emit("VARIANT_STRESS",new{measurements,stackSize=stack.StackSize,attributesPreserved=true,scope="Native server helper and real stick item; scratch stacks only, no player inventories or production TPS claim."});return TextCommandResult.Success();
   });
   Add("nosloadmods",()=>{Emit("MODS",api.ModLoader.Mods.Where(m=>m.Info!=null).Select(m=>new{id=m.Info.ModID,version=m.Info.Version,enabled=api.ModLoader.IsModEnabled(m.Info.ModID)}).ToArray());return TextCommandResult.Success();});
   Add("nosloadblocks",()=>{

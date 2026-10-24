@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text.Json;
 using HarmonyLib;
+using Vintagestory.API.Util;
 using NewfiesOptimizer.Optimizations;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -14,7 +15,8 @@ using Vintagestory.Server;
 
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,name)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib"),Path.Combine(game,"Mods")}){var path=Path.Combine(folder,name.Name+".dll");if(File.Exists(path))return AssemblyLoadContext.Default.LoadFromAssemblyPath(path);}return null;};
-Checks.Run();
+if(Environment.GetEnvironmentVariable("NOS_RECIPE_COMPARE_ONLY")=="1") RecipeVariantComparison.Run();
+else Checks.Run();
 public class Proxy:DispatchProxy
 {
  public System.Func<MethodInfo,object?[]?,object?> Handler=null!;
@@ -83,6 +85,15 @@ static class Checks
  public static void Run()
  {
   for(int i=0;i<2;i++){Check(RecipeOptimizations.ValidateContract(i,out var why),why);Check(EntityQueryScratchOptimizations.ValidateContract(i,out why),why);}
+  var random=new Random(1042);
+  string[] patterns={"test:wood-*","test:*","*:*","test:wood-*-aged","other:wood-*","test:plain","test:*a*"};
+  string[] codes={"test:wood-oak","test:wood-","test:wood-*","test:wood-pine-aged","test:plain","other:wood-oak","test:wood-Érable","test:wood-OAK"};
+  string[]?[] variants={null,Array.Empty<string>(),new[]{"oak"},new[]{"OAK","Érable"},new string[]{null!,"","pine-aged","oak"}};
+  for(int i=0;i<10000;i++)
+  {
+   var needle=new AssetLocation(patterns[random.Next(patterns.Length)]);var haystack=new AssetLocation(codes[random.Next(codes.Length)]);var allowed=variants[random.Next(variants.Length)];
+   Check(RecipeOptimizations.MatchCode(needle,haystack,allowed)==WildcardUtil.Match(needle,haystack,allowed),"variant span result matches official matcher");
+  }
   var recipe=new GridRecipe();HookItem a=Item(1,"test:wood-oak"),b=Item(2,"test:wood-pine"),c=Item(3,"test:stone");
   var slots=new[]{Slot(Stack(a,2)),Slot(null),Slot(Stack(a,4)),Slot(Stack(a,3,1)),Slot(Stack(b,2))};
   var destination=new List<ItemStack>{Stack(c,5)};merge(recipe,slots,destination);string expectedMerge=Describe(destination),inputs=Describe(slots.Where(s=>s.Itemstack!=null).Select(s=>s.Itemstack!));
@@ -90,6 +101,9 @@ static class Checks
   var ingredients=new IRecipeIngredient?[]{null,new CraftingRecipeIngredient{MatchingType=EnumRecipeMatchType.Exact},Ingredient("test:wood-*",2),Ingredient("test:stone",1)};
   var wildInput=new List<ItemStack>{Stack(c),Stack(b),Stack(a,2),Stack(c,2)};
   bool stockWild=wild(recipe,wildInput,ingredients);string expectedWild=Describe(wildInput),expectedHooks=string.Join(',',hooks);
+  var allowedIngredient=Ingredient("test:wood-*");allowedIngredient.AllowedVariants=new[]{"oak"};
+  var allowedInput=new List<ItemStack>{Stack(a,2),Stack(b)};hooks.Clear();
+  bool nativeAllowed=wild(recipe,allowedInput,new[]{allowedIngredient});string nativeAllowedRest=Describe(allowedInput),nativeAllowedHooks=string.Join(',',hooks);
   var failedInput=new List<ItemStack>{Stack(a)};hooks.Clear();bool stockFailed=wild(recipe,failedInput,new[]{Ingredient("test:wood-*",2)});string failedHooks=string.Join(',',hooks);
   string nullSlots=Error(()=>merge(recipe,null!,new()));string nullIngredient=Error(()=>wild(recipe,new(),null!));string nullSlot=Error(()=>merge(recipe,new ItemSlot[]{null!},new()));
   var fixture=World();var pos=new Vec3d(4,4,4);BlockPos first=new BlockPos(0,0,0),last=new BlockPos(10,10,10);var order=new List<long>();ActionConsumable<Entity> predicate=e=>{order.Add(e.EntityId);return e.EntityId%2!=0;};
@@ -97,6 +111,8 @@ static class Checks
   var edgeCases=new (Vec3d Pos,float H,float V)[]{(pos,0,0),(new(-1,4,4),6,4),(pos,-1,2),(pos,2,-1),(new(4,32772,4),6,4)};
   var stockEdges=edgeCases.Select(v=>Ids(around(fixture.World,v.Pos,v.H,v.V,null))).ToArray();
   Mode(true);
+  allowedInput=new(){Stack(a,2),Stack(b)};hooks.Clear();
+  Check(wild(recipe,allowedInput,new[]{allowedIngredient})==nativeAllowed&&Describe(allowedInput)==nativeAllowedRest&&string.Join(',',hooks)==nativeAllowedHooks,"allowed-variant crafting keeps stack consumption and hook order");
   destination=new(){Stack(c,5)};merge(recipe,slots,destination);Check(Describe(destination)==expectedMerge,"merge quantities, first match, attributes and initial destination preserved");
   Check(inputs==Describe(slots.Where(s=>s.Itemstack!=null).Select(s=>s.Itemstack!)),"input stacks and attributes remain unchanged");
   Check(!ReferenceEquals(destination[1],slots[0].Itemstack),"merged stacks retain independent clones");

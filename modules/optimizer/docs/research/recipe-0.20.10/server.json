@@ -1,0 +1,39 @@
+{
+  "measurements": [
+    {
+      "enabled": false,
+      "queries": 100000,
+      "nsPerMatch": 447.061,
+      "bytesPerMatch": 168.0008
+    },
+    {
+      "enabled": true,
+      "queries": 100000,
+      "nsPerMatch": 320.701,
+      "bytesPerMatch": 0.0008
+    },
+    {
+      "enabled": true,
+      "queries": 100000,
+      "nsPerMatch": 298.42,
+      "bytesPerMatch": 0.0008
+    },
+    {
+      "enabled": false,
+      "queries": 100000,
+      "nsPerMatch": 502.181,
+      "bytesPerMatch": 168.0008
+    }
+  ],
+  "stackSize": 64,
+  "attributesPreserved": true,
+  "scope": "Native server helper and real stick item; scratch stacks only, no player inventories or production TPS claim.",
+  "gameVersion": "1.22.7",
+  "suiteVersion": "1.2.51",
+  "optimizerVersion": "0.20.10-preview",
+  "moduleState": "active",
+  "exitCode": 0,
+  "saveIntegrity": "ok",
+  "errorCount": 0,
+  "authenticatedPlayers": 0
+}

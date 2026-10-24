@@ -1,4 +1,12 @@
-# NOS 0.20.9 preview validation
+# NOS 0.20.10 preview validation
+
+All 31 required automated suites passed with none skipped on official Vintage Story 1.22.7. Build: zero warnings/errors. Recipe/query coverage: 10,068 checks including 10,000 native conformance cases; block callback coverage: 109; engine lifecycle/conflict coverage: 138. Direct comparisons against the actual previous release and a separate installed-module server check passed; saved-world integrity and clean shutdown passed. [Exact measurements and limitations](performance-0.20.10.md).
+
+The separately compiled lab fixture adds a recipe-matching stress command using scratch stacks only. It is test code, not a production mod. The discarded barrel experiments are absent from the release. Suite remains 1.2.51.
+
+## Prior validation
+
+### NOS 0.20.9 preview validation
 
 All 31 automated validation suites completed with none skipped against official Vintage Story 1.22.7. The block callback suite passed 106 checks, including the exact public Steep & Brew 0.7.1 postfix, unchanged mismatch results, its tea/decoction restrictions, and rejection of an unknown postfix using the same owner string. Existing dependency conflict and engine lifecycle checks remain enabled.
 

@@ -18,6 +18,31 @@ public static class RecipeOptimizations
         1 => AccessTools.Method(typeof(RecipeBase), "MatchWildcardIngredients", [typeof(List<ItemStack>), typeof(IRecipeIngredient[])]),
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
+    private static long variantFastPaths;
+    public static long VariantFastPaths => Interlocked.Read(ref variantFastPaths);
+    public static MethodBase[] Dependencies(int kind) => kind==0 ? [Target(0)] :
+        [Target(1), AccessTools.Method(typeof(WildcardUtil),nameof(WildcardUtil.Match),[typeof(AssetLocation),typeof(AssetLocation),typeof(string[])]),
+         AccessTools.Method(typeof(WildcardUtil),nameof(WildcardUtil.MatchesVariants))];
+    public static bool MatchCode(AssetLocation? wildcard, AssetLocation? code, string[]? variants)
+    {
+        // Optimize only the allocation-producing native trailing-star variant case.
+        // All other patterns, nulls and mod AssetLocation subclasses retain native behavior.
+        if(variants==null || wildcard?.GetType()!=typeof(AssetLocation) || code?.GetType()!=typeof(AssetLocation))
+            return WildcardUtil.Match(wildcard!,code!,variants);
+        string pattern=wildcard.Path;
+        int prefix=pattern.Length-1;
+        if(prefix<0 || pattern[prefix]!='*' || pattern.IndexOf('*')!=prefix)
+            return WildcardUtil.Match(wildcard,code,variants);
+        Interlocked.Increment(ref variantFastPaths);
+        if(wildcard.Domain=="*" && pattern=="*")return true;
+        if(wildcard.Equals(code))return true;
+        if(wildcard.Domain!="*" && !wildcard.Domain.Equals(code.Domain))return false;
+        if(!StringUtil.FastStartsWith(code.Path,pattern,prefix) || code.Path.Length<=prefix)return false;
+        var value=code.Path.AsSpan(prefix);
+        foreach(string? variant in variants)
+            if(variant!=null && value.SequenceEqual(variant.AsSpan()))return true;
+        return false;
+    }
     public static bool ValidateContract(int kind, out string reason)
     {
         var method = Target(kind);
@@ -63,7 +88,7 @@ public static class RecipeOptimizations
             while (!found && index < suppliedStacks.Count)
             {
                 var stack = suppliedStacks[index++];
-                found = ingredient.Type == stack.Class && WildcardUtil.Match(ingredient.Code, stack.Collectible.Code, ingredient.AllowedVariants)
+                found = ingredient.Type == stack.Class && MatchCode(ingredient.Code, stack.Collectible.Code, ingredient.AllowedVariants)
                     && stack.StackSize >= ingredient.Quantity && ingredient.Tags.Matches(in stack.Collectible.Tags);
                 // Stock calls this even when the preliminary comparison failed.
                 found &= stack.Collectible.MatchesForCrafting(stack, __instance, ingredient);

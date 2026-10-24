@@ -199,6 +199,13 @@ static class Checks
    }
    foreign.UnpatchAll(foreign.Id);
   }
+  foreach(var dependency in RecipeOptimizations.Dependencies(1).Skip(1))
+  {
+   foreign.Patch(dependency,prefix:prefix);
+   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+    Assert(module.Modules().Single(x=>x.Name=="shapelessWildcardMatch").Status=="conflict","foreign wildcard dependency retains native behavior");
+   foreign.UnpatchAll(foreign.Id);
+  }
   var recipeFailure=Api();
   using(var module=new EngineOptimizations(recipeFailure.Api,Config(),()=>200))
   {

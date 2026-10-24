@@ -82,6 +82,18 @@ static class Checks
    BarrelCountOptimizations.Configure(false);bool stock=recipe.Matches(inputs,out int nativeSize);
    BarrelCountOptimizations.Configure(true);Assert(recipe.Matches(inputs,out int fastSize)==stock&&fastSize==nativeSize,"count rejection preserves native result/output");
   }
+  var successful=new BarrelRecipe{Ingredients=[Ingredient("test:fruit-a")],Output=new(){Code=new("test:output"),StackSize=3}};
+  foreach(var candidate in new[]{successful,new BarrelRecipe{Ingredients=successful.Ingredients,Output=null!}})
+  {
+   var input=new[]{Slot(a)};
+   BarrelCountOptimizations.Configure(false);string nativeError=Error(()=>candidate.Matches(input,out _));
+   BarrelCountOptimizations.Configure(true);Assert(Error(()=>candidate.Matches(input,out _))==nativeError,"matching-count native exception behavior retained");
+   if(candidate.Output!=null)
+   {
+    BarrelCountOptimizations.Configure(false);bool expectedMatch=candidate.Matches(input,out int expectedSize);
+    BarrelCountOptimizations.Configure(true);Assert(candidate.Matches(input,out int size)==expectedMatch&&size==expectedSize&&size==3,"matching recipe native output retained");
+   }
+  }
   int guardOutput=99;bool result=true;BarrelCountOptimizations.Configure(true);
   Assert(BarrelCountOptimizations.Prefix(recipe,slots,ref guardOutput,ref result,out _)&&guardOutput==99&&result,"matching counts retain native hooks");
   Assert(BarrelCountOptimizations.Prefix(new CustomBarrelRecipe{Ingredients=recipe.Ingredients},new[]{Slot(a)},ref guardOutput,ref result,out _),"custom recipe count guard falls back");
