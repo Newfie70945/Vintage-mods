@@ -14,9 +14,10 @@ public sealed partial class OptimizerMod
         available = true, protocol = 1, version = typeof(OptimizerMod).Assembly.GetName().Version?.ToString(3) ?? "unknown", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
+        capabilities = new[] { "crafting-candidate-dedup", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
+            craftingCandidateDedup=currentConfig.EngineOptimizations.CraftingCandidateDedup,
             blockSimulationBudget=currentConfig.EngineOptimizations.BlockSimulationBudget,blockSimulationBudgetMs=currentConfig.EngineOptimizations.BlockSimulationBudgetMs,
             barrelMatchCountGuard = currentConfig.EngineOptimizations.BarrelMatchCountGuard,
             barrelIngredientPairing = currentConfig.EngineOptimizations.BarrelIngredientPairing,
@@ -128,6 +129,7 @@ public sealed partial class OptimizerMod
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
                 case "idleFirepitFastPath": candidate.EngineOptimizations.IdleFirepitFastPath=B(); break;
+                case "craftingCandidateDedup": candidate.EngineOptimizations.CraftingCandidateDedup=B(); break;
                 case "blockSimulationBudget": candidate.EngineOptimizations.BlockSimulationBudget=B(); break;
                 case "blockSimulationBudgetMs": candidate.EngineOptimizations.BlockSimulationBudgetMs=N(1,20); break;
                 case "barrelMatchCountGuard": candidate.EngineOptimizations.BarrelMatchCountGuard=B(); break;

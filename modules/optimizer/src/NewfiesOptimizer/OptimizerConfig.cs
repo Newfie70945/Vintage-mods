@@ -89,6 +89,7 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool CraftingCandidateDedup { get; set; } = false;
     public bool BlockSimulationBudget { get; set; } = false;
     public int BlockSimulationBudgetMs { get; set; } = 5;
     public bool BarrelMatchCountGuard { get; set; } = false;

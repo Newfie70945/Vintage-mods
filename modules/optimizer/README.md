@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.7 preview
+# Newfie's Server Optimizer 0.20.8 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -15,6 +15,7 @@ A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. Th
 | Missing-attribute resync suppression (opt-in) | Avoids full synchronization after removing a nonexistent key | Actual removals, null-key handling and subclasses remain stock |
 | Empty broadcast exclusions (opt-in) | Normalize empty method-local exclusion arrays to null before the original raw/packet/UDP broadcast | All original send, serialization, compression, enumeration and nonempty filtering logic remains |
 | Entity lifecycle lists (opt-in) | Bounded, isolated temporary cleanup and despawn lists | Every entity tick and send remains stock; packet arrays are not pooled; references cleared on success/failure |
+| Crafting recipe search (opt-in) | Faster candidate deduplication and bounded temporary list reuse | Full batches and every native ingredient, matching, output and XP hook retained; custom equality uses native membership |
 | Despawn packet projection | Removes three LINQ projection iterators per despawn packet | Same IDs, reasons, damage sources, order and independently owned output arrays |
 | Physics packet list reuse | Bounded per-thread temporary lists | Original packet arrays, filtering, batching and sends; references cleared on failure and success |
 | Nearest-entity search reuse | Reuses per-thread search closure/delegate state | Same stock walker, distance/tie rules, callback order and exceptions; no inputs retained between calls |
@@ -181,3 +182,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.20.6 bounds and reuses nested entity-search scratch without enlarging the ordinary query state. [Focused results and limitations](docs/performance-0.20.6.md).
 
 0.20.7 reduces CPU cost in despawn packet projection while retaining native packet bytes and independent output ownership. It also detects foreign patches on the LINQ operators that replacement bypasses. [Component measurements and limits](docs/performance-0.20.7.md).
+
+0.20.8 adds opt-in faster duplicate membership in server crafting recipe searches. Full shift-click batches, ingredient checks, recipe ranking, output and XP hooks remain native. Enable `CraftingCandidateDedup` under Suite → Optimizations → Crafting recipe search. [Evidence and limits](docs/performance-0.20.8.md).

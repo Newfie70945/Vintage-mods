@@ -1,0 +1,134 @@
+{
+  "checks": 70,
+  "stockCraft": {
+    "output": 1024,
+    "consumed": 256,
+    "generated": 256,
+    "craftedEvents": 8,
+    "amounts": [
+      0,
+      4,
+      0,
+      4,
+      0,
+      4,
+      0,
+      4
+    ]
+  },
+  "fastCraft": {
+    "output": 1024,
+    "consumed": 256,
+    "generated": 256,
+    "craftedEvents": 8,
+    "amounts": [
+      0,
+      4,
+      0,
+      4,
+      0,
+      4,
+      0,
+      4
+    ]
+  },
+  "measurements": [
+    {
+      "trial": 0,
+      "stock": {
+        "milliseconds": 8676.1002,
+        "allocatedBytes": 36103472,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      },
+      "fast": {
+        "milliseconds": 260.4351,
+        "allocatedBytes": 19250400,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      }
+    },
+    {
+      "trial": 1,
+      "stock": {
+        "milliseconds": 8215.08,
+        "allocatedBytes": 36095232,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      },
+      "fast": {
+        "milliseconds": 244.8998,
+        "allocatedBytes": 19250400,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      }
+    },
+    {
+      "trial": 2,
+      "stock": {
+        "milliseconds": 8239.9042,
+        "allocatedBytes": 36095232,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      },
+      "fast": {
+        "milliseconds": 113.2581,
+        "allocatedBytes": 19250272,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      }
+    },
+    {
+      "trial": 3,
+      "stock": {
+        "milliseconds": 8019.0743,
+        "allocatedBytes": 36111872,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      },
+      "fast": {
+        "milliseconds": 107.6222,
+        "allocatedBytes": 19250272,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      }
+    },
+    {
+      "trial": 4,
+      "stock": {
+        "milliseconds": 8283.1972,
+        "allocatedBytes": 36111872,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      },
+      "fast": {
+        "milliseconds": 104.9573,
+        "allocatedBytes": 19266912,
+        "output": 1024,
+        "consumed": 256,
+        "generated": 256,
+        "craftedEvents": 8
+      }
+    }
+  ],
+  "tieredCompilation": "default",
+  "scope": "Official native recipe search and full server-side 64-item crafting batches; synthetic 3000-recipe index and API fixtures, not the owner's xSkills/modpack or authenticated client workload."
+}

@@ -53,6 +53,7 @@
     "RunId": ""
   },
   "EngineOptimizations": {
+    "CraftingCandidateDedup": false,
     "PhysicsPacketListReuse": true,
     "DespawnPacketProjection": true,
     "OnlinePlayerSnapshots": true,

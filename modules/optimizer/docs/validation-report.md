@@ -1,4 +1,8 @@
-# NOS 0.20.7 preview validation
+# NOS 0.20.8 preview validation
+
+The current pass adds opt-in full-batch crafting candidate acceleration and the Suite 1.2.50 control. Native four-stack outputs/consumption/callbacks match, and two alternating comparisons demonstrate lower elapsed work and allocation in a large synthetic recipe index. [Current measurements, exact scope and limitations](performance-0.20.8.md). All 31 current automated validation suites completed with none skipped. Crafting coverage includes 62 functional checks; engine lifecycle/conflict coverage includes 136 checks. The updated Suite builds without warnings and its extracted web script passes Node syntax validation. Full current validation results are recorded in the build manifest.
+
+## Prior validation
 
 The 0.20.7 build completed all 30 automated validation suites with no skipped suites against the inspected official Vintage Story 1.22.7 assemblies. Module/version checks and archive integrity checks also pass. The source and compiled preview retain the same configuration defaults; Suite remains 1.2.50.
 

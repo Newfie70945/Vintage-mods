@@ -1,0 +1,12 @@
+{
+  "shouldLoadServer": false,
+  "shouldLoadClient": true,
+  "serverStartDeclaredBy": "Vintagestory.API.Common.ModSystem",
+  "patchStartup": [
+    "StartClientSide"
+  ],
+  "version": "0.19.1",
+  "downloadUrl": "https://mods.vintagestory.at/download/132629/HandbookOptimizer-0.19.1.zip",
+  "zipSha256": "310226a5ba19a373333e24483c27917d3db7d9085767743627a5a2dcbcb3460c",
+  "scope": "Read-only reflection check of the official public mod DLL against official 1.22.7 assemblies; StartClientSide was not invoked. This checks public 0.19.1, not any locally modified server binary."
+}
