@@ -77,7 +77,7 @@ def main() -> int:
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
-        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md", "docs/performance-0.9.1.md", "docs/performance-0.10.0.md", "docs/performance-0.11.0.md", "docs/performance-0.12.0.md", "docs/performance-0.13.0.md", "docs/performance-0.14.0.md", "docs/performance-0.15.0.md", "docs/performance-0.16.0.md", "docs/performance-0.16.1.md", "docs/performance-0.17.0.md", "docs/performance-0.18.0.md", "docs/performance-0.18.1.md", "docs/replacement-coverage.md"):
+        for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md", "docs/performance-0.9.1.md", "docs/performance-0.10.0.md", "docs/performance-0.11.0.md", "docs/performance-0.12.0.md", "docs/performance-0.13.0.md", "docs/performance-0.14.0.md", "docs/performance-0.15.0.md", "docs/performance-0.16.0.md", "docs/performance-0.16.1.md", "docs/performance-0.17.0.md", "docs/performance-0.18.0.md", "docs/performance-0.18.1.md", "docs/performance-0.19.0.md", "docs/replacement-coverage.md"):
             path = ROOT / name
             if path.is_file():
                 archive.write(path, "guides/" + path.name)

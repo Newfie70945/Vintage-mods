@@ -111,6 +111,7 @@
     "ShapelessWildcardMatch": false,
     "DelayedCallbackSnapshotReuse": false,
     "SpawnOpportunityListReuse": false,
-    "SpawnColumnArrayReuse": false
+    "SpawnColumnArrayReuse": false,
+    "BarrelMatchCountGuard": false
   }
 }

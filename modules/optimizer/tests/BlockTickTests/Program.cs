@@ -68,6 +68,29 @@ static class Checks
   var recipe=new BarrelRecipe{Ingredients=[Ingredient("test:fruit-*"),Ingredient("test:fruit-b")]};var slots=new[]{Slot(a),Slot(b)};
   var hookOrder=new List<string>();a.Hook=()=>hookOrder.Add("a");b.Hook=()=>hookOrder.Add("b");
   var nativePairs=pair(recipe,slots);string expected=Describe(nativePairs),order=string.Join(',',hookOrder);Assert(nativePairs.Count==2,"native barrel matcher fixture");
+  Assert(BarrelCountOptimizations.ValidateContract(out var countWhy),countWhy);
+  var countHarmony=new Harmony("test.nos.barrelcount");
+  countHarmony.Patch(BarrelCountOptimizations.Target,prefix:new HarmonyMethod(typeof(BarrelCountOptimizations),nameof(BarrelCountOptimizations.Prefix)),finalizer:new HarmonyMethod(typeof(BarrelCountOptimizations),nameof(BarrelCountOptimizations.Finalizer)));
+  foreach(var inputs in new[]{Array.Empty<ItemSlot>(),new[]{Slot(a)},new[]{Slot(null),Slot(b)},new[]{Slot(null),Slot(null)}})
+  {
+   BarrelCountOptimizations.Configure(false);bool stock=recipe.Matches(inputs,out int nativeSize);
+   BarrelCountOptimizations.Configure(true);Assert(recipe.Matches(inputs,out int fastSize)==stock&&fastSize==nativeSize,"count rejection preserves native result/output");
+  }
+  int guardOutput=99;bool result=true;BarrelCountOptimizations.Configure(true);
+  Assert(BarrelCountOptimizations.Prefix(recipe,slots,ref guardOutput,ref result,out _)&&guardOutput==99&&result,"matching counts retain native hooks");
+  Assert(BarrelCountOptimizations.Prefix(new CustomBarrelRecipe{Ingredients=recipe.Ingredients},new[]{Slot(a)},ref guardOutput,ref result,out _),"custom recipe count guard falls back");
+  var mismatch=new[]{Slot(a)};
+  var countMeasurements=new List<object>();
+  foreach(bool mode in new[]{false,true,false,true})
+  {
+   BarrelCountOptimizations.Configure(mode);for(int warm=0;warm<1000;warm++)recipe.Matches(mismatch,out _);
+   long alloc=GC.GetAllocatedBytesForCurrentThread();var timing=Stopwatch.StartNew();
+   for(int repeat=0;repeat<100000;repeat++)if(recipe.Matches(mismatch,out _))throw new Exception("impossible count matched");
+   double ns=timing.Elapsed.TotalNanoseconds/100000;long bytes=GC.GetAllocatedBytesForCurrentThread()-alloc;
+   countMeasurements.Add(new{enabled=mode,bytesPerCall=bytes/100000.0,nsPerCall=ns});
+  }
+  Console.WriteLine(JsonSerializer.Serialize(new{barrelCountGuard=countMeasurements,scope="Actual native Matches count mismatch, no player/TPS claim"}));
+  countHarmony.UnpatchAll(countHarmony.Id);BarrelCountOptimizations.Configure(false);
   var noBehavior=new BlockEntityWildFruitingBush();bush(noBehavior,out var nativeInterval,out var nativeEnd);Assert(nativeInterval==null&&nativeEnd==null,"native no-behavior bush fixture");
   string[] prefixes=[nameof(BlockTickOptimizations.FirepitPrefix),nameof(BlockTickOptimizations.BarrelPrefix),nameof(BlockTickOptimizations.BushPrefix)];
   string[] finalizers=[nameof(BlockTickOptimizations.FirepitFinalizer),nameof(BlockTickOptimizations.BarrelFinalizer),nameof(BlockTickOptimizations.BushFinalizer)];

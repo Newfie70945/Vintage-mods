@@ -88,6 +88,7 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool BarrelMatchCountGuard { get; set; } = false;
     public bool IdleFirepitFastPath { get; set; } = false;
     public bool BarrelIngredientPairing { get; set; } = true;
     public bool WildBushCallbackFlatten { get; set; } = true;

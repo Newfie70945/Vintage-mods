@@ -1,0 +1,25 @@
+{
+  "barrelCountGuard": [
+    {
+      "enabled": false,
+      "bytesPerCall": 32.0056,
+      "nsPerCall": 544.553
+    },
+    {
+      "enabled": true,
+      "bytesPerCall": 0.0004,
+      "nsPerCall": 47.339
+    },
+    {
+      "enabled": false,
+      "bytesPerCall": 32.0004,
+      "nsPerCall": 68.418
+    },
+    {
+      "enabled": true,
+      "bytesPerCall": 0.0004,
+      "nsPerCall": 42.74
+    }
+  ],
+  "scope": "Actual native Matches count mismatch, no player/TPS claim"
+}

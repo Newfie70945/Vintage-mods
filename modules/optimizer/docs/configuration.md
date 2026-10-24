@@ -250,3 +250,7 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 New configurations enable `EngineOptimizations.AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. A missing field inherits that default; an explicitly saved false remains false through normalization and reload. To adopt these on an existing config, enable the three switches in Suite → Optimizations → Newfies Server Optimizer, then Save and Apply NOS Settings. No restart is required for Suite Apply. Inspect each actual module state: unsupported builds, conflicts or failures retain stock behavior. Master off and Safe Mode still disable them.
 
 These changes remove temporary allocations. They do not reduce animation frequency, cooking/fermentation, berry growth or save frequency. Idle firepit, distance policies, path budgets and unload staging remain opt-in.
+
+## Barrel count guard (0.19.0)
+
+`EngineOptimizations.BarrelMatchCountGuard=false` controls rejection of impossible native barrel ingredient counts without allocating a failed-match list. Enable individually and verify actual state/counters. Matching recipes and custom types retain native behavior. See [evidence and limits](performance-0.19.0.md).

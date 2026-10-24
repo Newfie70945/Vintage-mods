@@ -1,4 +1,4 @@
-# NOS replacement coverage — 0.18.1 preview
+# NOS replacement coverage — 0.19.0 preview
 
 Public feature catalogs rechecked on 2026-10-23 at [Tungsten](https://mods.vintagestory.at/tungsten) and [Synergy](https://mods.vintagestory.at/synergy). This compares documented purposes, not copied implementations or equivalent performance. NOS patches the inspected official 1.22.7 assemblies in memory; the original engine remains responsible for gameplay and networking. The installed NOS module status, not this table, establishes whether a patch is active.
 
@@ -51,3 +51,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.18.0 adds independent, default-off empty-firepit, barrel pairing, wild-bush wrapper and private chunk-unload staging modules, with Suite 1.2.49 controls. [Boundaries and evidence](performance-0.18.0.md).
 
 0.18.1 promotes animation scanning, barrel pairing and berry callback flattening to defaults for absent settings, preserving explicit opt-outs and all compatibility guards. [Upgrade notes](performance-0.18.1.md).
+
+0.19.0 adds optional native barrel count-mismatch rejection without an empty pairing-list allocation. This does not replace general recipe scanning or mod-specific cooking/XP work. [Evidence](performance-0.19.0.md).
