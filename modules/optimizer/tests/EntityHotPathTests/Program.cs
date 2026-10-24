@@ -87,7 +87,19 @@ static class Checks
   chunk.Entities[0].Clear();chunk.Entities[0].AddRange(originalNeighbors);
   var trials=new List<object>();bool patched=false;var empty=new AiTaskManager(null!);
   void Mode(bool value){if(value&&!patched){harmony.Patch(AiFilterOptimizations.Target,transpiler:new HarmonyMethod(AiFilterOptimizations.TranspilerMethod));harmony.Patch(RepulseDelegateOptimizations.Target,transpiler:new HarmonyMethod(RepulseDelegateOptimizations.TranspilerMethod));}else if(!value&&patched)harmony.UnpatchAll(harmony.Id);patched=value;AiFilterOptimizations.Configure(value);RepulseDelegateOptimizations.Configure(value);}
-  object Trial(bool value){Mode(value);return new{filteredAi=Measure(()=>ai(manager,null!),300000),unfilteredAi=Measure(()=>ai(empty,null!),300000),repulsion=Measure(()=>tick(repulse,.033f),300000)};}
+  string SingleSnapshot(bool enabled)
+  {
+   Mode(enabled);var changingSingle=new AiTaskManager(null!);var observed=new List<int>();
+   ActionBoolReturn<IAiTask> replacement=_=>{observed.Add(2);return true;};
+   ActionBoolReturn<IAiTask>? initial=null;initial=_=>{observed.Add(1);changingSingle.OnShouldExecuteTask-=initial;changingSingle.OnShouldExecuteTask+=replacement;return false;};
+   changingSingle.OnShouldExecuteTask+=initial;
+   bool firstResult=ai(changingSingle,null!),nextResult=ai(changingSingle,null!);
+   return $"{firstResult}:{nextResult}:{string.Join(',',observed)}";
+  }
+  string nativeSingle=SingleSnapshot(false);Assert(nativeSingle=="False:True:1,2","native single subscription snapshot fixture");
+  Assert(SingleSnapshot(true)==nativeSingle,"single-target fast path preserves mutation snapshot, result and next-call subscription");
+  var single=new AiTaskManager(null!);single.OnShouldExecuteTask+=_=>false;
+  object Trial(bool value){Mode(value);return new{singleFilteredAi=Measure(()=>ai(single,null!),1000000),filteredAi=Measure(()=>ai(manager,null!),300000),unfilteredAi=Measure(()=>ai(empty,null!),300000),repulsion=Measure(()=>tick(repulse,.033f),300000)};}
   for(int i=0;i<5;i++){object stock,optimized;if(i%2==0){stock=Trial(false);optimized=Trial(true);}else{optimized=Trial(true);stock=Trial(false);}trials.Add(new{trial=i,stock,optimized});}
   Mode(false);Console.WriteLine(JsonSerializer.Serialize(trials));
   Console.WriteLine($"{checks} entity/AI correctness and allocation checks passed against actual stock methods; synthetic fixtures, not player TPS.");

@@ -24,6 +24,9 @@ public static class AiTaskStartOptimizations
     public static bool Evaluate(IAiTask task, IAiTask previous, AiTaskManager.OnExecuteTaskDelegate filters)
     {
         if (filters is null) throw new NullReferenceException();
+        // A local immutable delegate preserves subscription snapshot semantics.
+        // The common one-subscriber case needs no invocation-list enumeration.
+        if (enabled && filters.HasSingleTarget) return filters(task, previous);
         bool allow = true;
         if (enabled)
             foreach (var callback in Delegate.EnumerateInvocationList(filters)) allow &= callback(task, previous);

@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.2 preview
+# Newfie's Server Optimizer 0.20.3 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -171,3 +171,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.20.1 fixes barrel matching when collectible hooks replace recipe ingredients. [Measured tests and limits](docs/performance-0.20.1.md).
 
 0.20.2 extends the optional barrel count guard to verified native barrel-input slots. [3,000-animal mixed-workload results](docs/performance-0.20.2.md).
+
+0.20.3 avoids invocation-list enumeration for single-subscriber AI filters and task-start vetoes. [Focused measurements and limits](docs/performance-0.20.3.md).

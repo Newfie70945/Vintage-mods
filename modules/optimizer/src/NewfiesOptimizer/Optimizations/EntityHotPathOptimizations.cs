@@ -25,6 +25,7 @@ public static class AiFilterOptimizations
     {
         if(filters is null)throw new NullReferenceException();
         bool allow=true;
+        if(enabled && filters.HasSingleTarget)return filters(task);
         if(enabled) { foreach(var callback in Delegate.EnumerateInvocationList(filters))allow &= callback(task); }
         else { foreach(ActionBoolReturn<IAiTask> callback in filters.GetInvocationList())allow &= callback(task); }
         return allow;

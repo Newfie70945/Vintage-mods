@@ -1,0 +1,495 @@
+{
+  "scope": "Official Harmony targets, synthetic callbacks; before=0.20.2, after=single-target candidate. Not production TPS evidence.",
+  "results": {
+    "before": {
+      "aiTrials": [
+        {
+          "trial": 0,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 29.0377,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 65.993,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 5.626666666666667,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 699.6396666666667,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 64.2035,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 114.65033333333334,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.5713333333333335,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 357.3793333333333,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 1,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 34.6249,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 58.641333333333336,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 5.502666666666666,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 327.7133333333333,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 64.6312,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 107.35266666666666,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.972333333333333,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 332.873,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 2,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 32.9304,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 56.53633333333333,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.639333333333333,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 329.76033333333334,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 53.6933,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 100.27566666666667,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.646333333333334,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 362.07666666666665,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 3,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 44.552,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 89.33433333333333,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 16.194666666666667,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 372.47266666666667,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 56.773,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 178.86766666666668,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 5.622,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 372.37,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 4,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 43.069,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 88.22433333333333,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 15.239666666666666,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 338.5763333333333,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 92.592,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 136.87666666666667,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.462,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 329.107,
+              "Bytes": 192
+            }
+          }
+        }
+      ],
+      "taskStart": {
+        "checks": 105,
+        "trials": [
+          {
+            "singleStockNs": 274.74266666666665,
+            "singleOptimizedNs": 75.84433333333334,
+            "stockNs": 296.10066666666665,
+            "optimizedNs": 78.916,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 115.54766666666667,
+            "singleOptimizedNs": 49.852666666666664,
+            "stockNs": 139.779,
+            "optimizedNs": 80.84166666666667,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 113.44966666666667,
+            "singleOptimizedNs": 96.81566666666667,
+            "stockNs": 148.80866666666665,
+            "optimizedNs": 75.12433333333334,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 108.17866666666667,
+            "singleOptimizedNs": 60.811,
+            "stockNs": 446.64033333333333,
+            "optimizedNs": 120.147,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 246.78066666666666,
+            "singleOptimizedNs": 48.59433333333333,
+            "stockNs": 245.057,
+            "optimizedNs": 76.833,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          }
+        ],
+        "scope": "Actual official ExecuteTask target through delegate, synthetic tasks and veto subscribers; not production TPS."
+      }
+    },
+    "after": {
+      "aiTrials": [
+        {
+          "trial": 0,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 29.643,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 62.88666666666666,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 6.792,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 923.8453333333333,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 35.5656,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 144.62066666666666,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 5.150666666666667,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 328.9123333333333,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 1,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 39.1078,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 53.443666666666665,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.967666666666666,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 322.6616666666667,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 35.353,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 127.49866666666667,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 6.488,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 329.87233333333336,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 2,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 32.1088,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 54.48433333333333,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.656,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 443.05333333333334,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 33.5933,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 169.69433333333333,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.9736666666666665,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 388.891,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 3,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 65.7757,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 92.371,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 15.367333333333333,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 354.38,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 52.337,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 100.29433333333333,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 5.231,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 623.815,
+              "Bytes": 192
+            }
+          }
+        },
+        {
+          "trial": 4,
+          "stock": {
+            "singleFilteredAi": {
+              "Nanoseconds": 63.6923,
+              "Bytes": 32
+            },
+            "filteredAi": {
+              "Nanoseconds": 87.63366666666667,
+              "Bytes": 40
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 16.100666666666665,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 471.21933333333334,
+              "Bytes": 320
+            }
+          },
+          "optimized": {
+            "singleFilteredAi": {
+              "Nanoseconds": 61.2102,
+              "Bytes": 0
+            },
+            "filteredAi": {
+              "Nanoseconds": 147.63766666666666,
+              "Bytes": 0
+            },
+            "unfilteredAi": {
+              "Nanoseconds": 4.763333333333334,
+              "Bytes": 0
+            },
+            "repulsion": {
+              "Nanoseconds": 346.8326666666667,
+              "Bytes": 192
+            }
+          }
+        }
+      ],
+      "taskStart": {
+        "checks": 105,
+        "trials": [
+          {
+            "singleStockNs": 224.367,
+            "singleOptimizedNs": 32.212,
+            "stockNs": 295.255,
+            "optimizedNs": 89.35233333333333,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 109.98633333333333,
+            "singleOptimizedNs": 30.649,
+            "stockNs": 135.19233333333332,
+            "optimizedNs": 89.81433333333334,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 116.369,
+            "singleOptimizedNs": 36.98733333333333,
+            "stockNs": 271.39866666666666,
+            "optimizedNs": 140.239,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 224.412,
+            "singleOptimizedNs": 67.21,
+            "stockNs": 143.85133333333334,
+            "optimizedNs": 82.77333333333333,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          },
+          {
+            "singleStockNs": 69.44766666666666,
+            "singleOptimizedNs": 32.431333333333335,
+            "stockNs": 119.07033333333334,
+            "optimizedNs": 87.394,
+            "stockBytes": 120,
+            "optimizedBytes": 0
+          }
+        ],
+        "scope": "Actual official ExecuteTask target through delegate, synthetic tasks and veto subscribers; not production TPS."
+      }
+    }
+  }
+}

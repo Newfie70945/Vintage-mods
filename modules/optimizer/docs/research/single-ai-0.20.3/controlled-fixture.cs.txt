@@ -1,0 +1,26 @@
+using Vintagestory.API.Common;
+using System.Diagnostics;
+using System.Text.Json;
+using Vintagestory.GameContent;
+using Vintagestory.API.Util;
+using NewfiesOptimizer.Optimizations;
+System.Runtime.Loader.AssemblyLoadContext.Default.Resolving+=(_,name)=>{foreach(var d in new[]{"<official-game-dir>","<official-game-dir>/Lib","<official-game-dir>/Mods"}){var p=Path.Combine(d,name.Name+".dll");if(File.Exists(p))return System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
+AiFilterOptimizations.Configure(true);AiTaskStartOptimizations.Configure(true);
+var rows=new List<object>();
+foreach(int count in new[]{1,2,8,32}){
+ ActionBoolReturn<IAiTask> filter=null;AiTaskManager.OnExecuteTaskDelegate start=null;
+ for(int i=0;i<count;i++){filter+=_=>true;start+=(a,b)=>true;}
+ for(int trial=0;trial<7;trial++){
+  double f0=0,f1=0,s0=0,s1=0;
+  foreach(bool fast in trial%2==0?new[]{false,true}:new[]{true,false}){
+   double f=Measure(()=>fast?AiFilterOptimizations.Evaluate(null,filter):OldFilter(filter));
+   double s=Measure(()=>fast?AiTaskStartOptimizations.Evaluate(null,null,start):OldStart(start));
+   if(fast){f1=f;s1=s;}else{f0=f;s0=s;}
+  }
+  rows.Add(new{count,trial,filterOldNs=f0,filterNewNs=f1,startOldNs=s0,startNewNs=s1});
+ }
+}
+Console.WriteLine(JsonSerializer.Serialize(rows));
+static double Measure(Func<bool> call){for(int i=0;i<30000;i++)if(!call())throw new Exception();long t=Stopwatch.GetTimestamp();for(int i=0;i<500000;i++)if(!call())throw new Exception();return Stopwatch.GetElapsedTime(t).TotalNanoseconds/500000;}
+static bool OldFilter(ActionBoolReturn<IAiTask> handlers){bool allow=true;foreach(var f in Delegate.EnumerateInvocationList(handlers))allow &=f(null);return allow;}
+static bool OldStart(AiTaskManager.OnExecuteTaskDelegate handlers){bool allow=true;foreach(var f in Delegate.EnumerateInvocationList(handlers))allow &=f(null,null);return allow;}

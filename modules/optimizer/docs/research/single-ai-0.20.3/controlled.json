@@ -1,0 +1,230 @@
+{
+  "tieredCompilation": false,
+  "scope": "Alternating same-process isolated helper comparison, synthetic all-true subscribers. Prior loop body is reference, not a full official target benchmark.",
+  "trials": [
+    {
+      "count": 1,
+      "trial": 0,
+      "filterOldNs": 9.1414,
+      "filterNewNs": 4.841,
+      "startOldNs": 8.8252,
+      "startNewNs": 4.2186
+    },
+    {
+      "count": 1,
+      "trial": 1,
+      "filterOldNs": 8.3888,
+      "filterNewNs": 4.458,
+      "startOldNs": 9.0598,
+      "startNewNs": 4.9552
+    },
+    {
+      "count": 1,
+      "trial": 2,
+      "filterOldNs": 7.9166,
+      "filterNewNs": 4.757,
+      "startOldNs": 8.5422,
+      "startNewNs": 5.482
+    },
+    {
+      "count": 1,
+      "trial": 3,
+      "filterOldNs": 8.3746,
+      "filterNewNs": 4.5094,
+      "startOldNs": 9.2832,
+      "startNewNs": 5.0542
+    },
+    {
+      "count": 1,
+      "trial": 4,
+      "filterOldNs": 10.2816,
+      "filterNewNs": 4.5818,
+      "startOldNs": 9.1858,
+      "startNewNs": 5.6224
+    },
+    {
+      "count": 1,
+      "trial": 5,
+      "filterOldNs": 8.9244,
+      "filterNewNs": 4.8068,
+      "startOldNs": 9.3848,
+      "startNewNs": 5.0238
+    },
+    {
+      "count": 1,
+      "trial": 6,
+      "filterOldNs": 8.3184,
+      "filterNewNs": 4.6004,
+      "startOldNs": 9.0908,
+      "startNewNs": 5.1588
+    },
+    {
+      "count": 2,
+      "trial": 0,
+      "filterOldNs": 12.8968,
+      "filterNewNs": 14.9074,
+      "startOldNs": 12.5016,
+      "startNewNs": 14.89
+    },
+    {
+      "count": 2,
+      "trial": 1,
+      "filterOldNs": 12.1176,
+      "filterNewNs": 14.4578,
+      "startOldNs": 12.683,
+      "startNewNs": 14.573
+    },
+    {
+      "count": 2,
+      "trial": 2,
+      "filterOldNs": 12.9134,
+      "filterNewNs": 14.4578,
+      "startOldNs": 13.0864,
+      "startNewNs": 14.8982
+    },
+    {
+      "count": 2,
+      "trial": 3,
+      "filterOldNs": 13.1762,
+      "filterNewNs": 14.4252,
+      "startOldNs": 12.7264,
+      "startNewNs": 15.2008
+    },
+    {
+      "count": 2,
+      "trial": 4,
+      "filterOldNs": 12.4656,
+      "filterNewNs": 14.301,
+      "startOldNs": 12.6096,
+      "startNewNs": 14.6976
+    },
+    {
+      "count": 2,
+      "trial": 5,
+      "filterOldNs": 12.4258,
+      "filterNewNs": 13.9322,
+      "startOldNs": 13.1744,
+      "startNewNs": 14.653
+    },
+    {
+      "count": 2,
+      "trial": 6,
+      "filterOldNs": 12.6838,
+      "filterNewNs": 14.3636,
+      "startOldNs": 12.5888,
+      "startNewNs": 14.8768
+    },
+    {
+      "count": 8,
+      "trial": 0,
+      "filterOldNs": 34.4336,
+      "filterNewNs": 36.3786,
+      "startOldNs": 35.3054,
+      "startNewNs": 36.9426
+    },
+    {
+      "count": 8,
+      "trial": 1,
+      "filterOldNs": 34.9008,
+      "filterNewNs": 37.657,
+      "startOldNs": 34.795,
+      "startNewNs": 39.1214
+    },
+    {
+      "count": 8,
+      "trial": 2,
+      "filterOldNs": 35.7954,
+      "filterNewNs": 37.185,
+      "startOldNs": 36.0016,
+      "startNewNs": 38.1364
+    },
+    {
+      "count": 8,
+      "trial": 3,
+      "filterOldNs": 35.2012,
+      "filterNewNs": 37.1864,
+      "startOldNs": 34.706,
+      "startNewNs": 39.2952
+    },
+    {
+      "count": 8,
+      "trial": 4,
+      "filterOldNs": 33.9756,
+      "filterNewNs": 35.4634,
+      "startOldNs": 34.7256,
+      "startNewNs": 39.2008
+    },
+    {
+      "count": 8,
+      "trial": 5,
+      "filterOldNs": 33.9674,
+      "filterNewNs": 36.402,
+      "startOldNs": 34.6478,
+      "startNewNs": 36.8712
+    },
+    {
+      "count": 8,
+      "trial": 6,
+      "filterOldNs": 36.163,
+      "filterNewNs": 36.5746,
+      "startOldNs": 34.2862,
+      "startNewNs": 36.9948
+    },
+    {
+      "count": 32,
+      "trial": 0,
+      "filterOldNs": 128.9178,
+      "filterNewNs": 124.4234,
+      "startOldNs": 123.537,
+      "startNewNs": 135.9018
+    },
+    {
+      "count": 32,
+      "trial": 1,
+      "filterOldNs": 126.2332,
+      "filterNewNs": 125.9144,
+      "startOldNs": 127.3638,
+      "startNewNs": 139.551
+    },
+    {
+      "count": 32,
+      "trial": 2,
+      "filterOldNs": 128.5414,
+      "filterNewNs": 130.8148,
+      "startOldNs": 125.9092,
+      "startNewNs": 140.0918
+    },
+    {
+      "count": 32,
+      "trial": 3,
+      "filterOldNs": 127.8628,
+      "filterNewNs": 129.799,
+      "startOldNs": 129.5132,
+      "startNewNs": 133.2908
+    },
+    {
+      "count": 32,
+      "trial": 4,
+      "filterOldNs": 125.2642,
+      "filterNewNs": 132.2338,
+      "startOldNs": 126.9232,
+      "startNewNs": 138.7814
+    },
+    {
+      "count": 32,
+      "trial": 5,
+      "filterOldNs": 122.2762,
+      "filterNewNs": 131.5764,
+      "startOldNs": 122.8958,
+      "startNewNs": 133.6014
+    },
+    {
+      "count": 32,
+      "trial": 6,
+      "filterOldNs": 123.2392,
+      "filterNewNs": 125.3034,
+      "startOldNs": 127.7234,
+      "startNewNs": 141.4324
+    }
+  ]
+}

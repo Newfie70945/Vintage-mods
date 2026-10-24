@@ -1,4 +1,4 @@
-# NOS 0.20.2 preview validation
+# NOS 0.20.3 preview validation
 
 The full build and validation manifest records the executed automated suites against the inspected official Vintage Story 1.22.7 assemblies. A new native-versus-patched barrel recipe mutation regression reproduces the pre-fix mismatch and passes with the fix. No optimizer scheduling defaults changed.
 
@@ -9,3 +9,5 @@ Measured allocation fell, but tick latency and CPU did not improve. No general s
 Raw uploaded logs and private configuration are not included in source or release archives.
 
 The 0.20.2 pass adds actual native barrel-slot regression/allocation coverage and a 3,000-animal / 200-block-entity comparison. See [results and missing 25-client workload](performance-0.20.2.md). Timing measurements use 0.20.1; the optional count guard was off there.
+
+0.20.3 adds direct single-target AI delegate dispatch, with native-versus-patched subscription-mutation checks and focused official-target timings. See [measurements](performance-0.20.3.md); no server-wide speedup is inferred.

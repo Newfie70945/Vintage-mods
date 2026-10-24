@@ -55,11 +55,12 @@ static class Checks
   var execute=AiTaskStartOptimizations.Target.CreateDelegate<Execute>();
   string stock=JsonSerializer.Serialize(Scenario(execute));
   var manager=new AiTaskManager(null!);int calls=0;manager.OnExecuteTask+=(a,b)=>{calls++;return false;};manager.OnExecuteTask+=(a,b)=>{calls++;return true;};Action hot=()=>execute(manager,null!,0);
+  var single=new AiTaskManager(null!);single.OnExecuteTask+=(a,b)=>false;
   var harmony=new Harmony("test.nos.ai-task-start");var trials=new List<object>();
   for(int i=0;i<5;i++){
-   var before=Measure(hot);harmony.Patch(AiTaskStartOptimizations.Target,transpiler:new HarmonyMethod(AiTaskStartOptimizations.TranspilerMethod));AiTaskStartOptimizations.Configure(true);
+   var singleBefore=Measure(()=>execute(single,null!,0));var before=Measure(hot);harmony.Patch(AiTaskStartOptimizations.Target,transpiler:new HarmonyMethod(AiTaskStartOptimizations.TranspilerMethod));AiTaskStartOptimizations.Configure(true);
    Assert(JsonSerializer.Serialize(Scenario(execute))==stock,"official and patched transition output identical");
-   var after=Measure(hot);Assert(after.Bytes==0&&before.Bytes>0,"zero allocation task-start callback enumeration");trials.Add(new{stockNs=before.Ns,optimizedNs=after.Ns,stockBytes=before.Bytes,optimizedBytes=after.Bytes});
+   var singleAfter=Measure(()=>execute(single,null!,0));var after=Measure(hot);Assert(after.Bytes==0&&before.Bytes>0,"zero allocation task-start callback enumeration");trials.Add(new{singleStockNs=singleBefore.Ns,singleOptimizedNs=singleAfter.Ns,stockNs=before.Ns,optimizedNs=after.Ns,stockBytes=before.Bytes,optimizedBytes=after.Bytes});
    AiTaskStartOptimizations.Configure(false);Assert(JsonSerializer.Serialize(Scenario(execute))==stock,"disabled helper matches stock");harmony.UnpatchAll(harmony.Id);
   }
   try{AiTaskStartOptimizations.Transpiler([new(OpCodes.Ret)]).ToList();throw new Exception("Missing IL rejection");}catch(InvalidOperationException){Assert(true,"changed body rejected");}
