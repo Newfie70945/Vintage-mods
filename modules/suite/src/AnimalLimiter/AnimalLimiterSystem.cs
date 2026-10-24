@@ -1849,11 +1849,31 @@ public sealed class AnimalLimiterSystem : ModSystem
 
     private SweepResult SweepAllPlayerRegions(bool preview, PreviewOverride? previewOverride)
     {
+        var timer = Stopwatch.StartNew();
+        try { return SweepAllPlayerRegionsCore(preview, previewOverride); }
+        finally { SuiteTimingRegistry.Record(preview ? "Animal Limiter manual preview" : "Animal Limiter manual cull", timer.Elapsed.TotalMilliseconds); }
+    }
+
+    private SweepResult SweepAllPlayerRegionsCore(bool preview, PreviewOverride? previewOverride)
+    {
         var result = new SweepResult();
         if (!config.LimitAllEntities && config.Rules.Count == 0 && previewOverride == null) return result;
 
-        int chunkSize = GlobalConstants.ChunkSize;
+        // Sweep-local only; refresh after removal hooks and check live
+        // protections again before any destructive action.
         var agents = GatherLoadedAgentsNearPlayers();
+        var playerPositions = CaptureOnlinePlayerPositions();
+        var distances = new Dictionary<long, double>();
+        double Distance(EntityAgent entity)
+        {
+            if (distances.TryGetValue(entity.EntityId, out double cached)) return cached;
+            double best = double.MaxValue;
+            if (EntityPositionResolver.TryGetCoordinates(entity, out var x, out var y, out var z, out _))
+                best = PopulationDistance.NearestSquared(x, y, z, playerPositions);
+            distances[entity.EntityId] = best;
+            return best;
+        }
+        int chunkSize = GlobalConstants.ChunkSize;
         result.Scanned = agents.Count;
 
         var positionedAgents = agents
@@ -1888,7 +1908,7 @@ public sealed class AnimalLimiterSystem : ModSystem
                 var eligible = new List<EntityAgent>();
                 foreach (var ent in allForCode)
                 {
-                    if (IsProtected(ent, out _) || IsInsideHardPlayerProtection(ent))
+                    if (IsProtected(ent, out _) || (config.PlayerProtectionRadiusBlocks > 0 && Distance(ent) <= (double)config.PlayerProtectionRadiusBlocks * config.PlayerProtectionRadiusBlocks))
                     {
                         result.Protected++;
                         continue;
@@ -1901,7 +1921,7 @@ public sealed class AnimalLimiterSystem : ModSystem
                 result.OverLimitGroups++;
                 int removeCount = eligible.Count - limit.Value;
                 var ordered = config.KeepNearestToPlayers
-                    ? eligible.OrderByDescending(NearestPlayerDistanceSq).ToList()
+                    ? eligible.OrderByDescending(Distance).ToList()
                     : eligible.OrderByDescending(e => e.EntityId).ToList();
 
                 foreach (var ent in ordered.Take(removeCount))
@@ -1912,10 +1932,16 @@ public sealed class AnimalLimiterSystem : ModSystem
                         continue;
                     }
 
+                    // Removal hooks can change player/entity state. Check live
+                    // protections immediately before every destructive action.
+                    if (IsProtected(ent, out _) || IsInsideHardPlayerProtection(ent))
+                    { result.Protected++; continue; }
                     if (RemoveEntity(ent, rule, limit.Value, eligible.Count))
                     {
                         result.Removed++;
                         UntrackEntity(ent.EntityId);
+                        playerPositions = CaptureOnlinePlayerPositions();
+                        distances.Clear();
                     }
                 }
             }

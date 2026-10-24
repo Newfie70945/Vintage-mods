@@ -144,7 +144,13 @@ public sealed class ServerHealthService : IDisposable
         lock (sync) { if (!started || !enabled) return; }
         long startUnix = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         long startClock = Stopwatch.GetTimestamp();
-        api.Event.RegisterCallback(_ =>
+        api.Event.RegisterCallback(_ => RecordWorldSaveCompletion(startUnix, startClock), 1);
+    }
+
+    private void RecordWorldSaveCompletion(long startUnix, long startClock)
+    {
+        var timer = Stopwatch.StartNew();
+        try
         {
             var window = new WorldSaveLagWindow(startUnix, Stopwatch.GetElapsedTime(startClock).TotalMilliseconds);
             lock (sync)
@@ -157,7 +163,8 @@ public sealed class ServerHealthService : IDisposable
                 foreach (var incident in diagnosticIncidents) CorrelateWorldSaveUnsafe(incident);
                 cachedSmartAnalysisUnixMilliseconds = 0;
             }
-        }, 1);
+        }
+        finally { SuiteTimingRegistry.Record("Server Health save correlation", timer.Elapsed.TotalMilliseconds); }
     }
 
     private void CorrelateWorldSaveUnsafe(ServerDiagnosticIncident incident)
@@ -2530,6 +2537,13 @@ public sealed class ServerHealthService : IDisposable
 
     private void FinishManualProfileSafe()
     {
+        var timer = Stopwatch.StartNew();
+        try { FinishManualProfileSafeCore(); }
+        finally { SuiteTimingRegistry.Record("Server Health profile finalization", timer.Elapsed.TotalMilliseconds); }
+    }
+
+    private void FinishManualProfileSafeCore()
+    {
         try
         {
             FinishManualProfile();
@@ -2626,6 +2640,8 @@ public sealed class ServerHealthService : IDisposable
             };
 
             lastHotspots = profileAccumulators
+                .OrderByDescending(pair => pair.Value.TotalMs)
+                .Take(200)
                 .Select(pair =>
                 {
                     var attribution = ResolveModAttribution(pair.Key);
@@ -2648,11 +2664,11 @@ public sealed class ServerHealthService : IDisposable
                         IsCore = attribution.IsCore
                     };
                 })
-                .OrderByDescending(x => x.TotalMs)
-                .Take(200)
                 .ToList();
 
             lastModHotspots = modAccumulators
+                .OrderByDescending(pair => pair.Value.TotalMs)
+                .Take(100)
                 .Select(pair =>
                 {
                     var acc = pair.Value;
@@ -2681,11 +2697,11 @@ public sealed class ServerHealthService : IDisposable
                         IsCore = identity?.IsCore ?? acc.ModId == "game"
                     };
                 })
-                .OrderByDescending(x => x.TotalMs)
-                .Take(100)
                 .ToList();
 
             lastPhases = phaseAccumulators
+                .OrderByDescending(pair => pair.Value.TotalMs)
+                .Take(120)
                 .Select(pair =>
                 {
                     var attribution = ResolveModAttribution(pair.Key);
@@ -2705,8 +2721,6 @@ public sealed class ServerHealthService : IDisposable
                         AttributionConfidence = attribution.Confidence
                     };
                 })
-                .OrderByDescending(x => x.TotalMs)
-                .Take(120)
                 .ToList();
 
             lastSlowCauses = capturedSlowCauses.Values.Select(c => {
