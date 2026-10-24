@@ -105,6 +105,16 @@ static class Checks
   foreach(var data in new[]{Array.Empty<ItemSlot>(),new[]{Slot(a)},new[]{Slot(c),Slot(b)},new[]{Slot(null),Slot(b)},new[]{Slot(b),Slot(a)}})
   {Mode(false);var native=Describe(pair(recipe,data));Mode(true);Assert(Describe(pair(recipe,data))==native,"barrel empty/mismatch/order equivalent");}
   a.Accept=false;Assert(pair(recipe,slots).Count==0,"collectible veto preserved");a.Accept=true;
+  var savedIngredients=recipe.Ingredients;
+  string MutationResult(bool optimized)
+  {
+   recipe.Ingredients=savedIngredients;Mode(optimized);
+   a.Hook=()=>recipe.Ingredients=[savedIngredients[0],savedIngredients[1],Ingredient("test:third")];
+   try{return Describe(pair(recipe,slots));}finally{a.Hook=null;recipe.Ingredients=savedIngredients;}
+  }
+  string nativeMutation=MutationResult(false),optimizedMutation=MutationResult(true);
+  Assert(optimizedMutation==nativeMutation,"recipe array replacement during collectible hook preserves native final count check");
+  Mode(true);
   bool nested=false;a.Hook=()=>{if(nested)return;nested=true;Assert(pair(recipe,new[]{Slot(a),Slot(b)}).Count==2,"recursive pairing isolated");nested=false;};pair(recipe,slots);a.Hook=null;
   int attempts=0;a.Hook=()=>{attempts++;throw new InvalidOperationException("barrel-sentinel");};Assert(Error(()=>pair(recipe,slots))=="InvalidOperationException:barrel-sentinel"&&attempts==1,"hook failure preserved once");
   long previous=BlockTickOptimizations.Counters(1).Calls;a.Hook=null;pair(recipe,slots);Assert(BlockTickOptimizations.Counters(1).Calls==previous,"failed barrel gate falls back until reapply");Mode(true);

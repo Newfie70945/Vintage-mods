@@ -84,7 +84,9 @@ public static class BlockTickOptimizations
             if (pairs++ == 0) { slot0 = slot; item0 = found; } else { slot1 = slot; item1 = found; }
         }
         __result = new(pairs);
-        if (pairs >= ingredients.Length)
+        // Collectible hooks may replace Ingredients during matching. The native
+        // implementation checks the current array here, after using its snapshot.
+        if (pairs >= __instance.Ingredients!.Length)
         {
             if (pairs > 0) __result.Add((slot0!, item0!));
             if (pairs > 1) __result.Add((slot1!, item1!));

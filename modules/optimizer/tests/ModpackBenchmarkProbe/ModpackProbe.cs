@@ -43,8 +43,10 @@ public sealed class ModpackProbe:ModSystem
    var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)*32+160*32+64,z=(int)(spawn.Z/32)*32+160*32+64;
    var types=api.World.EntityTypes.Where(t=>t.Code.Domain=="game"&&t.Code.Path.StartsWith("pig-eurasian-adult-")).ToArray();
    if(types.Length==0)throw new Exception("Stock wild-pig type absent");
-   for(int i=0;i<128;i++){
-    double px=x+(i%16)*2+.5,pz=z+(i/16)*2+.5;
+   int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,2048):128;
+   int columns=requested==128?16:(int)Math.Ceiling(Math.Sqrt(requested));
+   for(int i=0;i<requested;i++){
+    double px=x+(i%columns)*2+.5,pz=z+(i/columns)*2+.5;
     var pos=new BlockPos((int)px,0,(int)pz);int height=api.World.BlockAccessor.GetTerrainMapheightAt(pos);
     var entity=api.World.ClassRegistry.CreateEntity(types[i%types.Length]);entity.Pos.SetPos(px,height+1,pz);entity.AlwaysActive=true;entity.Attributes.SetBool("nosLaboratoryNpc",true);api.World.SpawnEntity(entity);
     if(entity.GetBehavior<EntityBehaviorTaskAI>()?.TaskManager is {} manager)

@@ -23,7 +23,9 @@ def run(args, mode, trial):
     for source in (args.suitezip,args.optimizerzip,args.fixture,*args.pack.glob('*.zip')):shutil.copy2(source,mods/source.name)
     cfg=data/'ModConfig';cfg.mkdir(exist_ok=True)
     (cfg/'NewfiesWebServer.json').write_text('{"Enabled":false,"BindAddress":"127.0.0.1","Port":9465}')
-    optimizer=json.loads((Path(__file__).resolve().parents[1]/'config/optimizer.json').read_text())
+    suite_cfg=cfg/'NewfiesServerEssentialsSuite';suite_cfg.mkdir(exist_ok=True)
+    (suite_cfg/'NewfiesWebServer.json').write_text('{"Enabled":false,"BindAddress":"127.0.0.1","Port":9465}')
+    optimizer=json.loads((args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
     optimizer['Profiling'].update(AutoStart=False,MaxSamples=3600,MainThreadCpu=False,SystemTimings=False,PhaseTimings=False,CallbackTimings=False)
     if mode in ('stock','storage'):
         for key,value in optimizer['EngineOptimizations'].items():
@@ -35,7 +37,7 @@ def run(args, mode, trial):
     # are identical in both arms; all other template magic numbers stay unchanged.
     magic=json.loads((data/'servermagicnumbers.json').read_text());magic['ServerAutoSave']=3600
     (data/'servermagicnumbers.json').write_text(json.dumps(magic,indent=2))
-    env=os.environ.copy();env['DOTNET_ROOT']=str(args.dotnet.parent)
+    env=os.environ.copy();env['DOTNET_ROOT']=str(args.dotnet.parent);env['NOS_LAB_NPC_COUNT']=str(args.npc_count)
     process=subprocess.Popen([str(args.dotnet),str(args.game_dir/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port',str(args.port)],cwd=args.game_dir,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
     events=[];samples=[];done=threading.Event()
     def reader():
@@ -151,11 +153,14 @@ def run(args, mode, trial):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('game-dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):p.add_argument('--'+key,type=Path,required=True)
+    p.add_argument('--optimizer-config',type=Path,help='Explicit optimizer configuration for the NOS arm; copied and hashed in the report.')
     p.add_argument('--resume',action='store_true',help='Resume complete recorded runs only when input hashes and workload parameters match.')
+    p.add_argument('--npc-count',type=int,default=128,help='Fixture NPCs, 128-2048; no authenticated players.')
     p.add_argument('--entity-seconds',type=int,default=90);p.add_argument('--profile-bursts',type=int,default=5)
     p.add_argument('--warmup',type=int,default=15);p.add_argument('--port',type=int,default=42579)
     p.add_argument('--order',default='stock,nos,nos,stock,stock,nos')
     args=p.parse_args()
+    if not 128<=args.npc_count<=2048:p.error('--npc-count must be between 128 and 2048')
     for key in ('game_dir','snapshot','output','dotnet','suitezip','optimizerzip','fixture','pack'):setattr(args,key,getattr(args,key).resolve())
     if (args.output.exists() and not args.resume) or args.output.is_relative_to(args.snapshot) or args.output.is_relative_to(args.game_dir):p.error('Use a fresh output outside the game and stopped disposable snapshot.')
     if any(x.is_symlink() for x in args.snapshot.rglob('*')):p.error('Snapshot symlinks refused.')
@@ -165,12 +170,15 @@ def main():
     with sqlite3.connect('file:'+str(args.snapshot/'Saves'/save)+'?mode=ro',uri=True) as db:
         if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':p.error('Snapshot integrity failed.')
     args.output.mkdir(parents=True,exist_ok=args.resume)
-    manifest=dict(kind='Disposable official-server generation/save/unload A/B laboratory workload',gameVersion='1.22.7',order=modes,worldSeed=json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['Seed'],worldSha256=sha(args.snapshot/'Saves'/save),artifacts={x.name:sha(x) for x in (args.suitezip,args.optimizerzip,args.fixture)},dotnet=str(args.dotnet),cpuQuota=Path('/sys/fs/cgroup/cpu.max').read_text().strip(),memoryLimit=Path('/sys/fs/cgroup/memory.max').read_text().strip(),warmupSeconds=args.warmup,entitySeconds=args.entity_seconds,profileBursts=args.profile_bursts,pack=json.loads((args.pack/'manifest.json').read_text()),limits=['No authenticated clients or bots; selected modpack is recorded, not the owner production world. Forced-active, fixture-locally-tracked real NPCs and pass-through AI filter/task-start subscribers are lab controls. Normal physics workers run; no fake client records are created.','Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.','NOS arm uses all shipped default engine switches; storage arm enables only WorldgenRequestReuse and SaveSnapshotRelease. Controlled 128 forced-active NPCs; NPC count/lifecycle still varies.','Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.','Save timings are observed console-log wall intervals on local container storage, not physical disk latency.'])
+    manifest=dict(kind='Disposable official-server generation/save/unload A/B laboratory workload',gameVersion='1.22.7',order=modes,worldSeed=json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['Seed'],worldSha256=sha(args.snapshot/'Saves'/save),artifacts={x.name:sha(x) for x in (args.suitezip,args.optimizerzip,args.fixture)},dotnet=str(args.dotnet),cpuQuota=Path('/sys/fs/cgroup/cpu.max').read_text().strip(),memoryLimit=Path('/sys/fs/cgroup/memory.max').read_text().strip(),warmupSeconds=args.warmup,entitySeconds=args.entity_seconds,profileBursts=args.profile_bursts,pack=json.loads((args.pack/'manifest.json').read_text()),limits=['No authenticated clients or bots; selected modpack is recorded, not the owner production world. Forced-active, fixture-locally-tracked real NPCs and pass-through AI filter/task-start subscribers are lab controls. Normal physics workers run; no fake client records are created.','Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.','NOS arm uses the recorded optimizer configuration; storage arm enables only WorldgenRequestReuse and SaveSnapshotRelease. Controlled fixture NPC population is recorded separately; NPC count/lifecycle still varies.','Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.','Save timings are observed console-log wall intervals on local container storage, not physical disk latency.'])
+    manifest['npcCount']=args.npc_count
+    manifest['optimizerConfigurationSha256']=sha(args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json'))
+    manifest['optimizerConfiguration']=json.loads((args.optimizer_config or (Path(__file__).resolve().parents[1]/'config/optimizer.json')).read_text())
     manifest_path=args.output/'manifest.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds'):
-            if manifest[key]!=previous[key]:p.error('Resume inputs differ: '+key)
+        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','npcCount'):
+            if manifest[key]!=previous.get(key):p.error('Resume inputs differ: '+key)
         manifest=previous
     (args.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     results=[]
