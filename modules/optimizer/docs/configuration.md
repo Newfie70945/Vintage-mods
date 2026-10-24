@@ -254,3 +254,7 @@ These changes remove temporary allocations. They do not reduce animation frequen
 ## Barrel count guard (0.19.0)
 
 `EngineOptimizations.BarrelMatchCountGuard=false` controls rejection of impossible native barrel ingredient counts without allocating a failed-match list. Enable individually and verify actual state/counters. Matching recipes and custom types retain native behavior. See [evidence and limits](performance-0.19.0.md).
+
+## Native block simulation scheduling (0.20.0)
+
+`EngineOptimizations.BlockSimulationBudget=false`; `BlockSimulationBudgetMs=5` (1–20). Optional soft time budget for the native queued block-tick loop. Pending callbacks remain FIFO and may run later; individual callbacks cannot be interrupted. More than 8,192 queued entries triggers stock fallback. This changes simulation timing. [Details and limits](performance-0.20.0.md).

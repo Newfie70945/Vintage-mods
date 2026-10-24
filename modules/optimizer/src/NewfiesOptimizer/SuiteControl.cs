@@ -17,6 +17,7 @@ public sealed partial class OptimizerMod
         capabilities = new[] { "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
+            blockSimulationBudget=currentConfig.EngineOptimizations.BlockSimulationBudget,blockSimulationBudgetMs=currentConfig.EngineOptimizations.BlockSimulationBudgetMs,
             barrelMatchCountGuard = currentConfig.EngineOptimizations.BarrelMatchCountGuard,
             barrelIngredientPairing = currentConfig.EngineOptimizations.BarrelIngredientPairing,
             wildBushCallbackFlatten = currentConfig.EngineOptimizations.WildBushCallbackFlatten,
@@ -127,6 +128,8 @@ public sealed partial class OptimizerMod
                 case "entityPolicyInclude": candidate.EngineOptimizations.EntityPolicyInclude=Patterns(item.Value); break;
                 case "entityPolicyExclude": candidate.EngineOptimizations.EntityPolicyExclude=Patterns(item.Value); break;
                 case "idleFirepitFastPath": candidate.EngineOptimizations.IdleFirepitFastPath=B(); break;
+                case "blockSimulationBudget": candidate.EngineOptimizations.BlockSimulationBudget=B(); break;
+                case "blockSimulationBudgetMs": candidate.EngineOptimizations.BlockSimulationBudgetMs=N(1,20); break;
                 case "barrelMatchCountGuard": candidate.EngineOptimizations.BarrelMatchCountGuard=B(); break;
                 case "barrelIngredientPairing": candidate.EngineOptimizations.BarrelIngredientPairing=B(); break;
                 case "wildBushCallbackFlatten": candidate.EngineOptimizations.WildBushCallbackFlatten=B(); break;

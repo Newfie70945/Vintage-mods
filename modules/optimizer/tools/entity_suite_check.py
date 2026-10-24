@@ -167,7 +167,7 @@ try:
     assert native['likelyModName']=='Vintage Story native build logger' and native['recentOccurrences']>=1
     checks.append('same-message exceptions split by stack origin; native logger attributed correctly with recent counts')
 
-    for flag in ('barrelMatchCountGuard','idleFirepitFastPath','barrelIngredientPairing','wildBushCallbackFlatten','chunkUnloadStagingReuse','nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
+    for flag in ('blockSimulationBudget','barrelMatchCountGuard','idleFirepitFastPath','barrelIngredientPairing','wildBushCallbackFlatten','chunkUnloadStagingReuse','nativeBuildLogGuard','aiDistanceThrottle','distantWanderThrottle','repulsionDistanceThrottle','waypointNodePooling','attributeNoOpSkip'):
         assert settings[flag] == (flag in ('barrelIngredientPairing','wildBushCallbackFlatten'))
         status,enabled=control('set',{flag:True});assert status==200 and enabled['success']
         actual=next(m for m in enabled['optimizer']['modules'] if m['name']==flag)

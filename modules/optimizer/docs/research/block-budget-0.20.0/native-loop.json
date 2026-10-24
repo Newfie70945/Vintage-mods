@@ -1,0 +1,8 @@
+{
+  "checks": 17,
+  "stockMs": 123.2187,
+  "passes": 20,
+  "maxBudgetedSliceMs": 6.1472,
+  "totalBudgetedMs": 120.5036,
+  "scope": "Actual official native loop; stubbed block callbacks/transport, artificial per-callback CPU work. Scheduling comparison, not less total work or production TPS."
+}

@@ -112,6 +112,8 @@
     "DelayedCallbackSnapshotReuse": false,
     "SpawnOpportunityListReuse": false,
     "SpawnColumnArrayReuse": false,
-    "BarrelMatchCountGuard": false
+    "BarrelMatchCountGuard": false,
+    "BlockSimulationBudget": false,
+    "BlockSimulationBudgetMs": 5
   }
 }

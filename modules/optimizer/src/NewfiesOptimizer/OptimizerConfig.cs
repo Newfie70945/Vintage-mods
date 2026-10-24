@@ -21,6 +21,7 @@ public sealed class OptimizerConfig
         Profiling ??= new(); EngineOptimizations ??= new(); EntityOptimization ??= new(); ChunkOptimization ??= new(); BlockEntities ??= new();
         MemoryManagement ??= new(); Networking ??= new(); Scheduling ??= new(); Logging ??= new();
         Dashboard ??= new(); Compatibility ??= new(); Benchmarking ??= new();
+        EngineOptimizations.BlockSimulationBudgetMs = Math.Clamp(EngineOptimizations.BlockSimulationBudgetMs, 1, 20);
         EngineOptimizations.EntityProtectionRadius = Math.Clamp(EngineOptimizations.EntityProtectionRadius, 48, 256);
         EngineOptimizations.AiDistanceIntervalMs = Math.Clamp(EngineOptimizations.AiDistanceIntervalMs, 100, 1000);
         EngineOptimizations.DistantWanderIntervalMs = Math.Clamp(EngineOptimizations.DistantWanderIntervalMs, 250, 10000);
@@ -88,6 +89,8 @@ public sealed class BenchmarkOptions
 // Each API patch or opt-in scheduling policy is independently switchable. SafeMode disables every engine module.
 public sealed class EngineOptimizationOptions
 {
+    public bool BlockSimulationBudget { get; set; } = false;
+    public int BlockSimulationBudgetMs { get; set; } = 5;
     public bool BarrelMatchCountGuard { get; set; } = false;
     public bool IdleFirepitFastPath { get; set; } = false;
     public bool BarrelIngredientPairing { get; set; } = true;

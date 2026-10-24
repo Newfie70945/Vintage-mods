@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.19.0 preview
+# Newfie's Server Optimizer 0.20.0 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -165,3 +165,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.18.0 adds independent, default-off empty-firepit, barrel pairing, wild-bush wrapper and private chunk-unload staging modules, with Suite 1.2.49 controls. [Boundaries and evidence](docs/performance-0.18.0.md).
 
 0.19.0 adds an independent, default-off barrel input-count guard. It avoids failed-match list allocations only for impossible native slot counts; matching hooks, player recipe events, custom recipes and actual output calculations remain native. See [validation and limits](docs/performance-0.19.0.md).
+
+0.20.0 adds a default-off soft time budget for native queued block simulation. It delays pending callbacks while preserving FIFO and the original callback body. Excess queue pressure restores stock processing. [Behavior and testing limits](docs/performance-0.20.0.md).
