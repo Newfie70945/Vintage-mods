@@ -459,9 +459,35 @@ public static class AntiCheatModDbFingerprintResolver
         if (entry.Length < 0 || entry.Length > MaxEntryBytes) throw new InvalidDataException("Assembly entry exceeds the fingerprint safety limit.");
         using var input = entry.Open();
         using var output = new MemoryStream(entry.Length <= int.MaxValue ? (int)entry.Length : 0);
-        input.CopyTo(output);
-        if (output.Length > MaxEntryBytes) throw new InvalidDataException("Assembly entry exceeds the fingerprint safety limit.");
+        // The declared size comes from the archive itself, so stop reading at the limit instead of
+        // checking after the whole entry has been decompressed into memory.
+        byte[] buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            total += read;
+            if (total > MaxEntryBytes) throw new InvalidDataException("Assembly entry exceeds the fingerprint safety limit.");
+            output.Write(buffer, 0, read);
+        }
         return output.ToArray();
+    }
+
+    // Hashes an archive entry but never reads past the size the archive declared for it, so an
+    // entry whose real content is larger than its header claims cannot tie up a web worker.
+    private static string Sha256Bounded(Stream stream, long declaredLength, string entryName)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            total += read;
+            if (total > declaredLength) throw new InvalidDataException($"Archive entry '{entryName}' is larger than its declared size.");
+            sha.AppendData(buffer, 0, read);
+        }
+        return Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant();
     }
 
     private static Uri MakeOfficialDownloadUri(string value)
@@ -498,7 +524,7 @@ public static class AntiCheatModDbFingerprintResolver
             if (total > MaxTotalUncompressedBytes) throw new InvalidDataException("Archive exceeds the uncompressed fingerprint safety limit.");
             string path = NormalizeEntryPath(entry.FullName);
             using var stream = entry.Open();
-            string sha = Sha256(stream);
+            string sha = Sha256Bounded(stream, entry.Length, entry.FullName);
             // Preserve the exact normalized-content algorithm used by the client: root modinfo.json
             // is excluded from ContentSha256, but it remains in the diagnostic file manifest so an
             // evidence diff can still show metadata-only changes.
