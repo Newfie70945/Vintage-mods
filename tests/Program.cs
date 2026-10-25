@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using BlockLogger.Frontend;
 using NewfiesCommunityMOTD;
+using NewfiesSailing;
 using NewfiesServerEssentials.Discord.Integration;
 int checks = 0;
 void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
@@ -58,4 +59,14 @@ Check(Md("✅ done ❌ failed ⚠️ careful ⭐ star 1️⃣ one ➡️ next") 
 Check(Md("👨‍👩‍👧 family 👍🏽 ok 🇨🇦 flag") == "family ok flag", "Joined, skin-tone and flag emoji leave no fragments");
 Check(Md("- 🔥 hot item") == "  • hot item" && DiscordMarkdown.ToPlainText("📢 Server Update") == "Server Update", "Leading emoji do not leave stray spaces");
 Check(Md("café → naïve “quotes” — ok") == "café → naïve “quotes” — ok", "Normal accented text and punctuation are kept");
+Check(SailingModel.Beaufort(0) == 0 && SailingModel.Beaufort(17) == 5 && SailingModel.Beaufort(100) == 12, "Beaufort thresholds");
+Check(Math.Abs(SailingModel.WindFromBearing(0, 1) - 0) < 1e-6 && Math.Abs(SailingModel.WindFromBearing(1, 0) - 270) < 1e-6, "Wind blowing south comes from north; blowing east comes from west");
+Check(SailingModel.Compass(359) == "N" && SailingModel.Compass(90) == "E", "Compass names");
+Check(Math.Abs(SailingModel.AngleOffWind(0, 1, 0, 1) - 180) < 1e-6 && Math.Abs(SailingModel.AngleOffWind(0, -1, 0, 1)) < 1e-6 && Math.Abs(SailingModel.AngleOffWind(1, 0, 0, 1) - 90) < 1e-6, "Running is 180, head to wind is 0, beam is 90");
+Check(SailingModel.PointOfSailEfficiency(0) == 0 && SailingModel.PointOfSailEfficiency(90) == 1, "Irons gives no drive, beam reach is best");
+Check(SailingModel.PointOfSailEfficiency(180) < SailingModel.PointOfSailEfficiency(120) && SailingModel.PointOfSailEfficiency(30) < SailingModel.PointOfSailEfficiency(60), "Polar shape");
+Check(SailingModel.SpeedMultiplier(0, 90, 0.35, 1.35, 17, 41) == 0.35, "Becalmed boats crawl");
+Check(SailingModel.SpeedMultiplier(17, 90, 0.35, 1.35, 17, 41) > SailingModel.SpeedMultiplier(17, 10, 0.35, 1.35, 17, 41), "Beam reach beats head to wind");
+Check(SailingModel.SpeedMultiplier(70, 90, 0.35, 1.35, 17, 41) < SailingModel.SpeedMultiplier(30, 90, 0.35, 1.35, 17, 41), "Storms slow boats");
+Check(Enumerable.Range(0, 500).All(i => SailingModel.Gust(i * 0.3, 0.35) >= 0), "Gusts stay non-negative");
 Console.WriteLine($"{checks} checks passed");

@@ -1,0 +1,16 @@
+{
+  "type": "code",
+  "modid": "newfiessailing",
+  "name": "Newfie's Realistic Sailing",
+  "authors": [
+    "Newfie"
+  ],
+  "description": "Adds detailed wind, Beaufort sea states, gusts and point-of-sail physics to sailing, with a /sailing conditions report and storm warnings.",
+  "version": "0.1.0",
+  "side": "Server",
+  "requiredOnServer": true,
+  "requiredOnClient": false,
+  "dependencies": {
+    "game": "1.22.7"
+  }
+}

@@ -1,5 +1,9 @@
 # Current release changes
 
+## Realistic Sailing 0.1.0
+
+- New server-side module: wind-dependent sailboat speed by point of sail, gusts, Beaufort sea state, storm slowdown/warnings and a `/sailing` report. Physics model unit tested; in-game behaviour not yet verified.
+
 ## Server Essentials Suite 1.2.48
 
 - Optimization UI2 / NOS 0.16.1: search and expand settings groups, review pending edits, reject invalid numeric drafts before applying, add execution cards and clearer state badges. Improve native collision bounds-cache hits while preserving miss/fallback behavior; new bounds-helper conflict guard. No preset, save policy or scheduling changes.

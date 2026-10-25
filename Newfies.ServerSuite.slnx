@@ -15,6 +15,9 @@
   <Folder Name="/modules/player-list/">
     <Project Path="modules/player-list/NewfiesPlayerList.csproj" />
   </Folder>
+  <Folder Name="/modules/sailing/">
+    <Project Path="modules/sailing/NewfiesSailing.csproj" />
+  </Folder>
   <Folder Name="/modules/suite/">
     <Project Path="modules/suite/NewfiesServerEssentialsSuite.csproj" />
   </Folder>

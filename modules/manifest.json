@@ -42,6 +42,13 @@
       "assembly": "NewfiesPlayerList",
       "version": "1.1.2",
       "origin": "restored author source"
+    },
+    {
+      "id": "sailing",
+      "path": "modules/sailing",
+      "assembly": "NewfiesSailing",
+      "version": "0.1.0",
+      "origin": "new module"
     }
   ],
   "optimizer": {
