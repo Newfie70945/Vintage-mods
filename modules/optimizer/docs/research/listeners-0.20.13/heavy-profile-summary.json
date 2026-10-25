@@ -1,0 +1,185 @@
+{
+  "scope": "Diagnostic capture of the six-thousand-entity workload, not a latency benchmark",
+  "hotspots": [
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (8 physics ticks to do) / physicstick-oneentity",
+      "TotalMs": 839.278968,
+      "Calls": 288000,
+      "PercentOfProfileTickTime": 27.809616759808613
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (9 physics ticks to do) / physicstick-oneentity",
+      "TotalMs": 326.304306,
+      "Calls": 108000,
+      "PercentOfProfileTickTime": 10.812135229075965
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (10 physics ticks to do) / physicstick-oneentity",
+      "TotalMs": 178.19209899999998,
+      "Calls": 60000,
+      "PercentOfProfileTickTime": 5.904418163396508
+    },
+    {
+      "Code": "tickentities / entity-animation-ticking",
+      "TotalMs": 167.054917,
+      "Calls": 66000,
+      "PercentOfProfileTickTime": 5.535386202614382
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (6 physics ticks to do) / physicstick-oneentity",
+      "TotalMs": 114.018338,
+      "Calls": 36000,
+      "PercentOfProfileTickTime": 3.7780123227993534
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (5 physics ticks to do) / physicstick-oneentity",
+      "TotalMs": 91.91437900000001,
+      "Calls": 30000,
+      "PercentOfProfileTickTime": 3.0455947928696356
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-meleeattack",
+      "TotalMs": 88.076455,
+      "Calls": 91311,
+      "PercentOfProfileTickTime": 2.9184246865489536
+    },
+    {
+      "Code": "tickentities / behaviors / done-behavior-emotionstates",
+      "TotalMs": 78.058673,
+      "Calls": 66935,
+      "PercentOfProfileTickTime": 2.586484189020236
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-idle",
+      "TotalMs": 70.084797,
+      "Calls": 280291,
+      "PercentOfProfileTickTime": 2.3222687801929816
+    },
+    {
+      "Code": "gmlbVintagestory.GameContent.BlockEntityBarrel",
+      "TotalMs": 69.43498600000001,
+      "Calls": 1994,
+      "PercentOfProfileTickTime": 2.3007372089689695
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-seekentity",
+      "TotalMs": 61.868318,
+      "Calls": 115401,
+      "PercentOfProfileTickTime": 2.050014689697275
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (8 physics ticks to do) / physicstick-buildpospacket",
+      "TotalMs": 60.370402,
+      "Calls": 144000,
+      "PercentOfProfileTickTime": 2.0003810500057515
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (8 physics ticks to do) / done-behavior-repulseagents",
+      "TotalMs": 58.462483,
+      "Calls": 36570,
+      "PercentOfProfileTickTime": 1.9371619080734863
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-fleeentity-shouldexecute-entitysearch",
+      "TotalMs": 54.09103999999999,
+      "Calls": 6686,
+      "PercentOfProfileTickTime": 1.7923135809349604
+    },
+    {
+      "Code": "tickentities / behaviors / done-behavior-breathe",
+      "TotalMs": 48.239493,
+      "Calls": 66803,
+      "PercentOfProfileTickTime": 1.598421817020286
+    },
+    {
+      "Code": "tickentities / behaviors / done-behavior-health",
+      "TotalMs": 46.798621999999995,
+      "Calls": 67023,
+      "PercentOfProfileTickTime": 1.5506783707549647
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-fleeentity",
+      "TotalMs": 38.186031,
+      "Calls": 131879,
+      "PercentOfProfileTickTime": 1.2652990580936032
+    },
+    {
+      "Code": "tickentities / behaviors / ai-pathfinding",
+      "TotalMs": 37.071766,
+      "Calls": 65945,
+      "PercentOfProfileTickTime": 1.2283777437269263
+    },
+    {
+      "Code": "physicsmanager-servertick / <self / unscoped>",
+      "TotalMs": 29.249007,
+      "Calls": 11,
+      "PercentOfProfileTickTime": 0.969169616168625
+    },
+    {
+      "Code": "tickentities / <self / unscoped>",
+      "TotalMs": 27.711566999999995,
+      "Calls": 11,
+      "PercentOfProfileTickTime": 0.9182263436437731
+    },
+    {
+      "Code": "gmlbVintagestory.GameContent.BlockEntityFirepit",
+      "TotalMs": 25.535963,
+      "Calls": 32048,
+      "PercentOfProfileTickTime": 0.8461374247408195
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-followleadholder",
+      "TotalMs": 23.380727999999998,
+      "Calls": 65945,
+      "PercentOfProfileTickTime": 0.7747234352777521
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-wander",
+      "TotalMs": 22.706634,
+      "Calls": 65945,
+      "PercentOfProfileTickTime": 0.7523872437194687
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (9 physics ticks to do) / physicstick-buildpospacket",
+      "TotalMs": 22.649051,
+      "Calls": 60000,
+      "PercentOfProfileTickTime": 0.7504792235939364
+    },
+    {
+      "Code": "physicsmanager-servertick / physicsmanager-afterphysicstick",
+      "TotalMs": 22.218123,
+      "Calls": 11,
+      "PercentOfProfileTickTime": 0.736200368781658
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-startexecute-seekfoodandeat",
+      "TotalMs": 19.793768999999998,
+      "Calls": 65945,
+      "PercentOfProfileTickTime": 0.6558690865731074
+    },
+    {
+      "Code": "tickentities / behaviors / ai-tasks / task-continueexec-idle",
+      "TotalMs": 19.699223999999997,
+      "Calls": 32483,
+      "PercentOfProfileTickTime": 0.6527363258144032
+    },
+    {
+      "Code": "gmleVintagestory.Server.ServerSystemBlockSimulation",
+      "TotalMs": 19.615257000000003,
+      "Calls": 11,
+      "PercentOfProfileTickTime": 0.6499540684488514
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (8 physics ticks to do) / done-behavior-harvestable",
+      "TotalMs": 17.771041,
+      "Calls": 36552,
+      "PercentOfProfileTickTime": 0.5888457336307826
+    },
+    {
+      "Code": "physicsmanager-servertick / entityphysics-mainthread (6101 entities, single-threaded) (9 physics ticks to do) / done-behavior-repulseagents",
+      "TotalMs": 17.242742999999997,
+      "Calls": 12190,
+      "PercentOfProfileTickTime": 0.5713405113207515
+    }
+  ]
+}

@@ -1,3 +1,9 @@
+# NOS 0.20.13 / Suite 1.2.51 validation
+
+All 34 automated suites passed, including 152 engine lifecycle/conflict checks, 24 callback-registration and 10 native despawn-cleanup checks. Final builds and browser controls passed. New features default off. The separate one-vs-two-native-worker comparison passed the 6,000-entity / 2,000-barrel / 2,000-firepit save/unload/integrity standard. Average ticks were 207.76 vs 101.49 ms; this is a native settings result, not a NOS patch speedup. [Exact evidence and limits](performance-0.20.13.md).
+
+## Previous validation
+
 # NOS 0.20.12 / Suite 1.2.51 validation
 
 All 32 automated suites passed against official Vintage Story 1.22.7, including 149 engine lifecycle/conflict checks and 33 new lifecycle-event dispatch checks. Final optimizer and Suite builds completed with zero warnings/errors; browser save/apply, older-version, read-only and mobile controls passed. New dispatch switches remain independently controlled and off by default. See [measurements and limitations](performance-0.20.12.md).

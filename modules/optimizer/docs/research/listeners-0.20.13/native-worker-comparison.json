@@ -1,0 +1,83 @@
+{
+  "kind": "Native physics worker settings comparison; same NOS settings and binaries in both arms",
+  "results": [
+    {
+      "mode": "reference",
+      "passed": true,
+      "physicsWorkers": 1,
+      "active": 6000,
+      "barrels": 2000,
+      "firepits": 2000,
+      "seconds": 180.12,
+      "ticks": 865,
+      "averageMs": 207.76,
+      "p95Ms": 272,
+      "p99Ms": 307,
+      "worstMs": 393,
+      "cpuPercent": 112.16,
+      "allocationMiBPerSecond": 75.64,
+      "allocationMiBPerTick": 15.75,
+      "heapEndMiB": 1823.2,
+      "gcPauseTotalMs": 3938.7,
+      "saveMedianMs": 66.42,
+      "instrumentedUnloadObserverMs": 281.57,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "counters": {
+        "despawnCleanupTimedCalls": 99896,
+        "despawnCleanupObservedFailures": 0,
+        "listenerRegistrationCalls": 13720,
+        "listenerRegistrationIndexRebuilds": 53,
+        "listenerRegistrationLeadingSlotsSkipped": 90858154,
+        "listenerRegistrationFallbacks": 0,
+        "listenerRegistrationFailures": 0
+      }
+    },
+    {
+      "mode": "nos",
+      "passed": true,
+      "physicsWorkers": 2,
+      "active": 6000,
+      "barrels": 2000,
+      "firepits": 2000,
+      "seconds": 180.1,
+      "ticks": 1766,
+      "averageMs": 101.49,
+      "p95Ms": 134,
+      "p99Ms": 171,
+      "worstMs": 353,
+      "cpuPercent": 154.92,
+      "allocationMiBPerSecond": 91.37,
+      "allocationMiBPerTick": 9.319,
+      "heapEndMiB": 1845.0,
+      "gcPauseTotalMs": 4812.38,
+      "saveMedianMs": 68.84,
+      "instrumentedUnloadObserverMs": 204.41,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "counters": {
+        "despawnCleanupTimedCalls": 100040,
+        "despawnCleanupObservedFailures": 0,
+        "listenerRegistrationCalls": 13732,
+        "listenerRegistrationIndexRebuilds": 53,
+        "listenerRegistrationLeadingSlotsSkipped": 91031786,
+        "listenerRegistrationFallbacks": 0,
+        "listenerRegistrationFailures": 0
+      }
+    }
+  ],
+  "artifacts": {
+    "NewfiesServerEssentialsSuiteV1.2.51.zip": "3d74ce41474549b1ed0f7124018f54933cb2da924239c432dd463b93aea78eb3",
+    "NewfiesServerOptimizer-0.20.13-preview.zip": "3de99f755ade816dabcb818249f1357f084e9e4a48cf32db23ca7d175075b8f4",
+    "IntensiveLabFixture-v6.zip": "c93b45409fc49dd97346b90295d7bbbcfb502e67c9db7be1696493956504376c"
+  },
+  "limits": [
+    "One sequential pair on 2-vCPU / 8-GiB lab. No authenticated players.",
+    "Both arms enable experimental listener registration index and cleanup diagnostics.",
+    "Only MaxPhysicsThreads differs. This is not an optimizer patch A/B speedup.",
+    "6,000 real forced-active animals, 2,000 barrels, 2,000 firepits, 23 selected mod ZIPs.",
+    "Native profiling, saves, forced unloading and test-only forced GCs outside steady windows. Unload times include profiling/queue overhead."
+  ]
+}

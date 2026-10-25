@@ -194,3 +194,5 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.20.12 adds optional allocation-free entity load/despawn subscriber dispatch, with native-profiler subscriber labels. Subscriber ordering, mutation snapshots and exception logging are preserved. Off by default; this does not shorten a blocking mod callback.
 
 The standard modpack stress fixture now defaults to 6,000 entities, 2,000 barrels, 2,000 firepits and 180-second measurement windows in 12×12 kept-loaded columns. Narrower workloads must be selected explicitly; results remain synthetic stress evidence, not player-capacity claims.
+
+0.20.13 adds a guarded first-free callback slot index for chunk/entity listener rebuilding, plus optional per-behavior and animation-disposal despawn scopes. Both default off. Component registration timings improved; a separate native worker setting comparison shortened the heavy lab ticks. [Evidence and scope](docs/performance-0.20.13.md).

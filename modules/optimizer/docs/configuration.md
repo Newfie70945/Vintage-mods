@@ -262,3 +262,9 @@ These changes remove temporary allocations. They do not reduce animation frequen
 ### Entity lifecycle event dispatch (0.20.12)
 
 `EngineOptimizations.EntityLoadedDispatchReuse` and `EngineOptimizations.EntityDespawnDispatchReuse` are independent experimental switches, both false by default. Suite 1.2.51 exposes them under API and allocation modules. Apply settings, then inspect actual module status (`entityLoadedDispatch`, `entityDespawnDispatch`). With native tick profiling enabled, subscriber scopes show handler types/methods. These switches reduce dispatch allocation; they do not bound the execution time of a blocking subscriber.
+
+### Callback rebuilding and despawn cleanup (0.20.13)
+
+`EngineOptimizations.ListenerRegistrationIndex` defaults false. It indexes first-empty callback slots for native entity/block registration; ordinary List mutations invalidate the index. Unsupported/off-thread/oversized cases retain stock behavior. Mods that directly mutate backing arrays without updating List versions are outside this experimental contract.
+
+`EngineOptimizations.DespawnCleanupTimings` defaults false. It adds native-profiler scopes for each behavior cleanup and animation disposal on the server main thread; no cleanup is skipped or retried. Observed cleanup exceptions retain their original propagation and disable these diagnostic wrappers until reapplied. This is diagnostics, not a despawn throttle.
