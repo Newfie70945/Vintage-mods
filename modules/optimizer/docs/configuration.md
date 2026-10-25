@@ -35,7 +35,7 @@ Captures remain in memory after stop for inspection. Starting another capture re
 | `Profiling.NetworkCounters` | `true` | TCP+UDP engine payload counters; no packet rewriting or per-player attribution |
 | `Profiling.MainThreadCpu` | `false` | Optional OS thread CPU on Linux/Windows; requires tick hook and SafeMode=false |
 | `Profiling.SystemTimings` | `false` | Optional sampled inclusive official `ServerSystem.OnServerTick` hooks; SafeMode=false required |
-| `Profiling.PhaseTimings` | `false` | Optional inspected entity loop, main dispatch, callbacks and autosave preparation; SafeMode=false required |
+| `Profiling.PhaseTimings` | `false` | Optional inspected entity loop, main dispatch, callbacks and autosave preparation; SafeMode=false required. Also times main-thread chunk-column load completion, chunk unload and entity-despawn send (module `chunkLifecycleTimings`, every call timed, best effort and isolated from the phase group) |
 | `Profiling.CallbackTimings` | `false` | Optional sampled official callback wrappers attributed by assembly/type/method; SafeMode=false required |
 | `Profiling.SystemSampleEvery` | `10` | Sample one call in N per timing key, clamped 1–1000. Deterministic sampling can alias periodic workloads. |
 | `Profiling.SampleIntervalSeconds` | `1` | Process/world samples, clamped 1–60; actual elapsed interval is exported |
@@ -45,7 +45,7 @@ Captures remain in memory after stop for inspection. Starting another capture re
 | `Profiling.ExportOnStop` | `true` | Serialize/write off the game thread after a bounded owning-thread snapshot |
 | `Logging.MaxExports` | `12` | Retain 1–100 numbered JSON/CSV capture pairs, plus latest aliases |
 | `Compatibility.SafeMode` | `false` | Skip optional detailed timing and main-thread OS CPU probes; leave stock simulation untouched |
-| `Compatibility.DisableHookOnConflict` | `true` | Existing/late foreign Harmony owners disable the entire affected timing group, with visible diagnostics |
+| `Compatibility.DisableHookOnConflict` | `true` | Existing/late foreign Harmony owners disable the entire affected timing group, with visible diagnostics. Newfie's own owners (NOS engine modules and the Server Essentials Suite) are tolerated; unknown owners still count as conflicts |
 | `Compatibility.RequireExactGameVersion` | `true` | Exact 1.22.7 guard is mandatory in this preview; setting false does not enable unsupported engines. Running version is read from loaded API metadata, not an inlined build constant. |
 | `Benchmarking.WriteSessionEvidence` | `false` | Opt-in test-only Playing-session UID evidence for real-client harness |
 | `Benchmarking.MaxEvidenceBytes` | `16777216` | Current JSONL cap; clamped 65536–67108864 bytes. One previous epoch is retained. |

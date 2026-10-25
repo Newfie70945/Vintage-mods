@@ -66,6 +66,9 @@ public sealed class HotspotCounter(string name, string category)
 {
     private readonly DurationHistogram durations = new(2048, .25);
     public long Calls;
+    // Time every call instead of one in SystemSampleEvery. For bursty stages (chunk load completion,
+    // unload) a sparse sample would skip exactly the rare long calls being investigated.
+    public bool AlwaysSample;
     public void Record(double ms) => durations.Record(ms);
     public HotspotSummary Snapshot() => new(name, category, Calls, durations.Count, durations.TotalMs,
         durations.Count > 0 ? durations.TotalMs / durations.Count : null, durations.Percentile(.95), durations.Count > 0 ? durations.WorstMs : null,

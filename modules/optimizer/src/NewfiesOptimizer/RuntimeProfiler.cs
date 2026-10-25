@@ -68,6 +68,7 @@ public sealed class RuntimeProfiler : IDisposable
         SetModule("systemTimings", config.Profiling.SystemTimings ? "idle" : "disabled", "Optional sampled inclusive engine-system timing.");
         SetModule("phaseTimings", config.Profiling.PhaseTimings ? "idle" : "disabled", "Optional inspected main-thread phases only.");
         SetModule("callbackTimings", config.Profiling.CallbackTimings ? "idle" : "disabled", "Optional sampled callback attribution, bounded by MaxHotspots.");
+        SetModule("chunkLifecycleTimings", config.Profiling.PhaseTimings ? "idle" : "disabled", "Optional main-thread chunk-load completion, unload and despawn-send timing; every call is timed. Enabled together with Profiling.PhaseTimings.");
         if (config.Benchmarking.WriteSessionEvidence)
         {
             evidence = new(outputDirectory, config.Benchmarking.MaxEvidenceBytes);
@@ -100,9 +101,10 @@ public sealed class RuntimeProfiler : IDisposable
         {
             if (config.Profiling.SystemTimings) InstallOptionalGroup("systemTimings", InstallSystemHooks);
             if (config.Profiling.PhaseTimings) InstallOptionalGroup("phaseTimings", InstallPhaseHooks);
+            if (config.Profiling.PhaseTimings) InstallChunkLifecycleGroup();
             if (config.Profiling.CallbackTimings) InstallOptionalGroup("callbackTimings", InstallCallbackHooks);
         }
-        else foreach (string group in new[] { "systemTimings", "phaseTimings", "callbackTimings" })
+        else foreach (string group in new[] { "systemTimings", "phaseTimings", "callbackTimings", "chunkLifecycleTimings" })
             SetModule(group, "disabled", "Compatibility.SafeMode skips optional detailed timing hooks. Set false explicitly on a test server to enable configured hooks.");
         return "Capture started. Bounded telemetry is sampled every " + config.Profiling.SampleIntervalSeconds + "s. Engine optimization switches are independent of profiler capture.";
     }
@@ -165,6 +167,7 @@ public sealed class RuntimeProfiler : IDisposable
         new("systemTimings", HookUsable("systemTimings"), "Optional sampled inclusive ServerSystem.OnServerTick methods, identified by engine type."),
         new("phaseTimings", HookUsable("phaseTimings"), "Optional entity tick loop, callback dispatch, autosave preparation and main-thread packet dispatch; inclusive samples."),
         new("registeredCallbackCosts", HookUsable("callbackTimings"), "Optional inspected official callback wrappers, attributed by callback assembly/type/method; bounded unique methods."),
+        new("chunkLifecyclePhases", HookUsable("chunkLifecycleTimings"), "Optional inclusive main-thread timing of chunk-column load completion, chunk unload and entity-despawn send; every call is timed. Worker-thread chunk reads and generation stay uninstrumented."),
         new("aiAndPathfindingBreakdown", false, "Entity loop includes AI but per-AI/worker timing is deferred pending representative profiling and hook overhead evidence."),
         new("chunkGenerationAndIoTimings", false, "Worker-thread chunk generation, serialization and disk completions are not instrumented; queued chunk-column count is available."),
         new("blockEntityIndividualCosts", false, "Callbacks can be sampled by method with callbackTimings; individual block identities are not recorded."),
@@ -194,9 +197,10 @@ public sealed class RuntimeProfiler : IDisposable
         {
             var info = Harmony.GetPatchInfo(method);
             string[] owners = info?.Owners.Where(x => !IsOwnOwner(x)).Distinct().ToArray() ?? [];
-            if (owners.Length > 0 && config.Compatibility.DisableHookOnConflict)
+            string[] foreign = owners.Where(x => !IsCompanionOwner(x)).ToArray();
+            if (foreign.Length > 0 && config.Compatibility.DisableHookOnConflict)
             {
-                DisableHookGroup(module, "conflict", method.DeclaringType?.Name + "." + method.Name + ": " + string.Join(", ", owners)); return;
+                DisableHookGroup(module, "conflict", method.DeclaringType?.Name + "." + method.Name + ": " + string.Join(", ", foreign)); return;
             }
             if (prefix == nameof(TimingPrefix))
             {
@@ -247,6 +251,64 @@ public sealed class RuntimeProfiler : IDisposable
         }
     }
 
+    // Newfie's own patch owners (NOS engine modules and the Server Essentials Suite) are known and
+    // tested to coexist with observational prefix/postfix timing. Treating them as foreign made the
+    // profiler disable a whole timing group whenever, for example, an entity-lifecycle module or the
+    // Suite's OreShield had patched the same method. Unknown owners are still conflicts.
+    public static bool IsCompanionOwner(string? owner) =>
+        !string.IsNullOrEmpty(owner) &&
+        (owner == EngineOptimizations.HarmonyId ||
+         owner.StartsWith("newfies.serveroptimizer.", StringComparison.Ordinal) ||
+         owner.StartsWith("newfies.serveressentials.", StringComparison.Ordinal) ||
+         owner.StartsWith("newfiesserveressentialssuite.", StringComparison.Ordinal));
+
+    // Best effort and isolated from the phase group: a missing method, an unknown foreign patch or a
+    // full hotspot table skips only that target. Every call is timed because chunk completion and
+    // unloading are bursty and a one-in-N sample would miss exactly the stalls being investigated.
+    private void InstallChunkLifecycleGroup()
+    {
+        const string group = "chunkLifecycleTimings";
+        var skipped = new List<string>();
+        int installed = 0;
+        try
+        {
+            var methods = EngineHookTargets.ChunkLifecycleMethods(out string[] missing);
+            skipped.AddRange(missing.Select(x => x + " (not found on this build)"));
+            foreach (var method in methods)
+            {
+                string name = method.DeclaringType!.Name + "." + method.Name;
+                try
+                {
+                    string[] foreign = Harmony.GetPatchInfo(method)?.Owners
+                        .Where(x => x != HarmonyId && !IsCompanionOwner(x)).Distinct().ToArray() ?? [];
+                    if (foreign.Length > 0 && config.Compatibility.DisableHookOnConflict)
+                    { skipped.Add(name + " (foreign patch: " + string.Join(", ", foreign) + ")"); continue; }
+                    var counter = Session!.FindHotspot(method, name, Category(name));
+                    if (counter is null) { skipped.Add(name + " (hotspot limit reached)"); continue; }
+                    counter.AlwaysSample = true;
+                    timingCounters[method] = counter;
+                    // Outermost on both sides so other patches' work on the same method is included.
+                    harmony.Patch(method,
+                        prefix: new HarmonyMethod(typeof(RuntimeProfiler), nameof(TimingPrefix)) { priority = Priority.First },
+                        postfix: new HarmonyMethod(typeof(RuntimeProfiler), nameof(TimingPostfix)) { priority = Priority.Last });
+                    hooks[method] = group;
+                    installed++;
+                }
+                catch (Exception e)
+                {
+                    timingCounters.TryRemove(method, out _);
+                    skipped.Add(name + " (" + e.GetType().Name + ")");
+                }
+            }
+            string detail = installed == 0
+                ? "No chunk lifecycle targets could be timed"
+                : installed + " target(s) timed on every call (inclusive, main thread; nothing is modified)";
+            if (skipped.Count > 0) detail += "; skipped: " + string.Join("; ", skipped);
+            SetModule(group, installed > 0 ? "active" : "failed", detail + ".");
+        }
+        catch (Exception e) { DisableHookGroup(group, "failed", "Target discovery failed: " + e.GetType().Name + ". Other timing groups continue."); }
+    }
+
     private void InstallOptionalGroup(string group, Action install)
     {
         try { install(); }
@@ -261,7 +323,7 @@ public sealed class RuntimeProfiler : IDisposable
         if (!config.Compatibility.DisableHookOnConflict) return;
         foreach (var pair in hooks.ToArray())
         {
-            var owners = Harmony.GetPatchInfo(pair.Key)?.Owners.Where(o => !IsOwnOwner(o)).ToArray() ?? [];
+            var owners = Harmony.GetPatchInfo(pair.Key)?.Owners.Where(o => !IsOwnOwner(o) && !IsCompanionOwner(o)).ToArray() ?? [];
             if (owners.Length == 0) continue;
             DisableHookGroup(pair.Value, "conflict", "Late Harmony owner detected; group disabled until next capture: " + pair.Key.Name + ": " + string.Join(",", owners));
         }
@@ -271,7 +333,7 @@ public sealed class RuntimeProfiler : IDisposable
         try { harmony.UnpatchAll(HarmonyId); }
         catch (Exception e) { SetModule("cleanup", "failed", "Could not remove profiling patches: " + e.GetType().Name + "; observers disabled."); }
         finally { hooks.Clear(); timingCounters.Clear(); if (active == this) active = null; }
-        foreach (var module in new[] { "tickMetrics", "systemTimings", "phaseTimings", "callbackTimings" })
+        foreach (var module in new[] { "tickMetrics", "systemTimings", "phaseTimings", "callbackTimings", "chunkLifecycleTimings" })
         {
             lock (diagnosticsGate) if (modules.TryGetValue(module, out var value) && value.Status == "active") modules[module] = value with { Status = "captured", Reason = "Capture stopped; hooks removed, measurements retained." };
         }
@@ -434,7 +496,7 @@ public sealed class RuntimeProfiler : IDisposable
         {
             long observerStarted = Stopwatch.GetTimestamp();
             if (!owner!.timingCounters.TryGetValue(__originalMethod, out var counter)) return;
-            bool sampled = counter.Calls % owner!.config.Profiling.SystemSampleEvery == 0;
+            bool sampled = counter.AlwaysSample || counter.Calls % owner!.config.Profiling.SystemSampleEvery == 0;
             __state = new() { Counter = counter, Sampled = sampled, Started = sampled ? Stopwatch.GetTimestamp() : 0 };
             s.AddHookOverhead(Stopwatch.GetElapsedTime(observerStarted).TotalMilliseconds);
         }
