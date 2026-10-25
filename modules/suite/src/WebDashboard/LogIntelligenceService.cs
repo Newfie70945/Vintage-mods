@@ -64,6 +64,16 @@ public sealed class LogIntelligenceService : IDisposable
     private static readonly Regex UnixPathRegex = new(
         @"(?<!:)\/(?:[^\s:/]+\/)+[^\s:]+",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    // Applied to every scanned log line; the static Regex.Replace overload is interpreted.
+    private static readonly Regex WhitespaceRegex = new(
+        @"\s+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly string[] LogTimestampFormats =
+    {
+        "d.M.yyyy H:mm:ss", "dd.MM.yyyy HH:mm:ss", "d.M.yyyy HH:mm:ss",
+        "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss", "M/d/yyyy h:mm:ss tt",
+        "M/d/yyyy H:mm:ss", "d/M/yyyy H:mm:ss"
+    };
 
     private readonly ICoreServerAPI api;
     private readonly Func<ServerHealthSnapshot?> healthProvider;
@@ -1096,7 +1106,7 @@ public sealed class LogIntelligenceService : IDisposable
         value = WindowsPathRegex.Replace(value, "<path>");
         value = UnixPathRegex.Replace(value, "<path>");
         value = NumberRegex.Replace(value, "<n>");
-        value = Regex.Replace(value, @"\s+", " ").Trim();
+        value = WhitespaceRegex.Replace(value, " ").Trim();
         if (value.Length > 420) value = value[..420];
         return category + "|" + value.ToLowerInvariant();
     }
@@ -1107,13 +1117,7 @@ public sealed class LogIntelligenceService : IDisposable
         string value = line.TrimStart();
         int marker = value.IndexOf('[');
         string prefix = marker > 0 && marker <= 40 ? value[..marker].Trim() : value[..Math.Min(32, value.Length)].Trim();
-        string[] formats =
-        {
-            "d.M.yyyy H:mm:ss", "dd.MM.yyyy HH:mm:ss", "d.M.yyyy HH:mm:ss",
-            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss", "M/d/yyyy h:mm:ss tt",
-            "M/d/yyyy H:mm:ss", "d/M/yyyy H:mm:ss"
-        };
-        if (DateTime.TryParseExact(prefix, formats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal, out var exact))
+        if (DateTime.TryParseExact(prefix, LogTimestampFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal, out var exact))
             return new DateTimeOffset(exact).ToUniversalTime().ToUnixTimeMilliseconds();
         if (DateTime.TryParse(prefix, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal, out var parsed))
             return new DateTimeOffset(parsed).ToUniversalTime().ToUnixTimeMilliseconds();
@@ -1122,7 +1126,7 @@ public sealed class LogIntelligenceService : IDisposable
 
     private static string CleanTitle(string line)
     {
-        string value = Regex.Replace(line.Trim(), @"\s+", " ");
+        string value = WhitespaceRegex.Replace(line.Trim(), " ");
         if (value.Length > 240) value = value[..240] + "…";
         return value;
     }
