@@ -23,10 +23,10 @@ namespace BlockLogger.WebMap;
 ///
 /// Performance rules:
 /// - Terrain is exported from already-generated save chunks and served from cached PNG tiles.
-/// - Terrain export is startup-only unless an authenticated administrator explicitly starts a changed-terrain update or full rebuild.
+/// - Full exports are explicit/startup work; optional automatic incremental passes never request world chunks.
 /// - "Export on next server start" is a one-shot flag and clears itself after any successful export.
 /// - An optional startup interval can make an export due at server start based on the last successful export.
-/// - There is no automatic scheduled/live terrain scanner during gameplay.
+/// - Optional bounded automatic passes patch resident dirty terrain and read saved exploration without world loading.
 /// - Player positions are captured at most once per 60 seconds.
 /// - BlockLogger activity is queried at most once per 60 seconds and only while the map is used.
 /// - Bad block-entity data is read from Log Intelligence's existing cached tracker; this service never scans logs.
@@ -34,7 +34,7 @@ namespace BlockLogger.WebMap;
 ///
 /// Public marker layers remain independently optional and keep their existing conservative cadences.
 /// </summary>
-public sealed class WebMapBridgeService : IDisposable
+public sealed partial class WebMapBridgeService : IDisposable
 {
     public const string ConfigFile = "NewfiesWebMap.json";
     private const int ActivitySnapshotIntervalMs = 60_000;
@@ -46,7 +46,7 @@ public sealed class WebMapBridgeService : IDisposable
     // upgrading does not blank an existing public map, but one v11 full rebuild is required
     // before changed-terrain updates can resume against the corrected renderer.
     private const int SupportedTerrainManifestVersion = 7;
-    private const int CurrentTerrainManifestVersion = 13;
+    private const int CurrentTerrainManifestVersion = WebMapTerrainExporter.ManifestVersion;
 
     private readonly ICoreServerAPI api;
     private readonly Func<LogQueryService?> queryProvider;
@@ -276,6 +276,7 @@ public sealed class WebMapBridgeService : IDisposable
     {
         if (disposed || !IsEnabled) return;
         ApplyTranslocatorTracking();
+        RegisterTerrainDirtyTracking();
         CleanupInterruptedTerrainWork();
         RefreshTerrainManifestCache();
         WebMapTerrainExportStatus initialStatus = LoadInitialTerrainStatus(Config);
@@ -337,6 +338,7 @@ public sealed class WebMapBridgeService : IDisposable
 
     private void DeactivateRuntime()
     {
+        StopTerrainDirtyTracking();
         translocatorTracker?.Stop();
         CancellationTokenSource? cancel;
         lock (gate) cancel = forcedTerrainExportCts;
@@ -883,17 +885,19 @@ public sealed class WebMapBridgeService : IDisposable
     }
 
     private long lastLiveTerrainAttemptMs;
+    private bool nextAutomaticLoaded=true;
     private void TryAutomaticTerrainUpdate()
     {
         var c = Config;
         long now = NowMs();
-        if (disposed || !c.Enabled || !c.LiveTerrainUpdatesEnabled || !c.UseDirectSaveDatabaseTerrain ||
+        if (disposed || !c.Enabled || !c.LiveTerrainUpdatesEnabled ||
             api.Server.CurrentRunPhase != EnumServerRunPhase.RunGame || IsTerrainExportInProgress ||
             now - lastLiveTerrainAttemptMs < (long)c.LiveTerrainUpdateSeconds * 1000) return;
         lastLiveTerrainAttemptMs = now;
-        // The exporter requires a compatible existing map and limits rendered tiles per pass.
-        // Coverage discovery includes newly saved/explored columns even without a block edit.
-        StartLiveTerrainExport(false, automatic: true);
+        // Alternate bounded resident-build and saved-exploration passes; neither requests chunks.
+        bool loadedOnly=nextAutomaticLoaded || !c.UseDirectSaveDatabaseTerrain;
+        nextAutomaticLoaded=!loadedOnly;
+        StartLiveTerrainExport(false, automatic: true, loadedDirtyOnly: loadedOnly);
     }
 
     private void ConfigureIngameDateTracking()
@@ -1309,7 +1313,7 @@ public sealed class WebMapBridgeService : IDisposable
 
     public string ForceTerrainExportNow() => StartLiveTerrainExport(fullRebuild: true);
 
-    private string StartLiveTerrainExport(bool fullRebuild, bool automatic = false)
+    private string StartLiveTerrainExport(bool fullRebuild, bool automatic = false, bool loadedDirtyOnly = false)
     {
         if (disposed) return "Native Web Map service is disposed.";
         WebMapConfig c = Config;
@@ -1320,12 +1324,12 @@ public sealed class WebMapBridgeService : IDisposable
             lock (gate) manifest = terrainManifestCache;
             string saveId = api.WorldManager.SaveGame.SavegameIdentifier ?? "";
             if (manifest == null ||
-                manifest.Version < CurrentTerrainManifestVersion ||
+                manifest.Version != CurrentTerrainManifestVersion ||
                 manifest.TileSize != c.TerrainTileSize ||
                 !string.Equals(manifest.SavegameIdentifier ?? "", saveId, StringComparison.Ordinal) ||
-                !Directory.Exists(Path.Combine(mapDataRoot, "terrain", "lod")))
+                !Directory.Exists(Path.Combine(mapDataRoot, "terrain")))
             {
-                return "Changed terrain update requires Full Rebuild Map first because the current terrain cache is missing or incompatible with the v11 raised-relief fast-patch/true-pyramid renderer cache.";
+                return "Changed terrain update requires Full Rebuild Map first because the current terrain cache is missing or incompatible with the current renderer.";
             }
         }
         if (Interlocked.CompareExchange(ref forcedTerrainExportInFlight, 1, 0) != 0)
@@ -1343,7 +1347,9 @@ public sealed class WebMapBridgeService : IDisposable
             {
                 using var lifecycleSuppression = automatic ? null : EntityHooks.SuppressLifecycleAuditForBulkWorldLoad();
                 var exporter = new WebMapTerrainExporter(api, mapDataRoot, PublishTerrainStatus, dirtyJournal);
-                bool success = await exporter.ExportRuntimeForcedAsync(c, exportCts.Token, fullRebuild, automatic).ConfigureAwait(false);
+                bool success = loadedDirtyOnly
+                    ? await exporter.ExportLoadedDirtyRuntimeAsync(c,exportCts.Token).ConfigureAwait(false)
+                    : await exporter.ExportRuntimeForcedAsync(c, exportCts.Token, fullRebuild, automatic).ConfigureAwait(false);
                 if (success)
                 {
                     // File pruning and manifest decoding belong on this worker, not the tick thread.
@@ -2380,6 +2386,7 @@ if(LEADERBOARD_ONLY){
             try { api.Event.PlayerDisconnect -= OnPlayerCountDisconnect; } catch { }
             playerCountHandlersRegistered = false;
         }
+        StopTerrainDirtyTracking();
         try { translocatorTracker?.Dispose(); } catch { }
         translocatorTracker = null;
         leaderboardService.Dispose();

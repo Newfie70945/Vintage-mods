@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -124,6 +125,20 @@ public sealed class WebMapDirtyChunkJournal : IDisposable
             if (disposed || worker != null) return;
             worker = Task.Run(WriterLoopAsync);
         }
+    }
+
+    private long liveCandidateOffset;
+    // Worker-side, bounded look-ahead; rotate so unloaded old edits do not hide loaded edits forever.
+    public WebMapDirtyChunkCoord[] NextLiveCandidates(HashSet<WebMapDirtyChunkCoord> snapshot,int maximum)
+    {
+        var coords=snapshot.Where(d=>d.Dimension==0).ToArray();
+        if(coords.Length==0)return Array.Empty<WebMapDirtyChunkCoord>();
+        int count=Math.Min(coords.Length,Math.Clamp(maximum,1,2048));
+        long end=Interlocked.Add(ref liveCandidateOffset,count);
+        int start=(int)((end-count)%coords.Length);
+        var result=new WebMapDirtyChunkCoord[count];
+        for(int i=0;i<count;i++)result[i]=coords[(start+i)%coords.Length];
+        return result;
     }
 
     public HashSet<WebMapDirtyChunkCoord> Snapshot() => Snapshot(out _);

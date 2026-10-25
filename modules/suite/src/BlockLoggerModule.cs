@@ -172,7 +172,7 @@ public sealed class BlockLoggerModule : IDisposable
                     };
                 }
 
-                blockHooks = new BlockHooks(api, config, storage, time, terrainDirtyMarker);
+                blockHooks = new BlockHooks(api, config, storage, time);
                 containerHooks = new ContainerHooks(api, config, storage, storage, time);
                 entityHooks = new EntityHooks(api, config, storage, time);
 

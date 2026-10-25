@@ -86,7 +86,7 @@ static class Checks
             "BlockingLoadChunkColumn" or "LoadChunkColumnPriority" => throw new Exception("Exporter loaded the live world: " + ++worldLoads),
             _ => throw new Exception("Unexpected world manager call: " + m.Name)
         });
-        var blocks = new Block[] { new Block { BlockId = 0, Code = new AssetLocation("game:air") }, new Block { BlockId = 1, Code = new AssetLocation("game:rock-granite") }, new Block { BlockId = 2, Code = new AssetLocation("game:water-still-7") } };
+        var blocks = new Block[] { new Block { BlockId = 0, Code = new AssetLocation("game:air") }, new Block { BlockId = 1, Code = new AssetLocation("game:rock-granite") }, new Block { BlockId = 2, Code = new AssetLocation("game:water-still-7") }, new Block { BlockId = 3, Code = new AssetLocation("game:planks-oak") } };
         object world = Proxy(typeof(IServerWorldAccessor), (m, a) => m.Name switch {
             "get_Blocks" => blocks,
             "GetBlock" => blocks[(int)a![0]!],
@@ -248,6 +248,69 @@ static class Checks
         Assert(Automatic() && (int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! == 1,"New saved column inside an existing tile was missed");
         using(var manifest=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(mapRoot,"terrain","manifest.json"))))
             Assert(manifest.RootElement.GetProperty("Tiles").GetProperty("0,0").GetProperty("GeneratedChunkCount").GetInt32()==2,"Existing tile coverage not updated");
+        // Map tracking owns its block events even if BlockLogger/storage is absent or disabled.
+        var bridgeType=suite.GetType("BlockLogger.WebMap.WebMapBridgeService",true)!;
+        object bareBridge=RuntimeHelpers.GetUninitializedObject(bridgeType);
+        bridgeType.GetField("runtimeEnabled",Private)!.SetValue(bareBridge,1);
+        bridgeType.GetField("dirtyJournal",Private)!.SetValue(bareBridge,journal);
+        long journalBefore=(long)journalType.GetProperty("MutationVersion")!.GetValue(journal)!;
+        bridgeType.GetMethod("OnMapBlockPlaced",Private)!.Invoke(bareBridge,new object?[]{null,0,new BlockSelection{Position=new Vintagestory.API.MathTools.BlockPos(0,50,0,0)},null});
+        long journalAfter=(long)journalType.GetProperty("MutationVersion")!.GetValue(journal)!;
+        Assert(journalAfter>journalBefore,"Map failed to track a placement independently of BlockLogger");
+        int marked=(int)journalType.GetProperty("Count")!.GetValue(journal)!;
+        bridgeType.GetField("runtimeEnabled",Private)!.SetValue(bareBridge,0);
+        bridgeType.GetMethod("OnMapBlockBroken",Private)!.Invoke(bareBridge,new object?[]{null,0,new BlockSelection{Position=new Vintagestory.API.MathTools.BlockPos(9999,50,9999,0)}});
+        Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! ==marked&&(long)journalType.GetProperty("MutationVersion")!.GetValue(journal)! ==journalAfter,"Disabled map still journals new block changes");
+        // Automatic loaded-only updates use the real resident chunk data, including unsaved roof changes.
+        int rendererVersion=(int)exporterType.GetField("ManifestVersion",BindingFlags.Static|BindingFlags.NonPublic)!.GetRawConstantValue()!;
+        int serviceVersion=(int)suite.GetType("BlockLogger.WebMap.WebMapBridgeService",true)!.GetField("CurrentTerrainManifestVersion",BindingFlags.Static|BindingFlags.NonPublic)!.GetRawConstantValue()!;
+        Assert(rendererVersion==serviceVersion,"Automatic-update service rejects its own exporter cache version");
+        var savedManagerHandler=((ApiProxy)manager).Handler;
+        bool residentLoaded=true,unloadDuringRead=false,changeDuringRead=false;int residentCallbacks=0;
+        ((ApiProxy)manager).Handler=(m,a)=>{
+            if(m.Name=="GetChunk")return residentLoaded && (int)a![0]! ==0 && !(unloadDuringRead&&residentCallbacks>=2) ? original : null;
+            return savedManagerHandler(m,a);
+        };
+        ((ApiProxy)events).Handler=(m,a)=>{
+            if(m.Name!="EnqueueMainThreadTask")throw new Exception("Unexpected resident event "+m.Name);
+            bool surface=(string)a![1]! =="nses-webmap-read-resident-surface";
+            if(surface)residentCallbacks++;
+            ((Action)a![0]!)();
+            if(surface&&changeDuringRead){changeDuringRead=false;journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,0,0});}
+            return null;
+        };
+        bool Loaded()=>((Task<bool>)exporterType.GetMethod("ExportLoadedDirtyRuntimeAsync")!.Invoke(exporter,new object[]{config,CancellationToken.None})!).GetAwaiter().GetResult();
+        string baseTile=Path.Combine(mapRoot,"terrain","0","0.png"),remoteTile=Path.Combine(mapRoot,"terrain","1","0.png");
+        byte[] oldBase=SHA256.HashData(File.ReadAllBytes(baseTile)),oldRemote=SHA256.HashData(File.ReadAllBytes(remoteTile));
+        byte[] savedWorld=SHA256.HashData(File.ReadAllBytes(database));
+        for(int z=0;z<32;z++)for(int x=0;x<32;x++)original.Data.SetBlockUnsafe((31*32+z)*32+x,1);
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,128,0}); // Known but unloaded other tile.
+        configType.GetProperty("UseDirectSaveDatabaseTerrain")!.SetValue(config,false);
+        Assert(Loaded(),"Resident-only update failed: "+statusType.GetProperty("LastError")!.GetValue(captures.Last));
+        Assert(!oldBase.SequenceEqual(SHA256.HashData(File.ReadAllBytes(baseTile))),"Unsaved resident roof did not update cached terrain");
+        Assert(oldRemote.SequenceEqual(SHA256.HashData(File.ReadAllBytes(remoteTile))),"Unloaded dirty terrain was rendered");
+        Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Unloaded edit was consumed or captured edit was not acknowledged");
+        Assert((int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! ==1&&worldLoads==0,"Loaded update exceeded tile cap or invoked world loader");
+        Assert(Loaded()&&(int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! ==0,"No-work loaded pass rendered unloaded terrain");
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,0,0});changeDuringRead=true;
+        Assert(Loaded()&&(int)journalType.GetProperty("Count")!.GetValue(journal)! ==2,"Edit made during capture was lost");
+        Assert(Loaded()&&(int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Later unchanged capture did not drain completed work");
+        for(int z=0;z<32;z++)for(int x=0;x<32;x++){original.Data.SetBlockUnsafe((31*32+z)*32+x,0);original.Data.SetBlockUnsafe((10*32+z)*32+x,3);}
+        byte[] beforeUnload=SHA256.HashData(File.ReadAllBytes(baseTile));
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,0,0});residentCallbacks=0;unloadDuringRead=true;
+        Assert(Loaded()&&residentCallbacks>=2,"Resident surface was not captured in cooperative bounded slices");
+        Assert(beforeUnload.SequenceEqual(SHA256.HashData(File.ReadAllBytes(baseTile)))&&(int)journalType.GetProperty("Count")!.GetValue(journal)! ==2,"Mid-capture unload published partial pixels or lost dirty work");
+        unloadDuringRead=false;residentCallbacks=0;Assert(Loaded(),"Natural reload could not retry dirty terrain");
+        Assert(!beforeUnload.SequenceEqual(SHA256.HashData(File.ReadAllBytes(baseTile)))&&(int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Completed reload did not publish/acknowledge changed terrain");
+        Assert(worldLoads==0&&savedWorld.SequenceEqual(SHA256.HashData(File.ReadAllBytes(database)))&&original.Data!=null,"Loaded-only pass loaded terrain, wrote the save or disposed resident data");
+        // Leave the original unsaved marker pending for the exploration-failure checks below.
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,0,0});
+        var remaining=(System.Collections.IEnumerable)journalType.GetMethod("Snapshot",Type.EmptyTypes)!.Invoke(journal,null)!;
+        var ackSet=Activator.CreateInstance(remaining.GetType())!;
+        foreach(var d in remaining)if((int)d.GetType().GetProperty("ChunkX")!.GetValue(d)! ==4)ackSet.GetType().GetMethod("Add")!.Invoke(ackSet,new[]{d});
+        journalType.GetMethod("Acknowledge")!.Invoke(journal,new[]{ackSet});
+        configType.GetProperty("UseDirectSaveDatabaseTerrain")!.SetValue(config,true);
+        Console.WriteLine("PASS: loaded-only dirty patches publish unsaved builds, preserve unloaded/concurrent edits and partial captures, yield between bounded reads, keep other tiles/save/native chunks unchanged, and never invoke world loaders.");
         var published=Directory.EnumerateFiles(Path.Combine(mapRoot,"terrain"),"*",SearchOption.AllDirectories).ToDictionary(f=>f,f=>SHA256.HashData(File.ReadAllBytes(f)));
         AddExploration(16,false);
         Assert(!Automatic(),"Missing saved terrain row incorrectly published");

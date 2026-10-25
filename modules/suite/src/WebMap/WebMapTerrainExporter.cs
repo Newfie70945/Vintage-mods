@@ -32,12 +32,12 @@ namespace BlockLogger.WebMap;
 /// - Stages incremental tile changes and validates them before committing them to the public cache.
 /// - Optional bounded, saved-database-only runtime updates discover newly explored terrain.
 /// </summary>
-internal sealed class WebMapTerrainExporter
+internal sealed partial class WebMapTerrainExporter
 {
     private const int ChunkSize = 32;
     private const int DimensionMask = 31;
     private const long CoordMask21 = (1L << 21) - 1;
-    private const int ManifestVersion = 12;
+    internal const int ManifestVersion = 12;
     private static readonly string[] DerivedTerrainStyles = { "sepia", "topo" };
 
     private readonly ICoreServerAPI api;
@@ -296,6 +296,7 @@ internal sealed class WebMapTerrainExporter
     public async Task<bool> ExportRuntimeForcedAsync(WebMapConfig config, CancellationToken cancellationToken, bool fullRebuild, bool automatic = false)
     {
         automaticSavedTerrainOnly = automatic;
+        loadedDirtyOnly = false;
         using var exportEntityLogScope = automatic ? null : WebMapExportLogSuppressor.Begin(api);
         var totalSw = Stopwatch.StartNew();
         var status = new WebMapTerrainExportStatus
@@ -324,7 +325,7 @@ internal sealed class WebMapTerrainExporter
         string backupDir = Path.Combine(rootPath, "terrain-previous");
         long dirtyMutationVersion = 0;
         var dirtySnapshot = dirtyJournal?.Snapshot(out dirtyMutationVersion) ?? new HashSet<WebMapDirtyChunkCoord>();
-        if (automatic) dirtySnapshot.Clear(); // Unsaved edits remain journaled for an explicit changed-terrain update.
+        if (automatic) dirtySnapshot.Clear(); // Dirty edits belong to the separate resident-only pass; saved exploration cannot acknowledge them.
         status.DirtyChunkCount = dirtySnapshot.Count;
 
         try
@@ -552,7 +553,9 @@ internal sealed class WebMapTerrainExporter
         Directory.CreateDirectory(currentDir);
         manifest.Tiles ??= new Dictionary<string, WebMapTerrainTileMetadata>(StringComparer.Ordinal);
 
-        var dirtyTiles = CollectDirtyTiles(config, coverage, currentDir, manifest, dirtySnapshot);
+        var dirtyTiles = loadedDirtyOnly
+            ? dirtySnapshot.Select(d=>new TileCoord(FloorDiv(d.ChunkX*ChunkSize,config.TerrainTileSize),FloorDiv(d.ChunkZ*ChunkSize,config.TerrainTileSize))).ToHashSet()
+            : CollectDirtyTiles(config, coverage, currentDir, manifest, dirtySnapshot);
         if (automaticSavedTerrainOnly)
         {
             // Least recently rendered first. Ordering by position let a busy low-Z area use every pass and starve the
@@ -606,14 +609,16 @@ internal sealed class WebMapTerrainExporter
         if (automaticSavedTerrainOnly) await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
         int written = 0;
         long processedColumns = 0;
-        foreach (TileCoord tile in dirtyTiles.OrderBy(t => t.Z).ThenBy(t => t.X))
+        foreach (TileCoord tile in dirtyTiles.OrderBy(t => t.Z).ThenBy(t => t.X).ToArray())
         {
             cancellationToken.ThrowIfCancellationRequested();
             dirtyChunksByTile.TryGetValue(tile, out HashSet<ChunkCoord>? patchChunks);
             RuntimeRenderedTile rendered = await RenderTileRuntimeAsync(
                 config, tile, stageDir, coverage.Chunks, status, directReader, forceLiveChunks, cancellationToken,
                 rawSourceDir: currentDir, patchChunks: patchChunks).ConfigureAwait(false);
+            if(loadedDirtyOnly && rendered.ProcessedColumns==0){dirtyTiles.Remove(tile);continue;}
             processedColumns += rendered.ProcessedColumns;
+            manifest.Tiles.TryGetValue(TileKey(tile.X,tile.Z),out var oldTile);
             manifest.Tiles[TileKey(tile.X, tile.Z)] = new WebMapTerrainTileMetadata
             {
                 X = tile.X,
@@ -622,7 +627,7 @@ internal sealed class WebMapTerrainExporter
                 G = rendered.Tile.Average.G,
                 B = rendered.Tile.Average.B,
                 ChunkRgb = rendered.Tile.ChunkRgb,
-                GeneratedChunkCount = CountGeneratedChunksForTile(config, tile, coverage.Chunks),
+                GeneratedChunkCount = loadedDirtyOnly ? oldTile?.GeneratedChunkCount ?? 0 : CountGeneratedChunksForTile(config, tile, coverage.Chunks),
                 LastGeneratedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
             if (automaticSavedTerrainOnly) await Task.Delay(50, cancellationToken).ConfigureAwait(false);
@@ -639,6 +644,7 @@ internal sealed class WebMapTerrainExporter
             await Task.Yield();
         }
 
+        if(loadedDirtyOnly && written==0){try{Directory.Delete(stageDir,true);}catch{}return true;}
         if (written > 0) ValidateAndLogSurfaceDiagnostics(coverage);
         SetProgressPhase(status, "overview", 92, "Updating map overview…");
         if (config.ExportNormalTerrain) WriteOverview(stageDir, manifest, status);
@@ -677,6 +683,7 @@ internal sealed class WebMapTerrainExporter
         {
             bool patchMode = rawSourceDir != null && patchChunks != null && patchChunks.Count > 0 &&
                              TryReadRawTile(rawSourceDir, tile.X, tile.Z, rgba, pixelBytes);
+            if(loadedDirtyOnly && !patchMode)throw new InvalidOperationException("Loaded-only updates require a readable raw tile cache; rebuild the map manually.");
             if (!patchMode) FillBackground(rgba, pixelBytes);
             int tileBlockX = tile.X * config.TerrainTileSize;
             int tileBlockZ = tile.Z * config.TerrainTileSize;
@@ -694,6 +701,13 @@ internal sealed class WebMapTerrainExporter
                     int chunkZ = firstChunkZ + dz;
                     var chunkCoord = new ChunkCoord(chunkX, chunkZ);
                     if (patchMode && !patchChunks!.Contains(chunkCoord)) continue;
+                    if(loadedDirtyOnly)
+                    {
+                        if(await TryRenderResidentColumnAsync(chunkX,chunkZ,rgba,config.TerrainTileSize,dx*ChunkSize,dz*ChunkSize,cancellationToken).ConfigureAwait(false))
+                        { capturedResidentChunks.Add(chunkCoord);processed++; }
+                        else status.DeferredDirtyChunkCount++;
+                        continue;
+                    }
                     if (patchMode) ClearChunkPatch(rgba, config.TerrainTileSize, dx * ChunkSize, dz * ChunkSize);
                     Interlocked.Increment(ref chunkExistenceChecks);
                     if (!generatedChunks.Contains(chunkCoord)) continue;
@@ -725,6 +739,7 @@ internal sealed class WebMapTerrainExporter
                 }
             }
 
+            if(loadedDirtyOnly && processed==0)return new RuntimeRenderedTile(SummarizeTile(rgba,config.TerrainTileSize),0);
             WriteRawTile(outputDir, tile.X, tile.Z, rgba, pixelBytes);
             WriteDerivedTerrainStyles(outputDir, tile.X, tile.Z, rgba, config.TerrainTileSize, config.ExportSepiaTerrain, config.ExportTopographicTerrain);
 
@@ -3522,6 +3537,7 @@ public sealed class WebMapTerrainExportStatus
     public int WrittenTiles { get; set; }
     public int ReusedTiles { get; set; }
     public int DirtyChunkCount { get; set; }
+    public int DeferredDirtyChunkCount { get; set; }
     public int TileSize { get; set; } = 256;
     public bool ServerLockActive { get; set; }
     public long CoverageScanMilliseconds { get; set; }
