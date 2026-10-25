@@ -37,6 +37,12 @@ public sealed class WebMapDirtyChunkJournal : IDisposable
     private readonly object fileGate = new();
     private readonly HashSet<long> dirtyPacked = new();
     private readonly HashSet<WebMapDirtyChunkCoord> dirtyOverflow = new();
+    // Chunks marked again after the outstanding export snapshot was taken. Tiny compared with the dirty set, and it lets
+    // an export acknowledge everything it rendered except those chunks, instead of nothing at all.
+    private readonly HashSet<long> touchedPacked = new();
+    private readonly HashSet<WebMapDirtyChunkCoord> touchedOverflow = new();
+    private bool trackTouches;
+    private long trackedSnapshotVersion = -1;
     private readonly ConcurrentQueue<long> pendingPackedWrites = new();
     private readonly ConcurrentQueue<WebMapDirtyChunkCoord> pendingOverflowWrites = new();
     private readonly SemaphoreSlim wake = new(0, 1);
@@ -86,12 +92,14 @@ public sealed class WebMapDirtyChunkJournal : IDisposable
             Interlocked.Increment(ref mutationVersion);
             if (TryPack(dimension, chunkX, chunkZ, out long packed))
             {
+                if (trackTouches) touchedPacked.Add(packed);
                 if (!dirtyPacked.Add(packed)) return;
                 pendingPackedWrites.Enqueue(packed);
             }
             else
             {
                 var coord = new WebMapDirtyChunkCoord(dimension, chunkX, chunkZ);
+                if (trackTouches) touchedOverflow.Add(coord);
                 if (!dirtyOverflow.Add(coord)) return;
                 pendingOverflowWrites.Enqueue(coord);
             }
@@ -126,6 +134,10 @@ public sealed class WebMapDirtyChunkJournal : IDisposable
         lock (gate)
         {
             snapshotMutationVersion = MutationVersion;
+            trackTouches = true;
+            trackedSnapshotVersion = snapshotMutationVersion;
+            touchedPacked.Clear();
+            touchedOverflow.Clear();
             var result = new HashSet<WebMapDirtyChunkCoord>(dirtyPacked.Count + dirtyOverflow.Count);
             foreach (long packed in dirtyPacked) result.Add(Unpack(packed));
             foreach (var coord in dirtyOverflow) result.Add(coord);
@@ -153,12 +165,29 @@ public sealed class WebMapDirtyChunkJournal : IDisposable
             var remaining = new List<WebMapDirtyChunkCoord>();
             lock (gate)
             {
-                if (disposed || MutationVersion != expectedMutationVersion) return false;
+                if (disposed) return false;
+                bool mutatedSinceSnapshot = MutationVersion != expectedMutationVersion;
+                // Edits during the export only keep the chunks they touched dirty. If this is not the snapshot that is
+                // being tracked (a newer one was taken), nothing can be proven, so stay fully conservative.
+                if (mutatedSinceSnapshot && !(trackTouches && trackedSnapshotVersion == expectedMutationVersion)) return false;
                 foreach (var coord in exported)
                 {
+                    if (mutatedSinceSnapshot)
+                    {
+                        bool touched = TryPack(coord.Dimension, coord.ChunkX, coord.ChunkZ, out long touchedKey)
+                            ? touchedPacked.Contains(touchedKey) : touchedOverflow.Contains(coord);
+                        if (touched) continue;
+                    }
                     bool changed = TryPack(coord.Dimension, coord.ChunkX, coord.ChunkZ, out long packed)
                         ? dirtyPacked.Remove(packed) : dirtyOverflow.Remove(coord);
                     if (changed) removed.Add(coord);
+                }
+                if (trackedSnapshotVersion == expectedMutationVersion)
+                {
+                    trackTouches = false;
+                    trackedSnapshotVersion = -1;
+                    touchedPacked.Clear();
+                    touchedOverflow.Clear();
                 }
                 if (removed.Count == 0) return true;
                 foreach (long packed in dirtyPacked) remaining.Add(Unpack(packed));
