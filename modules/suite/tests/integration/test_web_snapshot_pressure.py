@@ -48,6 +48,10 @@ features = json.loads(f.read_text()); features['WebDashboard'] = True;
 if performance_test:
     features['WebMap'] = True
     (folder / 'NewfiesWebMap.json').write_text(json.dumps(dict(Enabled=False)))
+translocator_test = os.environ.get('NSS_WEB_TEST_TRANSLOCATORS') == '1'
+if translocator_test:
+    features['WebMap'] = True
+    (folder / 'NewfiesWebMap.json').write_text(json.dumps(dict(Enabled=True,BindAddress='127.0.0.1',Port=int(os.environ.get('NSS_WEB_MAP_PORT','42994')),ShowTranslocators=True,TranslocatorDiscoveryRadius=8)))
 f.write_text(json.dumps(features))
 base = 'http://127.0.0.1:' + str(web_port)
 lines = []
@@ -80,7 +84,7 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
-    if proximity_test or performance_test or optimizer_test:
+    if proximity_test or performance_test or optimizer_test or translocator_test:
         session_status, session_data, _, _ = request('/api/session')
         assert session_status == 200
         csrf_token = session_data['csrfToken']
@@ -123,7 +127,31 @@ try:
         code, saved, _, _ = request('/api/webmap/export-schedule', dict(exportTerrainOnStart=False, automaticStartupExportEnabled=False, automaticStartupExportIntervalDays=7, useIncrementalTerrainExport=True, lockServerDuringTerrainExport=True, liveTerrainUpdatesEnabled=True, liveTerrainUpdateSeconds=90, liveTerrainMaxTilesPerPass=2))
         assert code == 200, code
         code, map_status, _, _ = request('/api/webmap')
-        assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and not map_status['enabled']
+        assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and map_status['enabled'] == translocator_test
+    if translocator_test:
+        code, map_status, _, _ = request('/api/webmap')
+        assert code == 200 and map_status['showTranslocators'] and map_status['translocatorDiscoveryRadius'] == 8, map_status
+        port = int(os.environ.get('NSS_WEB_MAP_PORT','42994'))
+        with urllib.request.urlopen('http://127.0.0.1:' + str(port) + '/api/map',timeout=10) as response:
+            public_map=json.load(response)
+        assert public_map['showTranslocators'] and public_map['translocators'] == [], public_map
+        private_file = data / 'NewfiesServerEssentialsWebMap/translocators-v2-private-probe.json'
+        private_file.write_text('{"privateTarget":"not-public"}')
+        try:
+            urllib.request.urlopen('http://127.0.0.1:' + str(port) + '/' + private_file.name,timeout=10)
+            raise AssertionError('Private discovery file was served publicly')
+        except urllib.error.HTTPError as error:
+            assert error.code == 404, error.code
+        time.sleep(1.1)
+        payload=dict(enabled=True,bindAddress='127.0.0.1',port=port,showTranslocators=False,translocatorDiscoveryRadius=8,liveTerrainUpdatesEnabled=performance_test,liveTerrainUpdateSeconds=90,liveTerrainMaxTilesPerPass=2)
+        code, result, _, _ = request('/api/webmap/config',payload)
+        assert code == 200, (code,result)
+        time.sleep(1.1)
+        payload.update(showTranslocators=True,translocatorDiscoveryRadius=9)
+        code, result, _, _ = request('/api/webmap/config',payload)
+        assert code == 200, (code,result)
+        code, map_status, _, _ = request('/api/webmap')
+        assert map_status['showTranslocators'] and map_status['translocatorDiscoveryRadius'] == 9, map_status
     if optimizer_test:
         code, nos, _, _ = request('/api/optimizations/newfies')
         assert code == 200 and nos.get('available'), (code, nos)
@@ -148,7 +176,7 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
-                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test,
+                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
@@ -183,7 +211,7 @@ if proximity_test:
 
 if performance_test:
     stored = json.loads((folder / 'NewfiesWebMap.json').read_text())
-    assert stored['LiveTerrainUpdatesEnabled'] and stored['LiveTerrainUpdateSeconds'] == 90 and stored['LiveTerrainMaxTilesPerPass'] == 2 and not stored['Enabled']
+    assert stored['LiveTerrainUpdatesEnabled'] and stored['LiveTerrainUpdateSeconds'] == 90 and stored['LiveTerrainMaxTilesPerPass'] == 2 and stored['Enabled'] == translocator_test
     report['liveTerrainSettingsPersisted'] = True
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Performance reading endpoints and opt-in live terrain settings persistence: ok', flush=True)
@@ -198,3 +226,10 @@ if optimizer_test:
     report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True)
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('NOS phase and three lifecycle targets captured; shutdown removed hooks: ok', flush=True)
+
+if translocator_test:
+    stored = json.loads((folder / 'NewfiesWebMap.json').read_text())
+    assert stored['ShowTranslocators'] and stored['TranslocatorDiscoveryRadius'] == 9
+    report.update(translocatorSettingsPersisted=True)
+    (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    print('Translocator public feed, live toggle and world-scoped settings persistence: ok',flush=True)

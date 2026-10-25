@@ -40,5 +40,7 @@
   "TerrainTileSize": 256,
   "LiveTerrainUpdatesEnabled": false,
   "LiveTerrainUpdateSeconds": 120,
-  "LiveTerrainMaxTilesPerPass": 4
+  "LiveTerrainMaxTilesPerPass": 4,
+  "ShowTranslocators": false,
+  "TranslocatorDiscoveryRadius": 6
 }

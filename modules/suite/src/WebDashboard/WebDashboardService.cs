@@ -6003,6 +6003,8 @@ public sealed partial class WebDashboardService : IDisposable
                 ShowBadBlockEntities = GetJsonBool(request.Body, "showBadBlockEntities", false),
                 ShowActivity = GetJsonBool(request.Body, "showActivity", false),
                 ShowWaypoints = GetJsonBool(request.Body, "showWaypoints", true),
+                ShowTranslocators = GetJsonBool(request.Body, "showTranslocators", false),
+                TranslocatorDiscoveryRadius = Math.Clamp(GetJsonInt(request.Body, "translocatorDiscoveryRadius", 6), 3, 16),
                 ShowLeaderboards = GetJsonBool(request.Body, "showLeaderboards", true),
                 LeaderboardShowPlaytime = GetJsonBool(request.Body, "leaderboardShowPlaytime", true),
                 LeaderboardShowXSkills = GetJsonBool(request.Body, "leaderboardShowXSkills", true),

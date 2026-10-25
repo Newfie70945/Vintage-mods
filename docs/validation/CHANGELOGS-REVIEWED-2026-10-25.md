@@ -31,6 +31,10 @@ Changes since public **1.2.51**, identified from the exact source commit embedde
 
 ### WebMap
 
+- Added the corrected **Translocator layer** in build `ms11-translocator1`, off by default. Shared markers include pads discovered, created or repaired by any player; broken pads are marked separately.
+- Destination coordinates and connecting lines appear only when both official pads have been independently discovered and repaired. Undiscovered destinations are omitted from API JSON, not merely hidden on screen; return links are not invented.
+- Translocator discovery uses bounded reads of already-loaded terrain near players, with placement/interaction updates and a configurable 3–16 block radius. No full-world scan, destination-side chunk reads or movement-jump inference.
+- Discovery data is capped, scoped to each world and saved by one background worker. Disabling the layer removes its discovery handlers while retaining saved discoveries; the WebPanel shows storage/observation failures.
 - Added optional bounded incremental terrain updates under **Web Map → Export Schedule → Live explored terrain**. Defaults are off; the starting settings are 120 seconds and four tiles per pass.
 - Configure 30–3,600 seconds and 1–16 tiles per pass. A compatible initial export and the direct save-database reader are required.
 - New exploration appears after it reaches the normal world save and the scheduled map update; newly explored columns within an existing tile are detected too.
@@ -96,7 +100,6 @@ Unpublished engineering preview; no verified public optimizer release exists to 
 
 These were present on Claude's branches but were deliberately excluded. They are not features of the compiled downloads.
 
-- **WebMap translocator layer:** proposed markers/links for discovered or used translocators. Withheld because reading a discovered pad's target could publish the coordinates of an undiscovered destination; source/destination matching could be wrong; player-area scans and JSON writes also added substantial game-thread work. **There is no translocator layer in Suite 1.2.52.**
 - **Open-ended live slow-tick logging:** withheld because the proposed status request reads/parses logs synchronously on the game thread.
 - **Confirmed GC cause attached to each hot tick:** withheld because process-wide pause deltas were not reliably aligned with the recorded tick interval.
 - **Automatic player-activity SQL enrichment:** withheld because timing out the wait did not stop the underlying database query, allowing background work to accumulate.
@@ -107,4 +110,4 @@ These were present on Claude's branches but were deliberately excluded. They are
 
 Discord Link **1.0.14** and MOTD **2.1.6** were already public. Their existing features are not all new in this update: for example, temporal-storm/death relay was already present in Discord Link 1.0.14, and existing MOTD scrolling/layout is not a new 2.1.7 feature. The shared feed-formatting improvements above span both updated mods.
 
-Website, Website Connector and Mod DB HTML descriptions remain excluded from this source/distribution. The optimizer remains optional. These expanded notes describe the same compiled binaries previously supplied; this is a documentation correction, not another mod update.
+Website, Website Connector and Mod DB HTML descriptions remain excluded from this source/distribution. The optimizer remains optional. Build `ms11-translocator1` replaces the original reviewed Suite binary with the corrected translocator layer. Companion and optimizer binaries are unchanged from the reviewed pack. The original audit correctly withheld the unsafe prototype; the implemented replacement and tests are documented in `SUITE-1.2.52-TRANSLOCATORS.md`.
