@@ -652,8 +652,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                     // times or mix a later live revision into an earlier packet snapshot.
                     int id = source[i];
                     if (!IsProtectedOreId(id)) continue;
-                    var candidatePos = BlockPosFromChunkLocalIndex(key, i);
-                    if (!IsPlayerPlacedOre(candidatePos)) candidateIndexes.Add(i);
+                    if (!IsPlayerPlacedOreAt(key, i)) candidateIndexes.Add(i);
                 }
 
                 OreShieldExposedIndex exposedIndexes = new();
@@ -691,11 +690,9 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                 int actual = source[index];
                 if (!IsProtectedOreId(actual)) continue;
 
-                var pos = BlockPosFromChunkLocalIndex(key, index);
-
                 // Player-placed ore is never geology and must remain vanilla-visible to every
                 // recipient, including after reconnect/chunk reload/server restart.
-                if (IsPlayerPlacedOre(pos)) continue;
+                if (IsPlayerPlacedOreAt(key, index)) continue;
 
                 // The canonical packet retains the server's ore for this recipient's discoveries.
                 // Recipient copies and wrapper deduplication are owned by OreShieldService.
@@ -2595,6 +2592,23 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
             localChunkY * chunkSize + ly,
             chunk.Z * chunkSize + lz,
             dimension);
+    }
+
+    // Same lookup as IsPlayerPlacedOre(BlockPosFromChunkLocalIndex(...)) without allocating a
+    // BlockPos per ore cell; chunk masking runs this for every protected ore in every packet.
+    private bool IsPlayerPlacedOreAt(ChunkKey chunk, int index)
+    {
+        int ly = index / (chunkSize * chunkSize);
+        int rem = index - ly * chunkSize * chunkSize;
+        int lz = rem / chunkSize;
+        int lx = rem - lz * chunkSize;
+        DecodeChunkY(chunk.Y, out int localChunkY, out int dimension);
+        var cell = new WorldBlockKey(
+            chunk.X * chunkSize + lx,
+            localChunkY * chunkSize + ly,
+            chunk.Z * chunkSize + lz,
+            dimension);
+        lock (sync) return playerPlacedOreExemptions.Contains(cell);
     }
 
     private int ReadWorldBlock(BlockPos position)
