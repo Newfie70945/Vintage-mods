@@ -207,8 +207,11 @@ public sealed class MotdDiscordProvider : IDisposable
         return string.Join("\n\n", parts);
     }
 
-    private static string AuthorName(IUser? author) =>
-        (author as IGuildUser)?.DisplayName ?? author?.GlobalName ?? author?.Username ?? "Discord";
+    private static string AuthorName(IUser? author)
+    {
+        string name = DiscordMarkdown.StripEmoji((author as IGuildUser)?.DisplayName ?? author?.GlobalName ?? author?.Username).Trim();
+        return name.Length > 0 ? name : "Discord";
+    }
 
     // Gateway/REST messages carry resolved mention tags; unresolved IDs fall back to "@user".
     private static DiscordMarkdown.MentionResolver MentionResolverFor(IMessage message)
@@ -220,7 +223,7 @@ public sealed class MotdDiscordProvider : IDisposable
             {
                 switch (tag.Value)
                 {
-                    case IGuildUser member when tag.Type == TagType.UserMention: names[('@', tag.Key)] = member.DisplayName; break;
+                    case IGuildUser member when tag.Type == TagType.UserMention: names[('@', tag.Key)] = DiscordMarkdown.StripEmoji(member.DisplayName); break;
                     case IUser user when tag.Type == TagType.UserMention: names[('@', tag.Key)] = user.GlobalName ?? user.Username; break;
                     case IRole role when tag.Type == TagType.RoleMention: names[('&', tag.Key)] = role.Name; break;
                     case IChannel channel when tag.Type == TagType.ChannelMention: names[('#', tag.Key)] = channel.Name; break;
