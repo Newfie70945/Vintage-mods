@@ -440,6 +440,12 @@ public sealed partial class WebDashboardService : IDisposable
     private string nativeSlowTickLastExcerpt = "";
     private bool nativeSlowTickWasEnabled;
     private int nativeSlowTickPreviousThreshold;
+    // An open-ended capture still ends on its own after this long, so a forgotten toggle cannot
+    // leave native slow-tick logging on across days.
+    private const int ContinuousSlowTickSafetySeconds = 12 * 3600;
+    private bool nativeSlowTickContinuous;
+    private bool nativeSlowTickStoppedBySafetyLimit;
+    private SlowTickLogScanner? nativeSlowTickScanner;
     private string nativeTickDebugLastAction = "";
     private string nativeTickDebugLastOutput = "";
     private long nativeTickDebugLastActionUnixMilliseconds;
@@ -701,6 +707,9 @@ public sealed partial class WebDashboardService : IDisposable
 
         StopListener();
         api.Event.GameWorldSave -= OnGameWorldSave;
+
+        // An open-ended slow-tick capture must hand the engine profiler its original settings back.
+        try { if (nativeSlowTickCaptureRunning) StopNativeSlowTickCaptureNow(); } catch { }
 
         logIntelligence?.Dispose();
         logIntelligence = null;
@@ -9602,11 +9611,16 @@ public sealed partial class WebDashboardService : IDisposable
                 return;
             }
             int thresholdMs = Math.Clamp(GetJsonInt(request.Body, "thresholdMs", 100), 20, 1000);
+            bool continuous = GetJsonBool(request.Body, "continuous", false);
             int durationSeconds = Math.Clamp(GetJsonInt(request.Body, "durationSeconds", 30), 5, 120);
             var result = await RunOnMainThreadAsync(
-                () => StartNativeSlowTickCapture(thresholdMs, durationSeconds, incidentCapture: false),
+                () => StartNativeSlowTickCapture(thresholdMs, durationSeconds, incidentCapture: false, continuous),
                 "web-tick-debug-slow-start").ConfigureAwait(false);
-            RecordWebAudit("native-slow-ticks", $"Started {durationSeconds}s native slow-tick capture at {thresholdMs}ms.", result.Success ? "Success" : result.Message, remote.ToString(), requestActor);
+            RecordWebAudit("native-slow-ticks",
+                continuous
+                    ? $"Started open-ended native slow-tick logging at {thresholdMs}ms (safety limit {ContinuousSlowTickSafetySeconds / 3600}h)."
+                    : $"Started {durationSeconds}s native slow-tick capture at {thresholdMs}ms.",
+                result.Success ? "Success" : result.Message, remote.ToString(), requestActor);
             await WriteJsonAsync(stream, result.Success ? 200 : 409, result, cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -9871,6 +9885,11 @@ public sealed partial class WebDashboardService : IDisposable
         }
         catch { }
 
+        // Open-ended logging shows its entries live. The scanner reads a bounded amount of newly
+        // written log per poll and is only touched on the main thread, like start and finish.
+        SlowTickLogScanner? liveScanner = nativeSlowTickCaptureRunning ? nativeSlowTickScanner : null;
+        liveScanner?.Poll();
+
         lock (tickDebugLock)
         {
             if (tickDebugNetworkSampleUnixMilliseconds > 0 && now > tickDebugNetworkSampleUnixMilliseconds)
@@ -9919,9 +9938,16 @@ public sealed partial class WebDashboardService : IDisposable
                     durationSeconds = nativeSlowTickDurationSeconds,
                     startedUnixMilliseconds = nativeSlowTickStartedUnixMilliseconds,
                     endsUnixMilliseconds = nativeSlowTickEndsUnixMilliseconds,
-                    remainingSeconds = nativeSlowTickCaptureRunning ? Math.Max(0, (nativeSlowTickEndsUnixMilliseconds - now + 999) / 1000) : 0,
+                    remainingSeconds = nativeSlowTickCaptureRunning && !nativeSlowTickContinuous ? Math.Max(0, (nativeSlowTickEndsUnixMilliseconds - now + 999) / 1000) : 0,
+                    continuous = nativeSlowTickCaptureRunning && nativeSlowTickContinuous,
+                    safetyLimitHours = ContinuousSlowTickSafetySeconds / 3600,
+                    elapsedSeconds = nativeSlowTickCaptureRunning ? Math.Max(0, (now - nativeSlowTickStartedUnixMilliseconds) / 1000) : 0,
+                    entriesLogged = liveScanner?.BlocksFound ?? 0,
+                    stoppedBySafetyLimit = !nativeSlowTickCaptureRunning && nativeSlowTickStoppedBySafetyLimit,
                     logPath = nativeSlowTickLogPath,
-                    lastExcerpt = nativeSlowTickLastExcerpt
+                    lastExcerpt = liveScanner != null
+                        ? (liveScanner.Text.Length > 0 ? liveScanner.Text : "Logging is on. No slow ticks have been logged yet.")
+                        : nativeSlowTickLastExcerpt
                 },
                 lastAction = new
                 {
@@ -9963,13 +9989,18 @@ public sealed partial class WebDashboardService : IDisposable
         }
     }
 
-    private WebActionResult StartNativeSlowTickCapture(int thresholdMs, int durationSeconds, bool incidentCapture)
+    private WebActionResult StartNativeSlowTickCapture(int thresholdMs, int durationSeconds, bool incidentCapture, bool continuous = false)
     {
         lock (tickDebugLock)
         {
             if (nativeSlowTickCaptureRunning)
                 return new WebActionResult(false, "A native slow-tick capture is already running.");
         }
+
+        // Incident capture drives the engine profiler, which is always bounded; only plain
+        // slow-tick logging can run open-ended.
+        continuous &= !incidentCapture;
+        int effectiveSeconds = continuous ? ContinuousSlowTickSafetySeconds : durationSeconds;
 
         string profilerMessage = "";
         if (incidentCapture)
@@ -9991,14 +10022,19 @@ public sealed partial class WebDashboardService : IDisposable
             nativeSlowTickCaptureRunning = true;
             nativeSlowTickIncidentCapture = incidentCapture;
             nativeSlowTickThresholdMs = thresholdMs;
-            nativeSlowTickDurationSeconds = durationSeconds;
+            nativeSlowTickDurationSeconds = continuous ? 0 : durationSeconds;
+            nativeSlowTickContinuous = continuous;
+            nativeSlowTickStoppedBySafetyLimit = false;
+            nativeSlowTickScanner = continuous ? new SlowTickLogScanner(logPath, logOffset) : null;
             nativeSlowTickStartedUnixMilliseconds = now;
-            nativeSlowTickEndsUnixMilliseconds = now + durationSeconds * 1000L;
+            nativeSlowTickEndsUnixMilliseconds = now + effectiveSeconds * 1000L;
             nativeSlowTickLogPath = logPath;
             nativeSlowTickLogOffset = logOffset;
             nativeTickDebugLastAction = incidentCapture ? "incident-capture" : "slow-tick-capture";
             nativeTickDebugLastActionUnixMilliseconds = now;
-            nativeTickDebugLastOutput = $"Starting native slow-tick capture at {thresholdMs}ms for {durationSeconds}s." + (incidentCapture ? $" Engine profiler: {profilerMessage}" : "");
+            nativeTickDebugLastOutput = continuous
+                ? $"Starting open-ended native slow-tick logging at {thresholdMs}ms."
+                : $"Starting native slow-tick capture at {thresholdMs}ms for {durationSeconds}s." + (incidentCapture ? $" Engine profiler: {profilerMessage}" : "");
         }
 
         var nativeProfiler = api.World.FrameProfiler;
@@ -10013,11 +10049,13 @@ public sealed partial class WebDashboardService : IDisposable
         if (!tickProfilerWasActive)
             nativeProfiler.Begin("Newfies Suite native slow-tick capture transition");
 
-        api.Event.RegisterCallback(_ => FinishNativeSlowTickCapture(generation), durationSeconds * 1000);
+        api.Event.RegisterCallback(_ => FinishNativeSlowTickCapture(generation), effectiveSeconds * 1000);
 
         string message = incidentCapture
             ? $"Incident capture started for {durationSeconds}s: native slow ticks ≥{thresholdMs}ms plus engine profile."
-            : $"Native slow-tick capture started for {durationSeconds}s at ≥{thresholdMs}ms.";
+            : continuous
+                ? $"Native slow-tick logging is on at ≥{thresholdMs}ms. It stays on until you stop it (automatic stop after {ContinuousSlowTickSafetySeconds / 3600} hours)."
+                : $"Native slow-tick capture started for {durationSeconds}s at ≥{thresholdMs}ms.";
         return new WebActionResult(true, message);
     }
 
@@ -10039,6 +10077,8 @@ public sealed partial class WebDashboardService : IDisposable
         string logPath;
         long logOffset;
         bool incident;
+        SlowTickLogScanner? scanner;
+        bool stoppedBySafetyLimit;
         lock (tickDebugLock)
         {
             if (!nativeSlowTickCaptureRunning || generation != nativeSlowTickCaptureGeneration)
@@ -10046,6 +10086,12 @@ public sealed partial class WebDashboardService : IDisposable
             logPath = nativeSlowTickLogPath;
             logOffset = nativeSlowTickLogOffset;
             incident = nativeSlowTickIncidentCapture;
+            scanner = nativeSlowTickScanner;
+            stoppedBySafetyLimit = nativeSlowTickContinuous &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() >=
+                nativeSlowTickStartedUnixMilliseconds + (ContinuousSlowTickSafetySeconds - 2) * 1000L;
+            nativeSlowTickStoppedBySafetyLimit = stoppedBySafetyLimit;
+            nativeSlowTickScanner = null;
             nativeSlowTickCaptureRunning = false;
             nativeSlowTickEndsUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
@@ -10068,7 +10114,21 @@ public sealed partial class WebDashboardService : IDisposable
         }
         catch { }
 
-        string excerpt = ReadNativeTickDebugLogDelta(logPath, logOffset, 128 * 1024);
+        string excerpt;
+        if (scanner != null)
+        {
+            scanner.Poll();
+            string entries = scanner.Text;
+            excerpt = entries.Length == 0
+                ? ""
+                : $"{scanner.BlocksFound} slow-tick entr{(scanner.BlocksFound == 1 ? "y" : "ies")} logged while open-ended logging was on; newest shown:\n\n{entries}";
+            if (stoppedBySafetyLimit)
+                excerpt = $"Stopped automatically after the {ContinuousSlowTickSafetySeconds / 3600}-hour safety limit.\n\n{excerpt}".TrimEnd();
+        }
+        else
+        {
+            excerpt = ReadNativeTickDebugLogDelta(logPath, logOffset, 128 * 1024);
+        }
 
         string incidentSummary = "";
         if (incident)

@@ -3565,12 +3565,13 @@ __NSS_RETENTION_HTML__
 
   <div class="grid" style="margin-bottom:12px">
     <div class="card">
-      <div class="cardHeader"><div><h3>Native Slow-Tick Capture</h3><div class="small">Uses Vintage Story's native <code>/debug logticks</code>. The Suite automatically switches it back off when the capture window ends.</div></div></div>
+      <div class="cardHeader"><div><h3>Native Slow-Tick Capture</h3><div class="small">Uses Vintage Story's native <code>/debug logticks</code>. Timed captures switch it back off when the window ends; Live Logging stays on until you turn it off.</div></div></div>
       <div class="toolbar" style="padding-left:0;padding-right:0">
         <label class="small">Threshold <input id="tickDebugThreshold" type="number" min="20" max="1000" value="100" style="width:90px"> ms</label>
         <label class="small">Duration <input id="tickDebugDuration" type="number" min="5" max="120" value="30" style="width:80px"> s</label>
       </div>
       <div class="toolbar" style="padding-left:0;padding-right:0">
+        <button id="tickDebugLive" title="Keep native slow-tick logging on, with no time limit, until you turn it off. Stops by itself after the safety limit.">Live Logging: OFF</button>
         <button id="tickDebugStart" class="primary">Capture Slow Ticks</button>
         <button id="tickDebugIncident" class="primary">Capture Incident + Profile</button>
         <button id="tickDebugEnableDiagnostics">Enable Lightweight Diagnostics</button>
@@ -12952,9 +12953,12 @@ function renderTickDebug(d){
     tickDebugMetric('Network in',fmtRate(d.receiveBytesPerSecond),'good',`${fmtBytesCompact(d.totalReceivedBytes)} total`)+
     tickDebugMetric('Loaded entities',Number(d.loadedEntities||0).toLocaleString(),Number(d.loadedEntities||0)>5000?'warn':'good')+
     tickDebugMetric('Loaded chunks',Number(d.loadedChunks||0).toLocaleString(),'good');
+  const elapsed=s=>{s=Math.max(0,Number(s||0));return s>=3600?`${Math.floor(s/3600)}h ${Math.floor(s%3600/60)}m`:s>=60?`${Math.floor(s/60)}m ${s%60}s`:`${s}s`;};
   const state=slow.running
-    ? `${slow.incidentCapture?'Incident capture':'Slow-tick capture'} running · ≥${Number(slow.thresholdMs||0)}ms · ${Number(slow.remainingSeconds||0)}s remaining`
-    : 'No native slow-tick capture is running.';
+    ? (slow.continuous
+        ? `Live slow-tick logging ON · ≥${Number(slow.thresholdMs||0)}ms · running ${elapsed(slow.elapsedSeconds)} · ${Number(slow.entriesLogged||0)} slow tick(s) logged · stops automatically after ${Number(slow.safetyLimitHours||12)}h`
+        : `${slow.incidentCapture?'Incident capture':'Slow-tick capture'} running · ≥${Number(slow.thresholdMs||0)}ms · ${Number(slow.remainingSeconds||0)}s remaining`)
+    : (slow.stoppedBySafetyLimit?`Live logging stopped automatically after the ${Number(slow.safetyLimitHours||12)}h safety limit.`:'No native slow-tick capture is running.');
   $('tickDebugState').textContent=state;
   const safeMode=!!d.safeDiagnosticsMode;
   const readOnly=currentSessionRole==='ReadOnly';
@@ -12966,6 +12970,13 @@ function renderTickDebug(d){
   $('tickDebugEnableDiagnostics').style.display=prof.enabled?'none':'';
   $('tickDebugEnableDiagnostics').disabled=!enabled||readOnly;
   $('tickDebugStop').disabled=!slow.running||readOnly;
+  if($('tickDebugLive')){
+    const live=!!slow.running&&!!slow.continuous;
+    $('tickDebugLive').textContent=live?'Live Logging: ON':'Live Logging: OFF';
+    $('tickDebugLive').className=live?'primary':'';
+    // Turning it on needs the feature enabled and nothing else capturing; turning it off is always allowed.
+    $('tickDebugLive').disabled=readOnly||(live?false:(!enabled||!!slow.running||safeMode));
+  }
   $('tickDebugDump').disabled=!enabled||safeMode||readOnly;
   $('tickDebugHandlers').disabled=!enabled||readOnly;
   $('tickDebugMainThread').disabled=!enabled||readOnly;
@@ -12998,12 +13009,12 @@ async function loadTickDebug(showLoading=true){
   catch(e){if($('tickDebugStatus'))$('tickDebugStatus').textContent=e.message;}
   finally{tickDebugRequestInFlight=false;}
 }
-async function startTickDebugCapture(incident=false){
+async function startTickDebugCapture(incident=false,continuous=false){
   const threshold=clamp(Number($('tickDebugThreshold').value||100),20,1000);
   const duration=clamp(Number($('tickDebugDuration').value||30),5,incident?30:120);
   const endpoint=incident?'/api/tick-debug/incident':'/api/tick-debug/slow-start';
   try{
-    const r=await api(endpoint,{method:'POST',body:JSON.stringify({thresholdMs:threshold,durationSeconds:duration})});
+    const r=await api(endpoint,{method:'POST',body:JSON.stringify({thresholdMs:threshold,durationSeconds:duration,continuous:!incident&&continuous})});
     toast(r.message||'Native tick capture started.','success');
     await loadTickDebug(false);
   }catch(e){toast(e.message,'error');}
@@ -13026,6 +13037,10 @@ if($('tickDebugEnabledToggle'))$('tickDebugEnabledToggle').onclick=async()=>{
   try{const d=await api('/api/tick-debug/enabled',{method:'POST',body:JSON.stringify({enabled:next})});toast(d.message||'Tick Debugging updated.','success');await loadTickDebug(false);}catch(e){toast(e.message,'error')}
 };
 if($('tickDebugStart'))$('tickDebugStart').onclick=()=>startTickDebugCapture(false);
+if($('tickDebugLive'))$('tickDebugLive').onclick=()=>{
+  const slow=tickDebugLastPayload?.slowTickCapture||{};
+  return slow.running&&slow.continuous?stopTickDebugCapture():startTickDebugCapture(false,true);
+};
 if($('tickDebugIncident'))$('tickDebugIncident').onclick=()=>startTickDebugCapture(true);
 if($('tickDebugEnableDiagnostics'))$('tickDebugEnableDiagnostics').onclick=async()=>{try{await api('/api/profiler/enabled',{method:'POST',body:JSON.stringify({enabled:true})});toast('Lightweight diagnostics enabled.','success');await loadTickDebug(false);}catch(e){toast(e.message,'error')}};
 if($('tickDebugStop'))$('tickDebugStop').onclick=stopTickDebugCapture;
