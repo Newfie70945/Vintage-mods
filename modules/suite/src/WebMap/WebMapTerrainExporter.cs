@@ -2990,6 +2990,14 @@ internal sealed class WebMapTerrainExporter
                 };
             }
 
+            // Vanilla rock types differ a lot in colour (chalk and limestone are near white, basalt is
+            // almost black). The generic Stone material colour painted them all the same grey.
+            if (code.StartsWith("rock-", StringComparison.Ordinal) || code.StartsWith("rawrock-", StringComparison.Ordinal))
+            {
+                int dash = code.IndexOf('-');
+                if (RockColors.TryGetValue(code[(dash + 1)..], out Rgb rock)) return Vary(rock, domain, code, 4);
+            }
+
             // Stable semantic overrides first. These work for vanilla and for most mod blocks
             // without needing any client texture atlas or color-map access on the dedicated server.
             if (HasAny(code, "water", "lake", "ocean", "river")) return new Rgb(54, 104, 145);
@@ -3040,6 +3048,17 @@ internal sealed class WebMapTerrainExporter
             };
             return Vary(baseColor, domain, code, 7);
         }
+
+        private static readonly Dictionary<string, Rgb> RockColors = new(StringComparer.Ordinal)
+        {
+            ["chalk"] = new Rgb(233, 231, 223), ["limestone"] = new Rgb(207, 203, 190), ["whitemarble"] = new Rgb(226, 226, 224),
+            ["marble"] = new Rgb(224, 224, 222), ["granite"] = new Rgb(152, 142, 136), ["andesite"] = new Rgb(134, 132, 128),
+            ["basalt"] = new Rgb(70, 71, 76), ["peridotite"] = new Rgb(74, 82, 78), ["kimberlite"] = new Rgb(96, 100, 98),
+            ["chert"] = new Rgb(118, 112, 104), ["conglomerate"] = new Rgb(140, 126, 112), ["shale"] = new Rgb(92, 92, 96),
+            ["claystone"] = new Rgb(124, 106, 98), ["phyllite"] = new Rgb(104, 108, 112), ["sandstone"] = new Rgb(186, 160, 120),
+            ["bauxite"] = new Rgb(150, 100, 84), ["suevite"] = new Rgb(112, 108, 104), ["scoria"] = new Rgb(96, 70, 64),
+            ["tuff"] = new Rgb(168, 160, 146), ["obsidian"] = new Rgb(30, 28, 40)
+        };
 
         private static Rgb Blend(Rgb a, Rgb b, double amount)
         {
