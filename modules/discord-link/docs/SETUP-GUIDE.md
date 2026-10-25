@@ -326,7 +326,7 @@ Staff:
 ```text
 /announce
 /kick
-/allowcharsel
+/allowcharselonce
 /whitelist
 /ban
 /unban

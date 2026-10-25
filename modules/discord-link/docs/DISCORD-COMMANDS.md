@@ -24,7 +24,7 @@ Commands:
 
 - `/announce message:<text>` - broadcasts a notification in game
 - `/kick player:<name> reason:<optional>` - disconnects an online player
-- `/allowcharsel player:<name>` - allows the player to reopen Vintage Story character selection one additional time
+- `/allowcharselonce player:<name>` - allows the player to reopen Vintage Story character selection one additional time
 - `/whitelist action:<Add|Remove> player:<name>` - adds or removes a player using Vintage Story's native whitelist command
 - `/ban player:<name> duration:<30m|6h|3d|2w> reason:<optional>` - temporary ban delegated to Server Essentials Core
 - `/unban player:<name>` - delegated to Server Essentials Core
