@@ -49,8 +49,14 @@ public static class RepulseDelegateOptimizations
 {
     private static volatile bool enabled;
     private static ConditionalWeakTable<EntityBehaviorRepulseAgents, Callbacks> cache=new();
-    private static readonly MethodInfo Walk=AccessTools.Method(typeof(EntityBehaviorRepulseAgents), "WalkEntity");
-    private static readonly MethodInfo Range=AccessTools.Method(typeof(EntityBehaviorRepulseAgents), "IsInRangePartition");
+    // Resolved on first guarded use, not when the registry switches modules off.
+    private static class Native
+    {
+        internal static readonly MethodInfo Walk=AccessTools.Method(typeof(EntityBehaviorRepulseAgents), "WalkEntity");
+        internal static readonly MethodInfo Range=AccessTools.Method(typeof(EntityBehaviorRepulseAgents), "IsInRangePartition");
+    }
+    private static MethodInfo Walk=>Native.Walk;
+    private static MethodInfo Range=>Native.Range;
     public static MethodInfo Target=>AccessTools.Method(typeof(EntityBehaviorRepulseAgents), "OnGameTick");
     public static MethodInfo TranspilerMethod=>AccessTools.Method(typeof(RepulseDelegateOptimizations),nameof(Transpiler));
     public static MethodInfo[] Dependencies=>[Target, Walk, Range, AccessTools.Method(typeof(EntityPartitioning),"WalkEntities",[typeof(double),typeof(double),typeof(double),typeof(double),typeof(ActionConsumable<Entity>),typeof(EntityPartitioning.RangeTestDelegate),typeof(EnumEntitySearchType)])];

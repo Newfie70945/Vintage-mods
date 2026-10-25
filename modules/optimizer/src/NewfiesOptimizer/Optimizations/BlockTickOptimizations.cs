@@ -14,8 +14,14 @@ public static class BlockTickOptimizations
     private static readonly string[] OfficialIlHashes = ["BC72ADB8EFD3F3671F7C421A8A277D8375A6981C8437E10384AC94B909AC8D20", "7D9743858B48C20B61A623F9C240DF708A69AD95E24A34623CAC3E49ADBF7695", "D2CB9327346C48349C2A6397AFF310F71251854EC0AA3EE1DE4C42AC52FC9035"];
     private static readonly bool[] enabled = new bool[3];
     private static readonly long[] calls = new long[3], fallbacks = new long[3], failures = new long[3];
-    private static readonly MethodInfo Match = AccessTools.Method(typeof(RecipeBase), "MatchStackToIngredient");
-    private static readonly System.Func<BarrelRecipe, ItemStack?, IRecipeIngredient, bool> MatchIngredient = Match.CreateDelegate<System.Func<BarrelRecipe, ItemStack?, IRecipeIngredient, bool>>();
+    // Resolved on first guarded use, not when the registry switches modules off.
+    private static class Native
+    {
+        internal static readonly MethodInfo Match = AccessTools.Method(typeof(RecipeBase), "MatchStackToIngredient");
+        internal static readonly System.Func<BarrelRecipe, ItemStack?, IRecipeIngredient, bool> MatchIngredient = Match.CreateDelegate<System.Func<BarrelRecipe, ItemStack?, IRecipeIngredient, bool>>();
+    }
+    private static MethodInfo Match => Native.Match;
+    private static System.Func<BarrelRecipe, ItemStack?, IRecipeIngredient, bool> MatchIngredient => Native.MatchIngredient;
     public static MethodInfo Target(int kind) => kind switch
     {
         0 => AccessTools.Method(typeof(BlockEntityFirepit), "OnBurnTick"),
