@@ -4,9 +4,9 @@ Reviewed immutable branch tips:
 
 - `claude/optimizer-mod-audit-m5la11` at `12f9521` (three commits).
 - `claude/motd-mod-gui-8g2605` at `0554fde` (two commits).
-- `suite-performance-improvements` at `5f89e3e` (six commits); its first three are also present on `ccr-1fb2c0f4-jz5owu` at `3b1154e`. This branch appeared during the review and was audited separately.
+- `suite-performance-improvements` through `7f561bf` (eight commits); its first three are also present on `ccr-1fb2c0f4-jz5owu` at `3b1154e`. This branch appeared during the review and was audited separately.
 
-Changes were integrated into main with original commit authors preserved. The branch refs were not modified. Existing Performance workspace/live-map changes remain in main. This is a source integration, not a Mod DB release or a change to production server settings.
+Selected reviewed fixes were integrated into main with original commit authors preserved. The branch refs were not modified. Existing Performance workspace/live-map changes remain in main. This is a source integration, not a Mod DB release or a change to production server settings.
 
 ## Findings corrected before publishing
 
@@ -45,9 +45,14 @@ Accepted `d43f3bc` (AFK member lookup caching), `3b1154e` (ore-mask coordinate l
 
 **P2 corrected: recurring-mod claims trusted historical confidence labels.** A `LikelyModId` with `Medium`/`High` confidence alone is not retained profiler evidence. The new analyzer now also requires a matching non-core profiler tick and a meaningful measured-work score. Tests cover high-confidence historical labels without any retained tick and ensure they do not become a measured-mod pattern.
 
-Two commits are intentionally **not included**:
+Four commits are intentionally **not included**:
 
 - **`5f89e3e` — automatic player activity audit enrichment.** Its ten-second `AwaitWithTimeout` only limits waiting. The underlying synchronous SQLite aggregations have no native progress/interrupt budget, and the worker flag is released when waiting times out. A slow query can keep running while later maintenance passes start more work. Time-window clamping does not bound the number of rows in a busy server's ten-minute baseline. Use a dedicated, single-reader, cancellable query runner with a real SQLite deadline and bounded/opt-in background enrichment before integrating.
 - **`800ba87` — default offline discovery eviction.** The visibility tick sorts all offline records and can delete every eligible player's full discovery map in one pass, under the shared lock and without a per-tick chunk/time budget. This may reduce retained memory but introduces a new unbounded game-thread cleanup path. Require incremental cleanup before enabling it by default. The existing discovery retention policy is unchanged in main.
+
+- **`59a4cad` — open-ended live slow-tick logging.** `BuildNativeTickDebugSnapshot` calls `SlowTickLogScanner.Poll()` on the game thread, synchronously reading/decoding/parsing up to 512 KiB per status request. A byte cap does not give a disk-latency or tick-time bound. Long-running logging can also outproduce the polling reader, so the displayed entries may trail the current slowdown. Move file work to a bounded background reader and publish cached snapshots before integrating.
+- **`7f561bf` — hot-tick cause classification/200-row retention.** `CaptureProfilerTick` attaches the increase in process-wide `GC.GetTotalPauseDuration()` since the previous sampling callback to `FrameProfiler.PrevRootEntry`. That delta covers callback-to-callback time, not an independently timestamped overlap with that previous root; a collection before the current callback can be assigned to the wrong tick. The analyzer then labels it as a confirmed GC overlap/primary GC cause. Keep this out until pause timing is aligned to the root interval, or clearly treat it as nearby-window correlation rather than confirmed tick attribution. More retained ticks alone is reasonable, but does not validate the attribution change bundled with it.
+
+Review cutoff is the immutable `7f561bf` tip. Future commits on Claude's active branches are outside this recorded review.
 
 Additional validation: Suite builds against official 1.22.7; compiled-assembly AFK cache/missing-member/live-value tests, recurring-pattern tests, OreShield packet tests and Performance navigation/live-refresh browser regressions.
