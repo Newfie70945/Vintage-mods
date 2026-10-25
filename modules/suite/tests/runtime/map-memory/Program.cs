@@ -187,6 +187,26 @@ static class Checks
         Assert((string)statusType.GetProperty("TerrainReadMode")!.GetValue(last)! == "save-db-parallel-2", "Parallel terrain reader was not exercised");
         Assert((bool)statusType.GetProperty("ExportResourcesReleased")!.GetValue(last)! && (string)statusType.GetProperty("State")!.GetValue(last)! == "ready", "Successful export did not finish resource cleanup");
         Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! == 0, "Successful export did not acknowledge dirty terrain");
+        {
+            // Edits made while an export runs keep only the chunks they touched dirty; the rest is acknowledged.
+            var mark = journalType.GetMethod("MarkBlockDirty")!;
+            var snapshotMethod = journalType.GetMethods().Single(m => m.Name == "Snapshot" && m.GetParameters().Length == 1);
+            var ack = journalType.GetMethod("TryAcknowledgeSnapshot")!;
+            mark.Invoke(journal, new object[] { 0, 0, 0 });
+            mark.Invoke(journal, new object[] { 0, 64, 0 });
+            var snapshotArgs = new object?[] { 0L };
+            object snapshot = snapshotMethod.Invoke(journal, snapshotArgs)!;
+            long snapshotVersion = (long)snapshotArgs[0]!;
+            mark.Invoke(journal, new object[] { 0, 0, 5 });
+            mark.Invoke(journal, new object[] { 0, 1000, 1000 });
+            Assert((bool)ack.Invoke(journal, new[] { snapshot, snapshotVersion })!, "Acknowledgement after concurrent edits was refused outright");
+            Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! == 2, "Concurrent edits should keep exactly the re-marked and new chunks dirty");
+            snapshotArgs = new object?[] { 0L };
+            snapshot = snapshotMethod.Invoke(journal, snapshotArgs)!;
+            Assert((bool)ack.Invoke(journal, new[] { snapshot, snapshotArgs[0] })!, "Clean acknowledgement failed");
+            Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! == 0, "Journal did not drain once nothing changed during the export");
+            Console.WriteLine("PASS: dirty journal acknowledges rendered chunks even when other chunks are edited during the export.");
+        }
         Assert(Directory.EnumerateFiles(Path.Combine(mapRoot, "terrain"), "*.png", SearchOption.AllDirectories).Any(), "Successful export did not write terrain tiles");
         Assert(successBefore.SequenceEqual(SHA256.HashData(File.ReadAllBytes(database))) && worldLoads == 0, "Successful export changed save or loaded world");
         Assert((bool)exporterType.GetMethod("Export")!.Invoke(exporter, new[] { config, "startup", (object)false })!, "Incremental reuse failed");

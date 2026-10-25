@@ -555,10 +555,19 @@ internal sealed class WebMapTerrainExporter
         var dirtyTiles = CollectDirtyTiles(config, coverage, currentDir, manifest, dirtySnapshot);
         if (automaticSavedTerrainOnly)
         {
-            dirtyTiles = dirtyTiles.OrderBy(t => t.Z).ThenBy(t => t.X).Take(config.LiveTerrainMaxTilesPerPass).ToHashSet();
-            // Only acknowledge the part actually published in this bounded pass.
-            dirtySnapshot.RemoveWhere(d => d.Dimension != 0 || !dirtyTiles.Contains(new TileCoord(
-                FloorDiv(d.ChunkX * ChunkSize, config.TerrainTileSize), FloorDiv(d.ChunkZ * ChunkSize, config.TerrainTileSize))));
+            // Least recently rendered first. Ordering by position let a busy low-Z area use every pass and starve the
+            // rest of the map; this way each pass moves on to the tiles that have waited longest.
+            long LastRendered(TileCoord t) =>
+                manifest.Tiles.TryGetValue(TileKey(t.X, t.Z), out WebMapTerrainTileMetadata? meta) ? meta.LastGeneratedUnixMilliseconds : 0;
+            var allDirtyTiles = dirtyTiles;
+            dirtyTiles = allDirtyTiles.OrderBy(LastRendered).ThenBy(t => t.Z).ThenBy(t => t.X)
+                .Take(config.LiveTerrainMaxTilesPerPass).ToHashSet();
+            // Hold back only overworld chunks whose tile exists but was deferred by the cap. Other-dimension chunks and
+            // chunks with no generated tile cannot be rendered, so leaving them queued would never drain.
+            dirtySnapshot.RemoveWhere(d => d.Dimension == 0 && allDirtyTiles.Contains(new TileCoord(
+                    FloorDiv(d.ChunkX * ChunkSize, config.TerrainTileSize), FloorDiv(d.ChunkZ * ChunkSize, config.TerrainTileSize))) &&
+                !dirtyTiles.Contains(new TileCoord(
+                    FloorDiv(d.ChunkX * ChunkSize, config.TerrainTileSize), FloorDiv(d.ChunkZ * ChunkSize, config.TerrainTileSize))));
         }
         var dirtyChunksByTile = CollectDirtyChunksByTile(config, dirtySnapshot);
         var staleKeys = automaticSavedTerrainOnly ? new List<string>() : CollectStaleTileKeys(coverage, manifest);
