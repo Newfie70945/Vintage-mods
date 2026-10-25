@@ -181,7 +181,14 @@ public sealed class MotdDiscordProvider : IDisposable
         string first = (newline < 0 ? content : content[..newline]).Trim();
         string rest = newline < 0 ? "" : content[(newline + 1)..].Trim('\n');
         string plain = DiscordMarkdown.ToPlainText(first, resolve);
-        if (plain.Length is > 0 and <= 96) return (plain, rest);
+        // Titles cannot carry links or block formatting. Keep these first lines in the
+        // body, especially an opening code fence which later lines depend on.
+        if (first.TrimStart().StartsWith("```", StringComparison.Ordinal))
+            return ("Discord update", content);
+        bool keepFirstLine = first.Contains("https://", StringComparison.OrdinalIgnoreCase) ||
+                             first.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
+                             System.Text.RegularExpressions.Regex.IsMatch(first, @"^\s*(?:[-*+]\s+|\d{1,3}[.)]\s+|>{1,3}(?:\s|$))");
+        if (plain.Length is > 0 and <= 96) return (plain, keepFirstLine ? content : rest);
         return (Shorten(plain, "Discord update"), content);
     }
 

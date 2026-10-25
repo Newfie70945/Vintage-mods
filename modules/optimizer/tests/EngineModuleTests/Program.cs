@@ -50,6 +50,21 @@ static class Checks
   var off=Config();off.EngineOptimizations.ListenerRegistrationIndex=false;off.EngineOptimizations.DespawnCleanupTimings=false;off.EngineOptimizations.EntityLoadedDispatchReuse=false;off.EngineOptimizations.EntityDespawnDispatchReuse=false;off.EngineOptimizations.TemperatureAnimationChecks=false;off.EngineOptimizations.EmotionSearchReuse=false;off.EngineOptimizations.CraftingCandidateDedup=false;off.EngineOptimizations.BlockSimulationBudget=false;off.EngineOptimizations.BarrelMatchCountGuard=false;off.EngineOptimizations.IdleFirepitFastPath=off.EngineOptimizations.BarrelIngredientPairing=off.EngineOptimizations.WildBushCallbackFlatten=off.EngineOptimizations.ChunkUnloadStagingReuse=off.EngineOptimizations.NativeBuildLogGuard=false;off.EngineOptimizations.CollisionGenerationReuse=off.EngineOptimizations.CachedCollisionGenerationReuse=off.EngineOptimizations.AnimationCollisionFlagScan=off.EngineOptimizations.CollisionTraversalReuse=off.EngineOptimizations.ContainerTransitionScan=off.EngineOptimizations.ContainerTickTraversal=off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   Assert(!Harmony.GetAllPatchedMethods().Any(),"disposing blocked/disabled modules never wraps their stock targets");
+  // NOS timing observers must coexist with optimized methods and survive optimizer disposal.
+  var timingObserver=new Harmony(EngineOptimizations.ProfilerHarmonyId);
+  timingObserver.Patch(PlayerQueryOptimizations.SnapshotTarget,prefix:new HarmonyMethod(typeof(Checks).GetMethod(nameof(OtherPrefix),BindingFlags.Static|BindingFlags.NonPublic)!));
+  try
+  {
+   var observed=Api();
+   using(var module=new EngineOptimizations(observed.Api,Config(),()=>200))
+   {
+    Assert(module.Modules().Single(x=>x.Name=="onlinePlayerSnapshots").Status=="active","own profiler observer does not block installation");
+    foreach(var tick in observed.Ticks)tick(1);
+    Assert(module.Modules().Single(x=>x.Name=="onlinePlayerSnapshots").Status=="active","own observer does not trigger late conflict");
+   }
+   Assert(Harmony.GetPatchInfo(PlayerQueryOptimizations.SnapshotTarget)!.Owners.Contains(timingObserver.Id),"engine disposal leaves profiler observer installed");
+  }
+  finally{timingObserver.UnpatchAll(timingObserver.Id);}
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
   {

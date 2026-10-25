@@ -1,4 +1,6 @@
 using NewfiesServerEssentials.Discord.Relay;
+using System.Reflection;
+using System.Runtime.Loader;
 int checks=0;
 void Check(bool ok,string name){if(!ok)throw new Exception(name);checks++;}
 var s=new StormTransitions();
@@ -21,4 +23,20 @@ var longText=GameEventText.Format("{message}",new Dictionary<string,string>{{"me
 Check(longText.Length<=1800&&!char.IsHighSurrogate(longText[^2]),"bounded Unicode output");
 foreach(var c in new[]{("Hunger","Internal","","starved"),("Electricity","Block","","lightning"),("Fire","Internal","","burned"),("Suffocation","Internal","","suffocated"),("BluntAttack","Entity","wolf","wolf"),("Gravity","Fall","","fell"),("Injury","Explosion","","explosion"),("Other","Unknown","","Other")})
 Check(GameEventText.Fallback("Name",c.Item1,c.Item2,c.Item3).Contains(c.Item4),"fallback "+c.Item1);
+// Optional compiled-provider checks exercise title splitting AND body conversion,
+// rather than checking parser output strings in isolation.
+if(Environment.GetEnvironmentVariable("NSS_DISCORD_ASSEMBLY") is string assemblyPath){
+    assemblyPath=Path.GetFullPath(assemblyPath);string root=Path.GetDirectoryName(assemblyPath)!;
+    AssemblyLoadContext.Default.Resolving+=(_,name)=>{string path=Path.Combine(root,name.Name+".dll");return File.Exists(path)?AssemblyLoadContext.Default.LoadFromAssemblyPath(path):null;};
+    var assembly=AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
+    var split=assembly.GetType("NewfiesServerEssentials.Discord.Integration.MotdDiscordProvider")!.GetMethod("SplitTitle",BindingFlags.NonPublic|BindingFlags.Static)!;
+    var render=assembly.GetType("NewfiesServerEssentials.Discord.Integration.DiscordMarkdown")!.GetMethod("ToVtml",BindingFlags.NonPublic|BindingFlags.Static)!;
+    (string Title,string Vtml) Feed(string input){var (title,body)=((string,string))split.Invoke(null,new object?[]{input,null,null})!;return (title,(string)render.Invoke(null,new object?[]{body,null})!);}
+    var link=Feed("[Join site](https://example.com/join)");Check(link.Title=="Join site"&&link.Vtml.Contains("href=\"https://example.com/join\""),"first-line link remains clickable");
+    Check(Feed("https://example.com/join").Vtml.Contains("href="),"bare first-line link retained");
+    var code=Feed("```\n**raw** <b>\n```");Check(code.Title=="Discord update"&&code.Vtml.Contains("**raw** &lt;b&gt;")&&!code.Vtml.Contains("<strong>raw"),"opening code fence retained");
+    var heading=Feed("# **News**\nBody");Check(heading.Title=="News"&&heading.Vtml=="Body","ordinary heading is not repeated");
+    Check(Feed("- First\n- Second").Vtml.Contains("• First"),"first list entry retained");
+    Check(Feed("> First\nSecond").Vtml.Contains("│ First"),"first quotation retained");
+}
 Console.WriteLine($"PASS: {checks} Discord event checks");

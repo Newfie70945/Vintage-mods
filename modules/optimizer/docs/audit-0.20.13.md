@@ -98,7 +98,7 @@ Confirm against the decompiled 1.22.7 source that neither stock body uses `dimen
 
 ## Fix status
 
-These fixes were made after the audit. They have **not been compiled or tested yet**, because the audit container had no .NET SDK or game binaries. Run `python3 tools/build.py --game-dir "$VINTAGE_STORY"` before release.
+The branch was subsequently reviewed and compiled against the official Vintage Story 1.22.7 SDK on .NET 10. Engine lifecycle/conflict, path-queue and profiler regression tests pass. A dedicated observer test verifies that NOS profiling ownership does not block engine patches or get removed during engine disposal. These are component/contract checks, not a multiplayer capacity benchmark.
 
 | # | Status | Change |
 | --- | --- | --- |
@@ -108,5 +108,5 @@ These fixes were made after the audit. They have **not been compiled or tested y
 | 4 | Fixed | `ProfileReport.OptimizerVersion` now comes from the assembly version. |
 | 5 | Fixed | The profiler and the engine registry now recognise each other's Harmony IDs. Timing observers can therefore wrap active engine modules, and engine modules do not stand down because a profiler observer is present. |
 | 6 | Fixed | `MainPrefix` takes `ref bool ___isShuttingDown`. |
-| 7 | Open | Needs to be checked against the decompiled 1.22.7 source. |
+| 7 | Verified for official 1.22.7 | Both inspected native `GenerateCollisionBoxList` bodies leave the `dimension` argument unused; dimensions are set on the owner positions elsewhere. The caching override uses the same bounds/walk behavior. No collision algorithm or defaults were changed. |
 | 8 | Fixed | A failed thread-ID lookup is cached as `-1`. It reports `mainThreadCpu: failed` and is not retried on every tick. |
