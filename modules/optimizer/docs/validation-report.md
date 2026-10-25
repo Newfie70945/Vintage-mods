@@ -1,3 +1,9 @@
+# NOS 0.20.12 / Suite 1.2.51 validation
+
+All 32 automated suites passed against official Vintage Story 1.22.7, including 149 engine lifecycle/conflict checks and 33 new lifecycle-event dispatch checks. Final optimizer and Suite builds completed with zero warnings/errors; browser save/apply, older-version, read-only and mobile controls passed. New dispatch switches remain independently controlled and off by default. See [measurements and limitations](performance-0.20.12.md).
+
+## Earlier validation
+
 # NOS 0.20.11 / Suite 1.2.52 validation
 
 All 31 automated suites passed against official Vintage Story 1.22.7. Builds completed with zero warnings/errors. Browser control tests passed, including older-version support and mobile layout. Native-method allocation checks, weak-cache collection, live state/range mutation and exact runtime patch-composition checks passed.

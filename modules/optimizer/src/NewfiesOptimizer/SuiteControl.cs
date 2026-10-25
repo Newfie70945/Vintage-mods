@@ -58,6 +58,8 @@ public sealed partial class OptimizerMod
             despawnPacketProjection = currentConfig.EngineOptimizations.DespawnPacketProjection,
             physicsPacketListReuse = currentConfig.EngineOptimizations.PhysicsPacketListReuse,
             temperatureAnimationChecks = currentConfig.EngineOptimizations.TemperatureAnimationChecks,
+            entityLoadedDispatchReuse = currentConfig.EngineOptimizations.EntityLoadedDispatchReuse,
+            entityDespawnDispatchReuse = currentConfig.EngineOptimizations.EntityDespawnDispatchReuse,
             emotionSearchReuse = currentConfig.EngineOptimizations.EmotionSearchReuse,
             repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
             nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
@@ -172,6 +174,8 @@ public sealed partial class OptimizerMod
                 case "despawnPacketProjection": candidate.EngineOptimizations.DespawnPacketProjection=B(); break;
                 case "physicsPacketListReuse": candidate.EngineOptimizations.PhysicsPacketListReuse=B(); break;
                 case "temperatureAnimationChecks": candidate.EngineOptimizations.TemperatureAnimationChecks=B(); break;
+                case "entityLoadedDispatchReuse": candidate.EngineOptimizations.EntityLoadedDispatchReuse=B(); break;
+                case "entityDespawnDispatchReuse": candidate.EngineOptimizations.EntityDespawnDispatchReuse=B(); break;
                 case "emotionSearchReuse": candidate.EngineOptimizations.EmotionSearchReuse=B(); break;
                 case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
                 case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;

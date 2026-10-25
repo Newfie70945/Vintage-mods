@@ -26,7 +26,7 @@ public sealed class ModpackProbe:ModSystem
  private int lastIndex;
  private bool collecting;
  private Harmony? laboratoryHooks;
- private static int BlockCount=>int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_BLOCK_COUNT"),out int n)?Math.Clamp(n,1,1000):100;
+ private static int BlockCount=>int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_BLOCK_COUNT"),out int n)?Math.Clamp(n,1,4000):2000;
 
  public override bool ShouldLoad(EnumAppSide side)=>side==EnumAppSide.Server;
  public override void StartServerSide(ICoreServerAPI api)
@@ -96,8 +96,8 @@ public sealed class ModpackProbe:ModSystem
    var groups=prefixes.Select(prefix=>api.World.EntityTypes.Where(t=>t.Code.ToString().StartsWith(prefix,StringComparison.Ordinal)&&t.Code.Path.Contains("adult")).OrderBy(t=>t.Code.ToString(),StringComparer.Ordinal).ToArray()).ToArray();
    if(groups.Any(g=>g.Length==0))throw new Exception("Requested adult species prefix absent");
    var types=groups.SelectMany(g=>g).ToArray();
-   if(BlockCount>100){x+=64;z+=64;}
-   int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,4096):128;
+   if(BlockCount>100){x+=128;z+=128;}
+   int requested=int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_NPC_COUNT"),out int supplied)?Math.Clamp(supplied,128,8192):6000;
    int columns=requested==128?16:(int)Math.Ceiling(Math.Sqrt(requested));
    for(int i=0;i<requested;i++){
     double px=x+(i%columns)*2+.5,pz=z+(i/columns)*2+.5;

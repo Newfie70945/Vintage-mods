@@ -141,6 +141,8 @@ public sealed class EngineOptimizationOptions
     public bool AiTaskStartDispatch { get; set; } = true;
     public bool AiFilterDispatch { get; set; } = true;
     public bool TemperatureAnimationChecks { get; set; }
+    public bool EntityLoadedDispatchReuse { get; set; } = false;
+    public bool EntityDespawnDispatchReuse { get; set; } = false;
     public bool EmotionSearchReuse { get; set; }
     public bool RepulseDelegateReuse { get; set; } = true;
     public bool OnlinePlayerSnapshots { get; set; } = true;

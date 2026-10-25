@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.11 preview
+# Newfie's Server Optimizer 0.20.12 preview
 
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
@@ -190,3 +190,7 @@ Three independent controls default off: `CollisionGenerationReuse`, `CachedColli
 0.20.10 reduces temporary-string allocation in allowed-variant shapeless recipe checks using the existing opt-in control. [Measured comparison, installed-server check and limits](docs/performance-0.20.10.md).
 
 0.20.11 adds two independently controlled experimental entity-behavior allocation options and Suite 1.2.52 controls. Both remain off: the populated test showed a lower allocation rate while completing fewer ticks, with worse latency. [Exact results and limits](docs/performance-0.20.11.md).
+
+0.20.12 adds optional allocation-free entity load/despawn subscriber dispatch, with native-profiler subscriber labels. Subscriber ordering, mutation snapshots and exception logging are preserved. Off by default; this does not shorten a blocking mod callback.
+
+The standard modpack stress fixture now defaults to 6,000 entities, 2,000 barrels, 2,000 firepits and 180-second measurement windows in 12×12 kept-loaded columns. Narrower workloads must be selected explicitly; results remain synthetic stress evidence, not player-capacity claims.

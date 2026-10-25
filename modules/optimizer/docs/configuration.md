@@ -258,3 +258,7 @@ These changes remove temporary allocations. They do not reduce animation frequen
 ## Native block simulation scheduling (0.20.0)
 
 `EngineOptimizations.BlockSimulationBudget=false`; `BlockSimulationBudgetMs=5` (1–20). Optional soft time budget for the native queued block-tick loop. Pending callbacks remain FIFO and may run later; individual callbacks cannot be interrupted. More than 8,192 queued entries triggers stock fallback. This changes simulation timing. [Details and limits](performance-0.20.0.md).
+
+### Entity lifecycle event dispatch (0.20.12)
+
+`EngineOptimizations.EntityLoadedDispatchReuse` and `EngineOptimizations.EntityDespawnDispatchReuse` are independent experimental switches, both false by default. Suite 1.2.51 exposes them under API and allocation modules. Apply settings, then inspect actual module status (`entityLoadedDispatch`, `entityDespawnDispatch`). With native tick profiling enabled, subscriber scopes show handler types/methods. These switches reduce dispatch allocation; they do not bound the execution time of a blocking subscriber.

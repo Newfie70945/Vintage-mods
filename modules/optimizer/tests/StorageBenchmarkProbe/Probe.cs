@@ -10,7 +10,7 @@ public sealed class Probe:ModSystem
 {
  private readonly List<WeakReference> tracked=[];
  private int startX,startZ;
- private const int Side=8;
+ private static int Side=>int.TryParse(Environment.GetEnvironmentVariable("NOS_LAB_CHUNK_SIDE"),out int n)?Math.Clamp(n,8,16):8;
  public override bool ShouldLoad(EnumAppSide side)=>side==EnumAppSide.Server;
  public override void StartServerSide(ICoreServerAPI api)
  {
@@ -26,7 +26,7 @@ public sealed class Probe:ModSystem
   void Add(string name,Func<TextCommandResult> handler)=>api.ChatCommands.Create(name).RequiresPrivilege(Privilege.controlserver).HandleWith(_=>{try{return handler();}catch(Exception e){api.Logger.Error("NOSBENCH_FAIL "+e);return TextCommandResult.Error(e.Message);}});
   void Generate(int offset,int size,string marker){var spawn=api.World.DefaultSpawnPosition;int x=(int)(spawn.X/32)+offset,z=(int)(spawn.Z/32)+offset;if(size==Side){startX=x;startZ=z;}int done=0;long started=Stopwatch.GetTimestamp();
    for(int dx=0;dx<size;dx++)for(int dz=0;dz<size;dz++)api.WorldManager.LoadChunkColumnPriority(x+dx,z+dz,new ChunkLoadOptions{KeepLoaded=true,OnLoaded=()=>{
-    if(Interlocked.Increment(ref done)==size*size)Emit(marker,new{columns=size*size,wallMs=Stopwatch.GetElapsedTime(started).TotalMilliseconds});
+    if(Interlocked.Increment(ref done)==size*size)Emit(marker,new{columns=size*size,verticalChunks=api.World.BlockAccessor.MapSizeY/32,wallMs=Stopwatch.GetElapsedTime(started).TotalMilliseconds});
    }});
   }
   Add("nosbenchwarm",()=>{Generate(80,2,"WARM");return TextCommandResult.Success("Warmup queued");});

@@ -117,6 +117,8 @@
     "SpawnColumnArrayReuse": false,
     "BarrelMatchCountGuard": false,
     "BlockSimulationBudget": false,
-    "BlockSimulationBudgetMs": 5
+    "BlockSimulationBudgetMs": 5,
+    "EntityLoadedDispatchReuse": false,
+    "EntityDespawnDispatchReuse": false
   }
 }
