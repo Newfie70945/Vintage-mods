@@ -53,4 +53,9 @@ Check(Md("snake_case_name 2*3*4 \\*lit\\*") == "snake_case_name 2*3*4 *lit*", "I
 Check(Md("> quoted").Contains("│ quoted") && Md("-# tiny").Contains("size=\"12\""), "Quotes and subtext are styled");
 Check(Md("~~old~~ ||spoiler||").IndexOf('~') < 0 && Md("||spoiler||").IndexOf('|') < 0, "Strike and spoiler markers are removed");
 Check(DiscordMarkdown.ToPlainText("# **Big** news for <@123>", (k, id) => "Newfie") == "Big news for @Newfie", "Titles are plain text");
+Check(Md("🎉 Big **news** 🎉🎉!") == "Big <strong>news</strong> !", "Decorative emoji are removed instead of drawing squares");
+Check(Md("✅ done ❌ failed ⚠️ careful ⭐ star 1️⃣ one ➡️ next") == "[+] done [x] failed [!] careful star 1 one -&gt; next", "Status emoji become readable symbols");
+Check(Md("👨‍👩‍👧 family 👍🏽 ok 🇨🇦 flag") == "family ok flag", "Joined, skin-tone and flag emoji leave no fragments");
+Check(Md("- 🔥 hot item") == "  • hot item" && DiscordMarkdown.ToPlainText("📢 Server Update") == "Server Update", "Leading emoji do not leave stray spaces");
+Check(Md("café → naïve “quotes” — ok") == "café → naïve “quotes” — ok", "Normal accented text and punctuation are kept");
 Console.WriteLine($"{checks} checks passed");

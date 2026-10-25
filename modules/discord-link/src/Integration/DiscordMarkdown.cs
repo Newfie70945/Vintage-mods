@@ -33,7 +33,7 @@ internal static class DiscordMarkdown
 
     internal static string ToVtml(string? markdown, MentionResolver? resolve = null)
     {
-        string text = (markdown ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n');
+        string text = StripEmoji((markdown ?? "").Replace("\r\n", "\n").Replace('\r', '\n')).Trim('\n');
         if (text.Length == 0) return "";
 
         var output = new StringBuilder();
@@ -78,7 +78,7 @@ internal static class DiscordMarkdown
     // Plain single-line text for titles: Discord syntax removed, nothing escaped.
     internal static string ToPlainText(string? markdown, MentionResolver? resolve = null)
     {
-        string text = (markdown ?? "").Replace('\r', ' ').Replace('\n', ' ').Trim();
+        string text = StripEmoji((markdown ?? "").Replace('\r', ' ').Replace('\n', ' ')).Trim();
         var held = new List<string>();
         text = Escaped.Replace(text, m => Hold(held, m.Groups[1].Value));
         text = InlineCode.Replace(text, m => Hold(held, m.Groups[2].Value));
@@ -87,6 +87,52 @@ internal static class DiscordMarkdown
         text = Regex.Replace(text, @"^(#{1,3}|-#|>>>|>)\s+", "");
         text = Regex.Replace(text, @"\*\*\*|\*\*|__|~~|\|\||(?<!\w)[*_](?=\S)|(?<=\S)[*_](?!\w)", "");
         return Restore(text, held).Trim();
+    }
+
+    // The game font has no emoji glyphs, so they draw as empty squares. Common status emoji
+    // become plain symbols; every other emoji (with its modifiers and joiners) is removed.
+    // Replacements avoid markdown characters (* + -) so they cannot start lists or italics.
+    private static readonly Dictionary<int, string> EmojiText = new()
+    {
+        [0x2705] = "[+]", [0x2714] = "[+]", [0x2611] = "[+]",
+        [0x274C] = "[x]", [0x2716] = "[x]", [0x274E] = "[x]",
+        [0x26A0] = "[!]", [0x2757] = "!", [0x2755] = "!", [0x203C] = "!!",
+        [0x2753] = "?", [0x2754] = "?",
+        [0x27A1] = "->", [0x2B05] = "<-",
+        [0x1F534] = "●", [0x1F7E0] = "●", [0x1F7E1] = "●", [0x1F7E2] = "●", [0x1F535] = "●", [0x1F7E3] = "●", [0x26AA] = "●", [0x26AB] = "●",
+    };
+
+    private static bool IsEmoji(int c) =>
+        c is >= 0x1F000 and <= 0x1FAFF          // pictographs, emoticons, flags, skin tones
+        or >= 0x2600 and <= 0x27BF              // misc symbols and dingbats
+        or >= 0x2B00 and <= 0x2BFF              // arrows/stars such as ⭐ ⬆
+        or >= 0xE0020 and <= 0xE007F            // flag tag sequences
+        or 0x203C or 0x2049 or 0x2122 or 0x2139 or 0x3030 or 0x303D or 0x3297 or 0x3299
+        or 0x231A or 0x231B or 0x2328 or 0x23CF or >= 0x23E9 and <= 0x23F3 or >= 0x23F8 and <= 0x23FA
+        or 0x24C2 or 0x25B6 or 0x25C0 or >= 0x25FB and <= 0x25FE or 0x2934 or 0x2935;
+
+    internal static string StripEmoji(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        var output = new StringBuilder(text.Length);
+        bool dropSpace = false;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            int c = rune.Value;
+            // Joiners, variation selectors and keycap marks only exist to build emoji.
+            if (c is 0x200D or 0xFE0E or 0xFE0F or 0x20E3) continue;
+            if (EmojiText.TryGetValue(c, out var replacement)) { output.Append(replacement); dropSpace = false; continue; }
+            if (IsEmoji(c))
+            {
+                // "🎉 Big news" should read "Big news", not " Big news".
+                dropSpace = output.Length == 0 || output[^1] is ' ' or '\n' or '\t';
+                continue;
+            }
+            if (dropSpace && c == ' ') { dropSpace = false; continue; }
+            dropSpace = false;
+            output.Append(rune.ToString());
+        }
+        return output.ToString();
     }
 
     private static void AppendCodeLine(StringBuilder output, string line) =>
