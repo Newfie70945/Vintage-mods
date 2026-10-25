@@ -94,7 +94,7 @@ public sealed class MotdDiscordProvider : IDisposable
     {
         if (channelId == 0) return Array.Empty<DiscordMotdFeedItem>();
         var messages = await readMessages(channelId, limit).ConfigureAwait(false);
-        return messages.Where(m => !string.IsNullOrWhiteSpace(m.Content)).Select(ToFeedItem).ToArray();
+        return messages.Where(HasFeedContent).Select(ToFeedItem).ToArray();
     }
 
     private static FeedKey Key(DiscordIntegrationConfig config) => new(config.GuildId,
@@ -126,15 +126,30 @@ public sealed class MotdDiscordProvider : IDisposable
 
     private readonly record struct FeedKey(ulong Guild, ulong Announcements, ulong Updates, ulong Events, int Limit, bool Enabled);
 
+    private static bool HasFeedContent(IMessage message) =>
+        !string.IsNullOrWhiteSpace(message.Content) || (message.Embeds?.Any(HasEmbedContent) ?? false);
+
+    private static bool HasEmbedContent(IEmbed? embed) =>
+        embed != null && (!string.IsNullOrWhiteSpace(embed.Title) || !string.IsNullOrWhiteSpace(embed.Description) || !embed.Fields.IsDefaultOrEmpty);
+
     private static DiscordMotdFeedItem ToFeedItem(IMessage message)
     {
-        string content = message.Content.Trim();
-        string title = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "Discord update";
-        if (title.Length > 96) title = title[..93] + "...";
+        var resolve = MentionResolverFor(message);
+        var embeds = message.Embeds?.Where(HasEmbedContent).ToArray() ?? Array.Empty<IEmbed>();
+        var (title, body) = SplitTitle(message.Content ?? "", embeds.FirstOrDefault()?.Title, resolve);
 
         // Keep the complete Discord message in the MOTD feed. The client page uses a fixed
         // viewport with a growing scrollable document, so additional/longer posts extend the
         // scroll range instead of being truncated or squeezed into the visible area.
+        var vtml = new List<string>();
+        if (!string.IsNullOrWhiteSpace(body)) vtml.Add(DiscordMarkdown.ToVtml(body, resolve));
+        foreach (var embed in embeds)
+        {
+            // The first embed title already became the card title when the message had no text.
+            bool titleUsed = embed == embeds[0] && string.IsNullOrWhiteSpace(message.Content);
+            vtml.Add(EmbedVtml(embed, titleUsed, resolve));
+        }
+
         string url = "";
         if (message.Channel is IGuildChannel guildChannel)
         {
@@ -144,16 +159,77 @@ public sealed class MotdDiscordProvider : IDisposable
         return new DiscordMotdFeedItem
         {
             Id = message.Id.ToString(),
-            Title = EscapeVtml(title),
-            BodyVtml = EscapeVtml(content).Replace("\r\n", "<br>").Replace("\n", "<br>"),
-            Author = EscapeVtml(message.Author?.GlobalName ?? message.Author?.Username ?? "Discord"),
+            // Title and Author are plain text: the MOTD formatter escapes them itself.
+            Title = title,
+            BodyVtml = string.Join("\n\n", vtml.Where(x => x.Length > 0)),
+            Author = AuthorName(message.Author),
             UnixTime = message.Timestamp.ToUnixTimeSeconds(),
             Url = url,
             Important = message.IsPinned
         };
     }
 
-    private static string EscapeVtml(string value) => value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    // The first line becomes the card title and is not repeated in the body. A first line too
+    // long for a title is previewed (shortened) and the body keeps the whole message.
+    internal static (string Title, string Body) SplitTitle(string content, string? embedTitle, DiscordMarkdown.MentionResolver? resolve)
+    {
+        content = content.Replace("\r\n", "\n").Trim();
+        if (content.Length == 0)
+            return (Shorten(DiscordMarkdown.ToPlainText(embedTitle, resolve), "Discord update"), "");
+
+        int newline = content.IndexOf('\n');
+        string first = (newline < 0 ? content : content[..newline]).Trim();
+        string rest = newline < 0 ? "" : content[(newline + 1)..].Trim('\n');
+        string plain = DiscordMarkdown.ToPlainText(first, resolve);
+        if (plain.Length is > 0 and <= 96) return (plain, rest);
+        return (Shorten(plain, "Discord update"), content);
+    }
+
+    private static string Shorten(string text, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return fallback;
+        return text.Length > 96 ? text[..93].TrimEnd() + "..." : text;
+    }
+
+    private static string EmbedVtml(IEmbed embed, bool titleUsed, DiscordMarkdown.MentionResolver? resolve)
+    {
+        var parts = new List<string>();
+        if (!titleUsed && !string.IsNullOrWhiteSpace(embed.Title))
+            parts.Add("<font size=\"17\"><strong>" + DiscordMarkdown.Escape(DiscordMarkdown.ToPlainText(embed.Title, resolve)) + "</strong></font>");
+        if (!string.IsNullOrWhiteSpace(embed.Description)) parts.Add(DiscordMarkdown.ToVtml(embed.Description, resolve));
+        foreach (var field in embed.Fields.IsDefault ? Array.Empty<EmbedField>() : (IEnumerable<EmbedField>)embed.Fields)
+        {
+            string name = DiscordMarkdown.Escape(DiscordMarkdown.ToPlainText(field.Name, resolve));
+            parts.Add("<strong>" + name + "</strong>\n" + DiscordMarkdown.ToVtml(field.Value, resolve));
+        }
+        if (!string.IsNullOrWhiteSpace(embed.Footer?.Text))
+            parts.Add("<font size=\"12\" color=\"#8A9AA5\">" + DiscordMarkdown.Escape(DiscordMarkdown.ToPlainText(embed.Footer.Value.Text, resolve)) + "</font>");
+        return string.Join("\n\n", parts);
+    }
+
+    private static string AuthorName(IUser? author) =>
+        (author as IGuildUser)?.DisplayName ?? author?.GlobalName ?? author?.Username ?? "Discord";
+
+    // Gateway/REST messages carry resolved mention tags; unresolved IDs fall back to "@user".
+    private static DiscordMarkdown.MentionResolver MentionResolverFor(IMessage message)
+    {
+        var names = new Dictionary<(char, ulong), string>();
+        try
+        {
+            foreach (var tag in message.Tags ?? Array.Empty<ITag>())
+            {
+                switch (tag.Value)
+                {
+                    case IGuildUser member when tag.Type == TagType.UserMention: names[('@', tag.Key)] = member.DisplayName; break;
+                    case IUser user when tag.Type == TagType.UserMention: names[('@', tag.Key)] = user.GlobalName ?? user.Username; break;
+                    case IRole role when tag.Type == TagType.RoleMention: names[('&', tag.Key)] = role.Name; break;
+                    case IChannel channel when tag.Type == TagType.ChannelMention: names[('#', tag.Key)] = channel.Name; break;
+                }
+            }
+        }
+        catch { /* Mention names are cosmetic; a partial message still renders. */ }
+        return (kind, id) => names.TryGetValue((kind, id), out var name) ? name : null;
+    }
 }
 
 public sealed class DiscordMotdFeedItem
