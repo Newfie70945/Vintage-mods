@@ -185,3 +185,18 @@ The authenticated WebPanel also supports its own deep link at `<WebPanelUrl>/lea
 WebPanel → Web Map → **Player icon refresh** controls the live player snapshot and browser polling interval. The persisted `NewfiesWebMap.json` field is `PlayerIconRefreshSeconds`; default **60**, range **1–300 seconds**. Existing configs retain 60 seconds. For example, use 5 for more frequent updates. Changes apply to the running service and open maps without a restart or reload.
 
 Player polling uses the lightweight `/api/players` endpoint and cached, privacy-filtered positions. Full map metadata still refreshes every 30 seconds; terrain and activity are not regenerated for faster icons. Game-thread captures run only while viewers are active, requests are coalesced, and hidden browser tabs pause player polling. A newly opened map can briefly show the last cached snapshot while a fresh game-thread capture is queued. Faster values increase player capture and HTTP traffic. The Players layer and live-data privacy gate must both be enabled; `/webmap live off` remains respected.
+
+## Translocator layer
+
+Turn on **Translocators** under Web Map → Public layers (off by default, because it publishes coordinates). The map then
+shows only translocators that players have found or used; nothing is read from parts of the world nobody visited.
+
+- **Found:** a player (survival or adventure mode, overworld) stood within 6 blocks of a translocator block.
+- **Used:** a teleport-sized jump that starts next to one translocator and ends next to another. Commands, warps and
+  respawns do not count, because they do not start beside a translocator. Both ends are linked with a dashed line.
+- **Unrepaired** translocators are drawn hollow. Clicking one shows its coordinates, where it leads, how many times it was
+  used and how many players found it. Player names are never published.
+- Records live in `NewfiesServerEssentialsWebMap/translocators-v1.json` and survive restarts. Turning the layer off stops
+  scanning but keeps the file.
+- The destination is read from the block entity when possible; if the game changes that layout, links come from observed
+  use only.
