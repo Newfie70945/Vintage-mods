@@ -837,6 +837,167 @@ LIMIT $limit;";
         }));
     }
 
+    // Audit activity around one lag spike: per-player and per-area counts, action totals, bucketed
+    // entity churn and a short baseline. Windows are clamped so a corrupt archive cannot request a
+    // table scan; interpretation lives in IncidentAuditInterpreter.
+    public Task<BlockLogger.WebDashboard.IncidentAuditActivity> QueryIncidentAuditActivityAsync(
+        long fromUnixMilliseconds, long toUnixMilliseconds)
+    {
+        const int baselineMinutes = 10;
+        toUnixMilliseconds = Math.Min(toUnixMilliseconds, fromUnixMilliseconds + 10 * 60_000L);
+        long fromTicks = DateTimeOffset.FromUnixTimeMilliseconds(fromUnixMilliseconds).UtcDateTime.Ticks;
+        long toTicks = DateTimeOffset.FromUnixTimeMilliseconds(toUnixMilliseconds).UtcDateTime.Ticks;
+        long baselineTicks = fromTicks - TimeSpan.FromMinutes(baselineMinutes).Ticks;
+
+        return Task.Run(() => WithReadOnlyConnection(conn =>
+        {
+            var result = new BlockLogger.WebDashboard.IncidentAuditActivity
+            {
+                Checked = true,
+                Available = true,
+                Status = "Captured",
+                WindowStartUnixMilliseconds = fromUnixMilliseconds,
+                WindowEndUnixMilliseconds = toUnixMilliseconds,
+                CapturedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                BaselineMinutes = baselineMinutes
+            };
+
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT action, COUNT(*) FROM events
+WHERE world_id = $world AND timestamp_ticks BETWEEN $from AND $to
+GROUP BY action ORDER BY COUNT(*) DESC;";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    long count = reader.GetInt64(1);
+                    result.TotalEvents += (int)Math.Min(int.MaxValue, count);
+                    result.Actions.Add(new BlockLogger.WebDashboard.IncidentAuditCount
+                    {
+                        Name = ((BlockLogger.Models.LogActionType)reader.GetInt32(0)).ToString(),
+                        Count = count
+                    });
+                }
+            }
+
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT COUNT(*), COUNT(DISTINCT player_uid) FROM events
+WHERE world_id = $world AND timestamp_ticks BETWEEN $from AND $to
+  AND COALESCE(player_uid, '') <> '';";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    result.PlayerEvents = (int)Math.Min(int.MaxValue, reader.GetInt64(0));
+                    result.DistinctPlayers = (int)Math.Min(int.MaxValue, reader.GetInt64(1));
+                }
+            }
+
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT player_uid, MAX(COALESCE(player_name, '')), COUNT(*),
+       SUM(CASE WHEN action = 1 THEN 1 ELSE 0 END),
+       SUM(CASE WHEN action = 2 THEN 1 ELSE 0 END),
+       SUM(CASE WHEN action = 3 THEN 1 ELSE 0 END),
+       SUM(CASE WHEN action IN (4, 5, 6) THEN 1 ELSE 0 END),
+       SUM(CASE WHEN action = 7 THEN 1 ELSE 0 END),
+       COUNT(DISTINCT dimension || ':' || (x >> 5) || ':' || (z >> 5))
+FROM events
+WHERE world_id = $world AND timestamp_ticks BETWEEN $from AND $to
+  AND COALESCE(player_uid, '') <> ''
+GROUP BY player_uid ORDER BY COUNT(*) DESC LIMIT 8;";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    result.Players.Add(new BlockLogger.WebDashboard.IncidentAuditPlayer
+                    {
+                        Uid = reader.GetString(0),
+                        Name = reader.GetString(1),
+                        Total = reader.GetInt32(2),
+                        Breaks = reader.GetInt32(3),
+                        Places = reader.GetInt32(4),
+                        Uses = reader.GetInt32(5),
+                        Containers = reader.GetInt32(6),
+                        Interacts = reader.GetInt32(7),
+                        Chunks = reader.GetInt32(8)
+                    });
+                }
+            }
+
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT COALESCE(dimension, '0'), (x >> 5), (z >> 5), COUNT(*),
+       COUNT(DISTINCT NULLIF(player_uid, ''))
+FROM events
+WHERE world_id = $world AND timestamp_ticks BETWEEN $from AND $to
+GROUP BY dimension, (x >> 5), (z >> 5)
+ORDER BY COUNT(*) DESC LIMIT 5;";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    int chunkX = reader.GetInt32(1), chunkZ = reader.GetInt32(2);
+                    result.Areas.Add(new BlockLogger.WebDashboard.IncidentAuditArea
+                    {
+                        Dimension = reader.GetString(0),
+                        ChunkX = chunkX,
+                        ChunkZ = chunkZ,
+                        BlockX = chunkX * 32 + 16,
+                        BlockZ = chunkZ * 32 + 16,
+                        Events = reader.GetInt32(3),
+                        Players = reader.GetInt32(4)
+                    });
+                }
+            }
+
+            // Bulk entity lifecycle events may be stored as time-bucketed aggregates instead of rows.
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT action, entity_code, SUM(event_count) FROM entity_activity
+WHERE world_id = $world AND window_end_ticks >= $from AND window_start_ticks <= $to
+GROUP BY action, entity_code ORDER BY SUM(event_count) DESC LIMIT 5;";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    result.Entities.Add(new BlockLogger.WebDashboard.IncidentAuditCount
+                    {
+                        Detail = ((BlockLogger.Models.LogActionType)reader.GetInt32(0)).ToString(),
+                        Name = reader.GetString(1),
+                        Count = reader.GetInt64(2)
+                    });
+                }
+            }
+
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT COUNT(*) FROM events
+WHERE world_id = $world AND timestamp_ticks >= $baseline AND timestamp_ticks < $from;";
+                AddAuditWindow(cmd, fromTicks, toTicks);
+                cmd.Parameters.AddWithValue("$baseline", baselineTicks);
+                result.BaselineEvents = Convert.ToInt64(cmd.ExecuteScalar());
+            }
+
+            return result;
+        }));
+    }
+
+    private void AddAuditWindow(SqliteCommand cmd, long fromTicks, long toTicks)
+    {
+        cmd.Parameters.AddWithValue("$world", currentWorldId);
+        cmd.Parameters.AddWithValue("$from", fromTicks);
+        cmd.Parameters.AddWithValue("$to", toTicks);
+    }
+
     public Task<int> CountEventsAsync()
     {
         return Task.Run(() => WithReadOnlyConnection(conn =>

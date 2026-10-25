@@ -11569,6 +11569,8 @@ public sealed partial class WebDashboardService : IDisposable
             if (RefreshArchivedIncidentEvidence(archived, incoming)) changed = true;
         }
 
+        StartIncidentAuditEnrichment(now);
+
         var environment = CaptureEnvironmentSnapshot(snapshot);
 
         if (performanceCenterStore.CurrentEnvironment == null)
@@ -14302,6 +14304,116 @@ public sealed partial class WebDashboardService : IDisposable
         incident.ModEvidence = owned == null ? "" : $"Measured leading marker {owned.LeadingMarker}: {owned.LeadingWorkMs:0.0}ms; ownership confidence {owned.Confidence}.";
         incident.ModAttributionSource = incident.ProfileEvidence.CaptureKind;
         incident.ModProfileCompletedUnixMilliseconds = incident.ProfileEvidence.CompletedUnixMilliseconds;
+        ApplyAuditContext(incident);
+    }
+
+    private const string AuditHintMarker = " Audit log: ";
+
+    // Audit activity is correlation, so it only adds a pointer to the next action and records
+    // gaps. It never feeds the ranked cause scores, so it cannot change the primary assessment.
+    private static void ApplyAuditContext(PerformanceIncidentArchive incident)
+    {
+        incident.NextAction ??= "";
+        int marker = incident.NextAction.IndexOf(AuditHintMarker, StringComparison.Ordinal);
+        if (marker >= 0) incident.NextAction = incident.NextAction[..marker];
+        var audit = incident.AuditActivity;
+        if (audit == null || !audit.Checked) return;
+        incident.EvidenceGaps ??= new();
+        if (!audit.Available)
+        {
+            incident.EvidenceGaps.Add("Player-activity audit was not available for this incident: " + audit.Status);
+            return;
+        }
+        foreach (var caveat in audit.Caveats) incident.EvidenceGaps.Add(caveat);
+        var lead = audit.Findings.FirstOrDefault(f => f.Kind != "Quiet");
+        if (lead != null)
+            incident.NextAction += AuditHintMarker + lead.Title + ". Compare Player Activity Near Spike with the measured evidence; it is correlation, not a cause.";
+    }
+
+    private int auditEnrichmentRunning;
+    private readonly Dictionary<string, int> auditEnrichmentFailures = new(StringComparer.Ordinal);
+
+    // Reads the BlockLogger audit around one archived incident per maintenance pass. The query
+    // runs off the main thread; the result is applied back on it. Incidents older than the audit
+    // retention are marked rather than queried, so "no rows" is never confused with "pruned".
+    private void StartIncidentAuditEnrichment(long now)
+    {
+        var queries = module.Queries;
+        if (queries == null) return;
+        int retentionDays = module.Config.RetentionDays;
+        if (retentionDays > 0)
+        {
+            long cutoff = now - retentionDays * 86_400_000L;
+            bool marked = false;
+            foreach (var expired in performanceCenterStore.Incidents.Where(x => x.AuditActivity?.Checked != true && x.StartUnixMilliseconds < cutoff))
+            {
+                expired.AuditActivity = new IncidentAuditActivity
+                {
+                    Checked = true,
+                    CapturedUnixMilliseconds = now,
+                    Status = "this incident is older than the BlockLogger retention window."
+                };
+                if (expired.AttributionVersion >= 7) ApplyIncidentVerdict(expired);
+                marked = true;
+            }
+            if (marked) SavePerformanceCenterStore();
+        }
+
+        var target = performanceCenterStore.Incidents
+            .Where(x => x.AuditActivity?.Checked != true && now - x.EndUnixMilliseconds >= 20_000 &&
+                        auditEnrichmentFailures.GetValueOrDefault(x.Id) < 3)
+            .OrderByDescending(x => x.StartUnixMilliseconds)
+            .FirstOrDefault();
+        if (target == null) return;
+        if (Interlocked.CompareExchange(ref auditEnrichmentRunning, 1, 0) != 0) return;
+
+        string id = target.Id;
+        long from = target.StartUnixMilliseconds - 30_000L, to = target.EndUnixMilliseconds + 5_000L;
+        long dropped = target.BlockLoggerDropped;
+        _ = Task.Run(async () =>
+        {
+            IncidentAuditActivity? audit = null;
+            string error = "";
+            try
+            {
+                audit = await AwaitWithTimeout(
+                    queries.QueryIncidentAuditActivityAsync(from, to),
+                    TimeSpan.FromSeconds(10),
+                    "Incident audit activity query").ConfigureAwait(false);
+            }
+            catch (Exception ex) { error = ex.Message; }
+            try { api.Event.EnqueueMainThreadTask(() => ApplyIncidentAudit(id, audit, error, dropped), "incident-audit-apply"); }
+            catch { }
+            finally { Interlocked.Exchange(ref auditEnrichmentRunning, 0); }
+        });
+    }
+
+    private void ApplyIncidentAudit(string id, IncidentAuditActivity? audit, string error, long dropped)
+    {
+        if (disposed) return;
+        var archived = performanceCenterStore.Incidents.FirstOrDefault(x => x.Id == id);
+        if (archived == null) return;
+        if (audit == null)
+        {
+            int failures = auditEnrichmentFailures.GetValueOrDefault(id) + 1;
+            auditEnrichmentFailures[id] = failures;
+            if (failures < 3) return;
+            audit = new IncidentAuditActivity
+            {
+                Checked = true,
+                CapturedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Status = "the audit query failed (" + error + ")."
+            };
+        }
+        else
+        {
+            if (dropped > 0)
+                audit.Caveats.Add($"BlockLogger dropped {dropped:N0} event(s) during this incident, so audit counts are a lower bound.");
+            IncidentAuditInterpreter.Interpret(audit);
+        }
+        archived.AuditActivity = audit;
+        if (archived.AttributionVersion >= 7) ApplyIncidentVerdict(archived);
+        SavePerformanceCenterStore();
     }
 
     private sealed record WebConsoleCommandResult(bool Success, string Status, string Message);

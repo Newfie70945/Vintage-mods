@@ -25,6 +25,10 @@ public sealed class LogQueryService
         QueryRecentBlockActivityHotspotsAsync(int minutes, int maxCount) =>
         storage.QueryRecentBlockActivityHotspotsAsync(minutes, maxCount);
 
+    public Task<BlockLogger.WebDashboard.IncidentAuditActivity> QueryIncidentAuditActivityAsync(
+        long fromUnixMilliseconds, long toUnixMilliseconds) =>
+        storage.QueryIncidentAuditActivityAsync(fromUnixMilliseconds, toUnixMilliseconds);
+
     public Task<int> CountAsync() => storage.CountEventsAsync();
     public string GetLogDirectoryPath() => storage.LegacyEventLogPath;
     public string GetDatabasePath() => storage.DatabasePath;

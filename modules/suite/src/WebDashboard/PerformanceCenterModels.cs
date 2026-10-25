@@ -56,6 +56,7 @@ public sealed class PerformanceCenterStore
 
 public sealed class PerformanceIncidentArchive
 {
+    public IncidentAuditActivity? AuditActivity { get; set; }
     public List<BlockLogger.ServerHealth.SlowNetworkHandler> NetworkHandlers { get; set; } = new();
     public string NetworkHandlerTimingStatus { get; set; } = "Not recorded for this incident";
     public string AssessmentStatus { get; set; } = "Insufficient evidence";
