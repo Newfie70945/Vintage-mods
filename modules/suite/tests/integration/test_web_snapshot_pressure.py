@@ -32,7 +32,14 @@ if optimizer_test:
     optimizer_config['Profiling'].update(PhaseTimings=True, AutoStart=False)
     optimizer_config['Compatibility']['SafeMode'] = False
     (data / 'ModConfig/optimizer.json').write_text(json.dumps(optimizer_config))
+all_modules_test = os.environ.get('NSS_WEB_TEST_ALL_MODULES') == '1'
+if all_modules_test:
+    for mod in json.loads((repo / 'modules/manifest.json').read_text())['mods']:
+        if mod['id'] != 'suite':
+            shutil.copy2(repo / 'artifacts' / (mod['assembly'] + 'V' + mod['version'] + '.zip'), mods)
 folder = data / 'ModConfig/NewfiesServerEssentialsSuite'
+if all_modules_test:
+    (folder / 'NewfiesServerEssentialsDiscord.json').write_text(json.dumps(dict(Enabled=False,BotToken='')))
 webfile = folder / 'NewfiesWebServer.json'
 web = json.loads(webfile.read_text()); password = secrets.token_hex(24)
 web.update(Enabled=True, BindAddress='127.0.0.1', Port=web_port, AdminUsername='fixtureowner',
@@ -84,7 +91,7 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
-    if proximity_test or performance_test or optimizer_test or translocator_test:
+    if proximity_test or performance_test or optimizer_test or translocator_test or all_modules_test:
         session_status, session_data, _, _ = request('/api/session')
         assert session_status == 200
         csrf_token = session_data['csrfToken']
@@ -128,6 +135,18 @@ try:
         assert code == 200, code
         code, map_status, _, _ = request('/api/webmap')
         assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and map_status['enabled'] == translocator_test
+    if all_modules_test:
+        code, guard, _, _ = request('/api/chatguard')
+        assert code == 200 and guard.get('available') and guard['version'] == '2.1.5', (code,guard)
+        time.sleep(1.1)
+        code, saved_guard, _, _ = request('/api/chatguard/settings',dict(Enabled=True,Mode='LogOnly'))
+        assert code == 200 and saved_guard.get('success') and saved_guard['mode'] == 'LogOnly', (code,saved_guard)
+        before_save=len(lines)
+        process.stdin.write('/autosavenow\n');process.stdin.flush()
+        until_save=time.monotonic()+30
+        while not any('World saved!' in line for line in lines[before_save:]):
+            if process.poll() is not None or time.monotonic()>until_save:raise AssertionError('All-module autosave did not finish')
+            time.sleep(.1)
     if translocator_test:
         code, map_status, _, _ = request('/api/webmap')
         assert code == 200 and map_status['showTranslocators'] and map_status['translocatorDiscoveryRadius'] == 8, map_status
@@ -176,7 +195,7 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
-                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test,
+                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test, allModulesInstalled=all_modules_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
@@ -233,3 +252,14 @@ if translocator_test:
     report.update(translocatorSettingsPersisted=True)
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Translocator public feed, live toggle and world-scoped settings persistence: ok',flush=True)
+
+if all_modules_test:
+    expected = [json.loads((repo / m['path'] / 'modinfo.json').read_text())['modid'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods']]
+    if optimizer_test:
+        expected.append(json.loads((repo/'modules/optimizer/src/NewfiesOptimizer/modinfo.json').read_text())['modid'])
+    native_list = next(line for line in lines if 'Mods, sorted by dependency:' in line)
+    assert all(mod in native_list for mod in expected), native_list
+    assert not any(re.search(r'\[(?:Server )?(?:Error|Fatal)\]',line) for line in lines), 'Server error present; inspect private console log'
+    report.update(allModulesLoaded=expected,allModuleWorldSaveCompleted=True,serverErrors=0)
+    (root/'result.json').write_text(json.dumps(report,indent=2)+'\n')
+    print('All seven native mod IDs loaded; explicit save finished with no server errors',flush=True)

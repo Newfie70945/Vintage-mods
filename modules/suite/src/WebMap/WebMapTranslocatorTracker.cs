@@ -192,13 +192,15 @@ public sealed class WebMapTranslocatorTracker : IDisposable
     private void Tick()
     {
         if(!enabled||!loaded||disposed)return;
+        bool advance=false;
         try
         {
             var players=api.World.AllOnlinePlayers;
             if(players.Length==0)return;
             // Round robin: one player and at most 128 loaded-block probes per pass, not a cube per player.
             if(playerCursor>=players.Length){playerCursor=0;scanRound++;}
-            if(players[playerCursor] is not IServerPlayer player || !Eligible(player)) { playerCursor++;return; }
+            advance=true;
+            if(players[playerCursor] is not IServerPlayer player || !Eligible(player)) return;
             int radius=Math.Clamp(discoveryRadius(),3,16), side=radius*2+1;
             int x=(int)Math.Floor(player.Entity.Pos.X),y=(int)Math.Floor(player.Entity.Pos.Y),z=(int)Math.Floor(player.Entity.Pos.Z);
             if(!scans.TryGetValue(player.PlayerUID,out var scan))
@@ -206,7 +208,7 @@ public sealed class WebMapTranslocatorTracker : IDisposable
                 if(scans.Count>=256)scans.Remove(scans.Keys.First());
                 scans[player.PlayerUID]=scan=new ScanState { X=x,Y=y,Z=z,Radius=radius,Cell=(int)((scanRound*127)%(side*side*5)) };
             }
-            if(scan.Radius!=radius||Math.Abs(scan.X-x)>2||Math.Abs(scan.Y-y)>2||Math.Abs(scan.Z-z)>2)
+            if(scan.Radius!=radius||Math.Abs((long)scan.X-x)>2||Math.Abs((long)scan.Y-y)>2||Math.Abs((long)scan.Z-z)>2)
             { scan.X=x;scan.Y=y;scan.Z=z;scan.Radius=radius;scan.Cell=0; }
             long start=Stopwatch.GetTimestamp();
             // Looking at a pad discovers it immediately on this player's turn; distant selection is rejected.
@@ -220,12 +222,11 @@ public sealed class WebMapTranslocatorTracker : IDisposable
                 cursor.Set(cx,cy,cz);
                 if(cy>=0 && WebMapTranslocatorRules.Near(cx,cy,cz,player.Entity.Pos.X,player.Entity.Pos.Y,player.Entity.Pos.Z,radius))TryObserve(cursor);
             }
-            // A fixed slice per player prevents one moving player from starving everybody else.
-            playerCursor++;
             if(scan.Cell>=cells)scan.Cell=0;
             Volatile.Write(ref observationIssue,"");
         }
         catch(Exception ex){Report(ex);}
+        finally { if(advance)playerCursor++; } // Failed observations must not starve later players.
     }
     private void Report(Exception ex)
     {

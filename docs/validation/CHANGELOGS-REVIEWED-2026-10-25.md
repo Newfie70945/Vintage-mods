@@ -47,6 +47,7 @@ Changes since public **1.2.51**, identified from the exact source commit embedde
 
 ### Efficiency and safeguards
 
+- Fixed a failed translocator observation starving later players of discovery turns. Large coordinate changes no longer overflow the movement comparison.
 - Cached AFK reflection metadata, removed per-ore position allocations in OreShield masking, and reused log parsing helpers.
 - Bounded ZIP-entry reads during anti-cheat mod fingerprinting.
 - Kept optional optimizer settings unchanged. This release does not claim that every lag spike has a proven cause.
@@ -54,6 +55,8 @@ Changes since public **1.2.51**, identified from the exact source commit embedde
 ## Community MOTD 2.1.7
 
 Changes since public **2.1.6**.
+
+- Added server/client PNG header and decoded-pixel limits before logo rendering: maximum 1 MiB encoded, 4,096 pixels per side and 4,194,304 pixels total. Oversized images are skipped.
 
 - Improved Discord-fed News, Updates and Events formatting when paired with Discord Link 1.0.15: headings, emphasis, lists, quotations, code, links and embed content are easier to read.
 - Replaced unsupported emoji with readable fallbacks instead of empty squares; Discord mention/timestamp markup is normalized for display.
@@ -75,6 +78,10 @@ Changes since public **1.0.14**.
 
 Changes since public **1.1.27**.
 
+- Fixed file/package/manifest cache keys mixing distinct case-sensitive paths on Linux.
+- Failed fingerprint or manifest reads are retried without requiring size/timestamp changes; a transient lock no longer poisons the cache.
+- Bounded signed-manifest reads for ZIP and loose files, rejecting expansion beyond a declared size or truncated entries.
+
 - Improved consent-dialog cleanup and disposal so GUI resources are released consistently.
 - Closing an unanswered consent dialog now resolves it as declined instead of leaving a pending decision.
 - Kept the existing client evidence protocol compatible; this is not a new anti-cheat detection system.
@@ -91,9 +98,14 @@ Unpublished engineering preview; no verified public optimizer release exists to 
 - Added offline capture findings and A/B comparison tools, with checks for short captures, mismatched/missing workload data, overwritten history and differing sample intervals.
 - Retained independent module switches and existing defaults. No forced garbage collection or new automatic world-save/world-generation changes were introduced by this review.
 
-## Unchanged compiled releases
+## ChatGuard 2.1.5
 
-- **ChatGuard 2.1.4** — unchanged official release included.
+Changes since public **2.1.4**.
+
+- Settings and `/chatguard mode` now save successfully before they become active. Failed storage writes retain the previous configuration and report an error.
+- Removed synchronous waits for state/audit disk writers from the world-save callback. Autosaves queue an immutable state snapshot; existing workers continue writing and flushing in the background. Bounded shutdown flushing remains.
+
+## Unchanged compiled releases
 - **Player List 1.1.2** — unchanged official release included.
 
 ## Reviewed but NOT included in these builds
@@ -110,4 +122,4 @@ These were present on Claude's branches but were deliberately excluded. They are
 
 Discord Link **1.0.14** and MOTD **2.1.6** were already public. Their existing features are not all new in this update: for example, temporal-storm/death relay was already present in Discord Link 1.0.14, and existing MOTD scrolling/layout is not a new 2.1.7 feature. The shared feed-formatting improvements above span both updated mods.
 
-Website, Website Connector and Mod DB HTML descriptions remain excluded from this source/distribution. The optimizer remains optional. Build `ms11-translocator1` replaces the original reviewed Suite binary with the corrected translocator layer. Companion and optimizer binaries are unchanged from the reviewed pack. The original audit correctly withheld the unsafe prototype; the implemented replacement and tests are documented in `SUITE-1.2.52-TRANSLOCATORS.md`.
+Website, Website Connector and Mod DB HTML descriptions remain excluded from this source/distribution. The optimizer remains optional. Build `ms11-translocator1` introduced the translocator layer; follow-up `ms11-audit1` includes the audit fixes below. The original translocator build replaced the original reviewed Suite binary with the corrected translocator layer. The follow-up audit rebuilds MOTD and Anti-Cheat Client and advances ChatGuard to 2.1.5. Discord Link, Player List and NOS remain unchanged. The original audit correctly withheld the unsafe prototype; the implemented replacement and tests are documented in `SUITE-1.2.52-TRANSLOCATORS.md`.

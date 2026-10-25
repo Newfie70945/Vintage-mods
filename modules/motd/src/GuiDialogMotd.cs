@@ -74,7 +74,7 @@ namespace NewfiesCommunityMOTD
             int desiredWidth = GameMath.Clamp(Math.Max(packet.Width, 760), 620, availableWidth);
             int desiredHeight = GameMath.Clamp(Math.Max(packet.Height, 620), 520, availableHeight);
             int scrollBarWidth = GameMath.Clamp(packet.ScrollBarWidth <= 0 ? 18 : packet.ScrollBarWidth, 10, 30);
-            bool hasServerLogo = packet.EnableLogo && string.Equals(packet.LogoSource, "ServerFile", StringComparison.OrdinalIgnoreCase) && packet.ServerLogoPng != null && packet.ServerLogoPng.Length > 0;
+            bool hasServerLogo = packet.EnableLogo && string.Equals(packet.LogoSource, "ServerFile", StringComparison.OrdinalIgnoreCase) && LogoPngSafety.IsSafe(packet.ServerLogoPng);
             bool hasAssetLogo = packet.EnableLogo && !hasServerLogo && !string.IsNullOrWhiteSpace(packet.LogoAsset) && LogoExists(packet.LogoAsset);
             bool hasLogo = hasServerLogo || hasAssetLogo;
             int logoH = hasLogo ? GameMath.Clamp(packet.LogoHeight, 0, 400) : 0;
@@ -558,7 +558,7 @@ namespace NewfiesCommunityMOTD
                     bytes = asset?.Data;
                 }
 
-                if (bytes == null || bytes.Length == 0) return null;
+                if (bytes == null || !LogoPngSafety.IsSafe(bytes)) return null;
 
                 serverLogoTempPath = System.IO.Path.Combine(
                     System.IO.Path.GetTempPath(),

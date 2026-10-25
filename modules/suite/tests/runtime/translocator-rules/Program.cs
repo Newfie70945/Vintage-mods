@@ -67,7 +67,7 @@ static class Checks
   object? chunk=null;bool available=true,fail=false;
   var blocks=Proxy.New<IBlockAccessor>((m,a)=>{
    var p=a?.FirstOrDefault() as BlockPos;
-   if(m.Name=="GetChunkAtBlockPos"){probes.Add((p!.X,p.Y,p.Z));if(fail)throw new IOException("Injected observation failure");if(!available)return null;return chunk??=DispatchProxy.Create(m.ReturnType,typeof(Proxy));}
+   if(m.Name=="GetChunkAtBlockPos"){probes.Add((p!.X,p.Y,p.Z));if(fail && p.X<500)throw new IOException("Injected observation failure");if(!available)return null;return chunk??=DispatchProxy.Create(m.ReturnType,typeof(Proxy));}
    if(m.Name=="GetBlockEntity")return pads.GetValueOrDefault((p!.X,p.Y,p.Z));
    throw new Exception("Unexpected world access / potential chunk loading: "+m.Name);
   });
@@ -91,13 +91,18 @@ static class Checks
    var otherEntity=(EntityPlayer)RuntimeHelpers.GetUninitializedObject(typeof(EntityPlayer));AccessTools.Property(typeof(Entity),nameof(Entity.Pos)).SetValue(otherEntity,new EntityPos(1000.5,60.5,.5));
    var other=(LocalPlayer)RuntimeHelpers.GetUninitializedObject(typeof(LocalPlayer));other.Uid="player-b";other.Value=otherEntity;
    pads[(1000,60,0)]=new BlockEntityStaticTranslocator {repairState=4};players=[player,other];
+   typeof(WebMapTranslocatorTracker).GetField("playerCursor",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(tracker,0);
+   fail=true;
    for(int i=0;i<40;i++)Call("Tick");
-   Assert(tracker.Snapshot().Any(p=>p.X==1000),"second player's discovery shared without starving first player");
+   Assert(tracker.Snapshot().Any(p=>p.X==1000),"a failing first player's reads must not starve the second player's discovery");fail=false;
    var selection=new BlockSelection{Position=new BlockPos(2,60,0,0)};pads[(2,60,0)]=new BlockEntityStaticTranslocator{repairState=0};
    Call("OnPlace",player,0,selection,null);Assert(tracker.Snapshot().Any(p=>p.X==2&&p.State=="broken"),"player-created pad registered");
    pads[(2,60,0)].repairState=4;Call("OnUse",player,selection);Assert(tracker.Snapshot().Any(p=>p.X==2&&p.State=="active"),"repair refreshes marker");
    available=false;Call("OnUse",player,selection);Assert(tracker.Snapshot().Any(p=>p.X==2),"unloaded pad skipped without erasing discovery");available=true;
    fail=true;Call("OnUse",player,selection);Assert(tracker.StorageIssue.Contains("Observation skipped"),"observation failure is diagnosed without escaping player interaction");fail=false;
+   players=[player];entity.Pos.SetPos(-1073741824,60.5,.5);Call("Tick");entity.Pos.SetPos(1073741824,60.5,.5);Call("Tick");
+   Assert(!tracker.StorageIssue.Contains("OverflowException"),"large coordinate change cannot overflow the movement comparison");
+   entity.Pos.SetPos(double.NaN,60.5,.5);int invalidBefore=probes.Count;Call("Tick");Assert(probes.Count==invalidBefore,"nonfinite player position does not query terrain");entity.Pos.SetPos(.5,60.5,.5);
    tracker.Stop();int stopped=probes.Count;Call("Tick");Call("OnUse",player,selection);Assert(probes.Count==stopped,"disabled tracker performs no world reads");
    tracker.Start();Assert(registrations==2&&unregistrations==1,"enable toggle reuses store with a single active listener");
   }

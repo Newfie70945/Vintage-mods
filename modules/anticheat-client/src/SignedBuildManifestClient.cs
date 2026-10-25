@@ -25,8 +25,9 @@ internal static class SignedBuildManifestClient
     // the package had not changed. Cache the parsed/hashes by a cheap source metadata signature;
     // a size/mtime change invalidates the cache before the next integrity measurement.
     private static readonly object CacheLock = new();
-    private static readonly Dictionary<string, CachedManifest> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, CachedManifest> Cache = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     private const int MaxCacheEntries = 16;
+    private const int MaxManifestBytes = 256 * 1024;
 
     private sealed class CachedManifest
     {
@@ -50,7 +51,9 @@ internal static class SignedBuildManifestClient
                 return cached.Snapshot;
         }
 
-        ClientBuildManifestSnapshot snapshot = ReadUncached(key);
+        ClientBuildManifestSnapshot snapshot;
+        try { snapshot = ReadUncached(key); }
+        catch { return new(); } // Do not cache transient I/O failures under an unchanged metadata signature.
         lock (CacheLock)
         {
             if (Cache.Count >= MaxCacheEntries && !Cache.ContainsKey(key))
@@ -62,8 +65,6 @@ internal static class SignedBuildManifestClient
 
     private static ClientBuildManifestSnapshot ReadUncached(string packagePath)
     {
-        try
-        {
             byte[] manifest = ReadEntry(packagePath, ManifestFileName);
             byte[] signature = ReadEntry(packagePath, SignatureFileName);
             string buildId = "";
@@ -79,8 +80,6 @@ internal static class SignedBuildManifestClient
                 SignatureSha256 = Hash(signature),
                 BuildId = buildId.Length <= 96 ? buildId : buildId[..96]
             };
-        }
-        catch { return new(); }
     }
 
     private static string BuildSourceSignature(string packagePath)
@@ -133,7 +132,7 @@ internal static class SignedBuildManifestClient
         if (Directory.Exists(packagePath))
         {
             string path = Path.Combine(packagePath, fileName);
-            return File.Exists(path) ? File.ReadAllBytes(path) : Array.Empty<byte>();
+            return File.Exists(path) ? ReadFileBounded(path) : Array.Empty<byte>();
         }
         if (File.Exists(packagePath) && Path.GetExtension(packagePath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
         {
@@ -142,16 +141,36 @@ internal static class SignedBuildManifestClient
             var entry = zip.Entries.FirstOrDefault(e => string.Equals(e.FullName.Replace('\\', '/').TrimStart('/'), fileName, StringComparison.OrdinalIgnoreCase));
             if (entry == null || entry.Length < 0 || entry.Length > 256 * 1024) return Array.Empty<byte>();
             using var input = entry.Open();
-            using var ms = new MemoryStream();
-            input.CopyTo(ms);
-            return ms.ToArray();
+            return ReadBounded(input,entry.Length);
         }
         if (File.Exists(packagePath))
         {
             string sibling = Path.Combine(Path.GetDirectoryName(packagePath) ?? "", fileName);
-            return File.Exists(sibling) ? File.ReadAllBytes(sibling) : Array.Empty<byte>();
+            return File.Exists(sibling) ? ReadFileBounded(sibling) : Array.Empty<byte>();
         }
         return Array.Empty<byte>();
+    }
+
+    private static byte[] ReadFileBounded(string path)
+    {
+        using var input=File.OpenRead(path);
+        if(input.Length>MaxManifestBytes)return Array.Empty<byte>();
+        return ReadBounded(input,input.Length);
+    }
+
+    private static byte[] ReadBounded(Stream input,long expected)
+    {
+        if(expected<0||expected>MaxManifestBytes)throw new InvalidDataException("Manifest length exceeds limit.");
+        using var output=new MemoryStream((int)expected);
+        byte[] buffer=new byte[8192];
+        int read;
+        while((read=input.Read(buffer,0,(int)Math.Min(buffer.Length,expected-output.Length+1)))>0)
+        {
+            if(output.Length+read>expected)throw new InvalidDataException("Manifest exceeds its declared length.");
+            output.Write(buffer,0,read);
+        }
+        if(output.Length!=expected)throw new InvalidDataException("Manifest is truncated.");
+        return output.ToArray();
     }
 
     private static string Hash(byte[] bytes)

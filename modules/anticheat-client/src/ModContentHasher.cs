@@ -30,9 +30,9 @@ internal static class ModContentHasher
     private const int MaxPackageCacheEntries = 2048;
     private const int MaxFileHashCacheEntries = 4096;
     private static readonly object CacheLock = new();
-    private static readonly Dictionary<string, CacheEntry> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, CacheEntry> Cache = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     private static readonly object FileHashCacheLock = new();
-    private static readonly Dictionary<string, FileHashCacheEntry> FileHashCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, FileHashCacheEntry> FileHashCache = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     private sealed class FileHashCacheEntry
     {
@@ -63,6 +63,8 @@ internal static class ModContentHasher
         }
 
         ModPackageFingerprint fp = ComputeFingerprint(fullPath);
+        // A transient read/lock failure must be retried even when size/mtime stay unchanged.
+        if (fp.PackageSha256.Length == 0) return fp;
         lock (CacheLock)
         {
             if (Cache.Count >= MaxPackageCacheEntries && !Cache.ContainsKey(fullPath))
@@ -288,6 +290,7 @@ internal static class ModContentHasher
             string hash;
             using (var fs = File.OpenRead(fullPath))
                 hash = HashStream(fs);
+            if (hash.Length == 0) return "";
 
             lock (FileHashCacheLock)
             {

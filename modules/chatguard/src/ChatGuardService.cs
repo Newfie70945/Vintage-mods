@@ -16,7 +16,7 @@ public sealed class ChatGuardService : IDisposable
 {
     public const string ControlEvent = "newfieschatguard:control";
     public const string StateFile = "NewfiesChatGuardState.json";
-    public const string Version = "2.1.4";
+    public const string Version = "2.1.5";
 
     private static readonly Regex TagRegex = new("<[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex MentionRegex = new(@"(?<!\w)@[\p{L}\p{N}_\-]{1,64}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -359,9 +359,7 @@ public sealed class ChatGuardService : IDisposable
     {
         string json = tree.GetString("configJson", "");
         var candidate = JsonConvert.DeserializeObject<ChatGuardConfig>(json) ?? throw new InvalidOperationException("Configuration payload was empty.");
-        candidate.Clamp();
-        config = candidate;
-        SaveConfig();
+        CommitConfig(candidate);
         tree.SetBool("success", true);
         tree.SetString("message", "ChatGuard settings saved and applied immediately.");
         FillSnapshot(tree);
@@ -730,8 +728,10 @@ public sealed class ChatGuardService : IDisposable
                 Reply(player, groupId, "Usage: /chatguard mode enforce|logonly", false);
                 return;
             }
-            config.Mode = mode.Equals("logonly", StringComparison.OrdinalIgnoreCase) ? "LogOnly" : "Enforce";
-            SaveConfig();
+            var candidate = JsonConvert.DeserializeObject<ChatGuardConfig>(JsonConvert.SerializeObject(config))!;
+            candidate.Mode = mode.Equals("logonly", StringComparison.OrdinalIgnoreCase) ? "LogOnly" : "Enforce";
+            try { CommitConfig(candidate); }
+            catch (Exception ex) { Reply(player, groupId, "Could not save ChatGuard mode (" + ex.GetType().Name + "); previous settings remain active.", false); return; }
             Reply(player, groupId, "ChatGuard mode set to " + config.Mode + ".");
             return;
         }
@@ -929,10 +929,11 @@ public sealed class ChatGuardService : IDisposable
         }
     }
 
-    private void SaveConfig()
+    private void CommitConfig(ChatGuardConfig candidate)
     {
-        config.Clamp();
-        api.StoreModConfig(config, ChatGuardConfig.ConfigFile);
+        candidate.Clamp();
+        api.StoreModConfig(candidate, ChatGuardConfig.ConfigFile);
+        config = candidate; // Publish only after persistence succeeds.
     }
 
     private void SaveState()
@@ -949,7 +950,10 @@ public sealed class ChatGuardService : IDisposable
     private void OnWorldSave()
     {
         SaveState();
-        if (!stateWriter.Flush() || !auditWriter.Flush()) api.Logger.Warning("[ChatGuard] Persistence flush incomplete; pending data remains queued.");
+        // Both workers write/flush their own queues. Never wait for disk on the game-thread
+        // autosave callback; Dispose still allows each writer its bounded shutdown flush.
+        if (!string.IsNullOrEmpty(stateWriter.LastError) || !string.IsNullOrEmpty(auditWriter.LastError))
+            api.Logger.Warning("[ChatGuard] Persistence is retrying in the background; inspect ChatGuard storage diagnostics.");
     }
 
     private void CleanupExpiredState(bool save)

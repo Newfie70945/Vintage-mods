@@ -34,6 +34,27 @@ try {
  string statePath=(string)Field(service,"statePath");
  Check(File.ReadAllText(statePath).Contains("immutable reason")&&!File.ReadAllText(statePath).Contains("mutated after queue"),"State writer retained mutable game-owned data");
  Console.WriteLine("PASS A6: immutable moderation state snapshot persists off-thread, without observing later mutation.");
+ object previousConfig=Field(service,"config");
+ var treeType=guardType.GetMethod("HandleSaveRequest",members)!.GetParameters()[0].ParameterType.Assembly.GetType("Vintagestory.API.Datastructures.TreeAttribute",true)!;
+ object configTree=Activator.CreateInstance(treeType)!;Call(configTree,"SetString","configJson","{\"Enabled\":false,\"Mode\":\"LogOnly\"}");
+ fixture.ThrowConfigWrites=true;
+ try { Call(service,"HandleSaveRequest",configTree);throw new Exception("Expected config write failure"); }
+ catch(TargetInvocationException ex)when(ex.InnerException is IOException){}
+ finally{fixture.ThrowConfigWrites=false;}
+ Check(ReferenceEquals(previousConfig,Field(service,"config")),"Failed ChatGuard save changed active configuration");
+ Call(service,"HandleSaveRequest",configTree);
+ Check(!ReferenceEquals(previousConfig,Field(service,"config"))&&(bool)Call(configTree,"GetBool","success",false)!,"Successful ChatGuard save did not apply configuration");
+ Console.WriteLine("PASS: ChatGuard settings commit only after storage succeeds.");
+ using(var entered=new ManualResetEventSlim())using(var release=new ManualResetEventSlim())
+ {
+  Func<byte[]> blocked=()=>{entered.Set();release.Wait();return Encoding.UTF8.GetBytes("{}");};
+  Call(writer,"Queue",blocked);Check(entered.Wait(3000),"Writer fixture did not start");
+  try { var watch=System.Diagnostics.Stopwatch.StartNew();Call(service,"OnWorldSave");Check(watch.ElapsedMilliseconds<1000,"Autosave waited for blocked background disk work"); }
+  finally{release.Set();}
+  Check((bool)Call(writer,"Flush",5000)!,"Queued save did not persist after writer resumed");
+ }
+ Console.WriteLine("PASS: ChatGuard autosave does not wait for a stalled writer; queued snapshot persists after recovery.");
+
  long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
  object oldHistory=Call(service,"GetHistory","inactive")!;Call(service,"AddSample",oldHistory,now-30_000_000,"old");
  object recentHistory=Call(service,"GetHistory","recent")!;Call(service,"AddSample",recentHistory,now,"recent");
@@ -61,7 +82,7 @@ try {
  var logoType=motd.GetType("NewfiesCommunityMOTD.CachedLogoFile",true)!;
  object logo=Activator.CreateInstance(logoType,true)!;
  string path=Path.Combine(temporary,"logo.png");
- byte[] png={0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,1,2,3};File.WriteAllBytes(path,png);
+ byte[] png=Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCfkAAAAASUVORK5CYII=");File.WriteAllBytes(path,png);
  var first=((byte[] Bytes,string Hash))Call(logo,"Read",path)!;
  var second=((byte[] Bytes,string Hash))Call(logo,"Read",path)!;
  Check(ReferenceEquals(first.Bytes,second.Bytes)&&first.Hash.Length==64,"Unchanged logo/hash was not cached");
@@ -74,6 +95,16 @@ try {
  File.WriteAllBytes(path,png);var updated=((byte[] Bytes,string Hash))Call(logo,"Read",path)!;
  Check(updated.Hash==first.Hash&&!ReferenceEquals(updated.Bytes,first.Bytes),"Changed logo file did not invalidate cache");
  Console.WriteLine("PASS A11: full PNG signature, immutable bytes/hash cache, invalidation and pre-allocation rejection of a 16 MiB fixture.");
+ var safety=motd.GetType("NewfiesCommunityMOTD.LogoPngSafety",true)!.GetMethod("IsSafe",BindingFlags.Static|BindingFlags.Public)!;
+ bool Safe(byte[] bytes)=>(bool)safety.Invoke(null,[bytes])!;
+ Check(Safe(png),"Valid small PNG rejected");
+ byte[] bomb=(byte[])png.Clone();System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bomb.AsSpan(16,4),32768);System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bomb.AsSpan(20,4),32768);
+ Check(!Safe(bomb),"Small compressed logo with huge native dimensions accepted");
+ File.WriteAllBytes(path,bomb);Check(((byte[] Bytes,string Hash))Call(logo,"Read",path)! is var rejectedPixels&&rejectedPixels.Bytes.Length==0,"Server logo cache accepted oversized dimensions");
+ System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bomb.AsSpan(16,4),4096);System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bomb.AsSpan(20,4),4096);
+ Check(!Safe(bomb),"Combined decoded-pixel budget not checked");
+ Check(!Safe(png[..24]),"Truncated IHDR accepted");
+ Console.WriteLine("PASS: MOTD server/client shared PNG dimension and decoded-pixel limits before image decoding.");
  Console.WriteLine("Companion checks passed using temporary files; no network connection or player messages.");
 }finally{foreach(var service in services.AsEnumerable().Reverse())service.Dispose();Directory.Delete(temporary,true);}
 
@@ -88,6 +119,7 @@ public class AuditProxy : DispatchProxy {
             case "Error": Fixture.Errors++; return null;
             case "Warning": Fixture.Warnings++; return null;
             case "LoadModConfig": return null;
+            case "StoreModConfig": if(Fixture.ThrowConfigWrites)throw new IOException("Injected config write failure");return null;
         }
         return Fixture.Make(method.ReturnType);
     }
@@ -96,7 +128,7 @@ public class AuditProxy : DispatchProxy {
 public class AuditFixture(string root) {
     public string Root = root;
     public byte[]? SaveBytes;
-    public bool ThrowReads, ThrowWrites;
+    public bool ThrowReads, ThrowWrites, ThrowConfigWrites;
     public int Errors, Warnings;
     readonly Dictionary<Type, object> proxies = new();
     public object? Make(Type type) {

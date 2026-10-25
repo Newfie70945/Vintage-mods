@@ -62,3 +62,5 @@ MS5 footer polish: the MOTD footer now uses a contained separator/action area, c
 Bundled sample logo
 -------------------
 The mod now includes assets/newfiescommunitymotd/textures/gui/logo.png using the Newfie's Server Suite branding as a ready-to-see sample/default packaged logo. sample-logo.png preserves the same sample for reference. Server owners can still use the server-provided PNG workflow for custom branding without rebuilding the client mod.
+
+Logo safety (2.1.7 audit build): custom PNG logos are limited to 1 MiB encoded, 4,096 pixels per side and 4,194,304 decoded pixels in total. Both server packaging and client decoding check the header. Resize oversized logos; they are skipped rather than decoded.
