@@ -264,6 +264,7 @@ public sealed class BlockLoggerModule : IDisposable
             api,
             role => publicPlayerListServer?.ResolveConfiguredRoleNameColor(role) ?? string.Empty,
             (uid, realName) => supporterNicknameService?.ResolveDisplayName(uid, realName) ?? realName);
+        chatDisplayService.AttachProximity(new ProximityChatService(api,()=>chatDisplayService.Config));
         chatDisplayService.Start();
         webConsoleService?.StartChatCapture();
 

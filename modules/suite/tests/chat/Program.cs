@@ -34,6 +34,7 @@ static class Program {
  }
  var brokenApi=new Api();
  using(var broken=new ChatDisplayService(brokenApi,resolveConfiguredNameColor:_=>throw new InvalidOperationException("test resolver"))){broken.Start();string m="Alice: hello",d="payload";var b=new BoolRef();brokenApi.Event.Chat(p,0,ref m,ref d,b);Check(m=="Alice: hello"&&d=="payload"&&!b.value&&brokenApi.Logger.Warnings==1,"Formatting failure interrupted chat");}
+ ProximityFormattingTests();
  GuideTests();
  Console.WriteLine("PASS: production chat boundary and ChatDisplay handler command/moderation/routing/failure cases (API doubles).");
  }
@@ -131,6 +132,29 @@ static class Program {
  using(var collision=new ChatDisplayService(api)){collision.Start();Check(ReferenceEquals(command,api.ChatCommands.Get("chatformat"))&&api.Logger.Warnings==1,"Existing command overwritten");}
  service.Dispose();Check(command.Handler(args).Failed,"Disposed guide");
  Console.WriteLine("PASS: private /chatformat guide, registration collision, live settings/role scope and disposed command.");
+ }
+ static void ProximityFormattingTests()
+ {
+  var api=new Api();var control=new LocalControl();using var chat=new ChatDisplayService(api);chat.AttachProximity(control);chat.Start();
+  chat.Config.ProximityEnabled=true;chat.Config.ProximityRange=75;chat.Config.ProximityGroupName="Nearby";chat.Config.ProximityGroupId=42;
+  var p=new Player();string line="Alice: **local**",data="native-data";var consumed=new BoolRef();
+  api.Event.Chat(p,42,ref line,ref data,consumed);
+  Check(line.Contains("<strong>local</strong>")&&!consumed.value&&data=="native-data","Owned local group must format without changing native delivery");
+  var save=chat.SaveSettings(new ChatDisplaySettingsRequest{BoldPlayerName=true});
+  Check(save.Success&&save.Snapshot.ProximityEnabled&&save.Snapshot.ProximityRange==75&&save.Snapshot.ProximityGroupName=="Nearby","Older client save erased local routing settings");
+  save=chat.SaveSettings(new ChatDisplaySettingsRequest{ProximityRange=double.NaN});Check(!save.Success,"NaN radius accepted");
+  save=chat.SaveSettings(new ChatDisplaySettingsRequest{ProximityRange=1001});Check(!save.Success,"Oversized radius accepted");
+  save=chat.SaveSettings(new ChatDisplaySettingsRequest{ProximityGroupName="General"});Check(!save.Success,"Built-in channel name accepted");
+  ChatGuardControlBridge.Block=true;line="Alice: blocked";consumed=new BoolRef();api.Event.Chat(p,42,ref line,ref data,consumed);Check(consumed.value,"Local group bypassed moderation");ChatGuardControlBridge.Block=false;
+  control.Allowed=false;line="Alice: denied";consumed=new BoolRef();api.Event.Chat(p,42,ref line,ref data,consumed);Check(consumed.value,"Disabled local group fell through to native broadcast");
+  line="Alice: /help";consumed=new BoolRef();api.Event.Chat(p,42,ref line,ref data,consumed);Check(!consumed.value&&line=="Alice: /help","Disabled local routing intercepted a command");
+  Console.WriteLine("PASS: local formatting, moderation, disabled routing, old-client settings preservation and radius/name validation.");
+ }
+ sealed class LocalControl:IProximityChatControl
+ {
+  public bool Allowed=true;public int GroupId=>42;public string Status=>"Active";public bool IsChannel(int id)=>id==42;
+  public bool AllowChat(IServerPlayer p,int id)=>Allowed;public string? Prepare(ChatDisplayConfig config)=>null;
+  public void Start(){}public void Apply(){}public void Dispose(){}
  }
  sealed class Role:IPlayerRole {public string Name=>"Admin";public string Code=>"admin";public System.Drawing.Color Color=>System.Drawing.Color.White;}
  sealed class Player:IServerPlayer {public string PlayerUID=>"uid";public string PlayerName=>"Alice";public IPlayerRole Role {get;}=new Role();}

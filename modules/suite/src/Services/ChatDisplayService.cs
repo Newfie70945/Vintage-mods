@@ -15,7 +15,7 @@ namespace BlockLogger.Services;
 public sealed class ChatDisplayConfig
 {
     public const string ConfigFile = "NewfiesChatDisplay.json";
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public bool ShowRoleBeforeName { get; set; } = false;
@@ -30,6 +30,11 @@ public sealed class ChatDisplayConfig
     public bool FormatOtherChatGroups { get; set; } = false;
     public List<int> AdditionalFormattedChatGroupIds { get; set; } = new();
 
+    public bool ProximityEnabled { get; set; } = false;
+    public string ProximityGroupName { get; set; } = "Local";
+    public double ProximityRange { get; set; } = 100;
+    public bool ProximityAutoJoin { get; set; } = true;
+    public int ProximityGroupId { get; set; }
     public bool MarkdownEnabled { get; set; } = true;
     public bool MarkdownAllowColors { get; set; } = false;
     public bool MarkdownAllowLinks { get; set; } = false;
@@ -44,6 +49,9 @@ public sealed class ChatDisplayConfig
         if (TimestampFormat.Length > 40) TimestampFormat = TimestampFormat[..40];
         try { _ = DateTime.Now.ToString(TimestampFormat); }
         catch { TimestampFormat = "HH:mm"; }
+        ProximityGroupName = string.IsNullOrWhiteSpace(ProximityGroupName) ? "Local" : ProximityGroupName.Trim();
+        if (ProximityGroupName.Length > 32 || ProximityGroupName.Any(c=>char.IsControl(c)||char.IsWhiteSpace(c)||c=='<'||c=='>')) ProximityGroupName="Local";
+        ProximityRange=double.IsFinite(ProximityRange)?Math.Clamp(ProximityRange,1,1000):100;
         MarkdownAllowedRoleCodes ??= new();
         MarkdownAllowedRoleCodes = MarkdownAllowedRoleCodes.Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim()).Where(x => x.Length <= 80).Distinct(StringComparer.OrdinalIgnoreCase).Take(128).ToList();
@@ -77,11 +85,17 @@ public sealed class ChatDisplaySnapshot
     public bool FormatGeneralChat { get; set; } = true;
     public bool FormatOtherChatGroups { get; set; }
     public List<int> AdditionalFormattedChatGroupIds { get; set; } = new();
+    public bool ProximityEnabled { get; set; } = false;
+    public string ProximityGroupName { get; set; } = "Local";
+    public double ProximityRange { get; set; } = 100;
+    public bool ProximityAutoJoin { get; set; } = true;
+    public int ProximityGroupId { get; set; }
     public bool MarkdownEnabled { get; set; } = true;
     public bool MarkdownAllowColors { get; set; } = false;
     public bool MarkdownAllowLinks { get; set; } = false;
     // Empty means all roles. Entries match role codes, not display names.
     public List<string> MarkdownAllowedRoleCodes { get; set; } = new();
+    public string ProximityStatus { get; set; } = "Disabled";
     public bool UseRoleNameColors { get; set; }
     public string? RoleColorRevision {get;set;}
     public Dictionary<string, string> RoleNameColors { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -101,6 +115,10 @@ public sealed class ChatDisplaySettingsRequest
     public bool FormatOtherChatGroups { get; set; }
     public List<int> AdditionalFormattedChatGroupIds { get; set; } = new();
     // Nullable new fields preserve settings when older Shift+L clients omit them.
+    public bool? ProximityEnabled { get; set; }
+    public string? ProximityGroupName { get; set; }
+    public double? ProximityRange { get; set; }
+    public bool? ProximityAutoJoin { get; set; }
     public bool? MarkdownEnabled { get; set; }
     public bool? MarkdownAllowColors { get; set; }
     public bool? MarkdownAllowLinks { get; set; }
@@ -116,6 +134,17 @@ public sealed class ChatDisplaySettingsRequest
 /// is active, the normal player-chat line is rewritten in-place and left on Vintage Story's
 /// normal delivery path. Commands are never touched.
 /// </summary>
+public interface IProximityChatControl : IDisposable
+{
+    int GroupId { get; }
+    string Status { get; }
+    bool IsChannel(int channel);
+    bool AllowChat(IServerPlayer player,int channel);
+    string? Prepare(ChatDisplayConfig candidate);
+    void Start();
+    void Apply();
+}
+
 public sealed class ChatDisplayService : IDisposable
 {
     public const string QueryEvent = "newfiesse:chat-display-query";
@@ -132,6 +161,7 @@ public sealed class ChatDisplayService : IDisposable
     private readonly global::System.Func<IPlayerRole?, string>? resolveConfiguredNameColor;
     private readonly global::System.Func<string, string, string>? resolveDisplayName;
     private ChatDisplayConfig config;
+    private IProximityChatControl? proximity;
     private bool registered;
     private bool disposed;
 
@@ -147,12 +177,18 @@ public sealed class ChatDisplayService : IDisposable
     }
 
     public ChatDisplayConfig Config => config;
+    public void AttachProximity(IProximityChatControl control)
+    {
+        if(registered)throw new InvalidOperationException("Attach proximity before starting chat display.");
+        proximity=control;
+    }
 
     public void Start()
     {
         if (registered) return;
         registered = true;
         api.Event.PlayerChat += OnPlayerChat;
+        proximity?.Start();
         api.Event.RegisterEventBusListener(OnChatDisplayQuery, filterByEventName: QueryEvent);
         api.Event.RegisterEventBusListener(OnChatSenderQuery, filterByEventName: SenderQueryEvent);
         api.Event.RegisterEventBusListener(OnModerationTextQuery, filterByEventName: ModerationTextQueryEvent);
@@ -213,6 +249,12 @@ public sealed class ChatDisplayService : IDisposable
 
     public ChatDisplaySnapshot GetSnapshot() => new()
     {
+        ProximityEnabled=config.ProximityEnabled,
+        ProximityGroupName=config.ProximityGroupName,
+        ProximityRange=config.ProximityRange,
+        ProximityAutoJoin=config.ProximityAutoJoin,
+        ProximityGroupId=proximity?.GroupId??config.ProximityGroupId,
+        ProximityStatus=proximity?.Status??"Proximity routing is unavailable.",
         ShowRoleBeforeName = config.ShowRoleBeforeName,
         BoldPlayerName = config.BoldPlayerName,
         ShowTimestampBeforeMessage = config.ShowTimestampBeforeMessage,
@@ -236,6 +278,11 @@ public sealed class ChatDisplayService : IDisposable
         var candidate = new ChatDisplayConfig
         {
             SchemaVersion = ChatDisplayConfig.CurrentSchemaVersion,
+            ProximityEnabled=request.ProximityEnabled??config.ProximityEnabled,
+            ProximityGroupName=request.ProximityGroupName??config.ProximityGroupName,
+            ProximityRange=request.ProximityRange??config.ProximityRange,
+            ProximityAutoJoin=request.ProximityAutoJoin??config.ProximityAutoJoin,
+            ProximityGroupId=config.ProximityGroupId,
             MarkdownEnabled = request.MarkdownEnabled ?? config.MarkdownEnabled,
             MarkdownAllowColors = request.MarkdownAllowColors ?? config.MarkdownAllowColors,
             MarkdownAllowLinks = request.MarkdownAllowLinks ?? config.MarkdownAllowLinks,
@@ -251,6 +298,14 @@ public sealed class ChatDisplayService : IDisposable
             AdditionalFormattedChatGroupIds = request.AdditionalFormattedChatGroupIds?.ToList() ?? new List<int>()
         };
 
+        candidate.ProximityGroupName=(candidate.ProximityGroupName??"").Trim();
+        if(candidate.ProximityGroupName.Length<1||candidate.ProximityGroupName.Length>32||candidate.ProximityGroupName.Any(c=>char.IsControl(c)||char.IsWhiteSpace(c)||c=='<'||c=='>'))
+            return (false,"Local group name must be 1–32 plain-text characters without spaces.",GetSnapshot());
+        if(new[]{"General","Server","Info"}.Contains(candidate.ProximityGroupName,StringComparer.OrdinalIgnoreCase))
+            return(false,"Choose a local group name distinct from built-in chat channels.",GetSnapshot());
+        if(!double.IsFinite(candidate.ProximityRange)||candidate.ProximityRange<1||candidate.ProximityRange>1000)
+            return (false,"Local chat range must be between 1 and 1000 blocks.",GetSnapshot());
+        if(candidate.ProximityEnabled&&proximity==null)return(false,"Proximity routing is unavailable.",GetSnapshot());
         string supplied = (candidate.TimestampFormat ?? "").Trim();
         if (candidate.ShowTimestampBeforeMessage && string.IsNullOrWhiteSpace(supplied))
             return (false, "Timestamp format cannot be empty while timestamps are enabled.", GetSnapshot());
@@ -260,9 +315,12 @@ public sealed class ChatDisplayService : IDisposable
         string? formatError = ChatLayout.Validate(candidate.ChatFormat);
         if (formatError != null) return (false, formatError, GetSnapshot());
         candidate.Clamp();
+        string? proximityError=proximity?.Prepare(candidate);
+        if(proximityError!=null)return(false,proximityError,GetSnapshot());
+        BlockLogger.Services.SuiteConfigStorage.Store(api, candidate, ChatDisplayConfig.ConfigFile);
         config = candidate;
         moderationLines.Clear();
-        BlockLogger.Services.SuiteConfigStorage.Store(api, config, ChatDisplayConfig.ConfigFile);
+        proximity?.Apply();
         NotifyChanged();
         return (true, "Chat display settings saved and applied immediately.", GetSnapshot());
     }
@@ -270,6 +328,7 @@ public sealed class ChatDisplayService : IDisposable
     public string Reload()
     {
         config = ChatDisplayConfig.Load(api);
+        proximity?.Apply();
         moderationLines.Clear();
         NotifyChanged();
         return "Chat display configuration reloaded.";
@@ -400,6 +459,7 @@ public sealed class ChatDisplayService : IDisposable
         // message.StartsWith("/") is not reliable. Detect the command after extracting the
         // real player-authored body and leave it completely untouched for ChatCommands.
         if (boundary.IsCommand) return;
+        if(proximity?.IsChannel(channelId)==true&&!proximity.AllowChat(byPlayer,channelId)){consumed.value=true;return;}
 
         bool markdownActive = MarkdownAllowed(byPlayer, channelId);
         var markdown = markdownActive ? PrepareMarkdown(byPlayer, channelId, chatLine.Body, allowAliases: false) : null;
@@ -506,6 +566,7 @@ public sealed class ChatDisplayService : IDisposable
 
     private bool ShouldFormatChannel(int channelId)
     {
+        if(proximity?.IsChannel(channelId)==true)return config.ProximityEnabled;
         if (channelId == GlobalConstants.GeneralChatGroup)
             return config.FormatGeneralChat;
 
@@ -737,6 +798,7 @@ public sealed class ChatDisplayService : IDisposable
     public void Dispose()
     {
         disposed = true;
+        proximity?.Dispose();
         if (!registered) return;
         registered = false;
         api.Event.PlayerChat -= OnPlayerChat;

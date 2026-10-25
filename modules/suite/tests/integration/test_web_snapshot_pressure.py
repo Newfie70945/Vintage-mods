@@ -31,6 +31,9 @@ web.update(Enabled=True, BindAddress='127.0.0.1', Port=web_port, AdminUsername='
            Password=password, PasswordSalt='', PasswordHash='', SafeDiagnosticsMode=False,
            SecureCookies=False)
 webfile.write_text(json.dumps(web))
+proximity_test = os.environ.get('NSS_WEB_TEST_PROXIMITY') == '1'
+if proximity_test:
+    (folder / 'NewfiesChatDisplay.json').write_text(json.dumps(dict(ProximityEnabled=True,ProximityGroupName='LocalLab',ProximityRange=100,ProximityAutoJoin=True)))
 f = folder / 'NewfiesServerEssentialsFeatures.json'
 features = json.loads(f.read_text()); features['WebDashboard'] = True; f.write_text(json.dumps(features))
 base = 'http://127.0.0.1:' + str(web_port)
@@ -44,10 +47,11 @@ def log_reader():
         for line in process.stdout:
             lines.append(line); log.write(line); log.flush()
 threading.Thread(target=log_reader, daemon=True).start()
+csrf_token = ''
 client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 def request(path, payload=None, opener=client):
     body = json.dumps(payload).encode() if payload is not None else None
-    req = urllib.request.Request(base + path, data=body, headers={'Content-Type':'application/json'})
+    req = urllib.request.Request(base + path, data=body, headers={'Content-Type':'application/json', **({'X-CSRF-Token':csrf_token} if csrf_token else {})})
     started = time.perf_counter()
     try:
         response = opener.open(req, timeout=20)
@@ -63,6 +67,24 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
+    if proximity_test:
+        session_status, session_data, _, _ = request('/api/session')
+        assert session_status == 200
+        csrf_token = session_data['csrfToken']
+        status, chat, _, _ = request('/api/chat-display')
+        assert status == 200 and chat['proximityEnabled'] and chat['proximityGroupId'] > 0 and chat['proximityStatus'].startswith('Active')
+        initial_group = chat['proximityGroupId']
+        chat.update(proximityRange=80, proximityGroupName='NearbyLab')
+        status, saved, _, _ = request('/api/chat-display/settings', chat)
+        assert status == 200 and saved['chatDisplay']['proximityGroupId'] == initial_group and saved['chatDisplay']['proximityRange'] == 80, (status, saved.get('message'))
+        time.sleep(1.1)
+        chat = saved['chatDisplay']; chat['proximityEnabled'] = False
+        status, saved, _, _ = request('/api/chat-display/settings', chat)
+        assert status == 200 and not saved['chatDisplay']['proximityEnabled']
+        time.sleep(1.1)
+        chat = saved['chatDisplay']; chat['proximityEnabled'] = True
+        status, saved, _, _ = request('/api/chat-display/settings', chat)
+        assert status == 200 and saved['chatDisplay']['proximityGroupId'] == initial_group
     status, header, header_bytes, _ = request('/api/header')
     assert status == 200 and 'playersOnline' in header and 'profiler' in header
     assert not any(k in header for k in ('payload', 'bytes', 'samples', 'lastProfile'))
@@ -86,6 +108,7 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
+                  proximityChecks=proximity_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
@@ -106,3 +129,14 @@ assert integrity == 'ok', integrity
 report.update(exitCode=process.returncode, saveIntegrity=integrity)
 (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
 print('Clean shutdown and save integrity: ok', flush=True)
+
+if proximity_test:
+    groups = json.loads((data / 'Playerdata/playergroups.json').read_text())
+    values = groups.values() if isinstance(groups, dict) else groups
+    owned = [g for g in values if g.get('OwnerUID') == 'newfiesserveressentialssuite:proximity']
+    assert len(owned) == 1 and owned[0]['Name'] == 'NearbyLab' and not owned[0].get('ChatHistory')
+    stored = json.loads((folder / 'NewfiesChatDisplay.json').read_text())
+    assert stored['ProximityEnabled'] and stored['ProximityGroupId'] == initial_group and stored['ProximityRange'] == 80
+    report.update(proximityGroupPersisted=True, proximityHistoryEntries=0)
+    (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    print('Owned proximity group/settings persisted with zero history entries', flush=True)

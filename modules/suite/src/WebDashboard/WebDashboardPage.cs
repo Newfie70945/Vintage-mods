@@ -3081,10 +3081,22 @@ __NSS_RETENTION_HTML__
   </div>
 </section>
 
-<section id="chatDisplay"><div class="infoBox">Role name colors are shared with <button type="button" onclick="setSection('roles')">Role Config</button>.</div>
+<style>#chatDisplay .proximitySettings{display:grid;grid-template-columns:minmax(130px,220px) minmax(0,1fr);gap:10px 14px;align-items:center}#chatDisplay .proximitySettings input[type=text],#chatDisplay .proximitySettings input[type=number]{width:100%;min-width:0} @media(max-width:600px){#chatDisplay .proximitySettings{grid-template-columns:minmax(0,1fr);gap:8px}}</style><section id="chatDisplay"><div class="infoBox">Role name colors are shared with <button type="button" onclick="setSection('roles')">Role Config</button>.</div>
   <div class="pageTitle"><div><h2>Chat Display</h2><div class="subtitle">Optional server-side chat decorations. General chat is the only formatted channel by default; modded/proximity chat is left untouched unless explicitly enabled.</div></div></div>
   <div class="toolbar"><button id="chatDisplayRefresh">Refresh</button><button id="chatDisplaySave" class="primary">Save Settings</button><div class="spacer"></div><span id="chatDisplayState" class="small">Not loaded.</span></div>
   <div id="chatDisplayMetrics" class="grid perfSection"></div>
+  <div class="panel perfSection">
+    <h3>Local / proximity chat</h3>
+    <p class="small">A dedicated group for nearby players. Uses the same Markdown, names and role colors as Chat Display. General and other groups keep their normal delivery.</p>
+    <div class="proximitySettings">
+      <label for="chatProximityEnabled">Enable local chat</label><label><input id="chatProximityEnabled" type="checkbox"> Enable Suite proximity group</label>
+      <label for="chatProximityName">Group name (no spaces)</label><input id="chatProximityName" type="text" maxlength="32" value="Local">
+      <label for="chatProximityRange">Hearing range (blocks)</label><input id="chatProximityRange" type="number" min="1" max="1000" step="1" value="100">
+      <label for="chatProximityAutoJoin">Group membership</label><label><input id="chatProximityAutoJoin" type="checkbox" checked> Automatically join players on connection</label>
+    </div>
+    <div id="chatProximityStatus" class="compactNote">Disabled</div>
+    <p class="small">Distance is measured in 3D within the same dimension. No separate persistent chat history or save handler. Choose an unused group name while replacing The BASICs; existing groups and history are never adopted. With auto-join off, use the native <code>/group join Local</code> command (substitute your group name). Leaving an auto-join group lasts until reconnect.</p>
+  </div>
   <div class="card perfSection">
     <div class="cardHeader"><h3>Message Formatting</h3><span class="small">Server-side · stock Vintage Story clients</span></div>
     <div class="webMapSettings">
@@ -15686,6 +15698,11 @@ function renderChatDisplay(){
   const d=chatDisplayData||{};
   if(!$('chatDisplayState'))return;
   $('chatDisplayState').textContent=d.available===false?'Service unavailable':'Live settings loaded';
+  $('chatProximityEnabled').checked=!!d.proximityEnabled;
+  $('chatProximityName').value=d.proximityGroupName||'Local';
+  $('chatProximityRange').value=d.proximityRange??100;
+  $('chatProximityAutoJoin').checked=d.proximityAutoJoin!==false;
+  $('chatProximityStatus').textContent=(d.proximityStatus||'Disabled')+(d.proximityGroupId?' · Group ID '+d.proximityGroupId:'');
   $('chatMarkdownEnabled').checked=d.markdownEnabled!==false;
   $('chatMarkdownColors').checked=!!d.markdownAllowColors;
   $('chatMarkdownLinks').checked=!!d.markdownAllowLinks;
@@ -15717,7 +15734,7 @@ function renderChatDisplay(){
     metric('Timezone',d.useUtcTimestamp?'UTC':'Server local')+
     metric('Format',d.timestampFormat||'HH:mm');
   const ro=currentSessionRole==='ReadOnly';
-  ['chatDisplayLayout','chatLayoutDefault','chatLayoutTimeFirst','chatLayoutTimeAfterName','chatMarkdownEnabled','chatMarkdownColors','chatMarkdownLinks','chatMarkdownRoles','chatDisplayRole','chatDisplayBoldName','chatDisplayTimestamp','chatDisplayTimestampFormat','chatDisplayUtc','chatDisplayGeneral','chatDisplayOtherGroups','chatDisplayAdditionalGroups','chatDisplayUseRoleColors','chatDisplayRoleColors','chatDisplaySave'].forEach(id=>{const e=$(id);if(e)e.disabled=ro||d.available===false;});
+  ['chatProximityEnabled','chatProximityName','chatProximityRange','chatProximityAutoJoin','chatDisplayLayout','chatLayoutDefault','chatLayoutTimeFirst','chatLayoutTimeAfterName','chatMarkdownEnabled','chatMarkdownColors','chatMarkdownLinks','chatMarkdownRoles','chatDisplayRole','chatDisplayBoldName','chatDisplayTimestamp','chatDisplayTimestampFormat','chatDisplayUtc','chatDisplayGeneral','chatDisplayOtherGroups','chatDisplayAdditionalGroups','chatDisplayUseRoleColors','chatDisplayRoleColors','chatDisplaySave'].forEach(id=>{const e=$(id);if(e)e.disabled=ro||d.available===false;});
 }
 async function loadChatDisplay(showLoading=true){
   if(showLoading&&$('chatDisplayState'))$('chatDisplayState').textContent='Loading…';
@@ -15726,7 +15743,13 @@ async function loadChatDisplay(showLoading=true){
 }
 async function saveChatDisplay(){
   if(currentSessionRole==='ReadOnly'){toast('Read-only sessions cannot change chat display settings.','error');return;}
+  const range=Number($('chatProximityRange').value);
+  if(!$('chatProximityRange').value.trim()||!Number.isFinite(range)||range<1||range>1000){toast('Local chat range must be between 1 and 1000 blocks.','error');return;}
   const payload={
+    proximityEnabled:!!$('chatProximityEnabled').checked,
+    proximityGroupName:$('chatProximityName').value.trim(),
+    proximityRange:range,
+    proximityAutoJoin:!!$('chatProximityAutoJoin').checked,
     markdownEnabled:!!$('chatMarkdownEnabled').checked,
     markdownAllowColors:!!$('chatMarkdownColors').checked,
     markdownAllowLinks:!!$('chatMarkdownLinks').checked,
