@@ -12,6 +12,8 @@ namespace NewfiesOptimizer;
 public sealed class EngineOptimizations : IDisposable
 {
     public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.13";
+    // RuntimeProfiler.HarmonyId refers to this. It lives here because module test projects compile this file without the profiler.
+    internal const string ProfilerHarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
     private readonly ICoreServerAPI api;
     private readonly Harmony harmony = new(HarmonyId);
     private readonly List<Entry> entries = new();
@@ -245,6 +247,7 @@ public sealed class EngineOptimizations : IDisposable
                     entry.Name == "repulseDelegateReuse" ? RepulseDelegateOptimizations.ValidateContract(out why) : entry.Name == "assetCompressionCache" ? AssetCompressionOptimizations.ValidateContract(out why) :
                     entry.Name == "bulkStreamReads" ? StreamCopyOptimizations.ValidateContract(out why) : PlayerQueryOptimizations.ValidateContract(out why);
                 if (!contract) { entry.State = "unsupported"; entry.Reason = why; continue; }
+                if (UsesSurvivalMod(entry) && SurvivalGuard.Value is string survival) { entry.State = "blocked"; entry.Reason = survival; continue; }
                 if (entry.Name == "nearbyPlayerQueries" && this.clientCount() < minimumNearbyClients)
                 { entry.State = "standby"; entry.Reason = "Original method remains unpatched below " + minimumNearbyClients + " connected clients."; continue; }
                 Activate(entry);
@@ -300,12 +303,29 @@ public sealed class EngineOptimizations : IDisposable
         catch (Exception error) { return "Engine identity could not be verified: " + error.GetType().Name; }
         return null;
     }
+    // Block entity, barrel and body-temperature modules patch VSSurvivalMod. Verify it only
+    // for those modules, so a hotfixed survival assembly cannot disable the core modules.
+    private const string SurvivalAssemblyName = "VSSurvivalMod";
+    private static bool UsesSurvivalMod(Entry entry) =>
+        entry.DependencyMethods.Append(entry.TargetMethod).Any(m => m?.DeclaringType?.Assembly.GetName().Name == SurvivalAssemblyName);
+    private static readonly Lazy<string?> SurvivalGuard = new(() =>
+    {
+        try
+        {
+            var assembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == SurvivalAssemblyName);
+            using var file = File.OpenRead(assembly.Location);
+            return Convert.ToHexString(SHA256.HashData(file)).Equals("d67b48a321403b2052b33c7d0caa99611f92350ffac73ea72672901dd87ccd7a", StringComparison.OrdinalIgnoreCase)
+                ? null : "Engine assembly hash differs from the inspected official build: " + SurvivalAssemblyName;
+        }
+        catch (Exception error) { return "Engine identity could not be verified: " + error.GetType().Name; }
+    });
     private static string? ForeignOwner(Patches? patches)
     {
         if (patches == null) return null;
         static string? Find(IList<Patch> list)
         {
-            for (int i = 0; i < list.Count; i++) if (list[i].owner != HarmonyId) return list[i].owner;
+            // Profiler timing observers only add a prefix/postfix pair; they never alter arguments or results.
+            for (int i = 0; i < list.Count; i++) if (list[i].owner != HarmonyId && list[i].owner != ProfilerHarmonyId) return list[i].owner;
             return null;
         }
         return Find(patches.Prefixes) ?? Find(patches.Postfixes) ?? Find(patches.Transpilers) ?? Find(patches.Finalizers);
@@ -438,7 +458,9 @@ public sealed class EngineOptimizations : IDisposable
     private void Disable(Entry entry, string state, string reason)
     {
         entry.Enable(false);
-        try
+        // Harmony's Unpatch rebuilds and detours the original even when it holds
+        // no patches. Never touch the target of an entry that was not installed.
+        if (entry.Installed) try
         {
             patchSnapshots.Remove(entry.TargetMethod);
             // Several independent modules can share one engine method. Remove only
