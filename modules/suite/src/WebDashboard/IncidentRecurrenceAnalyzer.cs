@@ -149,7 +149,12 @@ public static class IncidentRecurrenceAnalyzer
         // Only profiler-measured ownership (Medium/High) counts; unowned or guessed rows are ignored.
         var top = ordered
             .Where(x => !string.IsNullOrWhiteSpace(x.LikelyModId) &&
-                        (x.ModConfidence == "Medium" || x.ModConfidence == "High"))
+                        (x.ModConfidence == "Medium" || x.ModConfidence == "High") &&
+                        x.ProfileEvidence?.Ticks?.Any(t => !t.IsCore &&
+                            string.Equals(t.ModId, x.LikelyModId, StringComparison.OrdinalIgnoreCase) &&
+                            (t.Confidence == "Medium" || t.Confidence == "High") &&
+                            double.IsFinite(t.LeadingWorkMs) &&
+                            BlockLogger.ServerHealth.IncidentProfilerMatcher.WorkScore(t.LeadingWorkMs, x.WorstDelayMs) >= 40) == true)
             .GroupBy(x => x.LikelyModId, StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(g => g.Count())
             .FirstOrDefault();

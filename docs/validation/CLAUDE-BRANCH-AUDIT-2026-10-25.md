@@ -4,6 +4,7 @@ Reviewed immutable branch tips:
 
 - `claude/optimizer-mod-audit-m5la11` at `12f9521` (three commits).
 - `claude/motd-mod-gui-8g2605` at `0554fde` (two commits).
+- `suite-performance-improvements` at `5f89e3e` (six commits); its first three are also present on `ccr-1fb2c0f4-jz5owu` at `3b1154e`. This branch appeared during the review and was audited separately.
 
 Changes were integrated into main with original commit authors preserved. The branch refs were not modified. Existing Performance workspace/live-map changes remain in main. This is a source integration, not a Mod DB release or a change to production server settings.
 
@@ -37,3 +38,16 @@ The collision-dimension question in the original audit was checked against the o
 - `tools/check_sources.py` and `git diff --check` pass.
 
 Tests use official engine contracts and fixtures. They do not establish production performance, multiplayer capacity or compatibility with every third-party mod.
+
+## Additional Suite branch
+
+Accepted `d43f3bc` (AFK member lookup caching), `3b1154e` (ore-mask coordinate lookup without per-cell BlockPos allocation), `7b9701d` (shared compiled whitespace regex/static timestamp formats), and `032c8a0` (recurring incident patterns). The AFK cache stores metadata, not player objects; values are still read live. The ore lookup retains the same coordinate/dimension semantics.
+
+**P2 corrected: recurring-mod claims trusted historical confidence labels.** A `LikelyModId` with `Medium`/`High` confidence alone is not retained profiler evidence. The new analyzer now also requires a matching non-core profiler tick and a meaningful measured-work score. Tests cover high-confidence historical labels without any retained tick and ensure they do not become a measured-mod pattern.
+
+Two commits are intentionally **not included**:
+
+- **`5f89e3e` — automatic player activity audit enrichment.** Its ten-second `AwaitWithTimeout` only limits waiting. The underlying synchronous SQLite aggregations have no native progress/interrupt budget, and the worker flag is released when waiting times out. A slow query can keep running while later maintenance passes start more work. Time-window clamping does not bound the number of rows in a busy server's ten-minute baseline. Use a dedicated, single-reader, cancellable query runner with a real SQLite deadline and bounded/opt-in background enrichment before integrating.
+- **`800ba87` — default offline discovery eviction.** The visibility tick sorts all offline records and can delete every eligible player's full discovery map in one pass, under the shared lock and without a per-tick chunk/time budget. This may reduce retained memory but introduces a new unbounded game-thread cleanup path. Require incremental cleanup before enabling it by default. The existing discovery retention policy is unchanged in main.
+
+Additional validation: Suite builds against official 1.22.7; compiled-assembly AFK cache/missing-member/live-value tests, recurring-pattern tests, OreShield packet tests and Performance navigation/live-refresh browser regressions.
