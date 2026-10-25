@@ -966,23 +966,41 @@ public class NewfiesAfkModSystem : ModSystem, IRenderer
         }
     }
 
+    // The lock tick runs several times a second per AFK player and touches ~30 members by name.
+    // Member resolution is cached per (type, name); misses are cached too.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, string), MemberInfo?> readMemberCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, string), (PropertyInfo? Prop, FieldInfo? Field)> writeMemberCache = new();
+
+    private static MemberInfo? ResolveReadMember(Type targetType, string name)
+    {
+        return readMemberCache.GetOrAdd((targetType, name), static key =>
+        {
+            Type? type = key.Item1;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+            while (type != null)
+            {
+                PropertyInfo? prop = type.GetProperty(key.Item2, flags);
+                if (prop != null) return prop;
+
+                FieldInfo? field = type.GetField(key.Item2, flags);
+                if (field != null) return field;
+
+                type = type.BaseType;
+            }
+
+            return null;
+        });
+    }
+
     private static object? GetMemberValue(object target, string name)
     {
-        Type? type = target.GetType();
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-
-        while (type != null)
+        return ResolveReadMember(target.GetType(), name) switch
         {
-            PropertyInfo? prop = type.GetProperty(name, flags);
-            if (prop != null) return prop.GetValue(target);
-
-            FieldInfo? field = type.GetField(name, flags);
-            if (field != null) return field.GetValue(target);
-
-            type = type.BaseType;
-        }
-
-        return null;
+            PropertyInfo prop => prop.GetValue(target),
+            FieldInfo field => field.GetValue(target),
+            _ => null
+        };
     }
 
     private bool TryHandleAutoKick(IServerPlayer player, AfkPlayerState state)
@@ -1985,19 +2003,23 @@ public class NewfiesAfkModSystem : ModSystem, IRenderer
     private static bool SetMemberIfExists(object target, string name, object value)
     {
         Type type = target.GetType();
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         try
         {
-            PropertyInfo? prop = type.GetProperty(name, flags);
-            if (prop?.CanWrite == true)
+            (PropertyInfo? prop, FieldInfo? field) = writeMemberCache.GetOrAdd((type, name), static key =>
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                PropertyInfo? p = key.Item1.GetProperty(key.Item2, flags);
+                return (p?.CanWrite == true ? p : null, key.Item1.GetField(key.Item2, flags));
+            });
+
+            if (prop != null)
             {
                 object converted = ConvertValue(value, prop.PropertyType);
                 prop.SetValue(target, converted);
                 return true;
             }
 
-            FieldInfo? field = type.GetField(name, flags);
             if (field != null)
             {
                 object converted = ConvertValue(value, field.FieldType);
