@@ -11,7 +11,7 @@ namespace NewfiesOptimizer.Optimizations;
 public static class AiTaskStartOptimizations
 {
     private static volatile bool enabled;
-    private static readonly FieldInfo Filters = AccessTools.Field(typeof(AiTaskManager), "OnExecuteTask");
+    private static FieldInfo Filters => AccessTools.Field(typeof(AiTaskManager), "OnExecuteTask");
     public static MethodInfo Target => AccessTools.Method(typeof(AiTaskManager), "ExecuteTask", [typeof(IAiTask), typeof(int)]);
     public static MethodInfo TranspilerMethod => AccessTools.Method(typeof(AiTaskStartOptimizations), nameof(Transpiler));
     public static void Configure(bool value) => enabled = value;

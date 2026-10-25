@@ -60,7 +60,7 @@ public static class PathQueueOptimizations
         return code;
     }
     private sealed class HeadAge { public PathfinderTask? Head; public long Seen; }
-    public static bool MainPrefix(PathfindingAsync __instance, ICoreServerAPI ___api, AStar ___astar_mainthread, bool ___isShuttingDown)
+    public static bool MainPrefix(PathfindingAsync __instance, ICoreServerAPI ___api, AStar ___astar_mainthread, ref bool ___isShuttingDown)
     {
         if (!budgetEnabled || ___api == null || ___astar_mainthread == null) return true;
         var state = ages.GetValue(__instance, static _ => new());
