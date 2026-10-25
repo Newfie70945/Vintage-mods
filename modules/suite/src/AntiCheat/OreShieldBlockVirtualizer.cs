@@ -104,6 +104,8 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
     private long visibilityIndexBuilds;
     private long visibilityBudgetDeferrals;
     private long discoveryCells;
+    private readonly Dictionary<string, long> discoveryOfflineSinceMs = new(StringComparer.Ordinal);
+    private long nextDiscoveryEvictionMs, discoveryEvictedPlayers, discoveryEvictedCells;
     private long boundaryRefreshCellsEvaluated;
     private long boundaryRefreshOverflowInvalidations;
 
@@ -398,6 +400,8 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                 DiscoveryPlayers = playerDiscoveries.Count,
                 DiscoveryCells = discoveryCells,
                 DiscoveryChunkRecords = discoveryChunkRecords,
+                DiscoveryEvictedPlayers = discoveryEvictedPlayers,
+                DiscoveryEvictedCells = discoveryEvictedCells,
                 DiscoveryDistinctChunks = discoveryOwners.Count,
                 DiscoveryInvalidationOwnersVisited = discoveryInvalidationOwnersVisited,
                 RevisionEntries = revisions.Count,
@@ -1421,6 +1425,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
         {
             // Discovery is intentionally preserved until the OreShield runtime stops. This makes a
             // legitimate one-way discovery survive disconnect/reconnect as well as chunk unload/reload.
+            if (playerDiscoveries.ContainsKey(playerUid)) discoveryOfflineSinceMs[playerUid] = Environment.TickCount64;
             playerVisibilityStates.Remove(playerUid);
             pendingVeins.Remove(playerUid);
             if (pendingDiscoveryResyncs.Remove(playerUid, out var resyncJob)) resyncJob.Cells?.Dispose();
@@ -1442,16 +1447,41 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
             if (playerDiscoveries.Remove(playerUid, out Dictionary<ChunkKey, OreShieldDiscoveryCells>? removed))
                 foreach (var (chunk,indices) in removed)
                 {discoveryCells-=indices.Count;UntrackDiscoveryOwnerNoLock(playerUid,chunk);}
-            playerVisibilityStates.Remove(playerUid);
-            pendingVeins.Remove(playerUid);
-            if (pendingDiscoveryResyncs.Remove(playerUid, out var resyncJob)) resyncJob.Cells?.Dispose();
-            clientSyncLastResyncRequestMs.Remove(playerUid);
-            string failurePrefix = playerUid + "|";
-            foreach (string key in clientSyncLastFailureResyncMs.Keys.Where(k => k.StartsWith(failurePrefix, StringComparison.Ordinal)).ToArray())
-                clientSyncLastFailureResyncMs.Remove(key);
-            foreach (ClientSyncPendingKey key in pendingClientSync.Keys.Where(k => string.Equals(k.PlayerUid, playerUid, StringComparison.Ordinal)).ToArray())
-                RemovePendingClientSyncNoLock(key);
-            RemoveQueuedClientSyncNoLock(playerUid);
+            discoveryOfflineSinceMs.Remove(playerUid);
+            RemovePlayerConnectionState(playerUid);
+        }
+    }
+
+    // Bounds retained discovery memory. Discoveries intentionally outlive a disconnect, so the only
+    // growth control is releasing the longest-offline players once the configured total is exceeded.
+    // Runs on the main thread from the visibility pass, at most every 30 seconds.
+    private void EvictOfflineDiscoveriesIfNeeded()
+    {
+        int cap = config.OreShieldMaxDiscoveryCells;
+        long now = Environment.TickCount64;
+        if (cap <= 0 || now < nextDiscoveryEvictionMs) return;
+        nextDiscoveryEvictionMs = now + 30_000;
+
+        var online = new HashSet<string>(StringComparer.Ordinal);
+        foreach (IPlayer player in api.World.AllOnlinePlayers)
+            if (!string.IsNullOrEmpty(player?.PlayerUID)) online.Add(player.PlayerUID);
+
+        lock (sync)
+        {
+            foreach (string uid in discoveryOfflineSinceMs.Keys.ToArray())
+                if (online.Contains(uid) || !playerDiscoveries.ContainsKey(uid)) discoveryOfflineSinceMs.Remove(uid);
+            foreach (string uid in playerDiscoveries.Keys)
+                if (!online.Contains(uid)) discoveryOfflineSinceMs.TryAdd(uid, now);
+            if (discoveryCells <= cap) return;
+
+            foreach (KeyValuePair<string, long> offline in discoveryOfflineSinceMs.OrderBy(entry => entry.Value).ToArray())
+            {
+                if (discoveryCells <= cap) break;
+                long before = discoveryCells;
+                RemovePlayerState(offline.Key);
+                discoveryEvictedPlayers++;
+                discoveryEvictedCells += before - discoveryCells;
+            }
         }
     }
 
@@ -1646,6 +1676,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
     private void RunVisibilityPass()
     {
         lock (sync) losPasses++;
+        EvictOfflineDiscoveriesIfNeeded();
         // Make progress before geometry/exposure work consumes the cooperative budget.
         ProcessVeins();
         FlushPlacedOreCheckpoints(2);
@@ -3050,6 +3081,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
             oreIndexLru.Clear();
             oreIndexLruNodes.Clear();
             playerDiscoveries.Clear();
+            discoveryOfflineSinceMs.Clear();
             discoveryOwners.Clear();discoveryChunkRecords=0;
             playerPlacedOreExemptions.Clear(); placedOreChunks.Clear(); dirtyPlacedOreChunks.Clear(); persistedPlacedOreChunks.Clear();
             playerVisibilityStates.Clear();

@@ -165,6 +165,10 @@ public sealed class AntiCheatConfig
     public int OreShieldDecoyClusterSize { get; set; } = 2;
     public int OreShieldChunkCacheMiB { get; set; } = 96;
     public int OreShieldMaxCachedChunks { get; set; } = 4096;
+    // Discovery memory bound. When total remembered discovery cells exceed this, the discoveries of
+    // players who have been offline longest are released first; online players are never trimmed.
+    // An evicted player simply rediscovers ore through normal line of sight. 0 disables the bound.
+    public int OreShieldMaxDiscoveryCells { get; set; } = 2_000_000;
     public List<string> OreShieldAdditionalOrePatterns { get; set; } = new();
     public List<string> OreShieldExcludedBlockPatterns { get; set; } = new();
 
@@ -712,6 +716,7 @@ public sealed class AntiCheatConfig
         OreShieldIdleRescanMs = Math.Clamp(OreShieldIdleRescanMs, 500, 15000);
         OreShieldChunkCacheMiB = Math.Clamp(OreShieldChunkCacheMiB, 8, 1024);
         OreShieldMaxCachedChunks = Math.Clamp(OreShieldMaxCachedChunks, 256, 16384);
+        if (OreShieldMaxDiscoveryCells != 0) OreShieldMaxDiscoveryCells = Math.Clamp(OreShieldMaxDiscoveryCells, 100_000, 100_000_000);
         OreShieldAdditionalOrePatterns ??= new();
         OreShieldExcludedBlockPatterns ??= new();
         OreShieldAdditionalOrePatterns = OreShieldAdditionalOrePatterns

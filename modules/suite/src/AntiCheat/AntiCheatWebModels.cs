@@ -226,6 +226,8 @@ public sealed class OreShieldWebSnapshot
     public int DiscoveryPlayers { get; set; }
     public long DiscoveryCells { get; set; }
     public long DiscoveryChunkRecords { get; set; }
+    public long DiscoveryEvictedPlayers { get; set; }
+    public long DiscoveryEvictedCells { get; set; }
     public int DiscoveryDistinctChunks { get; set; }
     public long DiscoveryInvalidationOwnersVisited { get; set; }
     public int RevisionEntries { get; set; }
