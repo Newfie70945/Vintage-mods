@@ -4,6 +4,6 @@
     <Reference Include="VintagestoryAPI"><HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="VintagestoryLib"><HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="protobuf-net"><HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="Microsoft.Data.Sqlite"><HintPath>../../../bin/Release/net10.0/Microsoft.Data.Sqlite.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Data.Sqlite"><HintPath>$(VINTAGE_STORY)/Lib/Microsoft.Data.Sqlite.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 </Project>

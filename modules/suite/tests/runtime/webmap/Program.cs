@@ -33,6 +33,13 @@ foreach (var pair in new[] { (-5, 1), (10, 10), (999, 300) }) {
 }
 var reloaded = System.Text.Json.JsonSerializer.Deserialize("{\"Enabled\":true}", configType)!;
 if ((int)configType.GetProperty("PlayerIconRefreshSeconds")!.GetValue(reloaded)! != 60) throw new Exception("Old config migration changed default");
+if ((bool)configType.GetProperty("LiveTerrainUpdatesEnabled")!.GetValue(config)!) throw new Exception("Automatic terrain must be opt-in");
+Property("LiveTerrainUpdatesEnabled",true); Property("LiveTerrainUpdateSeconds",-1); Property("LiveTerrainMaxTilesPerPass",99);
+configType.GetMethod("Clamp")!.Invoke(config,null);
+var liveClone=configType.GetMethod("Clone")!.Invoke(config,null)!;
+if(!(bool)configType.GetProperty("LiveTerrainUpdatesEnabled")!.GetValue(liveClone)! || (int)configType.GetProperty("LiveTerrainUpdateSeconds")!.GetValue(liveClone)! !=30 || (int)configType.GetProperty("LiveTerrainMaxTilesPerPass")!.GetValue(liveClone)! !=16)throw new Exception("Live terrain settings lost or unbounded");
+var liveReload=System.Text.Json.JsonSerializer.Deserialize(System.Text.Json.JsonSerializer.Serialize(liveClone,configType),configType)!;
+if(!(bool)configType.GetProperty("LiveTerrainUpdatesEnabled")!.GetValue(liveReload)!)throw new Exception("Live terrain choice lost after reload");
 object service = RuntimeHelpers.GetUninitializedObject(type);
 void Field(string name, object value) => type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(service, value);
 Field("gate", new object()); Field("config", config);

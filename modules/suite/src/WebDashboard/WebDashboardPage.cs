@@ -2330,12 +2330,6 @@ __NSS_INTERFACE_STYLE__
   </div>
 
   <div class="card perfSection">
-    <div class="cardHeader"><h3>Suite Timing Hotspots</h3><div class="spacer"></div><span class="small">Rolling in-memory timings; recorded Suite wall time, not whole-server CPU attribution</span></div>
-    <p class="small">Execution intervals are listed first. Web elapsed and queue-wait counters include time waiting for the server; they are not CPU cost or proof of a cause. Callback wall times can include GC and scheduling pauses—inspect the spike evidence for overlapping measured work.</p>
-    <div class="tableWrap"><table><thead><tr><th>Subsystem</th><th>Calls / min</th><th>Time / min</th><th>Last</th><th>Average</th><th>P95</th><th>Max</th><th>Recent samples</th></tr></thead><tbody id="perfSuiteTimings"><tr><td colspan="8" class="muted">No suite timing samples yet.</td></tr></tbody></table></div>
-  </div>
-
-  <div class="card perfSection">
     <div class="cardHeader">
       <h3>Unified Performance Timeline</h3>
       <div class="spacer"></div>
@@ -2345,6 +2339,12 @@ __NSS_INTERFACE_STYLE__
     <p class="small">Aligned scheduler delay, CPU, players, loaded entities and managed heap. World-save markers include autosaves and manual saves; their overlap alone is not proof of a lag cause.</p>
     <div id="perfTimelineLegend" class="small" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:10px"><span><b style="color:#75afe0">━</b> Metric trace</span><span><b style="color:#ffad66">┃</b> Lag</span><span><b style="color:#ff7474">┃</b> Critical lag</span><span><b style="color:#49d6c5">┆</b> World save / autosave</span><span><b style="color:#c69cff">┆</b> Mod change</span><span><b style="color:#8fda72">┆</b> Entity scan</span><span><b style="color:#acb9c6">▧</b> Missing observations</span></div>
     <div class="timelineWrap"><canvas id="perfTimelineCanvas" class="performanceTimeline"></canvas></div>
+  </div>
+
+  <div class="card perfSection">
+    <div class="cardHeader"><h3>Suite Timing Hotspots</h3><div class="spacer"></div><span class="small">Rolling in-memory timings; recorded Suite wall time, not whole-server CPU attribution</span></div>
+    <p class="small">Execution intervals are listed first. Web elapsed and queue-wait counters include time waiting for the server; they are not CPU cost or proof of a cause. Callback wall times can include GC and scheduling pauses—inspect the spike evidence for overlapping measured work.</p>
+    <div class="tableWrap"><table><thead><tr><th>Subsystem</th><th>Calls / min</th><th>Time / min</th><th>Last</th><th>Average</th><th>P95</th><th>Max</th><th>Recent samples</th></tr></thead><tbody id="perfSuiteTimings"><tr><td colspan="8" class="muted">No suite timing samples yet.</td></tr></tbody></table></div>
   </div>
 
   <div id="perfIncidentDetailCard" class="card perfSection" style="display:none">
@@ -3190,6 +3190,7 @@ __NSS_RETENTION_HTML__
     <div class="webMapSettings">
       <label>Next startup</label><div><label><input id="webMapExportTerrainOnStart" type="checkbox"> Export terrain on next server start</label><div class="small">One-shot startup request. Any successful terrain export automatically turns this back OFF. If a queued startup export fails, it remains queued so the following restart retries.</div></div>
       <label>Automatic startup interval</label><div><label><input id="webMapAutomaticStartupExportEnabled" type="checkbox"> Automatically export on a server start when the interval is due</label><div class="rowActions" style="margin-top:6px"><span>Every</span><input id="webMapAutomaticStartupExportIntervalDays" type="number" min="1" max="365" value="7" style="max-width:100px"><span>day(s)</span></div><div class="small">This is startup-only: <b>7 days = weekly</b>. If the server stays online past the due date, nothing exports until the next restart. Live updates remain manual.</div></div>
+      <label>Live explored terrain</label><div><label><input id="webMapLiveTerrainUpdatesEnabled" type="checkbox"> Automatically update saved terrain while the server runs</label><div class="rowActions" style="margin-top:6px">Every <input id="webMapLiveTerrainUpdateSeconds" type="number" min="30" max="3600" value="120" style="max-width:100px"> seconds · up to <input id="webMapLiveTerrainMaxTilesPerPass" type="number" min="1" max="16" value="4" style="max-width:80px"> tiles per pass</div><div class="small">Opt-in. Requires an initial compatible map export and the direct save-database reader. Only newly saved exploration appears, so terrain may take a save plus one or more passes to show. Existing block edits remain queued for Update Changed Terrain. No world chunks are loaded or generated; failures keep the existing map. Disable to stop new automatic passes. Rendering and pyramid updates still use CPU and disk.</div></div>
       <label>Startup export mode</label><div><label><input id="webMapUseIncrementalTerrainExport" type="checkbox" checked> Use incremental exports when possible</label><div class="small">ON patches dirty 32×32 chunks inside existing terrain tiles when the current v11 terrain cache and v10 raw sidecars are valid, and fully renders only new/missing tiles. OFF forces a full terrain rebuild whenever a queued startup export runs.</div></div>
       <label>Runtime behavior</label><div><b>No automatic live exports.</b><div class="small">Use <b>Update Changed Terrain</b> for routine live updates. <b>Full Rebuild Map</b> is reserved for renderer/cache changes or repair.</div></div>
     </div>
@@ -6608,8 +6609,10 @@ async function apiCore(path, options={}) {
     try{data=await r.json();}catch{}
     if(r.status===401){showLogin();throw new Error('Authentication required');}
     if(!r.ok){const error=new Error(data.error||data.message||`HTTP ${r.status}`);error.status=r.status;throw error;}
+    recordPerformanceResponse(path,null);
     return data;
   } catch(e) {
+    recordPerformanceResponse(path,e);
     if(e?.name==='AbortError')throw e;
     // A failed section request does not prove the server/dashboard is offline.
     // Verify with a lightweight session probe before showing the global banner.
@@ -6727,6 +6730,7 @@ function setSection(section,load=true) {
   setTimeout(enhanceImportantTables,60);
   if(previousSection!==section)restoreSectionScroll(section);
 
+  syncPerformanceWorkspace();
   if(!load)return;
   if(section==='dashboard')loadDashboard();
   if(section==='serverStatus')loadServerStatus(true);
@@ -6910,12 +6914,8 @@ function refreshCurrentSectionV2(){
   if(currentSection==='logIntelligence')loadLogIntelligence(false);
   if(currentSection==='customPatches')loadCustomPatches(false);
   if(currentSection==='actionCenter')loadActionCenter(false);
-  // Only the lightweight overview refreshes live. Timeline/history/provider/conflict data
-  // is loaded when Performance is opened or explicitly refreshed.
-  if(currentSection==='performance')loadPerformanceOverview(false);
-  if(currentSection==='tickDebug')loadTickDebug(false);
-  if(currentSection==='memory')loadMemoryCenter(false);
-  if(currentSection==='profiler')loadProfiler(false);
+  // Shared scheduler owns these pages, including the timeline. No historical queries or captures.
+  if(performancePages[currentSection])refreshPerformanceReadings(false);
   if(currentSection==='animals')loadAnimalStatus(false);
   if(currentSection==='loginProtection')loadLoginProtection(false);
   // Refresh the player list/status while the Admin page is visible, but do not reload
@@ -8042,7 +8042,7 @@ async function loadMemoryCenter(showLoading=true){
   }catch(e){
     $('memoryState').textContent='Load failed';
     setNavStatus('memory','bad','Memory / GC status could not be loaded');
-    $('memoryHero').innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;
+    if(!memoryData)$('memoryHero').innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;
   }
 }
 
@@ -8764,7 +8764,7 @@ function performanceWindowLabel(){
 let performancePageRevision=0;
 async function loadPerformanceCenter(full=true){
   if(!full){
-    await loadPerformanceOverview(true);
+    await Promise.allSettled([loadPerformanceOverview(false),loadPerformanceTimeline(false)]);
     return;
   }
   const revision=++performancePageRevision,requestedWindow=performanceWindowSeconds();
@@ -9713,7 +9713,7 @@ async function loadPerformanceConflicts(showLoading=true,preloaded=null){
 }
 
 $('perfRefresh').onclick=()=>loadPerformanceCenter(true);
-$('perfWindow').onchange=()=>{ $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(true); };
+$('perfWindow').onchange=()=>{ localStorage.setItem('nsu.performance.window',$('perfWindow').value); $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(false); };
 $('perfTimelineRange').onclick=()=>{ const ranges=[60,300,900,1800,3600]; $('perfWindow').value=String(ranges[(ranges.indexOf(performanceWindowSeconds())+1)%ranges.length]); $('perfWindow').onchange(); };
 $('perfEnableDiagnostics').onclick=async()=>{
   try{
@@ -11787,7 +11787,7 @@ async function pollWebMapTerrainProgress(){webMapTerrainProgressTimer=null;if(do
 function renderWebMap(d){
   webMapData=d||{};
   const readOnly=currentSessionRole==='ReadOnly';
-  ['webMapSave','webMapTurnOff','webMapEnabled','webMapBind','webMapPort','webMapTitle','webMapPublicUrl','webMapDashboardUrl','webMapShowActivity','webMapShowPlayers','webMapShowWaypoints','webMapShowBadBe','webMapShowLeaderboards','webMapLeaderboardShowPlaytime','webMapLeaderboardShowXSkills','webMapLeaderboardTopPlayers','webMapLeaderboardRefreshSeconds','webMapPlayerIconRefreshSeconds','webMapExportNormalTerrain','webMapExportSepiaTerrain','webMapExportTopographicTerrain','webMapExportTerrainOnStart','webMapAutomaticStartupExportEnabled','webMapAutomaticStartupExportIntervalDays','webMapUseIncrementalTerrainExport','webMapLockDuringTerrainExport','webMapSaveExportSchedule','webMapUpdateTerrain','webMapForceTerrainExport','webMapTerrainTileSize','webMapActivityWindow','webMapActivityLimit','webMapPlayerMajorWaypointLimit','webMapPlayerMinorWaypointLimit','webMapMaximumZoomOutSpanBlocks','webMapDefaultViewSpanBlocks'].forEach(id=>{if($(id))$(id).disabled=readOnly;});
+  ['webMapSave','webMapTurnOff','webMapEnabled','webMapBind','webMapPort','webMapTitle','webMapPublicUrl','webMapDashboardUrl','webMapShowActivity','webMapShowPlayers','webMapShowWaypoints','webMapShowBadBe','webMapShowLeaderboards','webMapLeaderboardShowPlaytime','webMapLeaderboardShowXSkills','webMapLeaderboardTopPlayers','webMapLeaderboardRefreshSeconds','webMapPlayerIconRefreshSeconds','webMapExportNormalTerrain','webMapExportSepiaTerrain','webMapExportTopographicTerrain','webMapExportTerrainOnStart','webMapAutomaticStartupExportEnabled','webMapAutomaticStartupExportIntervalDays','webMapUseIncrementalTerrainExport','webMapLiveTerrainUpdatesEnabled','webMapLiveTerrainUpdateSeconds','webMapLiveTerrainMaxTilesPerPass','webMapLockDuringTerrainExport','webMapSaveExportSchedule','webMapUpdateTerrain','webMapForceTerrainExport','webMapTerrainTileSize','webMapActivityWindow','webMapActivityLimit','webMapPlayerMajorWaypointLimit','webMapPlayerMinorWaypointLimit','webMapMaximumZoomOutSpanBlocks','webMapDefaultViewSpanBlocks'].forEach(id=>{if($(id))$(id).disabled=readOnly;});
   if($('webMapShowPlayers'))$('webMapShowPlayers').disabled=readOnly;
   if($('webMapUpdateTerrain'))$('webMapUpdateTerrain').disabled=readOnly||d.enabled===false||d.terrain?.state==='exporting';if($('webMapForceTerrainExport'))$('webMapForceTerrainExport').disabled=readOnly||d.enabled===false||d.terrain?.state==='exporting';if($('webMapTurnOff'))$('webMapTurnOff').disabled=readOnly||d.enabled===false;
   if($('webMapExportScheduleState'))$('webMapExportScheduleState').innerHTML=webMapExportScheduleStateHtml(d);
@@ -11834,6 +11834,9 @@ function renderWebMap(d){
   if($('webMapAutomaticStartupExportEnabled'))$('webMapAutomaticStartupExportEnabled').checked=d.automaticStartupExportEnabled===true;
   if($('webMapAutomaticStartupExportIntervalDays'))$('webMapAutomaticStartupExportIntervalDays').value=Math.max(1,Number(d.automaticStartupExportIntervalDays||7));
   $('webMapUseIncrementalTerrainExport').checked=d.useIncrementalTerrainExport!==false;
+  $('webMapLiveTerrainUpdatesEnabled').checked=d.liveTerrainUpdatesEnabled===true;
+  $('webMapLiveTerrainUpdateSeconds').value=Number(d.liveTerrainUpdateSeconds||120);
+  $('webMapLiveTerrainMaxTilesPerPass').value=Number(d.liveTerrainMaxTilesPerPass||4);
   $('webMapLockDuringTerrainExport').checked=d.lockServerDuringTerrainExport!==false;
   $('webMapTerrainTileSize').value=Number(d.terrainTileSize||256);
   const terrain=d.terrain||{};
@@ -11909,6 +11912,9 @@ async function saveWebMap(){
     automaticStartupExportEnabled:$('webMapAutomaticStartupExportEnabled')?$('webMapAutomaticStartupExportEnabled').checked:false,
     automaticStartupExportIntervalDays:Math.max(1,Math.min(365,Number($('webMapAutomaticStartupExportIntervalDays')?.value||7))),
     useIncrementalTerrainExport:$('webMapUseIncrementalTerrainExport').checked,
+    liveTerrainUpdatesEnabled:$('webMapLiveTerrainUpdatesEnabled').checked,
+    liveTerrainUpdateSeconds:Math.max(30,Math.min(3600,Number($('webMapLiveTerrainUpdateSeconds').value||120))),
+    liveTerrainMaxTilesPerPass:Math.max(1,Math.min(16,Number($('webMapLiveTerrainMaxTilesPerPass').value||4))),
     lockServerDuringTerrainExport:$('webMapLockDuringTerrainExport').checked,
     terrainTileSize:Number($('webMapTerrainTileSize').value||256),
     activityWindowMinutes:Number($('webMapActivityWindow').value||60),
@@ -11940,6 +11946,9 @@ async function saveWebMapExportSchedule(){
     automaticStartupExportEnabled:$('webMapAutomaticStartupExportEnabled')?$('webMapAutomaticStartupExportEnabled').checked:false,
     automaticStartupExportIntervalDays:Math.max(1,Math.min(365,Number($('webMapAutomaticStartupExportIntervalDays')?.value||7))),
     useIncrementalTerrainExport:$('webMapUseIncrementalTerrainExport').checked,
+    liveTerrainUpdatesEnabled:$('webMapLiveTerrainUpdatesEnabled').checked,
+    liveTerrainUpdateSeconds:Math.max(30,Math.min(3600,Number($('webMapLiveTerrainUpdateSeconds').value||120))),
+    liveTerrainMaxTilesPerPass:Math.max(1,Math.min(16,Number($('webMapLiveTerrainMaxTilesPerPass').value||4))),
     lockServerDuringTerrainExport:$('webMapLockDuringTerrainExport').checked
   };
   try{await api('/api/webmap/export-schedule',{method:'POST',body:JSON.stringify(payload)});toast('Export schedule saved without changing the Web Map enabled/listener settings.','success');await loadWebMap(false);}
@@ -13058,8 +13067,10 @@ async function loadProfiler(showLoading=true){
   if(showLoading)$('profState').textContent='Loading diagnostics…';
 
   try{
-    const q=new URLSearchParams({window:String(profilerRangeSeconds),points:String(profilerPointsForRange())});
+    const requestedRange=profilerRangeSeconds;
+    const q=new URLSearchParams({window:String(requestedRange),points:String(profilerPointsForRange())});
     const p=await api('/api/profiler?'+q);
+    if(requestedRange!==profilerRangeSeconds){setTimeout(()=>loadProfiler(false),0);return;}
     lastProfilerPayload=p;
     $('profAutoCapture').checked=!!p.automaticIncidentProfilingConfigured;
     $('profAutoCapture').disabled=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
@@ -13118,7 +13129,7 @@ async function loadProfiler(showLoading=true){
     });
   }catch(e){
     $('profState').textContent=e.message;
-    toast(e.message,'error');
+    if(showLoading)toast(e.message,'error');
   }finally{
     profilerRequestInFlight=false;
   }
@@ -16127,6 +16138,93 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+
+const performancePages={
+  performance:['Performance Center','Live overview and timeline. Click a spike for the evidence recorded around it. Refresh readings does not query block history or scan entities.'],
+  tickDebug:['Tick Debugging','Read live contributors and recorded slow ticks. Start a capture explicitly when you need more detail; refreshing never starts one.'],
+  profiler:['Profiler & Lag','Review recorded profiles and lag evidence. A marker identifies measured work; correlation alone does not prove a mod caused the stall.'],
+  memory:['Memory & GC','Compare heap, committed memory and the post-GC floor at similar player and chunk counts. Refreshing never forces garbage collection or a heap capture.'],
+  optimizations:['Optimizations','Live refresh updates Newfies Optimizer status. Configuration drafts are preserved; refresh other providers explicitly.'],
+  health:['Suite Health','Health checks include database and subsystem work, so this page refreshes only when requested.']
+};
+const performanceRefreshState={};
+{const saved=localStorage.getItem('nsu.performance.window');if(['60','300','900','1800','3600'].includes(saved))$('perfWindow').value=saved;}
+let performanceRefreshBusy=false;
+function performanceRefreshPrefs(){try{const p=JSON.parse(localStorage.getItem('nsu.performance.refresh')||'{}');return p&&typeof p==='object'?p:{};}catch{return {};}}
+function performanceRefreshInterval(){return Math.max(5000,Math.min(60000,Number(performanceRefreshPrefs().interval)||15000));}
+function performanceRefreshEnabled(section=currentSection){const v=performanceRefreshPrefs()[section];return v===true||(v!==false&&liveUpdates);}
+function savePerformanceRefreshPrefs(p){try{localStorage.setItem('nsu.performance.refresh',JSON.stringify(p));}catch{}}
+function recordPerformanceResponse(path,error){
+  const section=path.startsWith('/api/performance/overview')||path.startsWith('/api/performance/timeline')||path.startsWith('/api/performance/page-snapshot')?'performance':path.startsWith('/api/tick-debug')?'tickDebug':path.startsWith('/api/operations/memory')?'memory':path.startsWith('/api/profiler?')?'profiler':path==='/api/optimizations/newfies'?'optimizations':path==='/api/health'?'health':null;
+  if(!section)return;
+  const state=performanceRefreshState[section]||(performanceRefreshState[section]={});
+  const key=path.split('?')[0];state.errors=state.errors||{};
+  if(error)state.errors[key]=String(error.message||error);else{delete state.errors[key];state.updated=Date.now();}
+  state.error=Object.values(state.errors).join('; ');
+}
+function syncPerformanceWorkspace(){
+  if(!performancePages[currentSection])return;
+  const section=$(currentSection);if(!section)return;
+  let bar=section.querySelector('.performanceWorkspace');
+  if(!bar){
+    bar=document.createElement('div');bar.className='card performanceWorkspace';
+    const nav=document.createElement('div');nav.className='rowActions';nav.setAttribute('aria-label','Performance pages');
+    for(const [id,[label]] of Object.entries(performancePages)){const b=document.createElement('button');b.textContent=label;b.classList.toggle('active',id===currentSection);b.onclick=()=>setSection(id,true);nav.append(b);}
+    const controls=document.createElement('div');controls.className='rowActions';controls.style.marginTop='10px';
+    const toggle=document.createElement('button');toggle.className='performanceAuto';toggle.onclick=()=>{const p=performanceRefreshPrefs();p[currentSection]=!performanceRefreshEnabled();savePerformanceRefreshPrefs(p);syncPerformanceWorkspace();if(p[currentSection])refreshPerformanceReadings(true);};
+    const interval=document.createElement('select');interval.className='performanceInterval';interval.setAttribute('aria-label','Readings refresh interval');
+    for(const seconds of [5,10,15,30,60]){const o=document.createElement('option');o.value=seconds*1000;o.textContent=`Every ${seconds}s`;interval.append(o);}
+    interval.onchange=()=>{const p=performanceRefreshPrefs();p.interval=Number(interval.value);savePerformanceRefreshPrefs(p);};
+    const refresh=document.createElement('button');refresh.textContent='Refresh readings';refresh.className='performanceReadings';refresh.onclick=()=>refreshPerformanceReadings(true);
+    const jump=document.createElement('select');jump.className='performanceJump';jump.setAttribute('aria-label','Jump to performance panel');
+    jump.onchange=()=>{const target=section.querySelector(`[data-performance-anchor="${jump.value}"]`);target?.scrollIntoView({block:'start',behavior:'smooth'});};
+    const state=document.createElement('span');state.className='small performanceFreshness';state.setAttribute('role','status');
+    controls.append(toggle,interval,refresh,jump,state);
+    const help=document.createElement('p');help.className='small';help.textContent=performancePages[currentSection][1];
+    bar.append(nav,controls,help);section.prepend(bar);
+  }
+  const health=currentSection==='health',blocked=safeDiagnosticsModeGlobal;
+  const toggle=bar.querySelector('.performanceAuto');toggle.textContent=health?'Manual checks':`Auto refresh: ${performanceRefreshEnabled()?'ON':'OFF'}`;toggle.disabled=health||blocked;toggle.setAttribute('aria-pressed',String(!health&&performanceRefreshEnabled()));
+  bar.querySelector('.performanceInterval').value=String(performanceRefreshInterval());bar.querySelector('.performanceInterval').disabled=health;
+  bar.querySelector('.performanceReadings').disabled=performanceRefreshBusy;
+  const jump=bar.querySelector('.performanceJump'),headings=[...section.querySelectorAll('.cardHeader h3')];
+  if(jump.options.length!==headings.length+1){jump.replaceChildren(new Option('On this page…',''));headings.forEach((h,i)=>{const card=h.closest('.card');if(card){card.dataset.performanceAnchor=String(i);jump.add(new Option(h.textContent.trim(),String(i)));}});}
+  const s=performanceRefreshState[currentSection]||{},age=s.updated?Math.max(0,Math.floor((Date.now()-s.updated)/1000)):null;
+  const status=bar.querySelector('.performanceFreshness');
+  const statusText=s.error?`Refresh failed · keeping previous readings${age!==null?` · ${age}s old`:''}`:performanceRefreshBusy?'Updating readings…':`${age===null?'Waiting for readings':`Updated ${age}s ago`}${health?' · manual':blocked?' · Safe Diagnostics pauses auto refresh':document.hidden?' · hidden tab paused':!performanceRefreshEnabled()?' · paused':''}`;
+  if(status.textContent!==statusText)status.textContent=statusText;
+  status.title=s.error||'Automatic refresh reads existing diagnostics; it does not start captures, scans or exports.';
+}
+async function refreshPerformanceReadings(force=false){
+  const section=currentSection;if(!performancePages[section]||performanceRefreshBusy||document.hidden||$('app').style.display==='none')return;
+  if(!force){
+    if(section==='health'||safeDiagnosticsModeGlobal||!performanceRefreshEnabled())return;
+    // Avoid replacing controls beneath an administrator editing a draft.
+    if($(section)?.contains(document.activeElement)&&document.activeElement?.matches('input,select,textarea,[contenteditable="true"]'))return;
+    const state=performanceRefreshState[section]||{};
+    const cadence=Math.max(performanceRefreshInterval(),section==='optimizations'?30000:0);
+    if(Date.now()-Math.max(state.attempted||0,state.updated||0)<cadence)return;
+  }
+  const state=performanceRefreshState[section]||(performanceRefreshState[section]={});state.attempted=Date.now();performanceRefreshBusy=true;syncPerformanceWorkspace();
+  try{
+    if(section==='performance')await Promise.allSettled([loadPerformanceOverview(false),loadPerformanceTimeline(false)]);
+    else if(section==='tickDebug')await loadTickDebug(false);
+    else if(section==='memory')await loadMemoryCenter(false);
+    else if(section==='profiler')await loadProfiler(false);
+    else if(section==='optimizations')await loadNos();
+    else if(section==='health')await loadSystemHealth(true);
+  }finally{performanceRefreshBusy=false;syncPerformanceWorkspace();}
+}
+const performanceStyle=document.createElement('style');performanceStyle.textContent=`
+.performanceWorkspace{border-top:2px solid #36b8bb;background:linear-gradient(130deg,#14222b,#101820);}
+.performanceWorkspace .rowActions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.performanceWorkspace .active{border-color:#36b8bb;color:#b9f4ed}
+.performanceWorkspace select{max-width:230px}.performanceWorkspace p{margin:10px 0 0;line-height:1.6}
+:is(#performance,#tickDebug,#profiler,#memory,#optimizations,#health) .tableWrap{max-height:520px;overflow:auto;overscroll-behavior:contain}
+:is(#performance,#tickDebug,#profiler,#memory,#optimizations,#health) .tableWrap thead th{position:sticky;top:0;z-index:2;background:#17232c}
+@media(max-width:700px){.performanceWorkspace .rowActions:first-child{flex-wrap:nowrap;overflow:auto;padding-bottom:6px}.performanceWorkspace .rowActions:first-child button{white-space:nowrap;flex-shrink:0}.performanceWorkspace select{max-width:100%}.performanceFreshness{width:100%}}
+`;document.head.append(performanceStyle);
+
 const tableObserver=new MutationObserver(()=>{
   clearTimeout(window.__nsuTableEnhanceTimer);
   window.__nsuTableEnhanceTimer=setTimeout(()=>{enhanceImportantTables();syncWorkspacePage();},60);
@@ -16134,6 +16232,8 @@ const tableObserver=new MutationObserver(()=>{
 tableObserver.observe(document.querySelector('main'),{subtree:true,childList:true});
 
 setInterval(()=>{
+  syncPerformanceWorkspace();
+  if(performancePages[currentSection])refreshPerformanceReadings(false);
   if($('app').style.display!=='none'&&!document.hidden&&Date.now()-lastNavIndicatorRefresh>60000){
     lastNavIndicatorRefresh=Date.now();
     refreshNavIndicators(false);

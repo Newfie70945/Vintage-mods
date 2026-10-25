@@ -443,7 +443,7 @@ public sealed class WebMapBridgeService : IDisposable
         return incoming.Clone();
     }
 
-    public WebMapConfig SaveExportSchedule(bool exportOnNextStart, bool automaticEnabled, int intervalDays, bool useIncremental, bool lockDuringExport)
+    public WebMapConfig SaveExportSchedule(bool exportOnNextStart, bool automaticEnabled, int intervalDays, bool useIncremental, bool lockDuringExport, bool liveEnabled = false, int liveSeconds = 120, int liveMaxTiles = 4)
     {
         WebMapConfig saved;
         bool previousOneShot;
@@ -454,6 +454,9 @@ public sealed class WebMapBridgeService : IDisposable
             config.AutomaticStartupExportEnabled = automaticEnabled;
             config.AutomaticStartupExportIntervalDays = Math.Clamp(intervalDays, 1, 365);
             config.UseIncrementalTerrainExport = useIncremental;
+            config.LiveTerrainUpdatesEnabled = liveEnabled;
+            config.LiveTerrainUpdateSeconds = liveSeconds;
+            config.LiveTerrainMaxTilesPerPass = liveMaxTiles;
             config.LockServerDuringTerrainExport = lockDuringExport;
             config.Clamp();
             BlockLogger.Services.SuiteConfigStorage.Store(api, config, ConfigFile);
@@ -685,6 +688,9 @@ public sealed class WebMapBridgeService : IDisposable
             NextAutomaticStartupExportUnixMilliseconds = nextAutomaticStartupExportMs,
             LockServerDuringTerrainExport = c.LockServerDuringTerrainExport,
             UseIncrementalTerrainExport = c.UseIncrementalTerrainExport,
+            LiveTerrainUpdatesEnabled = c.LiveTerrainUpdatesEnabled,
+            LiveTerrainUpdateSeconds = c.LiveTerrainUpdateSeconds,
+            LiveTerrainMaxTilesPerPass = c.LiveTerrainMaxTilesPerPass,
             TerrainTileSize = c.TerrainTileSize,
             Terrain = terrain,
             PendingDirtyMapChunks = dirtyJournal?.Count ?? 0,
@@ -857,13 +863,27 @@ public sealed class WebMapBridgeService : IDisposable
         }
     }
 
+    private long lastLiveTerrainAttemptMs;
+    private void TryAutomaticTerrainUpdate()
+    {
+        var c = Config;
+        long now = NowMs();
+        if (disposed || !c.Enabled || !c.LiveTerrainUpdatesEnabled || !c.UseDirectSaveDatabaseTerrain ||
+            api.Server.CurrentRunPhase != EnumServerRunPhase.RunGame || IsTerrainExportInProgress ||
+            now - lastLiveTerrainAttemptMs < (long)c.LiveTerrainUpdateSeconds * 1000) return;
+        lastLiveTerrainAttemptMs = now;
+        // The exporter requires a compatible existing map and limits rendered tiles per pass.
+        // Coverage discovery includes newly saved/explored columns even without a block edit.
+        StartLiveTerrainExport(false, automatic: true);
+    }
+
     private void ConfigureIngameDateTracking()
     {
         CaptureIngameDate();
         if (ingameDateListenerId >= 0) return;
 
         ingameDateListenerId = api.Event.RegisterGameTickListener(
-            _ => CaptureIngameDate(),
+            _ => { CaptureIngameDate(); TryAutomaticTerrainUpdate(); },
             ex => api.Logger.Warning(
                 "[ServerEssentials/WebMap] in-game date snapshot failed: {0}: {1}",
                 ex.GetType().Name,
@@ -1193,7 +1213,11 @@ public sealed class WebMapBridgeService : IDisposable
             }
         }
         catch { }
-        lock (gate) terrainManifestCache = publicManifest;
+        lock (gate)
+        {
+            terrainManifestCache = publicManifest;
+            InvalidatePublicSnapshotNoLock();
+        }
     }
 
     private static WebMapTerrainManifest? ClonePublicManifest(WebMapTerrainManifest? source)
@@ -1201,6 +1225,8 @@ public sealed class WebMapBridgeService : IDisposable
         if (source == null) return null;
         return new WebMapTerrainManifest
         {
+            ChangedTilesSinceUnixMilliseconds = source.ChangedTilesSinceUnixMilliseconds,
+            ChangedTiles = source.ChangedTiles?.ToArray() ?? Array.Empty<string>(),
             Version = source.Version,
             WorldName = source.WorldName,
             SavegameIdentifier = source.SavegameIdentifier,
@@ -1257,15 +1283,14 @@ public sealed class WebMapBridgeService : IDisposable
     }
 
     /// <summary>
-    /// Starts the only terrain export allowed after RunGame: an explicit administrator
-    /// request. The runtime exporter uses asynchronous priority chunk loads one column at
-    /// a time; it does not use the startup-only BlockingLoadChunkColumn API.
+    /// Manual live exports may use cooperative column loading. Opt-in automatic passes
+    /// are separately bounded and strictly saved-database-only, with no loading fallback.
     /// </summary>
     public string UpdateTerrainNow() => StartLiveTerrainExport(fullRebuild: false);
 
     public string ForceTerrainExportNow() => StartLiveTerrainExport(fullRebuild: true);
 
-    private string StartLiveTerrainExport(bool fullRebuild)
+    private string StartLiveTerrainExport(bool fullRebuild, bool automatic = false)
     {
         if (disposed) return "Native Web Map service is disposed.";
         WebMapConfig c = Config;
@@ -1287,7 +1312,7 @@ public sealed class WebMapBridgeService : IDisposable
         if (Interlocked.CompareExchange(ref forcedTerrainExportInFlight, 1, 0) != 0)
             return "A terrain export is already running.";
 
-        api.Logger.Warning(
+        if (!automatic) api.Logger.Warning(
             fullRebuild
                 ? "[ServerEssentials/WebMap] administrator requested a FULL live terrain rebuild."
                 : "[ServerEssentials/WebMap] administrator requested a changed-terrain live update.");
@@ -1297,18 +1322,22 @@ public sealed class WebMapBridgeService : IDisposable
         {
             try
             {
-                using var lifecycleSuppression = EntityHooks.SuppressLifecycleAuditForBulkWorldLoad();
+                using var lifecycleSuppression = automatic ? null : EntityHooks.SuppressLifecycleAuditForBulkWorldLoad();
                 var exporter = new WebMapTerrainExporter(api, mapDataRoot, PublishTerrainStatus, dirtyJournal);
-                bool success = await exporter.ExportRuntimeForcedAsync(c, exportCts.Token, fullRebuild).ConfigureAwait(false);
+                bool success = await exporter.ExportRuntimeForcedAsync(c, exportCts.Token, fullRebuild, automatic).ConfigureAwait(false);
                 if (success)
                 {
+                    // File pruning and manifest decoding belong on this worker, not the tick thread.
+                    PruneDisabledTerrainOutputs(c);
+                    RefreshTerrainManifestCache();
+                    // A bounded exploration pass is not a completed full/startup export.
+                    // Preserve an administrator's queued next-start export and its interval clock.
+                    if (automatic) return;
                     var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     api.Event.EnqueueMainThreadTask(() =>
                     {
                         try
                         {
-                            PruneDisabledTerrainOutputs(c);
-                            RefreshTerrainManifestCache();
                             ClearNextStartExportAfterSuccess(fullRebuild ? "full live rebuild" : "changed-terrain live update");
                             tcs.TrySetResult(true);
                         }
@@ -2149,7 +2178,7 @@ function mapBg(){return getComputedStyle(document.documentElement).getPropertyVa
 function waypointAbsX(p){return Number(p?.x||0)+(data?.coordinateOriginX||0)}function waypointAbsZ(p){return Number(p?.z||0)+(data?.coordinateOriginZ||0)}function rx(x){return x-(data?.coordinateOriginX||0)}function rz(z){return z-(data?.coordinateOriginZ||0)}function sx(x){return cv.clientWidth/2+(x-ox)*scale}function sy(z){return cv.clientHeight/2+(z-oz)*scale}function worldAt(px,py){return{x:ox+(px-cv.clientWidth/2)/scale,z:oz+(py-cv.clientHeight/2)/scale}}
 function points(){if(!data)return[];const absolute=[...(data.activity||[]),...(data.players||[]),...(data.badBlockEntities||[])];const wp=(data.waypoints||[]).map(p=>({...p,x:waypointAbsX(p),z:waypointAbsZ(p)}));return [...absolute,...wp].filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z))}function bounds(){const m=data?.terrainManifest;if(m&&m.tileCount>0)return{minx:m.minWorldX,maxx:m.maxWorldXExclusive,minz:m.minWorldZ,maxz:m.maxWorldZExclusive};const ps=points();if(!ps.length)return null;return{minx:Math.min(...ps.map(p=>p.x)),maxx:Math.max(...ps.map(p=>p.x)),minz:Math.min(...ps.map(p=>p.z)),maxz:Math.max(...ps.map(p=>p.z))}}
 function fitScaleForBounds(b){if(!b)return openingScale();const dx=Math.max(64,b.maxx-b.minx),dz=Math.max(64,b.maxz-b.minz),pad=isMobile()?54:100;return clampScale(Math.min(Math.max(1,cv.clientWidth-pad)/dx,Math.max(1,cv.clientHeight-pad)/dz))}function home(){followUid='';ox=Number(data?.spawnX??data?.coordinateOriginX??0);oz=Number(data?.spawnZ??data?.coordinateOriginZ??0);scale=clampScale(Math.max(scale,openingScale()));requestDraw();writeHashSoon()}function fit(){followUid='';const b=bounds();if(!b){home();return}ox=(b.minx+b.maxx)/2;oz=(b.minz+b.maxz)/2;scale=fitScaleForBounds(b);requestDraw();writeHashSoon()}function initialView(){followUid='';const b=bounds();if(!b){home();return}ox=(b.minx+b.maxx)/2;oz=(b.minz+b.maxz)/2;scale=clampScale(Math.max(fitScaleForBounds(b),openingScale()));requestDraw()}
-function requestDraw(){if(drawQueued)return;drawQueued=true;requestAnimationFrame(()=>{drawQueued=false;draw()})}function terrainPrefix(){return terrainStyle==='normal'?'':`/styles/${terrainStyle}`}function tileImage(tx,tz,ver){const k=`${terrainStyle}/${tx}/${tz}/${ver}`;if(tileCache.has(k))return tileCache.get(k);const im=new Image();im.onload=requestDraw;im.onerror=()=>{im.failed=true;requestDraw()};im.src=`${terrainPrefix()}/tiles/${tx}/${tz}.png?v=${ver}`;tileCache.set(k,im);trimCache();return im}function lodImage(f,tx,tz,ver){const k=`${terrainStyle}/lod/${f}/${tx}/${tz}/${ver}`;if(tileCache.has(k))return tileCache.get(k);const im=new Image();im.onload=requestDraw;im.onerror=()=>{im.failed=true;requestDraw()};im.src=`${terrainPrefix()}/lod/${f}/${tx}/${tz}.png?v=${ver}`;tileCache.set(k,im);trimCache();return im}function trimCache(){const limit=isMobile()?240:600;if(tileCache.size<=limit)return;const remove=Math.max(1,tileCache.size-Math.floor(limit*.85));for(let i=0;i<remove;i++){const k=tileCache.keys().next().value;if(k==null)break;tileCache.delete(k)}}
+function requestDraw(){if(drawQueued)return;drawQueued=true;requestAnimationFrame(()=>{drawQueued=false;draw()})}function terrainPrefix(){return terrainStyle==='normal'?'':`/styles/${terrainStyle}`}function tileImage(tx,tz,ver){const k=`${terrainStyle}/${tx}/${tz}`;if(tileCache.has(k))return tileCache.get(k);const im=new Image();im.onload=requestDraw;im.onerror=()=>{im.failed=true;requestDraw()};im.src=`${terrainPrefix()}/tiles/${tx}/${tz}.png?v=${ver}`;tileCache.set(k,im);trimCache();return im}function lodImage(f,tx,tz,ver){const k=`${terrainStyle}/lod/${f}/${tx}/${tz}`;if(tileCache.has(k))return tileCache.get(k);const im=new Image();im.onload=requestDraw;im.onerror=()=>{im.failed=true;requestDraw()};im.src=`${terrainPrefix()}/lod/${f}/${tx}/${tz}.png?v=${ver}`;tileCache.set(k,im);trimCache();return im}function trimCache(){const limit=isMobile()?240:600;if(tileCache.size<=limit)return;const remove=Math.max(1,tileCache.size-Math.floor(limit*.85));for(let i=0;i<remove;i++){const k=tileCache.keys().next().value;if(k==null)break;tileCache.delete(k)}}
 function overview(m){if(!m?.overviewAvailable)return;if(overviewVersion!==m.generatedUnixMilliseconds){overviewVersion=m.generatedUnixMilliseconds||0;overviewImage=new Image();overviewImage.onload=requestDraw;overviewImage.src=`/overview.png?v=${overviewVersion}`}if(overviewImage?.complete&&overviewImage.naturalWidth>0){ctx.imageSmoothingEnabled=false;ctx.drawImage(overviewImage,sx(m.minWorldX),sy(m.minWorldZ),(m.maxWorldXExclusive-m.minWorldX)*scale,(m.maxWorldZExclusive-m.minWorldZ)*scale)}}function chooseTerrainFactor(m){const fs=[1,...(m.lodFactors||[]).map(Number).filter(f=>f>1)].sort((a,b)=>a-b),target=1/Math.max(scale,.000001);let best=1,score=Infinity;for(const f of fs){const sc=Math.abs(Math.log2(f/target));if(sc<score){best=f;score=sc}}return best}
 function terrain(){if(!layers.terrain)return;const m=data?.terrainManifest;if(!m||m.tileCount<=0)return;ctx.save();const l=sx(m.minWorldX),r=sx(m.maxWorldXExclusive),t=sy(m.minWorldZ),b=sy(m.maxWorldZExclusive);ctx.beginPath();ctx.rect(Math.min(l,r),Math.min(t,b),Math.abs(r-l),Math.abs(b-t));ctx.clip();if(terrainStyle==='normal')overview(m);const ts=m.tileSize||256,w=cv.clientWidth,h=cv.clientHeight,minx=ox-w/(2*scale),maxx=ox+w/(2*scale),minz=oz-h/(2*scale),maxz=oz+h/(2*scale),ver=m.generatedUnixMilliseconds||0,f=chooseTerrainFactor(m),rs=ts*f,x0=Math.floor(minx/rs),x1=Math.floor(maxx/rs),z0=Math.floor(minz/rs),z1=Math.floor(maxz/rs),count=(x1-x0+1)*(z1-z0+1);if(count<=1400){for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++){const im=f===1?tileImage(x,z,ver):lodImage(f,x,z,ver);if(im.complete&&!im.failed&&im.naturalWidth>0){ctx.imageSmoothingEnabled=false;const px=sx(x*rs),py=sy(z*rs),d=rs*scale;ctx.drawImage(im,Math.round(px),Math.round(py),Math.ceil(d)+1,Math.ceil(d)+1)}}}ctx.restore()}
 function grid(){if(!layers.grid||!data)return;const w=cv.clientWidth,h=cv.clientHeight,m=data?.terrainManifest;ctx.save();if(m&&m.tileCount>0){const l=sx(m.minWorldX),r=sx(m.maxWorldXExclusive),t=sy(m.minWorldZ),b=sy(m.maxWorldZExclusive);ctx.beginPath();ctx.rect(Math.min(l,r),Math.min(t,b),Math.abs(r-l),Math.abs(b-t));ctx.clip()}let step=16;while(step*scale<58)step*=2;while(step*scale>150)step/=2;ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();ctx.font='10px system-ui';ctx.lineWidth=1;const xmin=ox-w/(2*scale),xmax=ox+w/(2*scale),zmin=oz-h/(2*scale),zmax=oz+h/(2*scale),gx=data.coordinateOriginX||0,gz=data.coordinateOriginZ||0;for(let x=Math.floor((xmin-gx)/step)*step+gx;x<=xmax;x+=step){const px=sx(x);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,h);ctx.stroke();ctx.fillText(String(Math.round(rx(x))),px+3,12)}for(let z=Math.floor((zmin-gz)/step)*step+gz;z<=zmax;z+=step){const py=sy(z);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(w,py);ctx.stroke();ctx.fillText(String(Math.round(rz(z))),3,py-3)}ctx.restore()}
@@ -2177,11 +2206,20 @@ function openPanel(id){document.querySelectorAll('.floatingPanel').forEach(p=>p.
 function search(){const q=document.getElementById('searchInput').value.trim(),out=document.getElementById('searchResults');if(!q){out.innerHTML='';return}const cm=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);if(cm){const x=Number(cm[1]),z=Number(cm[2]);setCenterAbs(x+(data?.coordinateOriginX||0),z+(data?.coordinateOriginZ||0),Math.max(scale,.13));closePanels();return}const low=q.toLowerCase(),results=[];(data?.players||[]).forEach(p=>{if(String(p.name||'').toLowerCase().includes(low))results.push({kind:'player',obj:p,label:`${tr('player')} · ${p.name}`})});(data?.waypoints||[]).forEach(p=>{if(String(p.name||'').toLowerCase().includes(low))results.push({kind:'waypoint',obj:p,label:`${(p.type||'major')} · ${(p.icon||'pin')} · ${p.name}`})});out.innerHTML=results.length?results.slice(0,20).map((r,i)=>`<button class="searchItem" data-sr="${i}">${esc(r.label)}</button>`).join(''):`<div class="helpNote">${tr('noMatching')}</div>`;out.querySelectorAll('[data-sr]').forEach(b=>b.onclick=()=>{const r=results[Number(b.dataset.sr)];if(!r)return;if(r.kind==='player')setCenterAbs(r.obj.x,r.obj.z,Math.max(scale,.13));else setCenterAbs(waypointAbsX(r.obj),waypointAbsZ(r.obj),Math.max(scale,.13));closePanels()})}document.getElementById('searchGo').onclick=search;document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
 function closeContextMenu(){contextMenu.classList.remove('open');contextWorld=null}function openContextMenu(px,py){const w=worldAt(px,py);contextWorld=w;contextCoords.textContent=`X ${Math.round(rx(w.x)).toLocaleString()} · Z ${Math.round(rz(w.z)).toLocaleString()}`;const rect=document.getElementById('mapWrap').getBoundingClientRect(),menuW=205,menuH=150;contextMenu.style.left=`${Math.max(6,Math.min(cv.clientWidth-menuW-6,px))}px`;contextMenu.style.top=`${Math.max(6,Math.min(cv.clientHeight-menuH-6,py))}px`;document.getElementById('contextMeasure').textContent=measureStart&&!measureEnd?tr('measureToHere'):tr('measureFromHere');document.getElementById('contextClearMeasure').style.display=measureStart?'block':'none';contextMenu.classList.add('open')}async function copyCoords(w){const text=`${Math.round(rx(w.x))} ${Math.round(rz(w.z))}`;try{await navigator.clipboard.writeText(text);toast(tr('coordinatesCopied'))}catch{toast(text)}}document.getElementById('contextCopy').onclick=()=>{if(contextWorld)copyCoords(contextWorld);closeContextMenu()};document.getElementById('contextMeasure').onclick=()=>{if(!contextWorld)return;if(measureStart&&!measureEnd){measureEnd={...contextWorld};measureMode=false;toast(`${Math.round(Math.hypot(rx(measureEnd.x)-rx(measureStart.x),rz(measureEnd.z)-rz(measureStart.z))).toLocaleString()} ${tr('blocks')}`)}else{measureStart={...contextWorld};measureEnd=null;measureMode=true;toast(tr('tapSecondPoint'))}syncMeasureButton();closeContextMenu();requestDraw()};document.getElementById('contextClearMeasure').onclick=()=>{clearMeasurement();closeContextMenu()};cv.addEventListener('contextmenu',e=>{e.preventDefault();closeMarker();openContextMenu(e.offsetX,e.offsetY)});document.addEventListener('pointerdown',e=>{if(!contextMenu.contains(e.target)&&e.target!==cv)closeContextMenu()});
 function toast(text){toastEl.textContent=text;toastEl.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>toastEl.classList.remove('show'),1800)}function shareUrl(){const u=new URL(location.href);u.hash=`x=${Math.round(rx(ox))}&z=${Math.round(rz(oz))}&s=${scale.toFixed(5)}`;return u.toString()}document.getElementById('shareBtn').onclick=async()=>{const u=shareUrl();try{await navigator.clipboard.writeText(u);toast(tr('mapLinkCopied'))}catch{location.hash=u.split('#')[1];toast(tr('mapLinkUpdated'))}};function writeHashSoon(){const now=Date.now();if(now-lastHashWrite<700){clearTimeout(writeHashSoon._t);writeHashSoon._t=setTimeout(writeHashSoon,720);return}lastHashWrite=now;history.replaceState(null,'',shareUrl())}function applyHash(){const q=new URLSearchParams(location.hash.replace(/^#/,'')),x=Number(q.get('x')),z=Number(q.get('z')),s=Number(q.get('s'));if(Number.isFinite(x)&&Number.isFinite(z)){ox=x+(data?.coordinateOriginX||0);oz=z+(data?.coordinateOriginZ||0);if(Number.isFinite(s))scale=clampScale(s);return true}return false}
+function invalidateTerrainTiles(manifest,previousGeneration){
+  const changed=manifest?.changedTiles;
+  if(Number(manifest?.changedTilesSinceUnixMilliseconds)!==previousGeneration||!Array.isArray(changed)||!changed.length){tileCache.clear();return;}
+  const coords=changed.map(k=>String(k).split(',').map(Number)).filter(p=>p.length===2&&p.every(Number.isFinite));
+  for(const key of tileCache.keys()){
+    const p=key.split('/'),lod=p[1]==='lod',f=lod?Number(p[2]):1,x=Number(p[lod?3:1]),z=Number(p[lod?4:2]);
+    if(coords.some(c=>Math.floor(c[0]/f)===x&&Math.floor(c[1]/f)===z))tileCache.delete(key);
+  }
+}
 function fmtEta(ms){if(!Number.isFinite(ms)||ms<0)return tr('calculating');let s=Math.max(0,Math.round(ms/1000)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),r=s%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`:`${m}:${String(r).padStart(2,'0')}`}function phaseLabel(phase){const p=String(phase||'working').toLowerCase();return({coverage:tr('phaseCoverage'),rendering:tr('phaseRendering'),overview:tr('phaseOverview'),pyramid:tr('phasePyramid'),finalizing:tr('phaseFinalizing'),complete:tr('phaseComplete'),cancelled:tr('phaseCancelled'),failed:tr('phaseFailed'),waiting:tr('phaseWaiting')})[p]||p.replace(/[-_]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}function progressPercent(t){const p=Number(t?.progressPercent);if(Number.isFinite(p))return Math.max(0,Math.min(100,p));const total=Number(t?.totalTiles||0),done=Number(t?.writtenTiles||0);return total>0?Math.max(0,Math.min(100,5+(done/total)*85)):0}function renderExportProgress(t){const active=t?.state==='exporting';exportProgress.classList.toggle('active',active);if(!active)return;const p=progressPercent(t),elapsed=Number(t?.startedUnixMilliseconds||0)>0?Date.now()-Number(t.startedUnixMilliseconds):Number(t?.totalElapsedMilliseconds||0),eta=Number(t?.estimatedRemainingMilliseconds);exportProgressTitle.textContent=phaseLabel(t?.phase);exportProgressPct.textContent=`${p.toFixed(p<10?1:0)}%`;exportProgressFill.style.width=`${p.toFixed(2)}%`;exportProgressMeta.innerHTML=`<span>${Number(t?.writtenTiles||0).toLocaleString()} / ${Number(t?.totalTiles||0).toLocaleString()} ${tr('tiles')}</span><span>${Number(t?.processedChunkColumns||0).toLocaleString()} ${tr('chunks')}</span><span>${tr('elapsed')} ${fmtEta(elapsed)}</span><span>${tr('eta')} ${fmtEta(eta)}</span>`}
 function updateStatus(){const t=data?.terrain||{},online=Number(data?.activePlayerCount||0),last=Number(data?.lastTerrainExportDurationMilliseconds||0);statusEl.textContent=t.state==='exporting'?`${phaseLabel(t.phase)} ${progressPercent(t).toFixed(0)}% · ${tr('eta')} ${fmtEta(t.estimatedRemainingMilliseconds)}`:`${online} ${tr('online')} · ${data?.waypoints?.length||0} ${tr('waypoints').toLowerCase()}${last>0?` · ${tr('lastExport')} ${fmtEta(last)}`:''}`;document.getElementById('waypointLimitHelp').textContent=`${tr('serverLimits')}: ${tr('major')} ${Number(data?.playerMajorWaypointLimit??5)} · ${tr('minor')} ${Number(data?.playerMinorWaypointLimit??10)} ${tr('perPlayer')}.`;const b=document.getElementById('exportBenchmarkHelp');if(b)b.textContent=last>0?tr('lastTerrainExport',fmtEta(last)):tr('noExportBenchmark')}
 function scheduleTerrainPoll(){if(terrainPollTimer||document.hidden||data?.terrain?.state!=='exporting')return;terrainPollTimer=setTimeout(pollTerrainStatus,1000)}function probeTerrainStatus(){if(document.hidden||!data||data?.terrain?.state==='exporting')return;fetch('/api/terrain-status',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(t=>{if(t?.state==='exporting'){data.terrain=t;renderExportProgress(t);updateStatus();scheduleTerrainPoll()}}).catch(()=>{})}async function pollTerrainStatus(){terrainPollTimer=null;if(document.hidden||data?.terrain?.state!=='exporting')return;try{const r=await fetch('/api/terrain-status',{cache:'no-store'}),t=await r.json();data.terrain=t;renderExportProgress(t);updateStatus();if(t.state==='exporting')scheduleTerrainPoll();else await load(false)}catch{scheduleTerrainPoll()}}
 function formatMapIngameDate(d){const y=Number(d?.ingameYear||0),m=Number(d?.ingameMonth||0),day=Number(d?.ingameDay||0),h=Number(d?.ingameHour||0);if(y&&m&&day)return `${tr('year')} ${y}, ${tr('month')} ${m}, ${tr('day')} ${day}, ${h.toFixed(2)}h`;const raw=String(d?.ingameDate||'').trim();return raw&&raw.toLowerCase()!=='unknown'?raw:tr('unknownDate')}
-async function load(first=false){if(mapLoadBusy||(document.hidden&&!first))return;mapLoadBusy=true;try{const r=await fetch('/api/map',{cache:'no-store'});if(!r.ok)throw new Error(r.status);data=await r.json();const retainedPlayerSnapshot=latestPlayerSnapshot;applyPlayerSnapshot(data);applyPlayerSnapshot(retainedPlayerSnapshot);if(lbButton)lbButton.style.display=data?.showLeaderboards===false?'none':'';const gen=Number(data?.terrainManifest?.generatedUnixMilliseconds||0);if(lastTerrainGeneration&&gen&&gen!==lastTerrainGeneration){tileCache.clear();overviewImage=null;overviewVersion=0}lastTerrainGeneration=gen||lastTerrainGeneration;dateEl.textContent=formatMapIngameDate(data);activePlayersEl.textContent=Number(data.activePlayerCount||0).toLocaleString();renderPlayers();renderExportProgress(data.terrain||{});updateStatus();if(data.terrain?.state==='exporting')scheduleTerrainPoll();applyFollow();if(first){firstLoad=false;initializeFirstView()}else requestDraw()}catch(e){statusEl.textContent=tr('mapFeedUnavailable');dateEl.textContent='—';activePlayersEl.textContent='—'}finally{mapLoadBusy=false}}
+async function load(first=false){if(mapLoadBusy||(document.hidden&&!first))return;mapLoadBusy=true;try{const r=await fetch('/api/map',{cache:'no-store'});if(!r.ok)throw new Error(r.status);data=await r.json();const retainedPlayerSnapshot=latestPlayerSnapshot;applyPlayerSnapshot(data);applyPlayerSnapshot(retainedPlayerSnapshot);if(lbButton)lbButton.style.display=data?.showLeaderboards===false?'none':'';const gen=Number(data?.terrainManifest?.generatedUnixMilliseconds||0);if(lastTerrainGeneration&&gen&&gen!==lastTerrainGeneration){invalidateTerrainTiles(data.terrainManifest,lastTerrainGeneration);overviewImage=null;overviewVersion=0}lastTerrainGeneration=gen||lastTerrainGeneration;dateEl.textContent=formatMapIngameDate(data);activePlayersEl.textContent=Number(data.activePlayerCount||0).toLocaleString();renderPlayers();renderExportProgress(data.terrain||{});updateStatus();if(data.terrain?.state==='exporting')scheduleTerrainPoll();applyFollow();if(first){firstLoad=false;initializeFirstView()}else requestDraw()}catch(e){statusEl.textContent=tr('mapFeedUnavailable');dateEl.textContent='—';activePlayersEl.textContent='—'}finally{mapLoadBusy=false}}
 
 let leaderboardData=null,leaderboardTab='overview',leaderboardTimer=null,leaderboardSkillSearch='',leaderboardSkillSort='name';
 const lbOverlay=document.getElementById('leaderboardOverlay'),lbBody=document.getElementById('leaderboardBody'),lbButton=document.getElementById('leaderboardBtn');
@@ -2330,7 +2368,7 @@ if(LEADERBOARD_ONLY){
 
 public sealed class WebMapConfig
 {
-    public const int CurrentSchemaVersion = 19;
+    public const int CurrentSchemaVersion = 20;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public bool Enabled { get; set; } = false;
     public string BindAddress { get; set; } = "0.0.0.0";
@@ -2377,6 +2415,10 @@ public sealed class WebMapConfig
     // When true, queued startup exports may render only dirty/new tiles when the existing cache is current.
     // When false, every queued startup export performs a full terrain rebuild. Runtime update/rebuild controls remain explicit.
     public bool UseIncrementalTerrainExport { get; set; } = true;
+    // Opt-in, saved terrain only. Never generates/loads columns or escalates to a rebuild.
+    public bool LiveTerrainUpdatesEnabled { get; set; } = false;
+    public int LiveTerrainUpdateSeconds { get; set; } = 120;
+    public int LiveTerrainMaxTilesPerPass { get; set; } = 4;
     // Fast bulk-export path: read surface terrain directly from the read-only save DB.
     // Bulk exports preserve the current map on decoder failure; disabling this explicitly selects the legacy world-loader path.
     public bool UseDirectSaveDatabaseTerrain { get; set; } = true;
@@ -2403,6 +2445,8 @@ public sealed class WebMapConfig
         Title = (Title ?? "Newfie's Server Map").Trim();
         if (Title.Length == 0) Title = "Newfie's Server Map";
         if (Title.Length > 80) Title = Title[..80];
+        LiveTerrainUpdateSeconds = Math.Clamp(LiveTerrainUpdateSeconds, 30, 3600);
+        LiveTerrainMaxTilesPerPass = Math.Clamp(LiveTerrainMaxTilesPerPass, 1, 16);
         AutomaticStartupExportIntervalDays = Math.Clamp(AutomaticStartupExportIntervalDays, 1, 365);
         LastSuccessfulTerrainExportUnixMilliseconds = Math.Max(0, LastSuccessfulTerrainExportUnixMilliseconds);
         LastTerrainExportDurationMilliseconds = Math.Max(0, LastTerrainExportDurationMilliseconds);
@@ -2482,6 +2526,9 @@ public sealed class WebMapConfig
         LastTerrainExportDurationMilliseconds = LastTerrainExportDurationMilliseconds,
         LockServerDuringTerrainExport = LockServerDuringTerrainExport,
         UseIncrementalTerrainExport = UseIncrementalTerrainExport,
+        LiveTerrainUpdatesEnabled = LiveTerrainUpdatesEnabled,
+        LiveTerrainUpdateSeconds = LiveTerrainUpdateSeconds,
+        LiveTerrainMaxTilesPerPass = LiveTerrainMaxTilesPerPass,
         UseDirectSaveDatabaseTerrain = UseDirectSaveDatabaseTerrain,
         TerrainPyramidWorkers = TerrainPyramidWorkers,
         TerrainBaseRenderWorkers = TerrainBaseRenderWorkers,
@@ -2548,6 +2595,9 @@ public sealed class WebMapSnapshot
     public long NextAutomaticStartupExportUnixMilliseconds { get; set; }
     public bool LockServerDuringTerrainExport { get; set; }
     public bool UseIncrementalTerrainExport { get; set; }
+    public bool LiveTerrainUpdatesEnabled { get; set; }
+    public int LiveTerrainUpdateSeconds { get; set; }
+    public int LiveTerrainMaxTilesPerPass { get; set; }
     public int TerrainTileSize { get; set; }
     public WebMapTerrainExportStatus Terrain { get; set; } = new();
     public int PendingDirtyMapChunks { get; set; }

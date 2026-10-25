@@ -30,7 +30,7 @@ namespace BlockLogger.WebMap;
 /// - Caches block-id to deterministic server-side map colors during the startup export.
 /// - Stores one 32x32-block overview sample per generated map chunk while the detailed tile is already in memory.
 /// - Stages incremental tile changes and validates them before committing them to the public cache.
-/// - Performs no continuous terrain scanning; automatic runtime terrain exports are disabled.
+/// - Optional bounded, saved-database-only runtime updates discover newly explored terrain.
 /// </summary>
 internal sealed class WebMapTerrainExporter
 {
@@ -44,6 +44,7 @@ internal sealed class WebMapTerrainExporter
     private readonly string rootPath;
     private readonly Action<WebMapTerrainExportStatus> publishStatus;
     private readonly WebMapDirtyChunkJournal? dirtyJournal;
+    private bool automaticSavedTerrainOnly;
     private readonly Dictionary<int, Rgb> blockColorCache = new();
     private Rgb[] blockColorById = Array.Empty<Rgb>();
     private int blockPalettePrimed;
@@ -292,9 +293,10 @@ internal sealed class WebMapTerrainExporter
     /// chunks to the live world. If that runtime-internal decoder is unavailable, the fallback
     /// remains the supported asynchronous LoadChunkColumnPriority world-loader path.
     /// </summary>
-    public async Task<bool> ExportRuntimeForcedAsync(WebMapConfig config, CancellationToken cancellationToken, bool fullRebuild)
+    public async Task<bool> ExportRuntimeForcedAsync(WebMapConfig config, CancellationToken cancellationToken, bool fullRebuild, bool automatic = false)
     {
-        using var exportEntityLogScope = WebMapExportLogSuppressor.Begin(api);
+        automaticSavedTerrainOnly = automatic;
+        using var exportEntityLogScope = automatic ? null : WebMapExportLogSuppressor.Begin(api);
         var totalSw = Stopwatch.StartNew();
         var status = new WebMapTerrainExportStatus
         {
@@ -322,16 +324,18 @@ internal sealed class WebMapTerrainExporter
         string backupDir = Path.Combine(rootPath, "terrain-previous");
         long dirtyMutationVersion = 0;
         var dirtySnapshot = dirtyJournal?.Snapshot(out dirtyMutationVersion) ?? new HashSet<WebMapDirtyChunkCoord>();
+        if (automatic) dirtySnapshot.Clear(); // Unsaved edits remain journaled for an explicit changed-terrain update.
         status.DirtyChunkCount = dirtySnapshot.Count;
 
         try
         {
-            api.Logger.Warning(
+            if (automatic) api.Logger.Debug("[ServerEssentials/WebMap] checking saved exploration for a bounded automatic terrain update.");
+            else api.Logger.Warning(
                 fullRebuild
                     ? "[ServerEssentials/WebMap] administrator started a FULL live terrain rebuild. The read-only save-DB terrain path will be preferred, with cooperative world loading as fallback."
                     : "[ServerEssentials/WebMap] administrator started a changed-terrain live update. Only dirty/new/missing terrain tiles will be rendered; the read-only save-DB terrain path is preferred.");
 
-            await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
+            if (!automatic) await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
             string savePath = ResolveCurrentWorldFilepath();
             var coverageSw = Stopwatch.StartNew();
             TerrainCoverage coverage = EnumerateGeneratedTiles(savePath, config.TerrainTileSize);
@@ -342,6 +346,12 @@ internal sealed class WebMapTerrainExporter
             var liveDirtyChunks = new HashSet<ChunkCoord>(dirtySnapshot
                 .Where(d => d.Dimension == 0)
                 .Select(d => new ChunkCoord(d.ChunkX, d.ChunkZ)));
+            if (automatic)
+            {
+                if (directReader == null || !directReader.IsActive)
+                    throw new InvalidOperationException("Automatic map updates require the read-only save database; world-loading fallback is disabled.");
+                liveDirtyChunks.Clear(); // Never load live world columns during automatic updates.
+            }
             if (directReader != null && liveDirtyChunks.Count > 0)
                 status.TerrainReadMode = "save-db+live-dirty";
 
@@ -543,8 +553,15 @@ internal sealed class WebMapTerrainExporter
         manifest.Tiles ??= new Dictionary<string, WebMapTerrainTileMetadata>(StringComparer.Ordinal);
 
         var dirtyTiles = CollectDirtyTiles(config, coverage, currentDir, manifest, dirtySnapshot);
+        if (automaticSavedTerrainOnly)
+        {
+            dirtyTiles = dirtyTiles.OrderBy(t => t.Z).ThenBy(t => t.X).Take(config.LiveTerrainMaxTilesPerPass).ToHashSet();
+            // Only acknowledge the part actually published in this bounded pass.
+            dirtySnapshot.RemoveWhere(d => d.Dimension != 0 || !dirtyTiles.Contains(new TileCoord(
+                FloorDiv(d.ChunkX * ChunkSize, config.TerrainTileSize), FloorDiv(d.ChunkZ * ChunkSize, config.TerrainTileSize))));
+        }
         var dirtyChunksByTile = CollectDirtyChunksByTile(config, dirtySnapshot);
-        var staleKeys = CollectStaleTileKeys(coverage, manifest);
+        var staleKeys = automaticSavedTerrainOnly ? new List<string>() : CollectStaleTileKeys(coverage, manifest);
         bool metadataRepairNeeded =
             (config.ExportNormalTerrain && !File.Exists(Path.Combine(currentDir, "overview.png"))) ||
             !File.Exists(Path.Combine(currentDir, "manifest.json")) ||
@@ -577,6 +594,7 @@ internal sealed class WebMapTerrainExporter
             return true;
         }
 
+        if (automaticSavedTerrainOnly) await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
         int written = 0;
         long processedColumns = 0;
         foreach (TileCoord tile in dirtyTiles.OrderBy(t => t.Z).ThenBy(t => t.X))
@@ -598,6 +616,7 @@ internal sealed class WebMapTerrainExporter
                 GeneratedChunkCount = CountGeneratedChunksForTile(config, tile, coverage.Chunks),
                 LastGeneratedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
+            if (automaticSavedTerrainOnly) await Task.Delay(50, cancellationToken).ConfigureAwait(false);
             written++;
             status.WrittenTiles = written;
             status.ProcessedChunkColumns = processedColumns;
@@ -622,6 +641,9 @@ internal sealed class WebMapTerrainExporter
         bool replaceWholeTopoLod = false;
         HashSet<LodTileCoord> topoLodTiles = config.ExportTopographicTerrain ? StageIncrementalLodTiles(StyleRoot(stageDir, "topo"), StyleRoot(currentDir, "topo"), manifest, dirtyTiles, staleKeys, status, config, out replaceWholeTopoLod) : new HashSet<LodTileCoord>();
         SetProgressPhase(status, "finalizing", 99, "Publishing changed terrain…");
+        manifest.ChangedTilesSinceUnixMilliseconds = manifest.GeneratedUnixMilliseconds;
+        manifest.ChangedTiles = dirtyTiles.Select(t => TileKey(t.X, t.Z)).Concat(staleKeys).Take(257).ToArray();
+        if (manifest.ChangedTiles.Length > 256) { manifest.ChangedTiles = Array.Empty<string>(); manifest.ChangedTilesSinceUnixMilliseconds = 0; }
         FinalizeManifest(manifest, coverage, manifest.Tiles.Count, coverage.ChunkColumns);
         WriteManifest(stageDir, manifest);
         CommitIncrementalStage(stageDir, currentDir, dirtyTiles, staleKeys, lodTiles, replaceWholeLod, sepiaLodTiles, replaceWholeSepiaLod, topoLodTiles, replaceWholeTopoLod, config.ExportNormalTerrain, config.ExportSepiaTerrain, config.ExportTopographicTerrain);
@@ -676,6 +698,8 @@ internal sealed class WebMapTerrainExporter
                         continue;
                     }
 
+                    if (automaticSavedTerrainOnly)
+                        throw new InvalidOperationException($"Saved terrain column {chunkX},{chunkZ} is not readable yet; keeping the published map and retrying later.");
                     var loadSw = Stopwatch.StartNew();
                     await LoadAndRenderRuntimeChunkAsync(
                         chunkX,
@@ -2082,9 +2106,47 @@ internal sealed class WebMapTerrainExporter
         Volatile.Write(ref blockPalettePrimed, 1);
     }
 
+    private async Task PrimeBlockColorCacheBatchedAsync(CancellationToken cancellationToken)
+    {
+        int index = 0;
+        Rgb[] colors = Array.Empty<Rgb>();
+        bool complete = false;
+        while (!complete)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+            api.Event.EnqueueMainThreadTask(() =>
+            {
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var blocks = api.World.Blocks;
+                    if (colors.Length == 0) { colors = new Rgb[Math.Max(1, blocks.Count)]; Array.Fill(colors, new Rgb(16, 22, 29)); }
+                    int end = Math.Min(blocks.Count, index + 256);
+                    for (; index < end; index++)
+                    {
+                        Block block = blocks[index];
+                        if (block == null || block.Id < 0) continue;
+                        if (block.Id >= colors.Length) { int oldLength = colors.Length; Array.Resize(ref colors, block.Id + 1); Array.Fill(colors, new Rgb(16, 22, 29), oldLength, colors.Length - oldLength); }
+                        colors[block.Id] = TerrainPalette.Get(block);
+                    }
+                    complete = index >= blocks.Count;
+                    if (complete) { blockColorById = colors; Volatile.Write(ref blockPalettePrimed, 1); }
+                    tcs.TrySetResult(true);
+                }
+                catch (OperationCanceledException) { tcs.TrySetCanceled(cancellationToken); }
+                catch (Exception ex) { tcs.TrySetException(ex); }
+            }, "nses-webmap-palette-batch");
+            await tcs.Task.ConfigureAwait(false);
+            if (!complete) await Task.Delay(25, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private Task PrimeBlockColorCacheOnMainThreadAsync(CancellationToken cancellationToken)
     {
         if (Volatile.Read(ref blockPalettePrimed) != 0) return Task.CompletedTask;
+        if (automaticSavedTerrainOnly) return PrimeBlockColorCacheBatchedAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         api.Event.EnqueueMainThreadTask(() =>
@@ -3373,6 +3435,8 @@ internal sealed class WebMapTerrainExporter
 
 public sealed class WebMapTerrainManifest
 {
+    public long ChangedTilesSinceUnixMilliseconds { get; set; }
+    public string[] ChangedTiles { get; set; } = Array.Empty<string>();
     public int Version { get; set; }
     public string WorldName { get; set; } = "";
     public string SavegameIdentifier { get; set; } = "";

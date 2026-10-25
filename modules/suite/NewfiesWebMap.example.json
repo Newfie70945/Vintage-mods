@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 19,
+  "SchemaVersion": 20,
   "Enabled": false,
   "BindAddress": "0.0.0.0",
   "Port": 9466,
@@ -37,5 +37,8 @@
   "UseDirectSaveDatabaseTerrain": true,
   "TerrainPyramidWorkers": 2,
   "TerrainBaseRenderWorkers": 2,
-  "TerrainTileSize": 256
+  "TerrainTileSize": 256,
+  "LiveTerrainUpdatesEnabled": false,
+  "LiveTerrainUpdateSeconds": 120,
+  "LiveTerrainMaxTilesPerPass": 4
 }

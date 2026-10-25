@@ -193,6 +193,47 @@ static class Checks
         last = captures.Last!;
         Assert((string)statusType.GetProperty("ExportMode")!.GetValue(last)! == "incremental" && (int)statusType.GetProperty("WrittenTiles")!.GetValue(last)! == 0, "Clean startup did not reuse published tiles");
         Console.WriteLine("PASS: successful parallel startup export writes terrain/overview/pyramid, releases resources, acknowledges dirty work, leaves save/world untouched; next startup reuses unchanged tiles.");
+        // Runtime automatic exploration: one saved tile per pass, no world loads, and
+        // unrelated unsaved edits must remain in the journal.
+        object events = Proxy(typeof(IServerEventAPI), (m, a) => {
+            if (m.Name == "EnqueueMainThreadTask") { ((Action)a![0]!)(); return null; }
+            throw new Exception("Unexpected runtime event " + m.Name);
+        });
+        var previousApiHandler = ((ApiProxy)api).Handler;
+        ((ApiProxy)api).Handler = (m, a) => m.Name == "get_Event" ? events : previousApiHandler(m, a);
+        configType.GetProperty("LiveTerrainMaxTilesPerPass")!.SetValue(config, 1);
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal, new object[] { 0, 1, 1 });
+        void AddExploration(int cx, bool terrainRows) {
+            using var db = new SqliteConnection("Data Source=" + database); db.Open(); using var command = db.CreateCommand();
+            void Insert(string table, long position, byte[] data) {
+                command.CommandText = "INSERT INTO " + table + " VALUES($p,$d)";command.Parameters.Clear();command.Parameters.AddWithValue("$p",position);command.Parameters.AddWithValue("$d",data);command.ExecuteNonQuery();
+            }
+            Insert("mapchunk", unchecked((long)ChunkPos.ToChunkIndex(cx,0,0)), Serialize(new MapPayload { Heights = Enumerable.Repeat((ushort)35,1024).ToArray() }));
+            if(terrainRows)for(int cy=0;cy<3;cy++)Insert("chunk",unchecked((long)ChunkPos.ToChunkIndex(cx,cy,0)),bytes);
+        }
+        bool Automatic() => ((Task<bool>)exporterType.GetMethod("ExportRuntimeForcedAsync")!.Invoke(exporter,new object[]{config,CancellationToken.None,false,true})!).GetAwaiter().GetResult();
+        AddExploration(8,true); AddExploration(12,true);
+        byte[] runtimeBefore = SHA256.HashData(File.ReadAllBytes(database));
+        string originalTile = Path.Combine(mapRoot,"terrain","0","0.png");byte[] oldTileHash=SHA256.HashData(File.ReadAllBytes(originalTile));
+        for(int pass=0;pass<2;pass++){
+            Assert(Automatic(),"Automatic exploration failed: "+statusType.GetProperty("LastError")!.GetValue(captures.Last));
+            Assert((int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! ==1,"Automatic tile bound not respected");
+            using var manifest=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(mapRoot,"terrain","manifest.json")));
+            Assert(manifest.RootElement.GetProperty("ChangedTiles").GetArrayLength()==1,"Changed tile revision not bounded");
+        }
+        Assert(Automatic()&&(int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! ==0,"Already published exploration rendered again");
+        Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Automatic exploration consumed an unsaved edit");
+        Assert(worldLoads==0&&runtimeBefore.SequenceEqual(SHA256.HashData(File.ReadAllBytes(database)))&&oldTileHash.SequenceEqual(SHA256.HashData(File.ReadAllBytes(originalTile))),"Runtime pass modified save, loaded world or rewrote unchanged base tile");
+        AddExploration(1,true);
+        Assert(Automatic() && (int)statusType.GetProperty("WrittenTiles")!.GetValue(captures.Last)! == 1,"New saved column inside an existing tile was missed");
+        using(var manifest=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(mapRoot,"terrain","manifest.json"))))
+            Assert(manifest.RootElement.GetProperty("Tiles").GetProperty("0,0").GetProperty("GeneratedChunkCount").GetInt32()==2,"Existing tile coverage not updated");
+        var published=Directory.EnumerateFiles(Path.Combine(mapRoot,"terrain"),"*",SearchOption.AllDirectories).ToDictionary(f=>f,f=>SHA256.HashData(File.ReadAllBytes(f)));
+        AddExploration(16,false);
+        Assert(!Automatic(),"Missing saved terrain row incorrectly published");
+        Assert(published.All(pair=>pair.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(pair.Key))))&&worldLoads==0,"Failed automatic pass damaged cache or loaded live world");
+        Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Failed automatic pass consumed dirty work");
+        Console.WriteLine("PASS: bounded automatic exploration publishes one new saved tile per pass, clean pass writes zero, revisions identify changed tiles, unsaved edits retained, no world loads/save writes; unreadable new terrain preserves cache.");
         // A decoder unavailable after a game update must also keep the working map.
         var mapFiles = Directory.EnumerateFiles(Path.Combine(mapRoot, "terrain"), "*", SearchOption.AllDirectories).ToDictionary(f => f, f => SHA256.HashData(File.ReadAllBytes(f)));
         journalType.GetMethod("MarkBlockDirty")!.Invoke(journal, new object[] { 0, 0, 0 });

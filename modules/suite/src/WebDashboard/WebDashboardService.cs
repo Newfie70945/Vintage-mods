@@ -6021,6 +6021,9 @@ public sealed partial class WebDashboardService : IDisposable
                 AutomaticStartupExportIntervalDays = Math.Clamp(GetJsonInt(request.Body, "automaticStartupExportIntervalDays", 7), 1, 365),
                 LockServerDuringTerrainExport = GetJsonBool(request.Body, "lockServerDuringTerrainExport", true),
                 UseIncrementalTerrainExport = GetJsonBool(request.Body, "useIncrementalTerrainExport", true),
+                LiveTerrainUpdatesEnabled = GetJsonBool(request.Body, "liveTerrainUpdatesEnabled", false),
+                LiveTerrainUpdateSeconds = GetJsonInt(request.Body, "liveTerrainUpdateSeconds", 120),
+                LiveTerrainMaxTilesPerPass = GetJsonInt(request.Body, "liveTerrainMaxTilesPerPass", 4),
                 TerrainTileSize = Math.Clamp(GetJsonInt(request.Body, "terrainTileSize", 256), 128, 512)
             };
             var saved = await RunOnMainThreadAsync(
@@ -6040,7 +6043,10 @@ public sealed partial class WebDashboardService : IDisposable
             bool lockDuringExport = GetJsonBool(request.Body, "lockServerDuringTerrainExport", true);
 
             var saved = await RunOnMainThreadAsync(
-                () => module.WebMap?.SaveExportSchedule(oneShot, automaticEnabled, intervalDays, useIncremental, lockDuringExport)
+                () => module.WebMap?.SaveExportSchedule(oneShot, automaticEnabled, intervalDays, useIncremental, lockDuringExport,
+                    GetJsonBool(request.Body, "liveTerrainUpdatesEnabled", false),
+                    GetJsonInt(request.Body, "liveTerrainUpdateSeconds", 120),
+                    GetJsonInt(request.Body, "liveTerrainMaxTilesPerPass", 4))
                       ?? new WebMapConfig
                       {
                           ExportTerrainOnStart = oneShot,

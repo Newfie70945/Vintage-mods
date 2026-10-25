@@ -31,11 +31,16 @@ web.update(Enabled=True, BindAddress='127.0.0.1', Port=web_port, AdminUsername='
            Password=password, PasswordSalt='', PasswordHash='', SafeDiagnosticsMode=False,
            SecureCookies=False)
 webfile.write_text(json.dumps(web))
+performance_test = os.environ.get('NSS_WEB_TEST_PERFORMANCE') == '1'
 proximity_test = os.environ.get('NSS_WEB_TEST_PROXIMITY') == '1'
 if proximity_test:
     (folder / 'NewfiesChatDisplay.json').write_text(json.dumps(dict(ProximityEnabled=True,ProximityGroupName='LocalLab',ProximityRange=100,ProximityAutoJoin=True)))
 f = folder / 'NewfiesServerEssentialsFeatures.json'
-features = json.loads(f.read_text()); features['WebDashboard'] = True; f.write_text(json.dumps(features))
+features = json.loads(f.read_text()); features['WebDashboard'] = True;
+if performance_test:
+    features['WebMap'] = True
+    (folder / 'NewfiesWebMap.json').write_text(json.dumps(dict(Enabled=False)))
+f.write_text(json.dumps(features))
 base = 'http://127.0.0.1:' + str(web_port)
 lines = []
 process = subprocess.Popen([net, str(game / 'VintagestoryServer.dll'), '--dataPath', str(data),
@@ -67,10 +72,11 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
-    if proximity_test:
+    if proximity_test or performance_test:
         session_status, session_data, _, _ = request('/api/session')
         assert session_status == 200
         csrf_token = session_data['csrfToken']
+    if proximity_test:
         status, chat, _, _ = request('/api/chat-display')
         assert status == 200 and chat['proximityEnabled'] and chat['proximityGroupId'] > 0 and chat['proximityStatus'].startswith('Active')
         initial_group = chat['proximityGroupId']
@@ -97,6 +103,19 @@ try:
     assert status == 200 and isinstance(server_status, dict) and 'payload' not in server_status
     status, small, _, _ = request('/api/tick-debug/status')
     assert status == 200 and set(small) == {'enabled'}
+    if performance_test:
+        for window in (60, 300, 1800):
+            for repeat in range(2):
+                for name in ('overview', 'timeline'):
+                    code, payload, _, _ = request('/api/performance/' + name + '?window=' + str(window))
+                    assert code == 200 and isinstance(payload, dict), (name, code)
+        for endpoint in ('/api/operations/memory', '/api/tick-debug', '/api/profiler?window=300&points=120', '/api/optimizations/newfies'):
+            code, payload, _, _ = request(endpoint)
+            assert code == 200 and isinstance(payload, dict), (endpoint, code)
+        code, saved, _, _ = request('/api/webmap/export-schedule', dict(exportTerrainOnStart=False, automaticStartupExportEnabled=False, automaticStartupExportIntervalDays=7, useIncrementalTerrainExport=True, lockServerDuringTerrainExport=True, liveTerrainUpdatesEnabled=True, liveTerrainUpdateSeconds=90, liveTerrainMaxTilesPerPass=2))
+        assert code == 200, code
+        code, map_status, _, _ = request('/api/webmap')
+        assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and not map_status['enabled']
     status, web_status, _, _ = request('/api/web/status')
     assert status == 200
     diagnostics = web_status.get('diagnostics', {})
@@ -108,7 +127,7 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
-                  proximityChecks=proximity_test,
+                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
@@ -140,3 +159,10 @@ if proximity_test:
     report.update(proximityGroupPersisted=True, proximityHistoryEntries=0)
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Owned proximity group/settings persisted with zero history entries', flush=True)
+
+if performance_test:
+    stored = json.loads((folder / 'NewfiesWebMap.json').read_text())
+    assert stored['LiveTerrainUpdatesEnabled'] and stored['LiveTerrainUpdateSeconds'] == 90 and stored['LiveTerrainMaxTilesPerPass'] == 2 and not stored['Enabled']
+    report['liveTerrainSettingsPersisted'] = True
+    (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    print('Performance reading endpoints and opt-in live terrain settings persistence: ok', flush=True)
