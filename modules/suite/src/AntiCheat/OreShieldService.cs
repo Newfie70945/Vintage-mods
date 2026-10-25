@@ -416,11 +416,18 @@ internal sealed class OreShieldService : IDisposable
         }
     }
 
+    // Runs inside the engine's main-thread column-load completion. Each call is fast, so the time is
+    // summed per second rather than recorded only when slow: a burst of column loads while players
+    // travel is what could add up, and this makes OreShield's share of that stall measurable.
+    private static readonly BlockLogger.Services.SuiteBurstTimer ColumnLoadBurst =
+        new("OreShield column-load hook (total per second)");
+
     private static void AfterColumnLoaded(ChunkColumnLoadRequest chunkRequest)
     {
         OreShieldService? service = current;
         if (service?.active != true || service.virtualizer == null || chunkRequest == null) return;
 
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
             int dimension = service.getChunkRequestDimension(chunkRequest);
@@ -432,6 +439,10 @@ internal sealed class OreShieldService : IDisposable
         catch (Exception ex)
         {
             service.ReportHookError("chunk-load reveal refresh", ex);
+        }
+        finally
+        {
+            ColumnLoadBurst.Add(System.Diagnostics.Stopwatch.GetTimestamp() - started);
         }
     }
 

@@ -75,6 +75,11 @@ public sealed class EntityHooks
     private long lastHookWarningTicks;
     private static int bulkWorldLoadSuppressionDepth;
 
+    // Per-entity handling is individually fast, so a "slow >= 1 ms" metric cannot see a mass chunk
+    // load or unload. These sum the main-thread time spent in the handlers per second instead.
+    private static readonly SuiteBurstTimer SpawnBurst = new("BlockLogger spawn handling (total per second)");
+    private static readonly SuiteBurstTimer DespawnBurst = new("BlockLogger despawn handling (total per second)");
+
     public static IDisposable SuppressLifecycleAuditForBulkWorldLoad()
     {
         Interlocked.Increment(ref bulkWorldLoadSuppressionDepth);
@@ -140,6 +145,8 @@ public sealed class EntityHooks
         aggregateFlushTimer?.Dispose();
         aggregateFlushTimer = null;
         FlushExpiredAggregates(true);
+        SpawnBurst.Flush();
+        DespawnBurst.Flush();
     }
 
     private void OnEntitySpawn(Entity entity)
@@ -149,12 +156,17 @@ public sealed class EntityHooks
         if (entity == null || entity is EntityPlayer) return;
         if (LifecycleAuditSuppressed) return;
 
-        try { EntityObserved?.Invoke(entity, LogActionType.EntitySpawn); }
-        catch (Exception ex) { ReportHookFailure("EntityObserved", ex); }
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            try { EntityObserved?.Invoke(entity, LogActionType.EntitySpawn); }
+            catch (Exception ex) { ReportHookFailure("EntityObserved", ex); }
 
-        if (!config.Enabled || !config.LogEntitySpawn) return;
-        try { QueueEntityRecord(LogActionType.EntitySpawn, entity, null, null, null); }
-        catch (Exception ex) { ReportHookFailure("OnEntitySpawn", ex); }
+            if (!config.Enabled || !config.LogEntitySpawn) return;
+            try { QueueEntityRecord(LogActionType.EntitySpawn, entity, null, null, null); }
+            catch (Exception ex) { ReportHookFailure("OnEntitySpawn", ex); }
+        }
+        finally { SpawnBurst.Add(System.Diagnostics.Stopwatch.GetTimestamp() - started); }
     }
 
     private void OnEntityDeath(Entity entity, DamageSource damageSource)
@@ -192,6 +204,7 @@ public sealed class EntityHooks
         finally
         {
             if(tracing)profiler!.Leave();
+            DespawnBurst.Add(System.Diagnostics.Stopwatch.GetTimestamp()-started);
             double elapsed=System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             if(elapsed>=1)SuiteTimingRegistry.Record("BlockLogger despawn handling (slow >=1ms)",elapsed);
         }
