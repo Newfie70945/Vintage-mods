@@ -12146,6 +12146,7 @@ public sealed partial class WebDashboardService : IDisposable
             incidents = incidents.Select(BuildIncidentListRow).ToList(),
             incidentCount = incidents.Count,
             archivedIncidentCount = performanceCenterStore.Incidents.Count,
+            recurrence = IncidentRecurrenceAnalyzer.Analyze(performanceCenterStore.Incidents),
             entityScan = lastPerformanceEntityScan,
             entityGrowth = growth.Take(20).ToList(),
             environmentCurrent = performanceCenterStore.CurrentEnvironment,
