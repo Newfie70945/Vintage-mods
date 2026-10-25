@@ -3,6 +3,7 @@
 ## Realistic Sailing 0.1.0
 
 - New server-side module: wind-dependent sailboat speed by point of sail, gusts, Beaufort sea state, storm slowdown/warnings and a `/sailing` report. Physics model unit tested; in-game behaviour not yet verified.
+- Client storm visuals: hull pitch/roll bobbing by Beaufort force and spray particles from Force 3, configurable in `NewfiesSailingClient.json`.
 
 ## Server Essentials Suite 1.2.48
 

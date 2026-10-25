@@ -69,4 +69,7 @@ Check(SailingModel.SpeedMultiplier(0, 90, 0.35, 1.35, 17, 41) == 0.35, "Becalmed
 Check(SailingModel.SpeedMultiplier(17, 90, 0.35, 1.35, 17, 41) > SailingModel.SpeedMultiplier(17, 10, 0.35, 1.35, 17, 41), "Beam reach beats head to wind");
 Check(SailingModel.SpeedMultiplier(70, 90, 0.35, 1.35, 17, 41) < SailingModel.SpeedMultiplier(30, 90, 0.35, 1.35, 17, 41), "Storms slow boats");
 Check(Enumerable.Range(0, 500).All(i => SailingModel.Gust(i * 0.3, 0.35) >= 0), "Gusts stay non-negative");
+Check(Enumerable.Range(0, 400).All(i => { var (p, r) = SailingModel.Bob(i * 0.25, 12); return Math.Abs(r) <= 0.38 && Math.Abs(p) <= 0.38; }), "Bobbing stays within bounds");
+Check(Math.Abs(SailingModel.Bob(5, 9).Roll) < 1 && Enumerable.Range(0, 200).Max(i => Math.Abs(SailingModel.Bob(i * 0.2, 9).Roll)) > Enumerable.Range(0, 200).Max(i => Math.Abs(SailingModel.Bob(i * 0.2, 2).Roll)), "Rougher seas roll harder");
+Check(SailingModel.SplashCount(2, 0.2) == 0 && SailingModel.SplashCount(9, 0.2) > SailingModel.SplashCount(4, 0.2) && SailingModel.SplashCount(12, 1) <= 40, "Splash scales with force and is capped");
 Console.WriteLine($"{checks} checks passed");

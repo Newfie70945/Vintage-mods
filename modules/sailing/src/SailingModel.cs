@@ -110,4 +110,25 @@ public static class SailingModel
         }
         return Math.Clamp(m, 0.05, maxMultiplier);
     }
+
+    /// <summary>Hull pitch and roll in radians for a boat in a sea of the given Beaufort force. Phase decorrelates boats.</summary>
+    public static (double Pitch, double Roll) Bob(double seconds, int force, double phase = 0)
+    {
+        double f = Math.Clamp(force, 0, 12);
+        double rollAmp = Math.Min(0.38, 0.008 + 0.028 * f);
+        double pitchAmp = rollAmp * 0.6;
+        double period = Math.Max(2.2, 5.0 - 0.25 * f);
+        double w = 2 * Math.PI / period;
+        double roll = rollAmp * (0.75 * Math.Sin(w * seconds + phase) + 0.25 * Math.Sin(1.9 * w * seconds + phase * 2.3));
+        double pitch = pitchAmp * (0.75 * Math.Sin(0.83 * w * seconds + phase * 1.3) + 0.25 * Math.Sin(2.3 * w * seconds + phase));
+        return (pitch, roll);
+    }
+
+    /// <summary>Splash particles to emit per visual tick for a given force (none in light airs).</summary>
+    public static int SplashCount(int force, double boatSpeed)
+    {
+        if (force < 3) return 0;
+        double n = (force - 2) * 1.5 + Math.Min(boatSpeed, 0.3) * 20;
+        return (int)Math.Min(40, Math.Round(n));
+    }
 }

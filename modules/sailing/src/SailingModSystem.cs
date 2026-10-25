@@ -1,3 +1,4 @@
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -7,7 +8,7 @@ using Vintagestory.API.Server;
 namespace NewfiesSailing;
 
 /// <summary>
-/// Server-side realism for sailing: wind-dependent boat speed by point of sail, gusts, storm slowdown,
+/// Realism for sailing (server physics and warnings, client storm visuals): wind-dependent boat speed by point of sail, gusts, storm slowdown,
 /// force-change warnings for sailors and a /sailing conditions report.
 /// </summary>
 public sealed class SailingModSystem : ModSystem
@@ -20,7 +21,13 @@ public sealed class SailingModSystem : ModSystem
     private long tickListener;
     private double elapsed;
 
-    public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Server;
+    private SailingVisuals? visuals;
+
+    public override void StartClientSide(ICoreClientAPI api)
+    {
+        visuals = new SailingVisuals(api);
+        visuals.Start();
+    }
 
     public override void StartServerSide(ICoreServerAPI api)
     {
@@ -44,6 +51,7 @@ public sealed class SailingModSystem : ModSystem
 
     public override void Dispose()
     {
+        visuals?.Stop();
         if (sapi != null && tickListener != 0) sapi.Event.UnregisterGameTickListener(tickListener);
         boats.Clear();
         base.Dispose();

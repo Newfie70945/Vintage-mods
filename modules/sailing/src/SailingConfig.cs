@@ -18,3 +18,15 @@ public sealed class SailingConfig
     public bool WarnOnForceChange { get; set; } = true;
     public int WarnCooldownSeconds { get; set; } = 30;
 }
+
+/// <summary>Client-only visual settings (ModConfig/NewfiesSailingClient.json).</summary>
+public sealed class SailingVisualsConfig
+{
+    public bool BobbingEnabled { get; set; } = true;
+    public bool SplashesEnabled { get; set; } = true;
+    /// <summary>Multiplier on hull roll/pitch; 0 disables, 2 doubles.</summary>
+    public double BobIntensity { get; set; } = 1.0;
+    public double KnotsPerWindUnit { get; set; } = 30;
+    public string[] BoatCodeContains { get; set; } = { "sail" };
+    public float Range { get; set; } = 48;
+}

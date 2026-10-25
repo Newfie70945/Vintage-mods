@@ -5,9 +5,9 @@
   "authors": [
     "Newfie"
   ],
-  "description": "Adds detailed wind, Beaufort sea states, gusts and point-of-sail physics to sailing, with a /sailing conditions report and storm warnings.",
+  "description": "Adds detailed wind, Beaufort sea states, gusts and point-of-sail physics to sailing, with a /sailing conditions report storm warnings, and client-side bobbing hulls and spray in rough seas.",
   "version": "0.1.0",
-  "side": "Server",
+  "side": "Universal",
   "requiredOnServer": true,
   "requiredOnClient": false,
   "dependencies": {
