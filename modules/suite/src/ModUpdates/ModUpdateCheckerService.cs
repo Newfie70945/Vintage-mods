@@ -543,16 +543,21 @@ public sealed class ModUpdateCheckerService : IDisposable
             var entry = snapshot.Mods.FirstOrDefault(x => string.Equals(x.ModId, modId, StringComparison.OrdinalIgnoreCase));
             if (entry == null) return (false, "Run Check Updates first; that mod has no result yet.");
             if (ignore && !ModUpdateAnalysis.IsIgnorable(entry.Status)) return (false, $"A mod with status '{entry.Status}' has nothing to ignore.");
-            ignores.Ignores.RemoveAll(x => string.Equals(x.ModId, modId, StringComparison.OrdinalIgnoreCase));
+            var candidate = new ModUpdateIgnoreStore
+            {
+                SchemaVersion = ignores.SchemaVersion,
+                Ignores = ignores.Ignores.Where(x => !string.Equals(x.ModId, modId, StringComparison.OrdinalIgnoreCase)).ToList()
+            };
             if (ignore)
-                ignores.Ignores.Add(new ModUpdateIgnoreRecord
+                candidate.Ignores.Add(new ModUpdateIgnoreRecord
                 {
                     ModId = entry.ModId, Status = entry.Status, GameVersion = targetGameVersion,
                     InstalledVersion = entry.InstalledVersion, RecommendedVersion = entry.RecommendedVersion,
                     IgnoredBy = (actor ?? "").Trim(), IgnoredUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                 });
-            try { SuiteConfigStorage.Store(api, ignores, IgnoreFile); }
+            try { SuiteConfigStorage.Store(api, candidate, IgnoreFile); }
             catch (Exception ex) { return (false, "Could not save the ignore list: " + ex.GetType().Name); }
+            ignores = candidate; // Commit memory only after the durable write succeeds.
             ApplyIgnoreState(entry);
             RefreshCounts();
             return (true, ignore ? "Ignored until the game version, installed version or offered release changes." : "Notifications restored.");

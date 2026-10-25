@@ -19,7 +19,7 @@ static class EngineTests
     public static void Run()
     {
         static void Assert(bool condition, string reason) { if (!condition) throw new Exception(reason); }
-        Assert(EngineVersion.Actual == "1.22.7", "Must inspect the loaded official engine version, not a compiled constant.");
+        Assert((string?)typeof(Vintagestory.API.Config.GameVersion).GetField("ShortGameVersion", BindingFlags.Static | BindingFlags.Public)!.GetRawConstantValue() == "1.22.7", "Must inspect the loaded official engine version, not a compiled constant.");
         var phases = EngineHookTargets.PhaseMethods();
         Assert(phases.Length == 5 && phases.Select(m => m.Name).Contains("TickEntities"), "All five inspected phase targets must resolve on a dedicated server.");
         Console.WriteLine("PASS five exact engine phase targets");

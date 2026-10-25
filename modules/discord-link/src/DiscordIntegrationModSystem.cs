@@ -55,7 +55,7 @@ public sealed class DiscordIntegrationModSystem : ModSystem
             RelayServerStarted();
         });
 
-        api.Logger.Notification("[NSE Discord] Unified module 1.0.14 loaded. Config: {0}; linked accounts: {1}; role sync: {2}", DiscordConfigStorage.RelativePath(ConfigFile), linkService.LinkedAccountCount, config.Linking.RoleSync.Enabled ? "enabled" : "disabled");
+        api.Logger.Notification("[NSE Discord] Unified module 1.0.15 loaded. Config: {0}; linked accounts: {1}; role sync: {2}", DiscordConfigStorage.RelativePath(ConfigFile), linkService.LinkedAccountCount, config.Linking.RoleSync.Enabled ? "enabled" : "disabled");
     }
 
     public override void Dispose()

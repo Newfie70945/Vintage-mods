@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>NewfiesCommunityMOTD</AssemblyName>
     <RootNamespace>NewfiesCommunityMOTD</RootNamespace>
-    <Version>2.1.6</Version>
+    <Version>2.1.7</Version>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <!--

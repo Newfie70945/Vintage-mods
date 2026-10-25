@@ -24,6 +24,14 @@ config['WorldConfig']['SaveFileLocation'] = str(data / 'Saves' / save)
 (data / 'serverconfig.json').write_text(json.dumps(config))
 mods = data / 'Mods'; mods.mkdir()
 shutil.copy2(repo / ('artifacts/NewfiesServerEssentialsSuiteV' + suite_version + '.zip'), mods)
+optimizer_test = os.environ.get('NSS_WEB_TEST_OPTIMIZER') == '1'
+if optimizer_test:
+    optimizer_version = (repo / 'modules/optimizer/VERSION').read_text().strip()
+    shutil.copy2(repo / 'modules/optimizer/artifacts' / ('NewfiesServerOptimizer-' + optimizer_version + '.zip'), mods)
+    optimizer_config = json.loads((repo / 'modules/optimizer/config/optimizer.json').read_text())
+    optimizer_config['Profiling'].update(PhaseTimings=True, AutoStart=False)
+    optimizer_config['Compatibility']['SafeMode'] = False
+    (data / 'ModConfig/optimizer.json').write_text(json.dumps(optimizer_config))
 folder = data / 'ModConfig/NewfiesServerEssentialsSuite'
 webfile = folder / 'NewfiesWebServer.json'
 web = json.loads(webfile.read_text()); password = secrets.token_hex(24)
@@ -72,7 +80,7 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
-    if proximity_test or performance_test:
+    if proximity_test or performance_test or optimizer_test:
         session_status, session_data, _, _ = request('/api/session')
         assert session_status == 200
         csrf_token = session_data['csrfToken']
@@ -116,6 +124,19 @@ try:
         assert code == 200, code
         code, map_status, _, _ = request('/api/webmap')
         assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and not map_status['enabled']
+    if optimizer_test:
+        code, nos, _, _ = request('/api/optimizations/newfies')
+        assert code == 200 and nos.get('available'), (code, nos)
+        time.sleep(1.1)
+        code, started, _, _ = request('/api/optimizations/newfies', {'operation':'profile-start'})
+        assert code == 200 and started.get('success') and started['optimizer']['profiling'], (code, started)
+        time.sleep(3)
+        code, running, _, _ = request('/api/optimizations/newfies')
+        assert code == 200, (code, running)
+        (root / 'optimizer-running.json').write_text(json.dumps(running, indent=2))
+        time.sleep(1.1)
+        code, stopped, _, _ = request('/api/optimizations/newfies', {'operation':'profile-stop'})
+        assert code == 200 and stopped.get('success') and not stopped['optimizer']['profiling'], (code, stopped)
     status, web_status, _, _ = request('/api/web/status')
     assert status == 200
     diagnostics = web_status.get('diagnostics', {})
@@ -127,7 +148,7 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
-                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test,
+                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
@@ -166,3 +187,14 @@ if performance_test:
     report['liveTerrainSettingsPersisted'] = True
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Performance reading endpoints and opt-in live terrain settings persistence: ok', flush=True)
+
+if optimizer_test:
+    capture = json.loads((data / 'NewfiesOptimizer/latest.json').read_text())
+    module_states = {m['name']:m['status'] for m in capture['modules']}
+    assert module_states.get('phaseTimings') == 'captured', module_states
+    assert module_states.get('chunkLifecycleTimings') == 'captured', module_states
+    targets = {h['name'] for h in capture['hotspots']}
+    assert {'ServerSystemSupplyChunks.mainThreadLoadChunkColumn','ServerSystemUnloadChunks.UnloadChunkColumns','ServerSystemEntitySimulation.SendEntityDespawns'} <= targets, targets
+    report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True)
+    (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    print('NOS phase and three lifecycle targets captured; shutdown removed hooks: ok', flush=True)

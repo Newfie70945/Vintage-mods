@@ -13,9 +13,9 @@ import compare_captures as cc  # noqa: E402
 
 def samples(n, avg=20.0, p95=30.0, pause=1.0, players=10, entities=3000, chunks=800, seed=1, jitter=1.0):
     rng = random.Random(seed)
-    return [{"averageTickMs": avg + rng.uniform(-jitter, jitter), "p95TickMs": p95 + rng.uniform(-jitter, jitter),
+    return [{"elapsedSeconds": i + 1, "averageTickMs": avg + rng.uniform(-jitter, jitter), "p95TickMs": p95 + rng.uniform(-jitter, jitter),
              "gcPauseMsDelta": max(0.0, pause + rng.uniform(-.5, .5)), "players": players,
-             "loadedEntities": entities, "loadedChunks": chunks} for _ in range(n)]
+             "loadedEntities": entities, "loadedChunks": chunks} for i in range(n)]
 
 
 def report(sample_list=None, modules=(), counters=None, hotspots=(), duration=300.0):
@@ -209,3 +209,13 @@ class Cli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class CadenceRegressions(unittest.TestCase):
+    def test_gc_is_normalized_by_observed_interval(self):
+        base=report([{ "elapsedSeconds": i+1, "gcPauseMsDelta": 10} for i in range(60)])
+        candidate=report([{ "elapsedSeconds": (i+1)*2, "gcPauseMsDelta": 20} for i in range(60)])
+        self.assertEqual(cc._metric_values([base], "gcPauseMsDelta"), cc._metric_values([candidate], "gcPauseMsDelta"))
+    def test_missing_workload_cannot_prove_improvement(self):
+        b=report(samples(300));c=report(samples(300,avg=10,p95=15))
+        for s in b["samples"]: s.pop("players")
+        self.assertEqual(cc.compare([b],[c])["verdict"], "inconclusive")

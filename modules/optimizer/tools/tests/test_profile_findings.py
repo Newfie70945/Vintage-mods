@@ -233,3 +233,13 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class RetainedWindowRegressions(unittest.TestCase):
+    def test_ring_window_uses_retained_duration(self):
+        r=report(durationSeconds=10000,samplesOverwritten=9000,samples=[sample(9000+i,pause=100) for i in range(101)])
+        _,stats=pf.gc_findings(r)
+        self.assertAlmostEqual(stats["pausePercentOfWall"],10)
+    def test_missing_gc_samples_are_not_low_gc_evidence(self):
+        findings,stats=pf.gc_findings(report(samples=[{"elapsedSeconds": 10,"gcPauseMsDelta":None}]))
+        self.assertEqual(stats,{})
+        self.assertIn("unavailable",findings[0]["title"])

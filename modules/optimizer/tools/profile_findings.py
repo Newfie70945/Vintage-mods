@@ -8,6 +8,7 @@ heuristics for deciding where to look next, not performance claims or capacity l
 """
 import argparse
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -35,7 +36,7 @@ GC_COINCIDENCE_MS = 20.0
 
 
 def _num(value):
-    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
 
 
 def _finding(severity, title, evidence, next_step="", not_established=""):
@@ -170,6 +171,15 @@ def gc_findings(report):
     duration = _num(report.get("durationSeconds")) or (samples[-1].get("elapsedSeconds") if samples else 0) or 0
     if not samples or duration <= 0:
         return [], {}
+    retained = (report.get("samplesOverwritten") or 0) > 0
+    if retained:
+        first, last = _num(samples[0].get("elapsedSeconds")), _num(samples[-1].get("elapsedSeconds"))
+        if first is None or last is None or last <= first:
+            return [_finding("info", "GC rate unavailable", "Overwritten samples lack a complete timed window.")], {}
+        duration = last - first
+        samples = samples[1:]  # The first retained delta starts outside the known window.
+    if not any(_num(s.get("gcPauseMsDelta")) is not None for s in samples):
+        return [_finding("info", "GC pause data unavailable", "No valid GC pause samples were recorded; a low pause rate cannot be inferred.")], {}
     pause = sum(_num(s.get("gcPauseMsDelta")) or 0 for s in samples)
     alloc = sum(_num(s.get("allocatedBytesDelta")) or 0 for s in samples)
     gen2 = sum(_num(s.get("gc2Delta")) or 0 for s in samples)
@@ -177,7 +187,7 @@ def gc_findings(report):
     committed = [(_num(s.get("gcCommittedBytes")), _num(s.get("gcFragmentedBytes"))) for s in samples]
     committed = [(c, f) for c, f in committed if c and f is not None]
     ratio = (committed[-1][1] / committed[-1][0]) if committed else None
-    stats = {"pauseMs": pause, "pausePercentOfWall": pause_percent, "allocMiBPerSecond": alloc / duration / 1048576,
+    stats = {"windowSeconds": duration, "retainedWindow": retained, "pauseMs": pause, "pausePercentOfWall": pause_percent, "allocMiBPerSecond": alloc / duration / 1048576,
              "gen2Collections": int(gen2), "fragmentationRatio": ratio}
     findings = []
     summary = (f"{pause:.0f} ms of GC pause over {duration:.0f}s ({pause_percent:.2f}% of wall time), "

@@ -51,7 +51,41 @@ var rev=(IDictionary)analysis.GetMethod("ReverseDependencies")!.Invoke(null,[all
 Check(((IList)rev["lib"]!).Count==2&&!rev.Contains("game"),"reverse dependencies list dependents and skip game");
 
 var g=analysis.GetMethod("DescribeGameRequirement")!.Invoke(null,["1.21.0","1.22.7"])!;
-Check((string)g.GetType().GetField("Item2")!.GetValue(g)!=null&&(string)g.GetType().GetField("Item2")!.GetValue(g)=="Compatible","older minimum is compatible");
+Check((string?)g.GetType().GetField("Item2")!.GetValue(g)=="Compatible","older minimum is compatible");
 var newer=analysis.GetMethod("DescribeGameRequirement")!.Invoke(null,["1.23.0","1.22.7"])!;
-Check((string)newer.GetType().GetField("Item2")!.GetValue(newer)!=null&&(string)newer.GetType().GetField("Item2")!.GetValue(newer)=="RequiresNewerGame","newer minimum flagged");
+Check((string?)newer.GetType().GetField("Item2")!.GetValue(newer)=="RequiresNewerGame","newer minimum flagged");
 Console.WriteLine("PASS: mod update ignore expiry, dependency states, reverse dependencies and game requirement");
+
+// A failed durable write must leave both the ignore store and displayed entry untouched.
+var serviceType=asm.GetType("BlockLogger.ModUpdates.ModUpdateCheckerService",true)!;
+var service=System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(serviceType);
+var apiType=AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(game,"VintagestoryAPI.dll")).GetType("Vintagestory.API.Server.ICoreServerAPI",true)!;
+var api=DispatchProxy.Create(apiType,typeof(FailingConfigProxy));
+var fields=BindingFlags.Instance|BindingFlags.NonPublic;
+void Set(string name,object value)=>serviceType.GetField(name,fields)!.SetValue(service,value);
+Set("api",api);Set("sync",new object());Set("targetGameVersion","1.22.7");
+var store=Activator.CreateInstance(asm.GetType("BlockLogger.ModUpdates.ModUpdateIgnoreStore",true)!)!;
+Set("ignores",store);
+var snapshot=Activator.CreateInstance(asm.GetType("BlockLogger.ModUpdates.ModUpdateSnapshot",true)!)!;
+var entry=Activator.CreateInstance(asm.GetType("BlockLogger.ModUpdates.ModUpdateEntry",true)!)!;
+foreach(var pair in new[]{("ModId","mod"),("Status","Update"),("InstalledVersion","1.0.0"),("RecommendedVersion","1.2.0")})entry.GetType().GetProperty(pair.Item1)!.SetValue(entry,pair.Item2);
+((IList)snapshot.GetType().GetProperty("Mods")!.GetValue(snapshot)!).Add(entry);Set("snapshot",snapshot);
+try {
+ var result=serviceType.GetMethod("SetIgnored")!.Invoke(service,["mod",true,"Owner"])!;
+ Check(!(bool)result.GetType().GetField("Item1")!.GetValue(result)!,"save failure returns failure");
+ Check(ReferenceEquals(store,serviceType.GetField("ignores",fields)!.GetValue(service)),"save failure retains original store");
+ Check(!(bool)entry.GetType().GetProperty("Ignored")!.GetValue(entry)!,"save failure does not change displayed ignore");
+ Check(FailingConfigProxy.StoreAttempts==1,"failure reached the durable StoreModConfig operation");
+ Console.WriteLine("PASS: failed ignore persistence leaves memory and display unchanged");
+} finally { Directory.Delete(FailingConfigProxy.Root,true); }
+
+public class FailingConfigProxy:DispatchProxy {
+ public static string Root=Path.Combine(Path.GetTempPath(),"nss-ignore-failure-"+Guid.NewGuid().ToString("N"));
+ public static int StoreAttempts;
+ protected override object? Invoke(MethodInfo? method,object?[]? args) {
+  if(method!.Name=="GetOrCreateDataPath"){Directory.CreateDirectory(Root);return Root;}
+  if(method.Name=="StoreModConfig"){StoreAttempts++;throw new IOException("Injected persistence failure");}
+  if(method.Name=="get_DataBasePath")return Root;
+  throw new NotSupportedException(method.Name);
+ }
+}

@@ -5,14 +5,14 @@
       "id": "suite",
       "path": "modules/suite",
       "assembly": "NewfiesServerEssentialsSuite",
-      "version": "1.2.51",
+      "version": "1.2.52",
       "origin": "restored author source"
     },
     {
       "id": "motd",
       "path": "modules/motd",
       "assembly": "NewfiesCommunityMOTD",
-      "version": "2.1.6",
+      "version": "2.1.7",
       "origin": "restored author source"
     },
     {
@@ -33,7 +33,7 @@
       "id": "discord-link",
       "path": "modules/discord-link",
       "assembly": "NewfiesServerEssentialsDiscord",
-      "version": "1.0.14",
+      "version": "1.0.15",
       "origin": "restored author source"
     },
     {
@@ -46,7 +46,7 @@
   ],
   "optimizer": {
     "path": "modules/optimizer",
-    "version": "0.20.13-preview",
+    "version": "0.20.14-preview",
     "status": "guarded API patches with profiling; experimental"
   }
 }

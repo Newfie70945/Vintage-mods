@@ -1,4 +1,10 @@
-# Audit: chunk loading, entity cleanup, containers, crafting and allocation (NOS 0.20.13 / Suite 1.2.51)
+# Historical branch audit: integration review follows below
+
+## Integration review, 2026-10-25
+
+This document records the original branch author’s findings below. For NOS 0.20.14-preview, the lifecycle timing group and companion-owner safeguards were retained and checked against official 1.22.7 assemblies. The proposed Suite burst timer and its hooks were **not integrated**: the final burst could remain unreported until the next event, and a new event could be grouped with an old burst. References to implemented Suite burst metrics below describe the proposal, not the shipped Suite. Current validation is recorded in `docs/validation/CLAUDE-RELEASE-REVIEW-1.2.52.md` at repository root.
+
+# Original audit:  chunk loading, entity cleanup, containers, crafting and allocation (NOS 0.20.13 / Suite 1.2.51)
 
 Scope: the five targets proposed after the production logs. This is a source audit plus one measurement change. It was done **without the official 1.22.7 assemblies or a .NET SDK**, so nothing here was compiled, run, or checked against the engine's IL. Statements are marked **verified** (read in this repository), **inferred**, or **to verify live**. No new engine patch was written: every existing module is pinned to an IL hash and has differential tests against the real game DLLs, and a patch written blind would not meet that bar.
 

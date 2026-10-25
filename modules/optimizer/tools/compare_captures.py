@@ -76,6 +76,22 @@ def mann_whitney_p(a, b):
     return math.erfc(max(z, 0) / math.sqrt(2))
 
 
+def _metric_values(reports, field):
+    if field != "gcPauseMsDelta":
+        return _values([s for r in reports for s in r.get("samples") or []], field)
+    values = []
+    for report in reports:
+        previous = None if (report.get("samplesOverwritten") or 0) > 0 else 0.0
+        for sample in report.get("samples") or []:
+            if not isinstance(sample, dict):
+                continue
+            elapsed, delta = _num(sample.get("elapsedSeconds")), _num(sample.get(field))
+            if elapsed is not None and previous is not None and elapsed > previous and delta is not None:
+                values.append(delta / (elapsed - previous))
+            previous = elapsed
+    return values
+
+
 def _active_modules(reports):
     """Modules active in EVERY report of a side (a module that flapped is not reliably on)."""
     sets = []
@@ -154,7 +170,7 @@ def compare(baseline, candidate):
 
     metrics = []
     for field, label, min_abs, min_rel in METRICS:
-        judged = judge_metric(_values(base_samples, field), _values(cand_samples, field), min_abs, min_rel)
+        judged = judge_metric(_metric_values(baseline, field), _metric_values(candidate, field), min_abs, min_rel)
         judged.update({"field": field, "label": label})
         metrics.append(judged)
 
@@ -183,6 +199,9 @@ def compare(baseline, candidate):
     if base_seconds < MIN_DURATION_SECONDS or cand_seconds < MIN_DURATION_SECONDS:
         blockers.append(f"captures too short ({base_seconds:.0f}s and {cand_seconds:.0f}s; need {MIN_DURATION_SECONDS}s each)")
     blockers += workload_differences(base_samples, cand_samples)
+    for field in WORKLOAD_MIN_ABS:
+        if not _values(base_samples, field) or not _values(cand_samples, field):
+            blockers.append("workload metadata unavailable: " + field)
 
     tick = [m for m in metrics if m["field"] in TICK_FIELDS]
     worse = [m for m in metrics if m["verdict"] == "worse"]

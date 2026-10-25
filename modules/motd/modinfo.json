@@ -6,7 +6,7 @@
     "Newfie"
   ],
   "description": "Native server information hub with configurable MOTD content, logo branding, live player roster, VTML/Markdown, scrolling, links and smart show rules.",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "side": "Universal",
   "dependencies": {}
 }
