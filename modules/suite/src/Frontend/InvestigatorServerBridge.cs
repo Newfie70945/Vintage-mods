@@ -2391,7 +2391,7 @@ public sealed class InvestigatorServerBridge
                 ModId = x.ModId,
                 AttributionConfidence = x.AttributionConfidence
             }).ToList(),
-            ProfileSlowTicks = snapshot.ProfileSlowTicks.Select(x => new ProfilerProfileSlowTickPacket
+            ProfileSlowTicks = snapshot.ProfileSlowTicks.Take(60).Select(x => new ProfilerProfileSlowTickPacket
             {
                 UnixMilliseconds = x.UnixMilliseconds,
                 TickMs = x.TickMs,

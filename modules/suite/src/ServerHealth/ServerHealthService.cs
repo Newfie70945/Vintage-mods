@@ -19,6 +19,9 @@ public sealed class ServerHealthService : IDisposable
     private const int SampleIntervalMs = 1000;
     private const int MaxSamples = 3600; // 60 minutes at one sample/second.
     private const int MaxSlowSpikes = 50;
+    // Hottest profiled ticks kept from one capture (it used to be 60).
+    private const int MaxRetainedSlowTicks = 200;
+    private TimeSpan lastProfileGcPause;
     private const int MaxDiagnosticIncidents = 100;
     private const double SlowSpikeThresholdMs = 150;
     private const int MaxProfileAccumulatorKeys = 4096;
@@ -504,7 +507,7 @@ public sealed class ServerHealthService : IDisposable
                 Hotspots = includeProfileDetails ? lastHotspots.Take(30).ToList() : new(),
                 ModHotspots = includeProfileDetails ? lastModHotspots.Take(30).ToList() : new(),
                 Phases = includeProfileDetails ? lastPhases.Take(30).ToList() : new(),
-                ProfileSlowTicks = includeProfileDetails ? lastProfileSlowTicks.Take(60).ToList() : new(),
+                ProfileSlowTicks = includeProfileDetails ? lastProfileSlowTicks.Take(MaxRetainedSlowTicks).ToList() : new(),
                 ProfileSlowCauses = includeProfileDetails ? lastSlowCauses.ToList() : new(),
                 OffThreadReports = includeProfileDetails ? lastOffThreadReports.Take(30).ToList() : new(),
                 LoadedModCount = !includeProfileDetails ? 0 : modIdentities.Count > 0
@@ -611,6 +614,7 @@ public sealed class ServerHealthService : IDisposable
             profileCaptureKind = automatic ? "Automatic lag incident" : "Manual";
             profileTriggerIncidentUnixMilliseconds = 0;
             lastProfileRootStart = long.MinValue;
+            lastProfileGcPause = GC.GetTotalPauseDuration();
             profileAccumulators.Clear();
             phaseAccumulators.Clear();
             modAccumulators.Clear();
@@ -1991,6 +1995,12 @@ public sealed class ServerHealthService : IDisposable
 
             lastProfileRootStart = root.Start;
             double tickMs = TicksToMs(root.ElapsedTicks);
+
+            // GC pause since the previous profiler sample. Samples run about once per tick, so a
+            // pause large enough to matter lands on the tick it stalled.
+            TimeSpan gcPauseTotal = GC.GetTotalPauseDuration();
+            double gcPauseMs = Math.Max(0, (gcPauseTotal - lastProfileGcPause).TotalMilliseconds);
+            lastProfileGcPause = gcPauseTotal;
             if (tickMs < 0 || tickMs >= 60_000) return;
 
             profileTickDurationsMs.Add(tickMs);
@@ -2017,6 +2027,8 @@ public sealed class ServerHealthService : IDisposable
                     capturedSlowCauses[marker] = cause = new ServerProfileSlowCause { Marker = marker };
                 cause.Count++;
                 cause.WorstTickMs = Math.Max(cause.WorstTickMs, tickMs);
+                cause.TotalTickMs += tickMs;
+                cause.TotalLeadingMs += leading.ElapsedMs;
                 var contributors = TopProfileLeaves(profileLeafBuffer, 6);
                 var causes = contributors
                     .Select(x => $"{ShortCode(x.Path, 72)} ({x.ElapsedMs:0.0}ms)")
@@ -2030,12 +2042,13 @@ public sealed class ServerHealthService : IDisposable
                     Contributors = contributors.Select(x => new IncidentTickContributor { Marker = x.Path, WorkMs = x.ElapsedMs, Calls = x.Calls }).ToList(),
                     LeadingMarker = leading.Path ?? "",
                     LeadingWorkMs = leading.ElapsedMs,
+                    GcPauseMs = gcPauseMs,
                     TopCauseSummary = causes.Count == 0
                         ? "No leaf profiler markers were exposed for this tick."
                         : string.Join(" | ", causes)
                 });
 
-                if (capturedSlowProfileTicks.Count > 60)
+                if (capturedSlowProfileTicks.Count > MaxRetainedSlowTicks)
                 {
                     int smallest = 0;
                     for (int i = 1; i < capturedSlowProfileTicks.Count; i++)
@@ -2726,6 +2739,7 @@ public sealed class ServerHealthService : IDisposable
             lastSlowCauses = capturedSlowCauses.Values.Select(c => {
                 var owner = ResolveModAttribution(c.Marker);
                 return new ServerProfileSlowCause { Marker = c.Marker, Count = c.Count, WorstTickMs = c.WorstTickMs,
+                    TotalTickMs = c.TotalTickMs, TotalLeadingMs = c.TotalLeadingMs,
                     ModId = owner.IsAttributed ? owner.ModId : "", Confidence = owner.Confidence };
             }).OrderByDescending(c => c.Count).ThenByDescending(c => c.WorstTickMs).ToList();
             foreach (var tick in capturedSlowProfileTicks)
@@ -2741,10 +2755,11 @@ public sealed class ServerHealthService : IDisposable
                     contributor.ModName = attribution.IsAttributed ? attribution.ModName : "";
                     contributor.Confidence = attribution.Confidence;
                 }
+                SlowTickAnalyzer.Annotate(tick);
             }
             lastProfileSlowTicks = capturedSlowProfileTicks
                 .OrderByDescending(x => x.TickMs)
-                .Take(60)
+                .Take(MaxRetainedSlowTicks)
                 .ToList();
 
             cachedSmartAnalysisUnixMilliseconds = 0;
@@ -3157,6 +3172,9 @@ public sealed class ServerProfileSlowCause
     public string Marker { get; set; } = "";
     public int Count { get; set; }
     public double WorstTickMs { get; set; }
+    // Summed over every sampled slow tick this marker led, including ticks no longer retained.
+    public double TotalTickMs { get; set; }
+    public double TotalLeadingMs { get; set; }
     public string ModId { get; set; } = "";
     public string Confidence { get; set; } = "Low";
 }

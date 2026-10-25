@@ -9958,6 +9958,7 @@ public sealed partial class WebDashboardService : IDisposable
                 lastIncidentSummary = nativeTickDebugLastIncidentSummary,
                 profileSlowTicks = health?.ProfileSlowTicks,
                 profileSlowCauses = health?.ProfileSlowCauses,
+                slowTickSummary = SlowTickAnalyzer.Summarize(health?.ProfileSlowTicks),
                 contributors = module.ServerHealth?.GetTickContributors(),
                 modAttribution = new
                 {

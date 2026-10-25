@@ -12940,6 +12940,36 @@ function renderTickContributors(c){
   const rows=Array.isArray(c.rows)?c.rows:[],running=!!c.running;
   host.innerHTML=`<div class="cardHeader"><div><h3>${running?'Live':'Last capture'} top contributors</h3><div class="small">${running?`Updating with this page · ${Number(c.remainingSeconds||0)}s remaining`:(c.captureUnixMilliseconds?`Completed ${esc(new Date(Number(c.captureUnixMilliseconds)).toLocaleString())}`:'No engine capture yet')} · ${Number(c.sampledTicks||0)} sampled ticks</div></div><div class="spacer"></div><span class="badge">${running?'LIVE':'RETAINED'}</span></div><p class="small">Top 12 sampled leaf markers by accumulated time. Confidence describes marker ownership; engine/unknown work remains visible. These are sampled totals, not whole-server CPU percentages or proof of a mod defect.</p>${rows.length?`<div class="tableWrap dataScroll"><table><thead><tr><th>Measured work</th><th>Likely owner</th><th>Total</th><th>Max segment</th><th>Calls</th></tr></thead><tbody>${rows.map(x=>`<tr><td class="codeCell" title="${esc(x.code||'')}">${esc(x.code||'Unknown marker')}</td><td>${esc(x.modName||x.modId||'Engine / unknown')}<br>${confidenceBadge(x.attributionConfidence||'Low')}</td><td>${Number(x.totalMs||0).toFixed(1)}ms</td><td>${Number(x.maxSingleMs||0).toFixed(1)}ms</td><td>${Number(x.calls||0).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">${running?'Waiting for sampled ticks…':'Use Capture Incident + Profile to measure contributors. Native slow-tick logging alone does not collect this ranking.'}</div>`}`;
 }
+let tickDebugShowAllTicks=false,tickDebugVerdictFilter='all';
+function renderTickDebugHistory(d){
+  const host=$('tickDebugHistory');if(!host)return;
+  const ticks=(d.profileSlowTicks||[]).slice().sort((a,b)=>Number(b.tickMs||0)-Number(a.tickMs||0));
+  const causes=d.profileSlowCauses||[],sum=d.slowTickSummary||{},verdicts=sum.verdicts||[],owners=sum.owners||[];
+  const kindOf=x=>x.verdict||'Unclassified';
+  if(tickDebugVerdictFilter!=='all'&&!ticks.some(x=>kindOf(x)===tickDebugVerdictFilter))tickDebugVerdictFilter='all';
+  const filtered=ticks.filter(x=>tickDebugVerdictFilter==='all'||kindOf(x)===tickDebugVerdictFilter);
+  const shown=tickDebugShowAllTicks?filtered:filtered.slice(0,25);
+  const verdictClass=v=>v==='GC pause'?'warn':v==='Single dominant cause'?'bad':'';
+  const contributorHtml=x=>{
+    const rows=x.contributors||[];
+    if(!rows.length)return esc(x.topCauseSummary||'');
+    const total=Number(x.tickMs||0)||1;
+    return rows.map(c=>`<div><code>${esc(c.marker||'')}</code> — ${Number(c.workMs||0).toFixed(1)}ms (${(Number(c.workMs||0)/total*100).toFixed(0)}%)${c.modId?` · ${esc(c.modName||c.modId)} (${esc(c.confidence||'Low')})`:''}</div>`).join('');
+  };
+  const chip=(key,label,count)=>`<button class="miniClear ${tickDebugVerdictFilter===key?'primary':''}" data-tick-verdict="${esc(key)}">${esc(label)}${count===null?'':` · ${count}`}</button>`;
+  host.innerHTML=`<h3>Hottest ticks and what caused them</h3>
+    <p class="small">From the latest completed engine capture. Ticks at or above 50ms are sampled and the 200 hottest are kept. Sampling can miss intervening ticks, and an owner is where profiled time was spent, not proof of a defect.</p>
+    ${sum.headline?`<div class="compactNote" style="margin-bottom:8px">${esc(sum.headline)}</div>`:''}
+    ${verdicts.length?`<div class="toolbar" style="padding-left:0;padding-right:0;flex-wrap:wrap"><span class="small">Cause type</span>${chip('all','All',ticks.length)}${verdicts.map(v=>chip(v.verdict,v.verdict,Number(v.count||0))).join('')}</div>`:''}
+    ${owners.length?`<h4>Who the time belongs to</h4><div class="tableWrap dataScroll"><table><thead><tr><th>Owner</th><th>Slow ticks</th><th>Share</th><th>Leading work</th><th>Worst tick</th><th>Most common marker</th></tr></thead><tbody>${owners.map(o=>`<tr><td><b>${esc(o.owner||'Unattributed')}</b>${o.modId?`<div class="small"><code>${esc(o.modId)}</code></div>`:''}</td><td>${Number(o.ticks||0)}</td><td>${Number(o.sharePercent||0).toFixed(0)}%</td><td>${Number(o.totalLeadingMs||0).toFixed(0)}ms</td><td>${Number(o.worstTickMs||0).toFixed(1)}ms</td><td class="codeCell" title="${esc(o.topMarker||'')}">${esc(o.topMarker||'')}</td></tr>`).join('')}</tbody></table></div>`:''}
+    <h4>Most common leading causes</h4>${causes.length?`<div class="tableWrap dataScroll"><table><thead><tr><th>Leading marker</th><th>Slow ticks</th><th>Worst tick</th><th>Total tick time</th><th>Likely owner</th></tr></thead><tbody>${causes.map(x=>`<tr><td>${esc(x.marker)}</td><td>${Number(x.count)}</td><td>${Number(x.worstTickMs).toFixed(1)}ms</td><td>${Number(x.totalTickMs||0)>0?`${Number(x.totalTickMs).toFixed(0)}ms`:'—'}</td><td>${esc(x.modId||'Engine / unknown')} · ${esc(x.confidence)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="small">Run Incident Capture during a slowdown to collect evidence.</div>'}
+    <h4>Hottest ticks (${filtered.length}${tickDebugVerdictFilter==='all'?'':` of ${ticks.length}`})</h4>
+    <div class="tableWrap dataScroll"><table><thead><tr><th>Time</th><th>Duration</th><th>Cause type</th><th>What caused it</th><th>Owner</th><th>GC pause</th><th>Unmarked</th></tr></thead><tbody>${shown.map(x=>`<tr><td>${esc(new Date(Number(x.unixMilliseconds)).toLocaleTimeString())}</td><td><b>${Number(x.tickMs).toFixed(1)}ms</b></td><td class="${verdictClass(x.verdict)}">${esc(x.verdict||'—')}</td><td>${x.why?`${esc(x.why)}<details><summary class="small">Top markers</summary><div class="small">${contributorHtml(x)}</div></details>`:contributorHtml(x)}</td><td>${esc(x.owner||'')}${x.confidence&&x.ownerKind==='Mod'?` <span class="small">${esc(x.confidence)}</span>`:''}</td><td>${Number(x.gcPauseMs||0)>0?`${Number(x.gcPauseMs).toFixed(1)}ms`:'—'}</td><td>${Number(x.unaccountedMs||0)>0?`${Number(x.unaccountedMs).toFixed(1)}ms`:'—'}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No ticks match this filter.</td></tr>'}</tbody></table></div>
+    ${filtered.length>25?`<div class="toolbar" style="padding-left:0;padding-right:0"><button id="tickDebugShowAll">${tickDebugShowAllTicks?'Show top 25 only':`Show all ${filtered.length} ticks`}</button><span class="small">Showing ${shown.length} of ${filtered.length}</span></div>`:''}`;
+  host.querySelectorAll('[data-tick-verdict]').forEach(b=>b.onclick=()=>{tickDebugVerdictFilter=b.dataset.tickVerdict;renderTickDebugHistory(tickDebugLastPayload||d);});
+  const more=host.querySelector('#tickDebugShowAll');
+  if(more)more.onclick=()=>{tickDebugShowAllTicks=!tickDebugShowAllTicks;renderTickDebugHistory(tickDebugLastPayload||d);};
+}
 function renderTickDebug(d){
   tickDebugLastPayload=d||{};
   const enabled=d.enabled!==false;
@@ -12989,11 +13019,7 @@ function renderTickDebug(d){
       : `<div class="cardHeader"><div><h3>Likely Mod Attribution</h3><div class="small">Measured engine-profiler ownership only.</div></div><div class="spacer"></div><button id="tickDebugClearAttribution" class="miniClear" title="Clear retained mod-attribution results">Clear</button></div><div class="empty">${esc(attr.note||'No strong mod attribution is available yet. Run Incident Capture during the slowdown.')}</div>`;
     if($('tickDebugClearAttribution'))$('tickDebugClearAttribution').onclick=()=>clearProfilerList('mods',true);
   }
-  const history=$('tickDebugHistory');
-  if(history){
-    const ticks=d.profileSlowTicks||[],causes=d.profileSlowCauses||[];
-    history.innerHTML=`<h3>Slowest sampled ticks and recurring causes</h3><p class="small">Latest completed engine capture only. Threshold: 50ms. Up to 60 worst sampled ticks retained; frequencies count all sampled slow ticks, including discarded rows. Sampling may miss intervening ticks. Attribution names are candidates from profiler markers, not proof of a defect.</p><h4>Most common leading causes</h4>${causes.length?`<div class="tableWrap dataScroll"><table><thead><tr><th>Leading marker</th><th>Slow ticks</th><th>Worst tick</th><th>Likely owner</th></tr></thead><tbody>${causes.map(x=>`<tr><td>${esc(x.marker)}</td><td>${Number(x.count)}</td><td>${Number(x.worstTickMs).toFixed(1)}ms</td><td>${esc(x.modId||'Engine / unknown')} · ${esc(x.confidence)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="small">Run Incident Capture during a slowdown to collect evidence.</div>'}<h4>Worst ticks</h4><div class="tableWrap dataScroll"><table><thead><tr><th>Time</th><th>Duration</th><th>Leading work</th></tr></thead><tbody>${ticks.map(x=>`<tr><td>${esc(new Date(Number(x.unixMilliseconds)).toLocaleTimeString())}</td><td>${Number(x.tickMs).toFixed(1)}ms</td><td>${esc(x.topCauseSummary)}</td></tr>`).join('')}</tbody></table></div>`;
-  }
+  renderTickDebugHistory(d);
   $('tickDebugActionOutput').textContent=last.output||'No native debug command has been run from this page yet.';
   $('tickDebugSlowOutput').textContent=slow.lastExcerpt||'No slow-tick capture has completed yet.';
   $('tickDebugLogPath').textContent=slow.logPath||'Current server log path will appear when a capture starts.';

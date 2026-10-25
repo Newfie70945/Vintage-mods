@@ -23,6 +23,15 @@ public sealed class ServerProfileSlowTick
     public string ModName { get; set; } = "";
     public string Confidence { get; set; } = "Low";
     public bool IsCore { get; set; }
+    // GC pause measured between the previous profiler sample and this tick.
+    public double GcPauseMs { get; set; }
+    // Filled by SlowTickAnalyzer from the measured values above.
+    public double UnaccountedMs { get; set; }
+    public double LeadingSharePercent { get; set; }
+    public string Verdict { get; set; } = "";
+    public string Why { get; set; } = "";
+    public string Owner { get; set; } = "";
+    public string OwnerKind { get; set; } = "";
 }
 
 public sealed class IncidentProfilerEvidence
