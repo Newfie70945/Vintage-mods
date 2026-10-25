@@ -6,7 +6,7 @@
     "Newfie"
   ],
   "description": "Newfies Server Essentials Suite: server administration, logging, WebPanel/WebMap, performance diagnostics, player tools, Client Integrity/Anti-Cheat with Ore Shield, Discord hooks, and optional integration with standalone modules such as Newfie's Player List, ChatGuard, and Community MOTD.",
-  "version": "1.2.53",
+  "version": "1.2.51",
   "side": "Universal",
   "requiredOnServer": true,
   "dependencies": {

@@ -1,4 +1,4 @@
-# Suite 1.2.53 — save persistence and stall attribution
+# Suite 1.2.51 — save persistence and stall attribution
 
 ## Changes
 
