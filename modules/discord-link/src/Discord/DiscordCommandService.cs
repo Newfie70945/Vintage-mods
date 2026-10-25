@@ -92,14 +92,14 @@ public sealed class DiscordCommandService
             commands.Add(new SlashCommandBuilder()
                 .WithName("kick")
                 .WithDescription("Staff: kick an online player.")
-                .AddOption("player", ApplicationCommandOptionType.String, "Exact player name", isRequired: true)
-                .AddOption("reason", ApplicationCommandOptionType.String, "Reason", isRequired: false)
+                .AddOption("player", ApplicationCommandOptionType.String, "Exact player name", isRequired: true, maxLength: 64)
+                .AddOption("reason", ApplicationCommandOptionType.String, "Reason", isRequired: false, maxLength: 240)
                 .Build());
 
             commands.Add(new SlashCommandBuilder()
-                .WithName("allowcharsel")
+                .WithName("allowcharselonce")
                 .WithDescription("Staff: allow a player to reopen character selection once.")
-                .AddOption("player", ApplicationCommandOptionType.String, "Player name", isRequired: true)
+                .AddOption("player", ApplicationCommandOptionType.String, "Player name", isRequired: true, maxLength: 64)
                 .Build());
 
             commands.Add(WhitelistBuilder());
@@ -158,7 +158,9 @@ public sealed class DiscordCommandService
                 case "unlink": await HandleLinkTransport(command, "unlink"); break;
                 case "announce": await HandleAnnounce(command); break;
                 case "kick": await HandleKick(command); break;
-                case "allowcharsel": await HandleAllowCharSel(command); break;
+                case "allowcharselonce":
+                case "allowcharsel": // name used before 1.x; still answered while Discord refreshes its command list
+                    await HandleAllowCharSel(command); break;
                 case "whitelist": await HandleWhitelist(command); break;
                 case "restart": await HandleRestartControl(command); break;
                 case "ban":
@@ -281,7 +283,7 @@ public sealed class DiscordCommandService
             lines.Add("**Staff commands**");
             lines.Add("`/announce` — broadcast a staff announcement in-game");
             lines.Add("`/kick` — disconnect an online player");
-            lines.Add("`/allowcharsel` — allow one character-selection reopen");
+            lines.Add("`/allowcharselonce` — allow one character-selection reopen");
             lines.Add("`/whitelist` — add or remove a player from the Vintage Story whitelist");
             lines.Add("`/ban` / `/unban` — manage Suite temporary bans");
             lines.Add("`/mute` / `/unmute` — manage Suite mutes");
@@ -338,11 +340,12 @@ public sealed class DiscordCommandService
         if (!await RequireStaff(command)) return;
         var playerName = Option(command, "player");
         var reason = Option(command, "reason");
-        if (string.IsNullOrWhiteSpace(playerName))
+        if (string.IsNullOrWhiteSpace(playerName) || playerName.Length > 64)
         {
-            await ReplyAsync(command,"Player name is required.", ephemeral: true);
+            await ReplyAsync(command,"A player name of at most 64 characters is required.", ephemeral: true);
             return;
         }
+        if (reason != null) reason = Truncate(reason.Replace("\r", " ").Replace("\n", " "), 240);
 
         var result = await OnMainThread(() =>
         {
@@ -372,26 +375,32 @@ public sealed class DiscordCommandService
             return;
         }
 
-        var result = await OnMainThread(() =>
+        // Online players are updated in place (same attribute the native command writes). Everyone else goes
+        // through the real /player command so a missing player is reported instead of silently "queued".
+        var online = await OnMainThread(() =>
         {
             var player = GetLivePlayers()
                 .FirstOrDefault(p => p.PlayerName.Equals(playerName, StringComparison.OrdinalIgnoreCase));
-
-            if (player?.Entity != null)
-            {
-                player.Entity.WatchedAttributes.SetBool("allowcharselonce", true);
-                player.Entity.WatchedAttributes.MarkPathDirty("allowcharselonce");
-                player.BroadcastPlayerData(true);
-                return (true, $"Character selection re-enabled once for {player.PlayerName}. They can use .charsel now.");
-            }
-
-            // Vintage Story's native /player command also supports known offline players.
-            // Route that case through the real server console rather than a Discord/web command caller.
-            sapi.InjectConsole($"/player {QuoteCommandArgument(playerName)} allowcharselonce");
-            return (true, $"Queued one-time character selection for {playerName}. If the player exists, they can use .charsel after joining.");
+            if (player?.Entity == null) return null;
+            player.Entity.WatchedAttributes.SetBool("allowcharselonce", true);
+            player.Entity.WatchedAttributes.MarkPathDirty("allowcharselonce");
+            player.BroadcastPlayerData(true);
+            return player.PlayerName;
         });
 
-        Audit(command, "Discord /allowcharsel", playerName, result.Item1 ? "Success" : "Failed");
+        (bool, string) result;
+        if (online != null)
+            result = (true, $"Character selection re-enabled once for **{Escape(online)}**. They can use `.charsel` now.");
+        else
+        {
+            var native = await ExecuteServerCommandAsync($"/player {QuoteCommandArgument(playerName)} allowcharselonce");
+            string detail = string.IsNullOrWhiteSpace(native.Message) ? "" : " " + Escape(Truncate(native.Message, 300));
+            result = native.Success
+                ? (true, $"Character selection re-enabled once for offline player **{Escape(playerName)}**.{detail}")
+                : (false, $"Vintage Story did not accept the request for **{Escape(playerName)}**.{detail}");
+        }
+
+        Audit(command, "Discord /allowcharselonce", playerName, result.Item1 ? "Success" : "Failed");
         await ReplyAsync(command,result.Item2, ephemeral: true);
     }
 
@@ -494,6 +503,11 @@ public sealed class DiscordCommandService
             await ReplyAsync(command,"Player name is required.", ephemeral: true);
             return;
         }
+        if (player.Length > 64 || (duration?.Length ?? 0) > 32 || (reason?.Length ?? 0) > 240)
+        {
+            await ReplyAsync(command,"Player name (64), duration (32) or reason (240) is too long.", ephemeral: true);
+            return;
+        }
         if ((command.Data.Name == "ban" || command.Data.Name == "mute") && string.IsNullOrWhiteSpace(duration))
         {
             await ReplyAsync(command,command.Data.Name == "ban"
@@ -535,36 +549,28 @@ public sealed class DiscordCommandService
 
     private IServerPlayer[] GetLivePlayers()
     {
-        // IServerAPI.Players is the authoritative server-side player registry; unlike
-        // World.AllOnlinePlayers it is already typed as IServerPlayer and retains
-        // reliable connection state. Include Connected as well as Playing so players
-        // loading/at character selection are not reported as a false zero.
+        // World.AllOnlinePlayers is the engine's list of connected clients and is what the join/leave relay,
+        // MOTD and Suite player list count. It is the primary source and is NOT filtered by connection state:
+        // filtering it dropped most players (a 20-player server reported 1/100). Server.Players also lists
+        // known offline players, so only its Connected/Playing entries are merged in. De-duplicated by UID.
         var byUid = new Dictionary<string, IServerPlayer>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(IServerPlayer? player)
+        {
+            if (player == null) return;
+            var key = string.IsNullOrWhiteSpace(player.PlayerUID) ? player.PlayerName : player.PlayerUID;
+            if (!string.IsNullOrWhiteSpace(key)) byUid[key] = player;
+        }
+
+        try { foreach (var player in sapi.World.AllOnlinePlayers.OfType<IServerPlayer>()) Add(player); }
+        catch (Exception e) { sapi.Logger.Debug("[NSE Discord] AllOnlinePlayers unavailable: {0}", e.Message); }
 
         try
         {
             foreach (var player in sapi.Server.Players ?? Array.Empty<IServerPlayer>())
-            {
-                if (!IsLiveConnection(player)) continue;
-                var key = string.IsNullOrWhiteSpace(player.PlayerUID) ? player.PlayerName : player.PlayerUID;
-                if (!string.IsNullOrWhiteSpace(key)) byUid[key] = player;
-            }
+                if (IsLiveConnection(player)) Add(player);
         }
-        catch { }
-
-        // Fallback/merge for servers where the registry is still catching up during
-        // a transition between Connected and Playing. UID de-duplication prevents
-        // double counting the same player.
-        try
-        {
-            foreach (var player in sapi.World.AllOnlinePlayers.OfType<IServerPlayer>())
-            {
-                if (!IsLiveConnection(player)) continue;
-                var key = string.IsNullOrWhiteSpace(player.PlayerUID) ? player.PlayerName : player.PlayerUID;
-                if (!string.IsNullOrWhiteSpace(key)) byUid[key] = player;
-            }
-        }
-        catch { }
+        catch (Exception e) { sapi.Logger.Debug("[NSE Discord] Server.Players unavailable: {0}", e.Message); }
 
         return byUid.Values.ToArray();
     }
@@ -667,7 +673,7 @@ public sealed class DiscordCommandService
     private static string BuildRegistrationSignature(DiscordIntegrationConfig cfg)
     {
         var c = cfg.Commands;
-        return $"v2|{cfg.GuildId}|{c.Enabled}|{c.EnablePlayerInfoCommands}|{c.EnableLinkCommands}|{c.EnableStaffCommands}|{c.EnableRestartCommands}";
+        return $"v3|{cfg.GuildId}|{c.Enabled}|{c.EnablePlayerInfoCommands}|{c.EnableLinkCommands}|{c.EnableStaffCommands}|{c.EnableRestartCommands}";
     }
 
     private static SlashCommandProperties Simple(string name, string description) =>
@@ -718,11 +724,11 @@ public sealed class DiscordCommandService
         var b = new SlashCommandBuilder()
             .WithName(name)
             .WithDescription(description)
-            .AddOption("player", ApplicationCommandOptionType.String, "Player name", isRequired: true);
+            .AddOption("player", ApplicationCommandOptionType.String, "Player name", isRequired: true, maxLength: 64);
         if (needsDuration)
-            b.AddOption("duration", ApplicationCommandOptionType.String, name == "ban" ? "30m, 6h, 3d, or 2w" : "30m, 6h, 3d, 2w, or permanent", isRequired: true);
+            b.AddOption("duration", ApplicationCommandOptionType.String, name == "ban" ? "30m, 6h, 3d, or 2w" : "30m, 6h, 3d, 2w, or permanent", isRequired: true, maxLength: 32);
         if (needsReason)
-            b.AddOption("reason", ApplicationCommandOptionType.String, "Reason", isRequired: false);
+            b.AddOption("reason", ApplicationCommandOptionType.String, "Reason", isRequired: false, maxLength: 240);
         return b.Build();
     }
 
