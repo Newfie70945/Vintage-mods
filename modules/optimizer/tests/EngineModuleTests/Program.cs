@@ -36,7 +36,7 @@ static class Checks
   });
   return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
- static OptimizerConfig Config() => new() { EngineOptimizations = new() { CraftingCandidateDedup=true,BlockSimulationBudget=true,BarrelMatchCountGuard=true,IdleFirepitFastPath=true,BarrelIngredientPairing=true,WildBushCallbackFlatten=true,ChunkUnloadStagingReuse=true,NativeBuildLogGuard=true,NearbyPlayerQueries = true, CollisionGenerationReuse=true,CachedCollisionGenerationReuse=true,AnimationCollisionFlagScan=true, CollisionTraversalReuse=true,ContainerTransitionScan=true,ContainerTickTraversal=true, NearbyEntityListReuse=true,CuboidEntityListReuse=true,ShapelessStackMerge=true,ShapelessWildcardMatch=true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
+ static OptimizerConfig Config() => new() { EngineOptimizations = new() { TemperatureAnimationChecks=true,EmotionSearchReuse=true,CraftingCandidateDedup=true,BlockSimulationBudget=true,BarrelMatchCountGuard=true,IdleFirepitFastPath=true,BarrelIngredientPairing=true,WildBushCallbackFlatten=true,ChunkUnloadStagingReuse=true,NativeBuildLogGuard=true,NearbyPlayerQueries = true, CollisionGenerationReuse=true,CachedCollisionGenerationReuse=true,AnimationCollisionFlagScan=true, CollisionTraversalReuse=true,ContainerTransitionScan=true,ContainerTickTraversal=true, NearbyEntityListReuse=true,CuboidEntityListReuse=true,ShapelessStackMerge=true,ShapelessWildcardMatch=true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
  public static void Run()
  {
@@ -47,7 +47,7 @@ static class Checks
   using(var module=new EngineOptimizations(api.Api,masterOff))Assert(module.Modules().All(x=>x.Status=="blocked"),"master off");
   var safe=Config();safe.Compatibility.SafeMode=true;
   using(var module=new EngineOptimizations(api.Api,safe))Assert(module.Modules().All(x=>x.Status=="blocked"),"safe mode");
-  var off=Config();off.EngineOptimizations.CraftingCandidateDedup=false;off.EngineOptimizations.BlockSimulationBudget=false;off.EngineOptimizations.BarrelMatchCountGuard=false;off.EngineOptimizations.IdleFirepitFastPath=off.EngineOptimizations.BarrelIngredientPairing=off.EngineOptimizations.WildBushCallbackFlatten=off.EngineOptimizations.ChunkUnloadStagingReuse=off.EngineOptimizations.NativeBuildLogGuard=false;off.EngineOptimizations.CollisionGenerationReuse=off.EngineOptimizations.CachedCollisionGenerationReuse=off.EngineOptimizations.AnimationCollisionFlagScan=off.EngineOptimizations.CollisionTraversalReuse=off.EngineOptimizations.ContainerTransitionScan=off.EngineOptimizations.ContainerTickTraversal=off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
+  var off=Config();off.EngineOptimizations.TemperatureAnimationChecks=false;off.EngineOptimizations.EmotionSearchReuse=false;off.EngineOptimizations.CraftingCandidateDedup=false;off.EngineOptimizations.BlockSimulationBudget=false;off.EngineOptimizations.BarrelMatchCountGuard=false;off.EngineOptimizations.IdleFirepitFastPath=off.EngineOptimizations.BarrelIngredientPairing=off.EngineOptimizations.WildBushCallbackFlatten=off.EngineOptimizations.ChunkUnloadStagingReuse=off.EngineOptimizations.NativeBuildLogGuard=false;off.EngineOptimizations.CollisionGenerationReuse=off.EngineOptimizations.CachedCollisionGenerationReuse=off.EngineOptimizations.AnimationCollisionFlagScan=off.EngineOptimizations.CollisionTraversalReuse=off.EngineOptimizations.ContainerTransitionScan=off.EngineOptimizations.ContainerTickTraversal=off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   int population=0; var adaptive=Api();
   using(var module=new EngineOptimizations(adaptive.Api,Config(),()=>population))
@@ -205,6 +205,27 @@ static class Checks
    using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
     Assert(module.Modules().Single(x=>x.Name=="shapelessWildcardMatch").Status=="conflict","foreign wildcard dependency retains native behavior");
    foreign.UnpatchAll(foreign.Id);
+  }
+  foreach(var dependency in EmotionSearchOptimizations.Dependencies)
+  {
+   foreign.Patch(dependency,prefix:prefix);
+   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+    Assert(module.Modules().Single(x=>x.Name=="emotionSearchReuse").Status=="conflict","foreign emotion-search dependency retains native behavior");
+   foreign.UnpatchAll(foreign.Id);
+  }
+  foreach(var dependency in TemperatureAnimationOptimizations.Dependencies)
+  {
+   foreign.Patch(dependency,prefix:prefix);
+   using(var module=new EngineOptimizations(api.Api,Config(),()=>200))
+    Assert(module.Modules().Single(x=>x.Name=="temperatureAnimationChecks").Status=="conflict","foreign temperature animation dependency retains native behavior");
+   foreign.UnpatchAll(foreign.Id);
+  }
+  var emotionFailure=Api();
+  using(var module=new EngineOptimizations(emotionFailure.Api,Config(),()=>200))
+  {
+   EmotionSearchOptimizations.Finalizer(new InvalidOperationException("emotion-hook"),true);
+   foreach(var tick in emotionFailure.Ticks)tick(1);
+   Assert(module.Modules().Single(x=>x.Name=="emotionSearchReuse").Status=="failed","emotion query error disables only its module");
   }
   var recipeFailure=Api();
   using(var module=new EngineOptimizations(recipeFailure.Api,Config(),()=>200))

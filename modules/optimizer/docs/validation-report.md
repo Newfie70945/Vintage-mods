@@ -1,4 +1,12 @@
-# NOS 0.20.10 preview validation
+# NOS 0.20.11 / Suite 1.2.52 validation
+
+All 31 automated suites passed against official Vintage Story 1.22.7. Builds completed with zero warnings/errors. Browser control tests passed, including older-version support and mobile layout. Native-method allocation checks, weak-cache collection, live state/range mutation and exact runtime patch-composition checks passed.
+
+Two 180-second populated-server runs (3,000 animals, 500 barrels, 500 firepits and 23 selected mod ZIPs) passed save/unload/clean-shutdown/integrity checks. Allocation rate fell while fewer ticks completed; tick latency worsened in this pair; both new options remain experimental and **off**. No general latency benefit is claimed. [Measurements, controls and limitations](performance-0.20.11.md).
+
+## Previous validation
+
+### NOS 0.20.10 preview validation
 
 All 31 required automated suites passed with none skipped on official Vintage Story 1.22.7. Build: zero warnings/errors. Recipe/query coverage: 10,068 checks including 10,000 native conformance cases; block callback coverage: 109; engine lifecycle/conflict coverage: 138. Direct comparisons against the actual previous release and a separate installed-module server check passed; saved-world integrity and clean shutdown passed. [Exact measurements and limitations](performance-0.20.10.md).
 

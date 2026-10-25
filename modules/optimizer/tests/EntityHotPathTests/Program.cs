@@ -4,6 +4,7 @@ using System.Runtime.Loader;
 using System.Diagnostics;
 using System.Text.Json;
 using HarmonyLib;
+using VSEssentialsMod.Entity.AI.Task;
 using NewfiesOptimizer.Optimizations;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -64,6 +65,52 @@ static class Checks
    var other=(TestEntity)RuntimeHelpers.GetUninitializedObject(typeof(TestEntity));AccessTools.Property(typeof(Entity),"Pos").SetValue(other,new EntityPos(64.5+n*.01,64,64));other.SelectionBox=new Cuboidf(0,0,0,1,1,1);other.touchDistanceSq=1;
    other.BHRepulseAgents=new EntityBehaviorRepulseAgents(other){ownPosRepulseX=64.5+n*.01,ownPosRepulseY=64,ownPosRepulseZ=64};chunk.Add(other,0);
   }
+  // Native emotion searches use the same populated partition as repulsion.
+  Assert(EmotionSearchOptimizations.ValidateContract(out why),why);
+  entity.Code=new("test:owner");neighbor.Code=new("test:neighbor");
+  foreach(var member in chunk.Entities[0])member.Code??=new("test:other");
+  var emotion=(EntityBehaviorEmotionStates)RuntimeHelpers.GetUninitializedObject(typeof(EntityBehaviorEmotionStates));
+  AccessTools.Field(typeof(EntityBehavior),"entity").SetValue(emotion,entity);
+  AccessTools.Field(typeof(EntityBehaviorEmotionStates),"epartSys").SetValue(emotion,partition);
+  var state=new EmotionState{NotifyRange=4,EntityCodeLocs=new[]{new AssetLocation("test:neighbor")}};
+  var nearby=EmotionSearchOptimizations.Target.CreateDelegate<System.Func<EntityBehaviorEmotionStates,EmotionState,bool>>();
+  bool nativeNearby=nearby(emotion,state);
+  Assert(nativeNearby,"native emotion fixture finds neighbor");
+  var emotionNative=Measure(()=>nearby(emotion,state),200000);
+  harmony.Patch(EmotionSearchOptimizations.Target,prefix:new HarmonyMethod(typeof(EmotionSearchOptimizations),nameof(EmotionSearchOptimizations.Prefix)),finalizer:new HarmonyMethod(typeof(EmotionSearchOptimizations),nameof(EmotionSearchOptimizations.Finalizer)));
+  EmotionSearchOptimizations.Configure(true);
+  Assert(nearby(emotion,state)==nativeNearby,"emotion search result retained");
+  var emotionOptimized=Measure(()=>nearby(emotion,state),200000);
+  Assert(emotionOptimized.Bytes<emotionNative.Bytes,"emotion predicate allocation reduced");
+  state.EntityCodeLocs=new[]{new AssetLocation("test:absent")};Assert(!nearby(emotion,state),"changed code filters observed immediately");
+  state.EntityCodeLocs=new[]{new AssetLocation("test:neighbor")};state.NotifyRange=.01f;Assert(!nearby(emotion,state),"changed range observed immediately");
+  state.NotifyRange=4;Assert(nearby(emotion,state),"restored range still searches live neighbors");
+  Assert(ReferenceEquals(EmotionSearchOptimizations.Predicate(state),EmotionSearchOptimizations.Predicate(state)),"same emotion state reuses predicate");
+  state.EntityCodeLocs=null!;Assert(!nearby(emotion,state),"null code list retains native false");
+  var emotionRefs=WeakEmotionCallbacks();GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();Assert(emotionRefs.All(r=>!r.IsAlive),"emotion callback cache does not retain discarded states");
+  state.EntityCodeLocs=new[]{new AssetLocation("test:neighbor")};state.NotifyRange=4;
+  var emotionTrials=new List<object>();
+  var nearestHooks=new Harmony("test.nos.emotion.nearest");
+  foreach(bool combine in new[]{false,true})
+  {
+   if(combine){nearestHooks.Patch(EntitySearchOptimizations.NearestTarget,prefix:new HarmonyMethod(EntitySearchOptimizations.NearestPrefixMethod));EntitySearchOptimizations.ConfigureNearest(true);}
+   for(int trial=0;trial<4;trial++)
+   foreach(bool on in trial%2==0?new[]{false,true}:new[]{true,false})
+   {
+    EmotionSearchOptimizations.Configure(on);
+    long nearestBefore=EntitySearchOptimizations.Counters.NearestCalls;
+    long beforeCalls=EmotionSearchOptimizations.Counters.Calls;
+    var timing=Measure(()=>{if(!nearby(emotion,state))throw new Exception("Missing emotion match");},100000);
+    if(on)Assert(EmotionSearchOptimizations.Counters.Calls>beforeCalls,"emotion benchmark exercises installed prefix");
+    if(combine&&on)Assert(EntitySearchOptimizations.Counters.NearestCalls-nearestBefore==130000,"emotion module composes with a later-enabled nearest-search patch");
+    emotionTrials.Add(new{combineNearestSearch=combine,trial,enabled=on,timing});
+   }
+   if(combine){nearestHooks.UnpatchAll(nearestHooks.Id);EntitySearchOptimizations.ConfigureNearest(false);}
+  }
+  string emotionJson=JsonSerializer.Serialize(new{emotionTrials,scope="Native partition searches with mutable emotion-state inputs and 16 synthetic neighbors; no production TPS claim."});
+  Console.WriteLine(emotionJson);string? emotionOutput=Environment.GetEnvironmentVariable("NOS_EMOTION_REPORT");if(emotionOutput!=null)File.WriteAllText(emotionOutput,emotionJson+"\n");
+  EmotionSearchOptimizations.Configure(false);
+  Console.WriteLine(JsonSerializer.Serialize(new{emotionNative,emotionOptimized,scope="Actual native emotion search on a synthetic populated partition; no production TPS claim."}));
   var tick=RepulseDelegateOptimizations.Target.CreateDelegate<Action<EntityBehaviorRepulseAgents,float>>();
   tick(repulse,.033f);double stockPush=entity.Pos.Motion.X;entity.Pos.Motion.Set(0,0,0);
   var repBefore=Measure(()=>tick(repulse,.033f),200000);
@@ -104,6 +151,8 @@ static class Checks
   Mode(false);Console.WriteLine(JsonSerializer.Serialize(trials));
   Console.WriteLine($"{checks} entity/AI correctness and allocation checks passed against actual stock methods; synthetic fixtures, not player TPS.");
  }
+ [MethodImpl(MethodImplOptions.NoInlining)]
+ static WeakReference[] WeakEmotionCallbacks(){var state=new EmotionState();var callback=EmotionSearchOptimizations.Predicate(state);return [new(state),new(callback)];}
  [MethodImpl(MethodImplOptions.NoInlining)]
  static WeakReference[] WeakCallbacks(Entity entity){var owner=new EntityBehaviorRepulseAgents(entity);var a=RepulseDelegateOptimizations.GetWalk(owner);return [new(owner),new(a)];}
  public record Measurement(double Nanoseconds,double Bytes);

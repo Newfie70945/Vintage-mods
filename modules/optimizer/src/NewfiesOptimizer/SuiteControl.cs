@@ -14,7 +14,7 @@ public sealed partial class OptimizerMod
         available = true, protocol = 1, version = typeof(OptimizerMod).Assembly.GetName().Version?.ToString(3) ?? "unknown", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "crafting-candidate-dedup", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
+        capabilities = new[] { "emotion-search-reuse", "temperature-animation-checks", "crafting-candidate-dedup", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
             craftingCandidateDedup=currentConfig.EngineOptimizations.CraftingCandidateDedup,
@@ -57,6 +57,8 @@ public sealed partial class OptimizerMod
             aiFilterDispatch = currentConfig.EngineOptimizations.AiFilterDispatch,
             despawnPacketProjection = currentConfig.EngineOptimizations.DespawnPacketProjection,
             physicsPacketListReuse = currentConfig.EngineOptimizations.PhysicsPacketListReuse,
+            temperatureAnimationChecks = currentConfig.EngineOptimizations.TemperatureAnimationChecks,
+            emotionSearchReuse = currentConfig.EngineOptimizations.EmotionSearchReuse,
             repulseDelegateReuse = currentConfig.EngineOptimizations.RepulseDelegateReuse,
             nearbyPlayerQueries = currentConfig.EngineOptimizations.NearbyPlayerQueries,
             minimumNearbyClients = currentConfig.EngineOptimizations.MinimumNearbyClients,
@@ -169,6 +171,8 @@ public sealed partial class OptimizerMod
                 case "aiFilterDispatch": candidate.EngineOptimizations.AiFilterDispatch=B(); break;
                 case "despawnPacketProjection": candidate.EngineOptimizations.DespawnPacketProjection=B(); break;
                 case "physicsPacketListReuse": candidate.EngineOptimizations.PhysicsPacketListReuse=B(); break;
+                case "temperatureAnimationChecks": candidate.EngineOptimizations.TemperatureAnimationChecks=B(); break;
+                case "emotionSearchReuse": candidate.EngineOptimizations.EmotionSearchReuse=B(); break;
                 case "repulseDelegateReuse": candidate.EngineOptimizations.RepulseDelegateReuse=B(); break;
                 case "onlinePlayerSnapshots": candidate.EngineOptimizations.OnlinePlayerSnapshots=B(); break;
                 case "nearbyPlayerQueries": candidate.EngineOptimizations.NearbyPlayerQueries=B(); break;

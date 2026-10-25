@@ -1,0 +1,76 @@
+{
+  "suiteVersion": "1.2.52",
+  "optimizerVersion": "0.20.11-preview",
+  "gameVersion": "1.22.7",
+  "steadySeconds": 180,
+  "authenticatedPlayers": 0,
+  "selectedModZips": 23,
+  "barrels": 500,
+  "firepits": 500,
+  "runs": [
+    {
+      "mode": "reference",
+      "activeAnimals": 3000,
+      "meanTickMs": 44.66,
+      "p95Ms": 56,
+      "p99Ms": 64,
+      "worstMs": 93,
+      "allocatedMiBPerSecond": 53.33,
+      "cpuPercentOneCore": 116.08,
+      "rssEndMiB": 1796.05,
+      "heapEndMiB": 1389.15,
+      "gcPauseDeltaMs": 2812.25,
+      "savePreparationMedianMs": 78.03,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "emotionModule": "disabled",
+      "temperatureModule": "disabled",
+      "behaviorCounters": {
+        "temperatureAnimationChecks": 0,
+        "temperatureAnimationFallbacks": 0,
+        "temperatureAnimationFailures": 0,
+        "emotionSearchCalls": 0,
+        "emotionSearchCallbacksCreated": 0,
+        "emotionSearchFailures": 0
+      },
+      "measuredTicks": 3987,
+      "allocatedMiBPerTick": 2.4083
+    },
+    {
+      "mode": "nos",
+      "activeAnimals": 3000,
+      "meanTickMs": 47.73,
+      "p95Ms": 61,
+      "p99Ms": 73,
+      "worstMs": 134,
+      "allocatedMiBPerSecond": 51.63,
+      "cpuPercentOneCore": 115.74,
+      "rssEndMiB": 1821.2,
+      "heapEndMiB": 1387.69,
+      "gcPauseDeltaMs": 3080.47,
+      "savePreparationMedianMs": 66.97,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "emotionModule": "active",
+      "temperatureModule": "active",
+      "behaviorCounters": {
+        "temperatureAnimationChecks": 0,
+        "temperatureAnimationFallbacks": 0,
+        "temperatureAnimationFailures": 0,
+        "emotionSearchCalls": 487228,
+        "emotionSearchCallbacksCreated": 810,
+        "emotionSearchFailures": 0
+      },
+      "measuredTicks": 3733,
+      "allocatedMiBPerTick": 2.4903
+    }
+  ],
+  "limits": [
+    "One sequential pair; not statistical proof or production TPS.",
+    "Synthetic active animals; no authenticated clients or player-temperature workload.",
+    "Same saved template and configurations except two independently disabled/enabled new features.",
+    "Current cached XSkills 1.1.9 differs from uploaded production 1.1.8."
+  ]
+}

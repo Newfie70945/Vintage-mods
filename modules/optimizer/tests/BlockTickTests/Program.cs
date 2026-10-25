@@ -7,6 +7,7 @@ using System.Text.Json;
 using HarmonyLib;
 using NewfiesOptimizer.Optimizations;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -43,6 +44,12 @@ public class HookSlot:ItemSlot
 }
 public class CustomFirepit:BlockEntityFirepit {}
 public class CustomBush:BlockEntityWildFruitingBush {}
+public class TempEntity:Entity {}
+public class RecordingAnimations:AnimationManager
+{
+ public readonly List<string[]> Seen=new();
+ public override bool IsAnimationActive(params string[] names){Seen.Add(names);return base.IsAnimationActive(names);}
+}
 static class Checks
 {
  static int checks;static void Assert(bool ok,string why){if(!ok)throw new Exception(why);checks++;}
@@ -62,6 +69,22 @@ static class Checks
  {
   for(int i=0;i<3;i++)Assert(BlockTickOptimizations.ValidateContract(i,out var why),why);
   Assert(ChunkUnloadStagingOptimizations.ValidateContract(out var reason),reason);
+  Assert(TemperatureAnimationOptimizations.ValidateContract(out var temperatureWhy),temperatureWhy);
+  var temperature=(EntityBehaviorBodyTemperature)RuntimeHelpers.GetUninitializedObject(typeof(EntityBehaviorBodyTemperature));
+  var temperatureEntity=new TempEntity();AccessTools.Field(typeof(EntityBehavior),"entity").SetValue(temperature,temperatureEntity);
+  var update=TemperatureAnimationOptimizations.Target.CreateDelegate<Action<EntityBehaviorBodyTemperature>>();
+  var temperatureBefore=Measure(()=>update(temperature));
+  var temperatureHooks=new Harmony("test.nos.temperature");
+  temperatureHooks.Patch(TemperatureAnimationOptimizations.Target,prefix:new HarmonyMethod(typeof(TemperatureAnimationOptimizations),nameof(TemperatureAnimationOptimizations.Prefix)),transpiler:new HarmonyMethod(typeof(TemperatureAnimationOptimizations),nameof(TemperatureAnimationOptimizations.Transpiler)),finalizer:new HarmonyMethod(typeof(TemperatureAnimationOptimizations),nameof(TemperatureAnimationOptimizations.Finalizer)));
+  TemperatureAnimationOptimizations.Configure(true);long checksBefore=TemperatureAnimationOptimizations.Counters.Calls;
+  var temperatureAfter=Measure(()=>update(temperature));
+  Assert(TemperatureAnimationOptimizations.Counters.Calls>checksBefore,"temperature fixture exercises installed lookup replacement");
+  var customAnimations=new RecordingAnimations();TemperatureAnimationOptimizations.Check(customAnimations,"coldidle");TemperatureAnimationOptimizations.Check(customAnimations,"coldidle");
+  Assert(customAnimations.Seen.Count==2&&!ReferenceEquals(customAnimations.Seen[0],customAnimations.Seen[1]),"custom animation managers retain fresh argument arrays and virtual calls");
+  var nativeAnimations=new AnimationManager();nativeAnimations.ActiveAnimationsByAnimCode["coldidle"]=new AnimationMetaData{Code="coldidle"};
+  Assert(TemperatureAnimationOptimizations.Check(nativeAnimations,"COLDIDLE"),"native animation lookup preserves dictionary comparer");
+  temperatureHooks.UnpatchAll(temperatureHooks.Id);TemperatureAnimationOptimizations.Configure(false);
+  Console.WriteLine(JsonSerializer.Serialize(new{temperatureBefore,temperatureAfter,scope="Actual native warm-temperature animation method; no heating, damage or server TPS claim."}));
   var burn=BlockTickOptimizations.Target(0).CreateDelegate<Burn>();var pair=BlockTickOptimizations.Target(1).CreateDelegate<Pair>();var bush=BlockTickOptimizations.Target(2).CreateDelegate<Bush>();
   var harmony=new Harmony("test.nos.blockticks");
   var fire=Firepit();burn(fire,.1f);Assert(fire.inputStackCookingTime==0&&fire.furnaceTemperature==20,"native cold fixture");

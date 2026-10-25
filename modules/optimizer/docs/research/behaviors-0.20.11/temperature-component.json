@@ -1,0 +1,11 @@
+{
+  "temperatureBefore": {
+    "bytesPerCall": 64,
+    "nsPerCall": 410.975
+  },
+  "temperatureAfter": {
+    "bytesPerCall": 0,
+    "nsPerCall": 436.713
+  },
+  "scope": "Actual native warm-temperature animation method; no heating, damage or server TPS claim."
+}

@@ -140,6 +140,8 @@ public sealed class EngineOptimizationOptions
     public bool InteractableEntitySearch { get; set; } = true;
     public bool AiTaskStartDispatch { get; set; } = true;
     public bool AiFilterDispatch { get; set; } = true;
+    public bool TemperatureAnimationChecks { get; set; }
+    public bool EmotionSearchReuse { get; set; }
     public bool RepulseDelegateReuse { get; set; } = true;
     public bool OnlinePlayerSnapshots { get; set; } = true;
     public bool NearbyPlayerQueries { get; set; } = false;

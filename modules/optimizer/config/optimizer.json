@@ -64,6 +64,8 @@
     "AssetCacheMaxMiB": 16,
     "AiTaskStartDispatch": true,
     "AiFilterDispatch": true,
+    "EmotionSearchReuse": false,
+    "TemperatureAnimationChecks": false,
     "RepulseDelegateReuse": true,
     "WorldgenRequestReuse": true,
     "SaveSnapshotRelease": true,
