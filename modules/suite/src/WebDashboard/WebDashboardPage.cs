@@ -597,7 +597,7 @@ th.sortable{cursor:pointer;user-select:none}th.sortable:hover{background:#293745
 .animalRecommendationNote{margin:8px 0 10px}
 @media(max-width:1180px){.animalRuleGrid{grid-template-columns:1fr}}
 .updateBadge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;border:1px solid #40515f;white-space:nowrap}
-.updateBadge.update{color:#ffe7a3;border-color:#866d2d;background:#332b14}.updateBadge.current{color:#bdebb1;border-color:#476842;background:#162718}.updateBadge.unknown{color:#aab8c3;background:#151d23}
+.depChip{display:inline-block;border-radius:6px;padding:1px 6px;margin:2px 3px 0 0;font-size:10px;border:1px solid #40515f;background:#151d23;color:#aab8c3}.depChip.bad{color:#ffb4a8;border-color:#7a3a30;background:#2a1613}.depChip.good{color:#bdebb1;border-color:#476842;background:#162718}.updateBadge.ignored{color:#c9d3dc;border-color:#556270;background:#1b242b}.updateBadge.update{color:#ffe7a3;border-color:#866d2d;background:#332b14}.updateBadge.current{color:#bdebb1;border-color:#476842;background:#162718}.updateBadge.unknown{color:#aab8c3;background:#151d23}
 @media(max-width:1180px){.announcementGrid{grid-template-columns:1fr}}
 
 @media(max-width:1450px) and (min-width:881px){
@@ -3541,6 +3541,10 @@ __NSS_RETENTION_HTML__
         <thead><tr><th>#</th><th>Mod</th><th>Installed</th><th>Available</th><th>Package</th><th>Details</th><th>Actions</th></tr></thead>
         <tbody id="modsUpdateRows"><tr><td colspan="6" class="muted">Run Check Updates to find compatible updates.</td></tr></tbody>
       </table>
+    </div>
+    <div id="modsIgnoredCard" class="card" style="margin-top:12px;display:none">
+      <div class="cardHeader"><div><h3>Ignored Mods</h3><div class="small">Not counted as outdated. An ignore ends by itself when the game version, the mod's installed version or the offered release changes.</div></div></div>
+      <div class="tableWrap"><table><thead><tr><th>Mod</th><th>Installed</th><th>Status</th><th>Ignored</th><th>Actions</th></tr></thead><tbody id="modsIgnoredRows"></tbody></table></div>
     </div>
   </div>
 </section>
@@ -12273,7 +12277,7 @@ function renderAvailableModUpdates(){
   updateModsUpdateNotification();
   const checked=Number(modUpdatesData.checkedUnixMilliseconds||0);
   const q=String($('modsFilter')?.value||'').trim().toLowerCase();
-  const updates=(modUpdatesData.mods||[]).filter(u=>u?.status==='Update').filter(u=>{
+  const updates=(modUpdatesData.mods||[]).filter(u=>u?.status==='Update'&&!u.ignored).filter(u=>{
     if(!q)return true;
     const m=loadedMods.find(x=>String(x.modId||'').toLowerCase()===String(u.modId||'').toLowerCase())||{};
     return [u.modId,u.installedVersion,u.recommendedVersion,u.detail,m.name,m.fileName].some(v=>String(v||'').toLowerCase().includes(q));
@@ -12295,14 +12299,60 @@ function renderAvailableModUpdates(){
       body.innerHTML=updates.map((u,i)=>{
         const m=loadedMods.find(x=>String(x.modId||'').toLowerCase()===String(u.modId||'').toLowerCase())||{};
         const pageUrl=String(u.modPageUrl||('https://mods.vintagestory.at/'+encodeURIComponent(String(u.modId||''))));
-        const actions=`<div class="rowActions"><button class="iconBtn" data-open-mod-page="${esc(pageUrl)}">Open page</button>${u.autoUpdateSupported?`<button class="iconBtn primary" data-update-mod="${esc(u.modId)}">Update</button>`:`<button class="iconBtn" disabled title="${esc(u.autoUpdateReason||'Automatic update is unavailable for this package.')}">Manual only</button>`}</div>`;
-        return `<tr><td><b>${i+1}</b></td><td><b>${esc(u.modId||'')}</b><div class="small">${esc(m.name||'')}</div></td><td>${esc(u.installedVersion||m.version||'—')}</td><td><span class="updateBadge update">${esc(u.recommendedVersion||'?')}</span></td><td class="codeCell" title="${esc(m.fileName||'')}">${esc(m.fileName||'—')}</td><td class="small" style="white-space:normal;min-width:280px">${esc(u.detail||'Compatible update available.')}</td><td>${actions}</td></tr>`;
+        const actions=`<div class="rowActions"><button class="iconBtn" data-open-mod-page="${esc(pageUrl)}">Open page</button>${u.autoUpdateSupported?`<button class="iconBtn primary" data-update-mod="${esc(u.modId)}">Update</button>`:`<button class="iconBtn" disabled title="${esc(u.autoUpdateReason||'Automatic update is unavailable for this package.')}">Manual only</button>`}<button class="iconBtn" data-ignore-mod="${esc(u.modId)}" title="Stop flagging this as outdated until the game version, installed version or offered release changes">Ignore</button></div>`;
+        return `<tr><td><b>${i+1}</b></td><td><b>${esc(u.modId||'')}</b><div class="small">${esc(m.name||'')}</div>${modDependencyHtml(u)}</td><td>${esc(u.installedVersion||m.version||'—')}</td><td><span class="updateBadge update">${esc(u.recommendedVersion||'?')}</span></td><td class="codeCell" title="${esc(m.fileName||'')}">${esc(m.fileName||'—')}</td><td class="small" style="white-space:normal;min-width:280px">${esc(u.detail||'Compatible update available.')}</td><td>${actions}</td></tr>`;
       }).join('');
     }
   }
+  renderIgnoredMods();
   if(modsActiveTab==='updates')$('modsCount').textContent=checked?`${updates.length} shown · ${total} update${total===1?'':'s'} available`:'Updates not checked yet';
   document.querySelectorAll('#modsUpdatesPanel [data-open-mod-page]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();const url=String(btn.dataset.openModPage||'');if(url)window.open(url,'_blank','noopener,noreferrer');});
   document.querySelectorAll('#modsUpdatesPanel [data-update-mod]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();stageModUpdate(btn.dataset.updateMod||'',btn);});
+  document.querySelectorAll('#modsUpdatesPanel [data-ignore-mod]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();setModIgnored(btn.dataset.ignoreMod||'',true,btn);});
+}
+
+function renderIgnoredMods(){
+  const card=$('modsIgnoredCard'),body=$('modsIgnoredRows');if(!card||!body)return;
+  const ignored=(modUpdatesData.mods||[]).filter(u=>u?.ignored);
+  card.style.display=ignored.length?'block':'none';
+  body.innerHTML=ignored.map(u=>`<tr><td><b>${esc(u.modId)}</b>${modDependencyHtml(u)}</td><td>${esc(u.installedVersion||'—')}</td><td>${esc(u.status==='Update'?('Update to '+(u.recommendedVersion||'?')):modStatusLabel(u))}</td><td class="small">${u.ignoredUnixMilliseconds?esc(new Date(Number(u.ignoredUnixMilliseconds)).toLocaleString()):''}${u.ignoredBy?' · '+esc(u.ignoredBy):''}</td><td><button class="iconBtn" data-unignore-mod="${esc(u.modId)}">Stop ignoring</button></td></tr>`).join('');
+  body.querySelectorAll('[data-unignore-mod]').forEach(btn=>btn.onclick=()=>setModIgnored(btn.dataset.unignoreMod||'',false,btn));
+}
+
+async function setModIgnored(modId,ignore,button){
+  if(button)button.disabled=true;
+  try{
+    const r=await api('/api/mod-updates/ignore',{method:'POST',body:JSON.stringify({modId,ignore})});
+    if(r.snapshot)modUpdatesData=r.snapshot;
+    const checked=Number(modUpdatesData.checkedUnixMilliseconds||0);
+    $('modsUpdateState').textContent=`${Number(modUpdatesData.updateCount||0)} update(s)${Number(modUpdatesData.ignoredCount||0)?` · ${Number(modUpdatesData.ignoredCount)} ignored`:''} · checked ${checked?new Date(checked).toLocaleString():'recently'}`;
+    renderMods();
+    toast(r.message||(ignore?'Ignored.':'Restored.'),'success');
+  }catch(e){toast(e.message,'error');if(button)button.disabled=false;}
+}
+
+function modStatusLabel(u){
+  if(u.status==='NotFound')return 'No release for this game version';
+  if(u.status==='Retracted')return 'Release retracted';
+  if(u.status==='Published')return 'Listed, not indexed';
+  return u.status||'Unknown';
+}
+
+function modDependencyHtml(u){
+  if(!u)return '';
+  const chips=[];
+  if(u.gameRequirement){
+    const bad=u.gameCompatibility==='RequiresNewerGame';
+    chips.push(`<span class="depChip ${bad?'bad':'good'}" title="The mod's own minimum game version">${bad?'Needs game '+esc(u.gameRequirement)+'+, running '+esc(modUpdatesData.targetGameVersion||'?'):'Game '+esc(u.gameRequirement)+'+ ok'}</span>`);
+  }
+  if(u.gameCompatibility==='NoCompatibleRelease')chips.push(`<span class="depChip bad" title="The Mod DB has no release tagged for ${esc(modUpdatesData.targetGameVersion||'this game version')}">No release for this game version</span>`);
+  for(const d of (u.dependencies||[])){
+    const bad=d.status==='Missing'||d.status==='Disabled'||d.status==='TooOld';
+    chips.push(`<span class="depChip ${bad?'bad':''}" title="${esc(d.detail||'')}">${bad?'⚠ ':''}needs ${esc(d.modId)}${d.requiredVersion&&d.requiredVersion!=='*'?' '+esc(d.requiredVersion)+'+':''}${bad?' ('+esc(d.detail||d.status)+')':''}</span>`);
+  }
+  const users=u.requiredBy||[];
+  chips.push(users.length?`<span class="depChip" title="${esc(users.join(', '))}">required by ${users.length}: ${esc(users.slice(0,3).join(', '))}${users.length>3?'…':''}</span>`:`<span class="depChip" title="No installed mod lists this as a dependency. It may still be a standalone content or gameplay mod.">nothing depends on this</span>`);
+  return `<div style="margin-top:3px">${chips.join('')}</div>`;
 }
 
 function modImpactBadge(x){
@@ -12316,10 +12366,11 @@ function modUpdateFor(modId){return (modUpdatesData.mods||[]).find(x=>String(x.m
 function modUpdateBadge(x){
   if(x.core)return '<span class="updateBadge unknown">Core</span>';
   const u=modUpdateFor(x.modId);if(!u)return '<span class="updateBadge unknown">Not checked</span>';
+  if(u.ignored)return `<span class="updateBadge ignored" title="${esc(u.ignoreNote||'Ignored')}">Ignored · ${esc(u.status==='Update'?(u.installedVersion+' → '+u.recommendedVersion):modStatusLabel(u))}</span>`;
   if(u.status==='Update')return `<span class="updateBadge update">${esc(u.installedVersion||x.version)} → ${esc(u.recommendedVersion||'?')}</span>`;
   if(u.status==='Staged')return `<span class="updateBadge current" title="${esc(u.detail||'Update staged; restart required.')}">Restart required</span>`;
   if(u.status==='Current')return '<span class="updateBadge current">Current</span>';
-  return `<span class="updateBadge unknown" title="${esc(u.detail||u.status||'Unknown')}">${esc(u.status||'Unknown')}</span>`;
+  return `<span class="updateBadge unknown" title="${esc(u.detail||u.status||'Unknown')}">${esc(modStatusLabel(u))}</span>`;
 }
 
 function modUpdateActions(x){
@@ -12327,11 +12378,14 @@ function modUpdateActions(x){
   const u=modUpdateFor(x.modId);
   const pageUrl=String(u?.modPageUrl||('https://mods.vintagestory.at/'+encodeURIComponent(String(x.modId||''))));
   let html=`<div class="small" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px"><button class="iconBtn" data-open-mod-page="${esc(pageUrl)}" title="Open this mod on the official Vintage Story Mod DB">Open page</button>`;
-  if(u?.status==='Update'){
+  if(u&&(u.ignored||['Update','NotFound','Retracted','Published','Error'].includes(u.status))){
+    html+=u.ignored?`<button class="iconBtn" data-unignore-mod-row="${esc(x.modId)}" title="${esc(u.ignoreNote||'')}">Stop ignoring</button>`:`<button class="iconBtn" data-ignore-mod="${esc(x.modId)}" title="Stop flagging this until the game version, installed version or offered release changes">Ignore</button>`;
+  }
+  if(u?.status==='Update'&&!u.ignored){
     if(u.autoUpdateSupported)html+=`<button class="iconBtn primary" data-update-mod="${esc(x.modId)}" title="Download, validate, back up and stage ${esc(u.recommendedVersion||'the compatible update')}">Update</button>`;
     else html+=`<button class="iconBtn" disabled title="${esc(u.autoUpdateReason||'Automatic update is unavailable for this package.')}">Manual only</button>`;
   }
-  html+='</div>';
+  html+='</div>'+modDependencyHtml(u);
   return html;
 }
 
@@ -12395,6 +12449,8 @@ function renderMods(){
   document.querySelectorAll('[data-pin-mod]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();addWatchItem('mod',btn.dataset.pinMod,btn.dataset.pinMod,'mods');});
   document.querySelectorAll('[data-open-mod-page]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();const url=String(btn.dataset.openModPage||'');if(url)window.open(url,'_blank','noopener,noreferrer');});
   document.querySelectorAll('#modsInstalledPanel [data-update-mod]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();stageModUpdate(btn.dataset.updateMod||'',btn);});
+  document.querySelectorAll('#modsInstalledPanel [data-ignore-mod]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();setModIgnored(btn.dataset.ignoreMod||'',true,btn);});
+  document.querySelectorAll('#modsInstalledPanel [data-unignore-mod-row]').forEach(btn=>btn.onclick=(ev)=>{ev.stopPropagation();setModIgnored(btn.dataset.unignoreModRow||'',false,btn);});
   renderAvailableModUpdates();
   document.querySelectorAll('[data-mod-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.modTab===modsActiveTab));
   if($('modsInstalledPanel'))$('modsInstalledPanel').style.display=modsActiveTab==='installed'?'block':'none';

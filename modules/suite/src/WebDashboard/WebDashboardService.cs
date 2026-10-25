@@ -224,6 +224,7 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "GET", Path = "/api/mod-updates", Access = "Authenticated read", Risk = "Cached Mod DB update status", Safety = "Safe" },
         new() { Method = "POST", Path = "/api/mod-updates/check", Access = "Authenticated + CSRF", Risk = "Outbound official Mod DB update check", Safety = "Moderate", CooldownSeconds = 30, ExclusiveHeavyOperation = false },
         new() { Method = "POST", Path = "/api/mod-updates/apply", Access = "Administrator/Owner + CSRF", Risk = "Downloads, validates, backs up and replaces a loaded ZIP mod package on disk; restart required", Safety = "High", CooldownSeconds = 10, ExclusiveHeavyOperation = true },
+        new() { Method = "POST", Path = "/api/mod-updates/ignore", Access = "Authenticated + CSRF", Risk = "Stops flagging one mod as outdated until game version, installed version or offered release changes; no files change", Safety = "Safe" },
         new() { Method = "GET", Path = "/api/reports", Access = "Authenticated read", Risk = "Sensitive issue report queue", Safety = "Moderate" },
         new() { Method = "GET", Path = "/api/reports/detail", Access = "Authenticated read", Risk = "Paged private report history", Safety = "Moderate" },
         new() { Method = "POST", Path = "/api/reports/action", Access = "Authenticated + CSRF", Risk = "Moderation workflow change", Safety = "Moderate", CooldownSeconds = 1 },
@@ -6225,6 +6226,18 @@ public sealed partial class WebDashboardService : IDisposable
                 : await module.ModUpdates.ApplyUpdateAsync(modId).ConfigureAwait(false);
             RecordWebAudit("mod-update-stage", modId, payload.Success ? $"Staged {payload.InstalledVersion} -> {payload.NewVersion}; restart required" : payload.Message, remoteText, requestActor);
             await WriteJsonAsync(stream, payload.Success ? 200 : 400, payload, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (request.Method == "POST" && path == "/api/mod-updates/ignore")
+        {
+            string modId = GetJsonString(request.Body, "modId", "").Trim();
+            bool ignore = GetJsonBool(request.Body, "ignore", true);
+            var outcome = module.ModUpdates == null
+                ? (Success: false, Message: "Mod update checker is unavailable.")
+                : module.ModUpdates.SetIgnored(modId, ignore, requestActor);
+            RecordWebAudit(ignore ? "mod-update-ignore" : "mod-update-unignore", modId, outcome.Success ? "Success" : outcome.Message, remoteText, requestActor);
+            await WriteJsonAsync(stream, outcome.Success ? 200 : 400, new { success = outcome.Success, message = outcome.Message, snapshot = module.ModUpdates?.GetSnapshot() }, cancellationToken).ConfigureAwait(false);
             return;
         }
 

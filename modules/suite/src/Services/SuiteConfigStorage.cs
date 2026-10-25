@@ -42,6 +42,7 @@ public static class SuiteConfigStorage
         "NewfiesWebServer.json",
         "NewfiesWebAdminAccounts.json",
         "NewfiesCompatibilityIgnores.json",
+        "NewfiesModUpdateIgnores.json",
         "NewfiesWebMap.json",
         "NewfiesAnnouncements.json",
         "NewfiesOptimizationExperiments.json",
