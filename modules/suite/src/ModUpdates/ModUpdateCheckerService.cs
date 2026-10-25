@@ -23,6 +23,18 @@ public sealed class ModUpdateEntry
     public string ModPageUrl { get; set; } = "";
     public bool AutoUpdateSupported { get; set; }
     public string AutoUpdateReason { get; set; } = "";
+    /// <summary>Staff chose to stop flagging this mod until the game version, installed version or offered release changes.</summary>
+    public bool Ignored { get; set; }
+    public string IgnoreNote { get; set; } = "";
+    public long IgnoredUnixMilliseconds { get; set; }
+    public string IgnoredBy { get; set; } = "";
+    /// <summary>The mod's own "game" dependency, for example 1.21.0 (a minimum).</summary>
+    public string GameRequirement { get; set; } = "";
+    /// <summary>Compatible | RequiresNewerGame | NoCompatibleRelease | Unknown</summary>
+    public string GameCompatibility { get; set; } = "Unknown";
+    public List<ModDependencyInfo> Dependencies { get; set; } = new();
+    public List<string> RequiredBy { get; set; } = new();
+    public int DependencyIssues { get; set; }
 }
 
 public sealed class ModUpdateSnapshot
@@ -36,6 +48,8 @@ public sealed class ModUpdateSnapshot
     public int UpdateCount { get; set; }
     public int CurrentCount { get; set; }
     public int UnknownCount { get; set; }
+    public int IgnoredCount { get; set; }
+    public int DependencyIssueCount { get; set; }
     public bool AllowSameMinorGameUpdates { get; set; }
     public bool RestartRequired { get; set; }
     public List<string> StagedUpdates { get; set; } = new();
@@ -80,6 +94,11 @@ public sealed class ModUpdateCheckerService : IDisposable
     private Dictionary<string, string> loadedModVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> stagedVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> loadedDependencies = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, Dictionary<string, string>> declaredDependencies = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<string>> requiredBy = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> installedVersionById = new(StringComparer.OrdinalIgnoreCase);
+    private ModUpdateIgnoreStore ignores = new();
+    public const string IgnoreFile = "NewfiesModUpdateIgnores.json";
 
     public ModUpdateCheckerService(ICoreServerAPI api, string targetGameVersion)
     {
@@ -110,6 +129,20 @@ public sealed class ModUpdateCheckerService : IDisposable
         foreach (var mod in api.ModLoader.Mods.Where(x => x?.Info != null && loadedModVersions.ContainsKey(x.Info.ModID ?? "")))
             loadedDependencies[mod.Info.ModID] = (mod.Info.Dependencies ?? Array.Empty<Vintagestory.API.Common.ModDependency>()).GroupBy(d => d.ModID, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First().Version ?? "", StringComparer.OrdinalIgnoreCase);
+        // Declared dependencies for every installed mod (enabled or not) drive the dependency view.
+        declaredDependencies = api.ModLoader.Mods
+            .Where(x => x?.Info != null && !string.IsNullOrWhiteSpace(x.Info.ModID))
+            .GroupBy(x => x.Info.ModID, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (g.First().Info.Dependencies ?? Array.Empty<Vintagestory.API.Common.ModDependency>())
+                .Where(d => !string.IsNullOrWhiteSpace(d.ModID)).GroupBy(d => d.ModID, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(d => d.Key, d => d.First().Version ?? "", StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+        requiredBy = ModUpdateAnalysis.ReverseDependencies(declaredDependencies.ToDictionary(
+            x => x.Key, x => (IReadOnlyDictionary<string, string>)x.Value, StringComparer.OrdinalIgnoreCase));
+        installedVersionById = api.ModLoader.Mods
+            .Where(x => x?.Info != null && !string.IsNullOrWhiteSpace(x.Info.ModID))
+            .GroupBy(x => x.Info.ModID, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Info.Version ?? "", StringComparer.OrdinalIgnoreCase);
+        LoadIgnores();
         lock (sync) snapshot.TargetGameVersion = targetGameVersion;
         // Delayed startup check avoids competing with world/mod initialization.
         api.Event.RegisterCallback(dt => { _ = CheckAsync(false); }, 60_000);
@@ -132,10 +165,12 @@ public sealed class ModUpdateCheckerService : IDisposable
                 UpdateCount = snapshot.UpdateCount,
                 CurrentCount = snapshot.CurrentCount,
                 UnknownCount = snapshot.UnknownCount,
+                IgnoredCount = snapshot.IgnoredCount,
+                DependencyIssueCount = snapshot.DependencyIssueCount,
                 AllowSameMinorGameUpdates = AllowSameMinorGameUpdates,
                 RestartRequired = snapshot.RestartRequired,
                 StagedUpdates = snapshot.StagedUpdates.ToList(),
-                Mods = snapshot.Mods.Select(x => new ModUpdateEntry { ModId=x.ModId, InstalledVersion=x.InstalledVersion, RecommendedVersion=x.RecommendedVersion, Status=x.Status, Detail=x.Detail, ModPageUrl=x.ModPageUrl, AutoUpdateSupported=x.AutoUpdateSupported, AutoUpdateReason=x.AutoUpdateReason }).ToList()
+                Mods = snapshot.Mods.Select(CloneEntry).ToList()
             };
         }
     }
@@ -208,14 +243,13 @@ public sealed class ModUpdateCheckerService : IDisposable
                 }
             }
 
-            var list = results.Values.OrderByDescending(x => x.Status == "Update").ThenBy(x => x.ModId, StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var entry in results.Values) FinishEntry(entry);
+            var list = results.Values.OrderByDescending(x => x.Status == "Update" && !x.Ignored).ThenBy(x => x.ModId, StringComparer.OrdinalIgnoreCase).ToList();
             lock (sync)
             {
                 snapshot.Mods = list;
                 snapshot.CheckedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                snapshot.UpdateCount = list.Count(x => x.Status == "Update");
-                snapshot.CurrentCount = list.Count(x => x.Status == "Current");
-                snapshot.UnknownCount = list.Count(x => x.Status != "Update" && x.Status != "Current" && x.Status != "Staged");
+                RefreshCounts();
                 snapshot.RestartRequired = stagedUpdates.Count > 0;
                 snapshot.StagedUpdates = stagedUpdates.Values.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
                 snapshot.CheckInProgress = false;
@@ -398,9 +432,7 @@ public sealed class ModUpdateCheckerService : IDisposable
                     existing.Detail = $"Update {installed.Version} → {selected.Version} staged on disk. Server restart required.";
                     existing.RecommendedVersion = selected.Version;
                 }
-                snapshot.UpdateCount = snapshot.Mods.Count(x => x.Status == "Update");
-                snapshot.CurrentCount = snapshot.Mods.Count(x => x.Status == "Current");
-                snapshot.UnknownCount = snapshot.Mods.Count(x => x.Status != "Update" && x.Status != "Current" && x.Status != "Staged");
+                RefreshCounts();
             }
             api.Logger.Notification("[ServerEssentials/ModUpdates] Staged mod update {0} {1} -> {2}. Backup: {3}", installed.Id, installed.Version, selected.Version, backupPath);
             return result;
@@ -422,7 +454,7 @@ public sealed class ModUpdateCheckerService : IDisposable
     private ModUpdateEntry CreateEntry(InstalledModInfo mod, string status, string detail)
     {
         bool supported = CanAutoUpdate(mod, out string reason);
-        return new ModUpdateEntry
+        var entry = new ModUpdateEntry
         {
             ModId = mod.Id,
             InstalledVersion = mod.Version,
@@ -432,6 +464,99 @@ public sealed class ModUpdateCheckerService : IDisposable
             AutoUpdateSupported = supported,
             AutoUpdateReason = supported ? (string.Equals(mod.Id, "newfiesserveressentialssuite", StringComparison.OrdinalIgnoreCase) ? "Suite self-update is supported when the installed Suite is a ZIP and the Mod DB has a published compatible release; restart loads the new build." : "ZIP package can be safely staged with backup and restart.") : reason
         };
+        FillDependencyInfo(entry);
+        return entry;
+    }
+
+    private void FillDependencyInfo(ModUpdateEntry entry)
+    {
+        declaredDependencies.TryGetValue(entry.ModId, out var declared);
+        declared ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        entry.Dependencies = ModUpdateAnalysis.ResolveDependencies(declared, installedVersionById, loadedModVersions);
+        entry.DependencyIssues = entry.Dependencies.Count(x => x.Status is "Missing" or "Disabled" or "TooOld");
+        entry.RequiredBy = requiredBy.TryGetValue(entry.ModId, out var users) ? users.ToList() : new List<string>();
+        declared.TryGetValue("game", out var gameRequired);
+        (entry.GameRequirement, entry.GameCompatibility) = ModUpdateAnalysis.DescribeGameRequirement(gameRequired ?? "", targetGameVersion);
+    }
+
+    /// <summary>Runs after the Mod DB result is known: game compatibility from the index, then the ignore decision.</summary>
+    private void FinishEntry(ModUpdateEntry entry)
+    {
+        if (entry.Status == "NotFound") entry.GameCompatibility = "NoCompatibleRelease";
+        else if (entry.Status is "Current" or "Update" && entry.GameCompatibility == "Unknown") entry.GameCompatibility = "Compatible";
+        ApplyIgnoreState(entry);
+    }
+
+    private void ApplyIgnoreState(ModUpdateEntry entry)
+    {
+        entry.Ignored = false; entry.IgnoreNote = ""; entry.IgnoredBy = ""; entry.IgnoredUnixMilliseconds = 0;
+        ModUpdateIgnoreRecord? record;
+        lock (sync) record = ignores.Ignores.FirstOrDefault(x => string.Equals(x.ModId, entry.ModId, StringComparison.OrdinalIgnoreCase));
+        if (record == null) return;
+        if (ModUpdateAnalysis.IsIgnoreActive(record, targetGameVersion, entry.InstalledVersion, entry.RecommendedVersion, entry.Status))
+        {
+            entry.Ignored = true;
+            entry.IgnoredBy = record.IgnoredBy;
+            entry.IgnoredUnixMilliseconds = record.IgnoredUnixMilliseconds;
+            entry.IgnoreNote = "Ignored until the game version, this mod's installed version or the offered release changes.";
+        }
+        else
+        {
+            string why = ModUpdateAnalysis.IgnoreExpiryReason(record, targetGameVersion, entry.InstalledVersion, entry.RecommendedVersion, entry.Status);
+            if (why.Length > 0) entry.IgnoreNote = "Earlier ignore expired: " + why + ".";
+        }
+    }
+
+    // Caller holds sync.
+    private void RefreshCounts()
+    {
+        var list = snapshot.Mods;
+        snapshot.UpdateCount = list.Count(x => x.Status == "Update" && !x.Ignored);
+        snapshot.CurrentCount = list.Count(x => x.Status == "Current");
+        snapshot.IgnoredCount = list.Count(x => x.Ignored);
+        snapshot.UnknownCount = list.Count(x => x.Status != "Update" && x.Status != "Current" && x.Status != "Staged" && !x.Ignored);
+        snapshot.DependencyIssueCount = list.Count(x => x.DependencyIssues > 0);
+    }
+
+    private void LoadIgnores()
+    {
+        try
+        {
+            var loaded = ModConfigRecovery.LoadOrNull<ModUpdateIgnoreStore>(api, IgnoreFile, "ModUpdateIgnores");
+            lock (sync) ignores = loaded ?? new ModUpdateIgnoreStore();
+            lock (sync) ignores.Ignores ??= new List<ModUpdateIgnoreRecord>();
+        }
+        catch (Exception ex)
+        {
+            api.Logger.Warning("[ServerEssentials/ModUpdates] Could not read the ignore list ({0}); starting with none.", ex.GetType().Name);
+            lock (sync) ignores = new ModUpdateIgnoreStore();
+        }
+    }
+
+    /// <summary>Ignores or restores one mod. The decision is recorded against what is installed and offered right now.</summary>
+    public (bool Success, string Message) SetIgnored(string modId, bool ignore, string actor)
+    {
+        modId = (modId ?? "").Trim();
+        if (modId.Length == 0) return (false, "A mod id is required.");
+        lock (sync)
+        {
+            var entry = snapshot.Mods.FirstOrDefault(x => string.Equals(x.ModId, modId, StringComparison.OrdinalIgnoreCase));
+            if (entry == null) return (false, "Run Check Updates first; that mod has no result yet.");
+            if (ignore && !ModUpdateAnalysis.IsIgnorable(entry.Status)) return (false, $"A mod with status '{entry.Status}' has nothing to ignore.");
+            ignores.Ignores.RemoveAll(x => string.Equals(x.ModId, modId, StringComparison.OrdinalIgnoreCase));
+            if (ignore)
+                ignores.Ignores.Add(new ModUpdateIgnoreRecord
+                {
+                    ModId = entry.ModId, Status = entry.Status, GameVersion = targetGameVersion,
+                    InstalledVersion = entry.InstalledVersion, RecommendedVersion = entry.RecommendedVersion,
+                    IgnoredBy = (actor ?? "").Trim(), IgnoredUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                });
+            try { SuiteConfigStorage.Store(api, ignores, IgnoreFile); }
+            catch (Exception ex) { return (false, "Could not save the ignore list: " + ex.GetType().Name); }
+            ApplyIgnoreState(entry);
+            RefreshCounts();
+            return (true, ignore ? "Ignored until the game version, installed version or offered release changes." : "Notifications restored.");
+        }
     }
 
     private static string BuildModPageUrl(string modId) =>
@@ -679,7 +804,11 @@ public sealed class ModUpdateCheckerService : IDisposable
     {
         ModId = x.ModId, InstalledVersion = x.InstalledVersion, RecommendedVersion = x.RecommendedVersion,
         Status = x.Status, Detail = x.Detail, ModPageUrl = x.ModPageUrl,
-        AutoUpdateSupported = x.AutoUpdateSupported, AutoUpdateReason = x.AutoUpdateReason
+        AutoUpdateSupported = x.AutoUpdateSupported, AutoUpdateReason = x.AutoUpdateReason,
+        Ignored = x.Ignored, IgnoreNote = x.IgnoreNote, IgnoredUnixMilliseconds = x.IgnoredUnixMilliseconds, IgnoredBy = x.IgnoredBy,
+        GameRequirement = x.GameRequirement, GameCompatibility = x.GameCompatibility,
+        Dependencies = x.Dependencies.Select(d => new ModDependencyInfo { ModId = d.ModId, RequiredVersion = d.RequiredVersion, InstalledVersion = d.InstalledVersion, Status = d.Status, Detail = d.Detail }).ToList(),
+        RequiredBy = x.RequiredBy.ToList(), DependencyIssues = x.DependencyIssues
     };
 
     private sealed class ModDbBatchResult
