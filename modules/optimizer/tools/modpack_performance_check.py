@@ -37,6 +37,8 @@ def run(args, mode, trial):
     # Avoid an unscheduled autosave inside the measured workload. Explicit saves
     # are identical in both arms; all other template magic numbers stay unchanged.
     magic=json.loads((data/'servermagicnumbers.json').read_text());magic['ServerAutoSave']=3600
+    physics=args.reference_physics_threads if mode=='reference' and args.reference_physics_threads is not None else args.physics_threads
+    if physics is not None:magic['MaxPhysicsThreads']=physics
     (data/'servermagicnumbers.json').write_text(json.dumps(magic,indent=2))
     env=os.environ.copy();env['DOTNET_ROOT']=str(args.dotnet.parent);env['NOS_LAB_NPC_COUNT']=str(args.npc_count);env['NOS_LAB_BLOCK_COUNT']=str(args.block_count);env['NOS_LAB_SPECIES']=','.join(args.species_prefix);env['NOS_LAB_CHUNK_SIDE']=str(args.chunk_side)
     process=subprocess.Popen([str(args.dotnet),str(args.game_dir/'VintagestoryServer.dll'),'--dataPath',str(data),'--ip','127.0.0.1','--port',str(args.port)],cwd=args.game_dir,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1)
@@ -145,7 +147,11 @@ def run(args, mode, trial):
             result['workloadWorld']=dict(path=workload.name,sha256=sha(workload))
         if capturing:wait('Capture stopped.',send('/optimizer profile stop'))
         if not capturing:result['optimizerState']=payload_load('OPTIMIZER_STATE',send('/nosloadoptimizer'))
-        result['unloaded']=payload('UNLOADED',send('/nosbenchunload'));time.sleep(3)
+        if args.profile_unload:
+            result['unloadProfileStart']=payload_load('PROFILE',send('/nosloadprofile'))
+        unloadStart=time.monotonic();result['unloaded']=payload('UNLOADED',send('/nosbenchunload'));result['unloadObserverWallMs']=(time.monotonic()-unloadStart)*1000;time.sleep(3)
+        if args.profile_unload:result['unloadProfile']=payload_load('PROFILE_DATA',send('/nosloadprofiledata'))
+        if not capturing:result['optimizerAfterUnload']=payload_load('OPTIMIZER_STATE',send('/nosloadoptimizer'))
         result['afterUnloadGc']=collect()
         # Counterfactual within each process: a new snapshot should release old
         # stock snapshot references without any optimizer help.
@@ -185,6 +191,9 @@ def main():
     p.add_argument('--keep-workload-world',action='store_true',help='Keep a consistent SQLite backup of the populated workload before forced unload.')
     p.add_argument('--no-nos-capture',action='store_true',help='Keep NOS telemetry stopped; compare actual installed optimization overhead.')
     p.add_argument('--resume',action='store_true',help='Resume complete recorded runs only when input hashes and workload parameters match.')
+    p.add_argument('--profile-unload',action='store_true',help='Profile cleanup outside measured steady windows; adds diagnostic overhead to unload timings.')
+    p.add_argument('--physics-threads',type=int,choices=range(1,9),help='Explicit lab native physics workers; leaves the template unchanged if omitted.')
+    p.add_argument('--reference-physics-threads',type=int,choices=range(1,9),help='Explicit reference-arm workers for a labelled native settings comparison.')
     p.add_argument('--chunk-side',type=int,default=12,help='Generated chunk columns per side, 8-16 (standard 12).')
     p.add_argument('--no-block-workload',dest='block_workload',action='store_false',help='Explicitly omit barrels/firepits for a narrower experiment.')
     p.add_argument('--block-workload',action='store_true',default=True,help='Place the selected barrel and mixed burning/cold firepit workload (default 2000 each).')
@@ -213,6 +222,9 @@ def main():
         if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':p.error('Snapshot integrity failed.')
     args.output.mkdir(parents=True,exist_ok=args.resume)
     manifest=dict(kind='Disposable official-server generation/save/unload A/B laboratory workload',gameVersion='1.22.7',order=modes,worldSeed=json.loads((args.snapshot/'serverconfig.json').read_text())['WorldConfig']['Seed'],worldSha256=sha(args.snapshot/'Saves'/save),artifacts={x.name:sha(x) for x in (args.suitezip,args.optimizerzip,args.fixture)},dotnet=str(args.dotnet),cpuQuota=Path('/sys/fs/cgroup/cpu.max').read_text().strip(),memoryLimit=Path('/sys/fs/cgroup/memory.max').read_text().strip(),warmupSeconds=args.warmup,entitySeconds=args.entity_seconds,profileBursts=args.profile_bursts,pack=json.loads((args.pack/'manifest.json').read_text()),limits=['No authenticated clients or bots; selected modpack is recorded, not the owner production world. Forced-active, fixture-locally-tracked real NPCs and pass-through AI filter/task-start subscribers are lab controls. Normal physics workers run; no fake client records are created.','Stock arm uses same Suite, NOS observer and fixture, with engine switches disabled.','NOS arm uses the recorded optimizer configuration; storage arm enables only WorldgenRequestReuse and SaveSnapshotRelease. Controlled fixture NPC population is recorded separately; NPC count/lifecycle still varies.','Forced compacting GC and forced unloads are test-only controls outside the measured tick capture.','Save timings are observed console-log wall intervals on local container storage, not physical disk latency.'])
+    manifest['profileUnload']=args.profile_unload
+    manifest['physicsThreadsOverride']=args.physics_threads
+    manifest['referencePhysicsThreadsOverride']=args.reference_physics_threads
     manifest['chunkSide']=args.chunk_side
     manifest['npcCount']=args.npc_count
     manifest['nosCaptureEnabled']=not args.no_nos_capture
@@ -226,7 +238,7 @@ def main():
     manifest_path=args.output/'manifest.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','chunkSide','npcCount','nosCaptureEnabled','blockWorkload','blockCount','speciesPrefixes','keepWorkloadWorld','referenceConfigurationSha256'):
+        for key in ('order','worldSha256','artifacts','pack','entitySeconds','profileBursts','warmupSeconds','optimizerConfigurationSha256','profileUnload','physicsThreadsOverride','referencePhysicsThreadsOverride','chunkSide','npcCount','nosCaptureEnabled','blockWorkload','blockCount','speciesPrefixes','keepWorkloadWorld','referenceConfigurationSha256'):
             if manifest[key]!=previous.get(key):p.error('Resume inputs differ: '+key)
         manifest=previous
     (args.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

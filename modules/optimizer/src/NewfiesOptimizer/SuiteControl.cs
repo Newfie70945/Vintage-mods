@@ -58,6 +58,8 @@ public sealed partial class OptimizerMod
             despawnPacketProjection = currentConfig.EngineOptimizations.DespawnPacketProjection,
             physicsPacketListReuse = currentConfig.EngineOptimizations.PhysicsPacketListReuse,
             temperatureAnimationChecks = currentConfig.EngineOptimizations.TemperatureAnimationChecks,
+            despawnCleanupTimings = currentConfig.EngineOptimizations.DespawnCleanupTimings,
+            listenerRegistrationIndex = currentConfig.EngineOptimizations.ListenerRegistrationIndex,
             entityLoadedDispatchReuse = currentConfig.EngineOptimizations.EntityLoadedDispatchReuse,
             entityDespawnDispatchReuse = currentConfig.EngineOptimizations.EntityDespawnDispatchReuse,
             emotionSearchReuse = currentConfig.EngineOptimizations.EmotionSearchReuse,
@@ -174,6 +176,8 @@ public sealed partial class OptimizerMod
                 case "despawnPacketProjection": candidate.EngineOptimizations.DespawnPacketProjection=B(); break;
                 case "physicsPacketListReuse": candidate.EngineOptimizations.PhysicsPacketListReuse=B(); break;
                 case "temperatureAnimationChecks": candidate.EngineOptimizations.TemperatureAnimationChecks=B(); break;
+                case "despawnCleanupTimings": candidate.EngineOptimizations.DespawnCleanupTimings=B(); break;
+                case "listenerRegistrationIndex": candidate.EngineOptimizations.ListenerRegistrationIndex=B(); break;
                 case "entityLoadedDispatchReuse": candidate.EngineOptimizations.EntityLoadedDispatchReuse=B(); break;
                 case "entityDespawnDispatchReuse": candidate.EngineOptimizations.EntityDespawnDispatchReuse=B(); break;
                 case "emotionSearchReuse": candidate.EngineOptimizations.EmotionSearchReuse=B(); break;

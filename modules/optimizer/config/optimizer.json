@@ -119,6 +119,8 @@
     "BlockSimulationBudget": false,
     "BlockSimulationBudgetMs": 5,
     "EntityLoadedDispatchReuse": false,
-    "EntityDespawnDispatchReuse": false
+    "EntityDespawnDispatchReuse": false,
+    "ListenerRegistrationIndex": false,
+    "DespawnCleanupTimings": false
   }
 }
