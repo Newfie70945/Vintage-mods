@@ -12,7 +12,7 @@ namespace NewfiesOptimizer;
 
 public sealed class RuntimeProfiler : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
+    public const string HarmonyId = EngineOptimizations.ProfilerHarmonyId;
     private static RuntimeProfiler? active;
     public Func<ModuleStatus[]>? ExternalModules { get; set; }
     public Func<IReadOnlyDictionary<string,long>>? ExternalCounters { get; set; }
@@ -158,7 +158,7 @@ public sealed class RuntimeProfiler : IDisposable
     public MetricCapability[] Capabilities() => [
         new("tickProcessing", HookUsable("tickMetrics"), "Official pre-sleep millisecond tick work, not entire Process call including sleep; unavailable if hook disabled/conflicted."),
         new("processCpuMemoryGc", config.Profiling.ProcessMetrics, "Process CPU, GC allocation/collection/total pause counters and process memory sampled at configured cadence."),
-        new("mainThreadCpu", config.Profiling.MainThreadCpu && mainNativeThreadId != 0 && previousMainCpuMs.HasValue, "Optional OS thread CPU; Linux/Windows only; null if thread counters unavailable."),
+        new("mainThreadCpu", config.Profiling.MainThreadCpu && mainNativeThreadId > 0 && previousMainCpuMs.HasValue, "Optional OS thread CPU; Linux/Windows only; null if thread counters unavailable."),
         new("worldCounts", config.Profiling.WorldCounts, "Connected Playing clients, loaded entities and optional inspected dictionary Count; no chunk copies or entity walks."),
         new("loadedChunks", config.Profiling.WorldCounts && chunkCount is not null, "Internal 1.22.7 loadedChunks dictionary count, sampled without cloning or retaining terrain objects."),
         new("networkPayloadCounters", config.Profiling.NetworkCounters, "Engine aggregate sent/received TCP+UDP payload byte counters; excludes OS framing and per-player rates."),
@@ -193,7 +193,7 @@ public sealed class RuntimeProfiler : IDisposable
         try
         {
             var info = Harmony.GetPatchInfo(method);
-            string[] owners = info?.Owners.Where(x => x != HarmonyId).Distinct().ToArray() ?? [];
+            string[] owners = info?.Owners.Where(x => !IsOwnOwner(x)).Distinct().ToArray() ?? [];
             if (owners.Length > 0 && config.Compatibility.DisableHookOnConflict)
             {
                 DisableHookGroup(module, "conflict", method.DeclaringType?.Name + "." + method.Name + ": " + string.Join(", ", owners)); return;
@@ -211,6 +211,9 @@ public sealed class RuntimeProfiler : IDisposable
         }
         catch (Exception e) { DisableHookGroup(module, "failed", method.Name + ": " + e.GetType().Name + "; stock engine method remains active."); }
     }
+
+    // NOS engine modules are verified separately; timing observers may wrap them.
+    internal static bool IsOwnOwner(string owner) => owner == HarmonyId || owner == EngineOptimizations.HarmonyId;
 
     private void DisableHookGroup(string module, string status, string reason)
     {
@@ -258,7 +261,7 @@ public sealed class RuntimeProfiler : IDisposable
         if (!config.Compatibility.DisableHookOnConflict) return;
         foreach (var pair in hooks.ToArray())
         {
-            var owners = Harmony.GetPatchInfo(pair.Key)?.Owners.Where(o => o != HarmonyId).ToArray() ?? [];
+            var owners = Harmony.GetPatchInfo(pair.Key)?.Owners.Where(o => !IsOwnOwner(o)).ToArray() ?? [];
             if (owners.Length == 0) continue;
             DisableHookGroup(pair.Value, "conflict", "Late Harmony owner detected; group disabled until next capture: " + pair.Key.Name + ": " + string.Join(",", owners));
         }
@@ -322,7 +325,7 @@ public sealed class RuntimeProfiler : IDisposable
             process.Refresh(); cpuMs = process.TotalProcessorTime.TotalMilliseconds;
             workingSet = process.WorkingSet64; privateBytes = process.PrivateMemorySize64;
         }
-        if (!config.Compatibility.SafeMode && config.Profiling.MainThreadCpu && mainNativeThreadId != 0)
+        if (!config.Compatibility.SafeMode && config.Profiling.MainThreadCpu && mainNativeThreadId > 0)
         {
             try
             {
@@ -393,7 +396,11 @@ public sealed class RuntimeProfiler : IDisposable
             int index = __instance.StatsCollectorIndex;
             __state = new() { Index = index, Count = __instance.StatsCollector[index].ticksTotal, Start = start };
             if (owner.mainNativeThreadId == 0 && !owner.config.Compatibility.SafeMode && owner.config.Profiling.MainThreadCpu)
-                owner.mainNativeThreadId = OperatingSystem.IsLinux() ? NativeGetTid() : OperatingSystem.IsWindows() ? (int)NativeGetCurrentThreadId() : 0;
+            {
+                // -1 records "unavailable" (e.g. libc without gettid) so the lookup is not retried every tick.
+                try { owner.mainNativeThreadId = OperatingSystem.IsLinux() ? NativeGetTid() : OperatingSystem.IsWindows() ? (int)NativeGetCurrentThreadId() : -1; }
+                catch (Exception e) { owner.mainNativeThreadId = -1; owner.SetModule("mainThreadCpu", "failed", "OS thread id unavailable (" + e.GetType().Name + "); main-thread CPU is not reported."); }
+            }
             owner.Session!.AddHookOverhead(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         }
         catch { owner.SetModule("tickMetrics", "failed", "Tick prefix unavailable; no gameplay modification."); }
