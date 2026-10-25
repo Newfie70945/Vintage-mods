@@ -2367,6 +2367,7 @@ __NSS_INTERFACE_STYLE__
     </div>
     <p class="small">Built from the lightweight rolling diagnostics. Archived incidents retain approximately 30 seconds before, the incident itself, and 15 seconds after. Click a row for drill-down or select two incidents to compare recurring patterns.</p>
     <div id="perfIncidentPatterns" class="small" style="margin-bottom:8px"></div>
+    <div id="perfRecurrence" style="margin-bottom:8px"></div>
     <div class="cardHeader"><label class="small">Evidence <select id="perfEvidenceFilter"><option value="all">All spikes</option><option value="measured">Captured tick evidence</option><option value="missing">Needs a tick capture</option></select></label><label class="small">Severity <select id="perfSeverityFilter"><option value="all">All severities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Watch">Watch</option></select></label></div>
     <div class="tableWrap">
       <table>
@@ -8873,6 +8874,12 @@ function renderPerformanceOverview(d){
   const captured=allIncidents.filter(incidentHasTickEvidence).length,patterns=new Map();
   allIncidents.forEach(x=>{const key=x.primaryCategory||'Insufficient evidence';patterns.set(key,(patterns.get(key)||0)+1);});
   if($('perfIncidentPatterns'))$('perfIncidentPatterns').textContent=`Tick evidence: ${captured}/${allIncidents.length}. Frequent assessments: ${[...patterns].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>`${k} (${n})`).join(' · ')||'No incidents'}. Repeated assessments are patterns, not proof of a shared cause.`;
+  if($('perfRecurrence')){
+    const rec=d.recurrence||{},found=rec.findings||[];
+    $('perfRecurrence').innerHTML=found.length
+      ? `<div class="small"><b>Recurring patterns</b> across ${Number(rec.analyzedIncidents||0)} retained incident(s)</div>`+found.slice(0,4).map(f=>`<div class="card smartSignal ${f.confidence==='High'?'high':f.confidence==='Medium'?'watch':''}"><div class="signalMeta"><b>${esc(f.kind)}</b>${confidenceBadge(f.confidence)}</div><div class="signalTitle">${esc(f.title)}</div><div class="small">${esc(f.evidence)}</div><div class="nextAction">${esc(f.nextAction)}</div></div>`).join('')+`<div class="small muted">${esc(rec.note||'')}</div>`
+      : '';
+  }
   for(const id of ['perfEvidenceFilter','perfSeverityFilter'])if($(id))$(id).onchange=()=>renderPerformanceOverview(d);
   if($('perfClearLagHistory'))$('perfClearLagHistory').disabled=!incidents.length;
   $('perfIncidents').innerHTML=incidents.length
