@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 namespace NewfiesCommunityMOTD;
@@ -12,7 +11,10 @@ internal static class MotdFeedFormatter
 {
     internal static string Normalize(string? text) => Regex.Replace(
         Regex.Replace((text ?? "").Replace("\r\n", "\n").Replace('\r', '\n'), @"\[(?i:br)\]", "\n"), @"[ \t]+\n", "\n");
-    private static string Encode(string? text) => WebUtility.HtmlEncode(text ?? "");
+    // VTML decodes &lt;/&gt; but shows &amp;/&#39; literally, so HtmlEncode would garble
+    // ordinary titles such as "We're live". Quotes are escaped only for attribute values.
+    private static string Encode(string? text) => (text ?? "").Replace("<", "&lt;").Replace(">", "&gt;");
+    private static string EncodeAttribute(string text) => Encode(text).Replace("\"", "%22");
     internal static string Build(string heading, string? local, bool useRemote,
         IReadOnlyList<MotdFeedItem>? remote, int limit, string? accent, bool merge)
     {
@@ -52,7 +54,7 @@ internal static class MotdFeedFormatter
         sb.Append("</font>\n\n");
         if (!string.IsNullOrWhiteSpace(item.BodyVtml)) sb.Append(Normalize(item.BodyVtml).Trim()).Append("\n\n");
         if (Uri.TryCreate(item.Url, UriKind.Absolute, out var url) && (url.Scheme == Uri.UriSchemeHttps || url.Scheme == Uri.UriSchemeHttp))
-            sb.Append("<font size=\"11\" color=\"#91B7C7\"><a href=\"").Append(Encode(url.AbsoluteUri)).Append("\">Open original post</a></font>\n");
+            sb.Append("<font size=\"11\" color=\"#91B7C7\"><a href=\"").Append(EncodeAttribute(url.AbsoluteUri)).Append("\">Open original post</a></font>\n");
         sb.Append('\n');
     }
 }
