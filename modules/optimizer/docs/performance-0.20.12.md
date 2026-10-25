@@ -27,3 +27,27 @@ In Suite > Optimizations, enable one of the new dispatch switches and save/apply
 ## New standard stress workload
 
 At the owner’s request, the modpack laboratory defaults now use 6,000 real active entities, 2,000 barrels and 2,000 firepits, with 180-second measured windows. The fixture supports up to 8,192 entities and 4,000 of each block; these are lab bounds, not recommended production populations. The kept-loaded test area expands to 12 × 12 chunk columns so the population remains within prepared terrain. Tests check exact spawned/placed counts and validate that dirty/save coverage matches the generated columns and native world height. This is synthetic stress, not 6,000-player capacity evidence. Smaller explicit workloads remain available for targeted investigations.
+
+## Completed standard comparison
+
+One sequential off/on pair used the same official 1.22.7 world template, Suite 1.2.51, NOS 0.20.12, 23 selected mod ZIPs and fixture. Only the two new dispatch flags differed. Each run measured 180 seconds with 6,000 active animals (pig, sheep, goat, deer groups), 2,000 barrels and 2,000 firepits in 144 kept-loaded columns. No authenticated players were present; NOS capture and the full native profiler were stopped during measurement. No compilation ran during either measured window.
+
+| Metric | New dispatch options off | On |
+| --- | ---: | ---: |
+| Active fixture entities at end | 6,000 | 6,000 |
+| Recorded ticks | 960 | 960 |
+| Average tick | 187.08 ms | 187.12 ms |
+| p95 / p99 | 238 / 265 ms | 241 / 264 ms |
+| Worst tick | 383 ms | 427 ms |
+| Allocation rate | 77.43 MiB/s | 76.87 MiB/s |
+| Allocation per recorded tick | 14.5236 MiB | 14.4210 MiB |
+| End managed heap | 1,826.53 MiB | 1,816.90 MiB |
+| Process CPU (100% = one core) | 112.80% | 112.64% |
+| GC pause total in window | 3,924.70 ms | 3,864.93 ms |
+| Median explicit save preparation | 78.59 ms | 70.16 ms |
+
+Both runs completed five explicit saves, forced unloading, clean shutdown and SQLite integrity checks with zero logged errors. Save/unload and test-only forced collections were outside steady windows. The enabled run reported both modules active and zero dispatch infrastructure failures. The counter snapshot, taken before forced unloading, recorded 228 loaded-event dispatches and 110 despawn dispatches; it does not count the later forced-unload phase.
+
+**Conclusion:** the controlled dispatch component eliminates its own 88–184 bytes/event, but this high-population pair demonstrates no meaningful steady-tick improvement. The small allocation/save differences are not attributable from one pair and must not be marketed as a performance gain. The worse candidate maximum is also insufficient to assign causality. Both new switches remain experimental and off. This two-core/eight-GiB test is synthetic stress evidence, not a production scaling or long-term leak claim. The smaller interrupted comparison was discarded.
+
+[Controlled dispatch measurements](research/events-0.20.12/dispatch-component.json) · [Sanitized standard comparison](research/events-0.20.12/server-comparison.json).

@@ -2,6 +2,8 @@
 
 All 32 automated suites passed against official Vintage Story 1.22.7, including 149 engine lifecycle/conflict checks and 33 new lifecycle-event dispatch checks. Final optimizer and Suite builds completed with zero warnings/errors; browser save/apply, older-version, read-only and mobile controls passed. New dispatch switches remain independently controlled and off by default. See [measurements and limitations](performance-0.20.12.md).
 
+The new standard 6,000-entity / 2,000-barrel / 2,000-firepit off/on pair passed save, unload, shutdown and integrity checks. Average ticks were essentially unchanged (187.08 vs 187.12 ms); no steady-tick benefit is established. Both options remain off.
+
 ## Earlier validation
 
 # NOS 0.20.11 / Suite 1.2.52 validation

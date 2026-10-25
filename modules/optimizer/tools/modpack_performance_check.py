@@ -193,7 +193,7 @@ def main():
     p.add_argument('--warmup',type=int,default=15);p.add_argument('--port',type=int,default=42579)
     p.add_argument('--order',default='stock,nos,nos,stock,stock,nos')
     args=p.parse_args()
-    args.species_prefix=args.species_prefix or ['game:pig-eurasian-adult-']
+    args.species_prefix=args.species_prefix or ['game:pig-eurasian-adult-','game:sheep-','game:goat-','game:deer-']
     if not 8<=args.chunk_side<=16:p.error('--chunk-side must be 8-16')
     if not 1<=args.block_count<=4000:p.error('--block-count must be 1-4000')
     if len(args.species_prefix)>16 or any(not x or ',' in x or len(x)>128 for x in args.species_prefix):p.error('Invalid species prefix')

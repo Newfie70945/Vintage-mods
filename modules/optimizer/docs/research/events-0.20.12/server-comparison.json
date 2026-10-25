@@ -1,0 +1,82 @@
+{
+  "workload": {
+    "entities": 6000,
+    "barrels": 2000,
+    "firepits": 2000,
+    "selectedModZips": 23,
+    "authenticatedPlayers": 0,
+    "columns": 144
+  },
+  "results": [
+    {
+      "mode": "reference",
+      "passed": true,
+      "spawned": 6000,
+      "activeEnd": 6000,
+      "barrels": 2000,
+      "firepits": 2000,
+      "columns": 144,
+      "seconds": 180.06,
+      "ticks": 960,
+      "averageMs": 187.08,
+      "p95Ms": 238,
+      "p99Ms": 265,
+      "worstMs": 383,
+      "allocationMiBPerSecond": 77.43,
+      "allocationMiBPerTick": 14.5236,
+      "cpuPercent": 112.8,
+      "heapEndMiB": 1826.53,
+      "gcPauseMs": 3924.7,
+      "savePreparationMedianMs": 78.59,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "dispatchCountersBeforeForcedUnload": {
+        "entityLoadedDispatchCalls": 0,
+        "entityDespawnDispatchCalls": 0,
+        "entityEventDispatchFailures": 0
+      }
+    },
+    {
+      "mode": "nos",
+      "passed": true,
+      "spawned": 6000,
+      "activeEnd": 6000,
+      "barrels": 2000,
+      "firepits": 2000,
+      "columns": 144,
+      "seconds": 180.1,
+      "ticks": 960,
+      "averageMs": 187.12,
+      "p95Ms": 241,
+      "p99Ms": 264,
+      "worstMs": 427,
+      "allocationMiBPerSecond": 76.87,
+      "allocationMiBPerTick": 14.421,
+      "cpuPercent": 112.64,
+      "heapEndMiB": 1816.9,
+      "gcPauseMs": 3864.93,
+      "savePreparationMedianMs": 70.16,
+      "saveIntegrity": "ok",
+      "exitCode": 0,
+      "errors": 0,
+      "dispatchCountersBeforeForcedUnload": {
+        "entityLoadedDispatchCalls": 228,
+        "entityDespawnDispatchCalls": 110,
+        "entityEventDispatchFailures": 0
+      }
+    }
+  ],
+  "artifacts": {
+    "NewfiesServerEssentialsSuiteV1.2.51.zip": "a19ac2978db23f37598fe5cd18b3270017a46b899feada5ad55ed69e29ce2579",
+    "NewfiesServerOptimizer-0.20.12-preview.zip": "1ef3d260a5ed000a2e200e285864289f40abbec06f7205717769a9f6039ce767",
+    "IntensiveLabFixture-v5-standard.zip": "6f529e027b71bb76e1394b7881dfc0929989e0e10491f398fa76aac8009064e1"
+  },
+  "limits": [
+    "One sequential pair on 2 vCPU / 8 GiB.",
+    "Only dispatch flags differ; no production TPS claim.",
+    "No authenticated players; native forced-active animals with fixture AI/physics controls.",
+    "Five saves, unload and controlled full GCs outside steady windows.",
+    "Counters sampled before forced unload."
+  ]
+}
