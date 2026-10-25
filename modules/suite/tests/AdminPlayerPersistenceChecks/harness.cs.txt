@@ -1,0 +1,34 @@
+using Microsoft.Data.Sqlite;
+using System.Diagnostics;
+using System.Text.Json;
+class Program {
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+ static SqliteConnection Open(){var c=new SqliteConnection("Data Source=:memory:");c.Open();using var cmd=c.CreateCommand();cmd.CommandText=@"/*SCHEMA*/";cmd.ExecuteNonQuery();return c;}
+ static string Dump(SqliteConnection c){using var q=c.CreateCommand();q.CommandText="SELECT * FROM players ORDER BY uid";using var r=q.ExecuteReader();var rows=new List<object[]>();while(r.Read()){var row=new object[r.FieldCount];r.GetValues(row);rows.Add(row);}return JsonSerializer.Serialize(rows);}
+ static long Changes(SqliteConnection c){using var q=c.CreateCommand();q.CommandText="SELECT total_changes()";return (long)q.ExecuteScalar()!;}
+ static void Write(SqliteConnection c,AdminState s,bool current){using var tx=c.BeginTransaction();if(current)Store.Current(c,tx,s);else Store.Previous(c,tx,s);tx.Commit();}
+ static void Main(){SQLitePCL.raw.SetProvider(new SQLitePCL.SQLite3Provider_e_sqlite3());using var a=Open();using var b=Open();var s=new AdminState();
+  for(int i=0;i<5000;i++)s.Players[i.ToString()]=new(){PlayerUid="player-"+i,LastKnownName="Name "+i,FirstSeenUnixMilliseconds=i,TotalPlaySeconds=i*10};
+  Write(a,s,false);Write(b,s,true);Check(Dump(a)==Dump(b),"initial persisted fields differ");
+  long initial=Changes(b);Write(b,s,true);Check(Changes(b)==initial,"unchanged players generated SQLite writes");
+  foreach(var prop in typeof(PlayerAdminRecord).GetProperties().Where(p=>p.Name!="PlayerUid")){
+   var rec=s.Players["1"];object value=prop.PropertyType==typeof(string)?"Changed "+prop.Name:prop.PropertyType==typeof(bool)?true:9123L;prop.SetValue(rec,value);Write(a,s,false);Write(b,s,true);Check(Dump(a)==Dump(b),"changed field lost: "+prop.Name);
+  }
+  s.Players["2"].LastKnownName=null!;Write(a,s,false);Write(b,s,true);Check(Dump(a)==Dump(b),"null string normalization changed");
+  using(var q=b.CreateCommand()){q.CommandText="CREATE TRIGGER fail_update BEFORE UPDATE ON players WHEN NEW.last_name='fail' BEGIN SELECT RAISE(ABORT,'sentinel'); END;";q.ExecuteNonQuery();}
+  string before=Dump(b);s.Players["0"].LastKnownName="not committed";s.Players["2"].LastKnownName="fail";
+  try{Write(b,s,true);throw new Exception("failed write accepted");}catch(SqliteException){}
+  Check(Dump(b)==before,"failed transaction left partial changes");s.Players["2"].LastKnownName="retry";Write(a,s,false);Write(b,s,true);Check(Dump(a)==Dump(b),"retry lost changes");
+  var results=new List<object>();for(int trial=0;trial<4;trial++)foreach(bool current in trial%2==0?new[]{false,true}:new[]{true,false}){var c=current?b:a;long count=Changes(c),bytes=GC.GetAllocatedBytesForCurrentThread();var timer=Stopwatch.StartNew();Write(c,s,current);timer.Stop();results.Add(new{trial,current,milliseconds=timer.Elapsed.TotalMilliseconds,allocatedBytes=GC.GetAllocatedBytesForCurrentThread()-bytes,sqliteRowsChanged=Changes(c)-count});}
+  Console.WriteLine(JsonSerializer.Serialize(new{passed=true,players=5000,checks="all 16 persisted fields, null normalization, no-op writes, rollback and retry",results,scope="Actual previous/current production SQL methods; SQLite in-memory component test, not live server autosave latency."}));
+ }
+}
+class AdminState{public Dictionary<string,PlayerAdminRecord> Players=new();}
+class PlayerAdminRecord{
+ public string PlayerUid{get;set;}="";public string LastKnownName{get;set;}="";
+ public long FirstSeenUnixMilliseconds{get;set;} public long LastSeenUnixMilliseconds{get;set;} public long TotalPlaySeconds{get;set;} public long SessionStartedUnixMilliseconds{get;set;}
+ public long MuteUntilUnixMilliseconds{get;set;} public bool PermanentMute{get;set;} public string MuteReason{get;set;}="";public string MutedBy{get;set;}="";
+ public long BanUntilUnixMilliseconds{get;set;} public string BanReason{get;set;}="";public string BannedBy{get;set;}="";
+ public bool Frozen{get;set;} public long FreezeUntilUnixMilliseconds{get;set;} public string FrozenBy{get;set;}="";public string FreezeReason{get;set;}="";
+}
+class Store{/*METHODS*/}

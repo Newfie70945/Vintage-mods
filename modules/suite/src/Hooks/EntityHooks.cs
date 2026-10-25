@@ -175,12 +175,26 @@ public sealed class EntityHooks
         if (entity == null || entity is EntityPlayer) return;
         if (LifecycleAuditSuppressed) return;
 
-        try { EntityObserved?.Invoke(entity, LogActionType.EntityDespawn); }
-        catch (Exception ex) { ReportHookFailure("EntityObservedDespawn", ex); }
-
-        if (!config.Enabled || !config.LogEntityDespawn) return;
-        try { QueueEntityRecord(LogActionType.EntityDespawn, entity, null, null, null, despawnData); }
-        catch (Exception ex) { ReportHookFailure("OnEntityDespawn", ex); }
+        var profiler=api.World?.FrameProfiler;
+        bool tracing=profiler?.Enabled==true;
+        long started=System.Diagnostics.Stopwatch.GetTimestamp();
+        if(tracing)profiler!.Enter("suite-entity-despawn");
+        try
+        {
+            try { EntityObserved?.Invoke(entity, LogActionType.EntityDespawn); }
+            catch (Exception ex) { ReportHookFailure("EntityObservedDespawn", ex); }
+            if(tracing)profiler!.Mark("suite-despawn-observers");
+            if (!config.Enabled || !config.LogEntityDespawn) return;
+            try { QueueEntityRecord(LogActionType.EntityDespawn, entity, null, null, null, despawnData); }
+            catch (Exception ex) { ReportHookFailure("OnEntityDespawn", ex); }
+            if(tracing)profiler!.Mark("suite-despawn-audit-queue");
+        }
+        finally
+        {
+            if(tracing)profiler!.Leave();
+            double elapsed=System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            if(elapsed>=1)SuiteTimingRegistry.Record("BlockLogger despawn handling (slow >=1ms)",elapsed);
+        }
     }
 
     private void OnPlayerDeath(IServerPlayer player, DamageSource damageSource)

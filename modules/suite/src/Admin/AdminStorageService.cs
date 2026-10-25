@@ -510,18 +510,36 @@ ON CONFLICT(player_uid) DO UPDATE SET captured_ms=excluded.captured_ms,source=ex
         cmd.Transaction = tx;
         cmd.CommandText = @"INSERT INTO players(uid,last_name,first_seen_ms,last_seen_ms,total_play_seconds,session_started_ms,mute_until_ms,permanent_mute,mute_reason,muted_by,ban_until_ms,ban_reason,banned_by,frozen,freeze_until_ms,frozen_by,freeze_reason)
 VALUES($uid,$name,$first,$last,$play,$session,$muteUntil,$permMute,$muteReason,$mutedBy,$banUntil,$banReason,$bannedBy,$frozen,$freezeUntil,$frozenBy,$freezeReason)
-ON CONFLICT(uid) DO UPDATE SET last_name=excluded.last_name,first_seen_ms=excluded.first_seen_ms,last_seen_ms=excluded.last_seen_ms,total_play_seconds=excluded.total_play_seconds,session_started_ms=excluded.session_started_ms,mute_until_ms=excluded.mute_until_ms,permanent_mute=excluded.permanent_mute,mute_reason=excluded.mute_reason,muted_by=excluded.muted_by,ban_until_ms=excluded.ban_until_ms,ban_reason=excluded.ban_reason,banned_by=excluded.banned_by,frozen=excluded.frozen,freeze_until_ms=excluded.freeze_until_ms,frozen_by=excluded.frozen_by,freeze_reason=excluded.freeze_reason;";
+ON CONFLICT(uid) DO UPDATE SET last_name=excluded.last_name,first_seen_ms=excluded.first_seen_ms,last_seen_ms=excluded.last_seen_ms,total_play_seconds=excluded.total_play_seconds,session_started_ms=excluded.session_started_ms,mute_until_ms=excluded.mute_until_ms,permanent_mute=excluded.permanent_mute,mute_reason=excluded.mute_reason,muted_by=excluded.muted_by,ban_until_ms=excluded.ban_until_ms,ban_reason=excluded.ban_reason,banned_by=excluded.banned_by,frozen=excluded.frozen,freeze_until_ms=excluded.freeze_until_ms,frozen_by=excluded.frozen_by,freeze_reason=excluded.freeze_reason
+WHERE players.last_name IS NOT excluded.last_name OR players.first_seen_ms IS NOT excluded.first_seen_ms OR players.last_seen_ms IS NOT excluded.last_seen_ms OR players.total_play_seconds IS NOT excluded.total_play_seconds OR players.session_started_ms IS NOT excluded.session_started_ms OR players.mute_until_ms IS NOT excluded.mute_until_ms OR players.permanent_mute IS NOT excluded.permanent_mute OR players.mute_reason IS NOT excluded.mute_reason OR players.muted_by IS NOT excluded.muted_by OR players.ban_until_ms IS NOT excluded.ban_until_ms OR players.ban_reason IS NOT excluded.ban_reason OR players.banned_by IS NOT excluded.banned_by OR players.frozen IS NOT excluded.frozen OR players.freeze_until_ms IS NOT excluded.freeze_until_ms OR players.frozen_by IS NOT excluded.frozen_by OR players.freeze_reason IS NOT excluded.freeze_reason;";
+        var p0=cmd.Parameters.Add("$uid",SqliteType.Text);
+        var p1=cmd.Parameters.Add("$name",SqliteType.Text);
+        var p2=cmd.Parameters.Add("$first",SqliteType.Integer);
+        var p3=cmd.Parameters.Add("$last",SqliteType.Integer);
+        var p4=cmd.Parameters.Add("$play",SqliteType.Integer);
+        var p5=cmd.Parameters.Add("$session",SqliteType.Integer);
+        var p6=cmd.Parameters.Add("$muteUntil",SqliteType.Integer);
+        var p7=cmd.Parameters.Add("$permMute",SqliteType.Integer);
+        var p8=cmd.Parameters.Add("$muteReason",SqliteType.Text);
+        var p9=cmd.Parameters.Add("$mutedBy",SqliteType.Text);
+        var p10=cmd.Parameters.Add("$banUntil",SqliteType.Integer);
+        var p11=cmd.Parameters.Add("$banReason",SqliteType.Text);
+        var p12=cmd.Parameters.Add("$bannedBy",SqliteType.Text);
+        var p13=cmd.Parameters.Add("$frozen",SqliteType.Integer);
+        var p14=cmd.Parameters.Add("$freezeUntil",SqliteType.Integer);
+        var p15=cmd.Parameters.Add("$frozenBy",SqliteType.Text);
+        var p16=cmd.Parameters.Add("$freezeReason",SqliteType.Text);
+        cmd.Prepare();
         foreach (var rec in state.Players.Values)
         {
-            cmd.Parameters.Clear();
-            cmd.Parameters.AddWithValue("$uid", rec.PlayerUid ?? ""); cmd.Parameters.AddWithValue("$name", rec.LastKnownName ?? "");
-            cmd.Parameters.AddWithValue("$first", rec.FirstSeenUnixMilliseconds); cmd.Parameters.AddWithValue("$last", rec.LastSeenUnixMilliseconds);
-            cmd.Parameters.AddWithValue("$play", rec.TotalPlaySeconds); cmd.Parameters.AddWithValue("$session", rec.SessionStartedUnixMilliseconds);
-            cmd.Parameters.AddWithValue("$muteUntil", rec.MuteUntilUnixMilliseconds); cmd.Parameters.AddWithValue("$permMute", rec.PermanentMute ? 1 : 0);
-            cmd.Parameters.AddWithValue("$muteReason", rec.MuteReason ?? ""); cmd.Parameters.AddWithValue("$mutedBy", rec.MutedBy ?? "");
-            cmd.Parameters.AddWithValue("$banUntil", rec.BanUntilUnixMilliseconds); cmd.Parameters.AddWithValue("$banReason", rec.BanReason ?? ""); cmd.Parameters.AddWithValue("$bannedBy", rec.BannedBy ?? "");
-            cmd.Parameters.AddWithValue("$frozen", rec.Frozen ? 1 : 0); cmd.Parameters.AddWithValue("$freezeUntil", rec.FreezeUntilUnixMilliseconds);
-            cmd.Parameters.AddWithValue("$frozenBy", rec.FrozenBy ?? ""); cmd.Parameters.AddWithValue("$freezeReason", rec.FreezeReason ?? "");
+            p0.Value=rec.PlayerUid ?? ""; p1.Value=rec.LastKnownName ?? "";
+            p2.Value=rec.FirstSeenUnixMilliseconds; p3.Value=rec.LastSeenUnixMilliseconds;
+            p4.Value=rec.TotalPlaySeconds; p5.Value=rec.SessionStartedUnixMilliseconds;
+            p6.Value=rec.MuteUntilUnixMilliseconds; p7.Value=rec.PermanentMute ? 1 : 0;
+            p8.Value=rec.MuteReason ?? ""; p9.Value=rec.MutedBy ?? "";
+            p10.Value=rec.BanUntilUnixMilliseconds; p11.Value=rec.BanReason ?? ""; p12.Value=rec.BannedBy ?? "";
+            p13.Value=rec.Frozen ? 1 : 0; p14.Value=rec.FreezeUntilUnixMilliseconds;
+            p15.Value=rec.FrozenBy ?? ""; p16.Value=rec.FreezeReason ?? "";
             cmd.ExecuteNonQuery();
         }
     }

@@ -674,8 +674,26 @@ public sealed class AdminService : IDisposable
 
     private void OnGameWorldSave()
     {
-        foreach (var player in OnlinePlayers()) CaptureOfflineInventory(player, "server-save-capture");
-        SaveState();
+        var profiler=api.World?.FrameProfiler;
+        bool tracing=profiler?.Enabled==true;
+        long started=System.Diagnostics.Stopwatch.GetTimestamp();
+        if(tracing)profiler!.Enter("suite-admin-world-save");
+        try
+        {
+            foreach (var player in OnlinePlayers()) CaptureOfflineInventory(player, "server-save-capture");
+            if(tracing)profiler!.Mark("suite-admin-save-inventory-views");
+            long flushStarted=System.Diagnostics.Stopwatch.GetTimestamp();
+            SaveState(); // Keep the original synchronous commit guarantee.
+            if(tracing)profiler!.Mark("suite-admin-save-storage-flush");
+            double flushMs=System.Diagnostics.Stopwatch.GetElapsedTime(flushStarted).TotalMilliseconds;
+            if(flushMs>=1)SuiteTimingRegistry.Record("Admin world-save storage flush (slow >=1ms)",flushMs);
+        }
+        finally
+        {
+            if(tracing)profiler!.Leave();
+            double elapsed=System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            if(elapsed>=1)SuiteTimingRegistry.Record("Admin world-save handler (slow >=1ms)",elapsed);
+        }
     }
 
     public List<AdminItemSearchResult> SearchItems(string search, int limit = 50)
