@@ -1,6 +1,6 @@
 # Performance workspace and live map controls
 
-For current loaded-build and saved-exploration behavior in Suite 1.2.53, see [Live terrain updates](LIVE-TERRAIN-UPDATES.md). The sections below record the original 1.2.51 exploration implementation; its statement that existing edits require manual updates is superseded by the 1.2.53 guide.
+For current loaded-build and saved-exploration behavior in Suite 1.2.52, see [Live terrain updates](LIVE-TERRAIN-UPDATES.md). The sections below record the original 1.2.51 exploration implementation; its statement that existing edits require manual updates is superseded by the 1.2.52 guide.
 
 ## Performance pages
 

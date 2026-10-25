@@ -1,6 +1,6 @@
-# Server Essentials Suite 1.2.53
+# Server Essentials Suite 1.2.52
 
-Changes since 1.2.52:
+Additional changes for the 1.2.52 release:
 
 - Live terrain updates now refresh dirty, already-loaded areas so current builds can appear without waiting for a world save.
 - Unloaded or partially loaded areas stay queued until naturally loaded. Automatic updates never request, generate or pin chunks.

@@ -1,6 +1,6 @@
-# Suite 1.2.53 — loaded-only dirty terrain updates
+# Suite 1.2.52 — loaded-only dirty terrain updates
 
-Baseline: Suite 1.2.52 was designated the release baseline by the author. This is the next candidate, `ms11-loaded-map1`; companion and optimizer code is unchanged.
+Version correction: the author confirmed this work remains part of Suite 1.2.52. This is the updated candidate, `ms11-loaded-map1`; companion and optimizer code is unchanged.
 
 ## Change
 

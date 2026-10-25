@@ -1,4 +1,4 @@
-# Live terrain updates — Suite 1.2.53
+# Live terrain updates — Suite 1.2.52
 
 Open **Web Map → Export Schedule → Live terrain updates**, enable the checkbox, set the interval/tile limit, then **Save Export Schedule**. Defaults remain **off**, **120 seconds**, **4 tiles per pass**. An initial compatible terrain export is required.
 
