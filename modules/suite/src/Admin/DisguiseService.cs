@@ -144,7 +144,6 @@ public sealed class DisguiseService : IDisposable
                 return "Wait a moment before changing your disguise again.";
             if (!states.ContainsKey(player.PlayerUID) && states.Count >= DisguiseRules.MaximumConcurrent)
                 return $"{DisguiseRules.MaximumConcurrent} disguises are already active. Ask another admin to use /disguise off first.";
-            lastChangeAt[player.PlayerUID] = now;
         }
 
         var registered = RegisteredCodes();
@@ -167,19 +166,16 @@ public sealed class DisguiseService : IDisposable
         if (!EntityPositionResolver.TryGetPose(player.Entity, out double x, out double y, out double z, out int dimension, out float yaw, out float pitch))
             return "Your position could not be read, so the disguise was not created.";
 
-        // Switching disguise: remove the old entity first, keep the hidden state.
-        bool wasHidden = false;
-        lock (gate)
-            if (states.TryGetValue(player.PlayerUID, out State? previous)) wasHidden = previous.HiddenByDisguise;
-        RemoveEntityFor(player.PlayerUID, keepState: true);
-
+        // Spawn the new entity first. If that fails the current disguise (and ghost state) stay exactly as they were, and
+        // the follow tick never sees a moment where the old entity is gone but the new one is not yet tracked.
         // Pitch is the admin's head tilt. On a mob it would tilt the whole body, so the disguise always stands level.
         Entity? entity = Spawn(code, x, y, z, yaw, 0f, player.PlayerUID, out string error);
-        if (entity == null)
-        {
-            lock (gate) states.Remove(player.PlayerUID);
-            return error;
-        }
+        if (entity == null) return error;
+
+        long oldEntityId = 0;
+        bool wasHidden = false;
+        lock (gate)
+            if (states.TryGetValue(player.PlayerUID, out State? previous)) { wasHidden = previous.HiddenByDisguise; oldEntityId = previous.EntityId; }
 
         bool hidden = wasHidden;
         if (hidePlayer && !admin.IsGhosted(player.PlayerUID))
@@ -189,7 +185,12 @@ public sealed class DisguiseService : IDisposable
             hidden = true;
         }
 
-        lock (gate) states[player.PlayerUID] = new State { EntityCode = code, EntityId = entity.EntityId, HiddenByDisguise = hidden };
+        lock (gate)
+        {
+            states[player.PlayerUID] = new State { EntityCode = code, EntityId = entity.EntityId, HiddenByDisguise = hidden };
+            lastChangeAt[player.PlayerUID] = now;
+        }
+        RemoveEntity(oldEntityId); // after the swap: the follow tick now tracks the new entity only
         EnsureTickListener();
         admin.Audit(player.PlayerName, "disguise-on", player.PlayerUID, player.PlayerName, "Disguised as " + code, "ingame");
         string note = hidden ? DescribeHideSupport(player) : "";
@@ -262,7 +263,7 @@ public sealed class DisguiseService : IDisposable
     }
 
     /// <summary>
-    /// The follow tick resets the pose every 100 ms, which already pins the entity. Where the game exposes the AI
+    /// The follow tick resets the pose every 50 ms, which already pins the entity. Where the game exposes the AI
     /// behaviors, also remove them so a disguise cannot wander, flee or attack between ticks. Optional and by name.
     /// </summary>
     private void StopWandering(Entity entity)
@@ -333,6 +334,10 @@ public sealed class DisguiseService : IDisposable
         {
             try
             {
+                // Skip entries replaced or removed since the snapshot (for example by a disguise change in this same tick).
+                bool current;
+                lock (gate) current = states.TryGetValue(pair.Key, out State? live) && ReferenceEquals(live, pair.Value);
+                if (!current) continue;
                 IServerPlayer? owner = api.World.AllOnlinePlayers.OfType<IServerPlayer>()
                     .FirstOrDefault(p => string.Equals(p.PlayerUID, pair.Key, StringComparison.OrdinalIgnoreCase));
                 if (owner?.Entity == null) { RemoveEntityFor(pair.Key, keepState: false); continue; }
