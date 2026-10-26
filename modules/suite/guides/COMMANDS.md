@@ -600,5 +600,7 @@ While you move, the disguise plays `idle`, `walk` or `run` to match your speed (
 stay still). Other players cannot hit, mount or use the disguise. If some online players run a client without
 ghost-hide support, `/disguise` tells you how many may still see your real model next to it.
 
+The disguise always stands level (your head tilt is not copied onto the body). At most 4 disguises can be active at once, and each admin can change theirs once every 2 seconds.
+
 Limits: environmental damage can still affect the entity, and a hostile type may try to act until its AI is removed (the
 Suite removes it where the game allows). Treat this as an admin tool, not a security boundary.

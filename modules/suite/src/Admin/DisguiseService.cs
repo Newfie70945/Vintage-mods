@@ -17,6 +17,10 @@ public static class DisguiseRules
 {
     public const string Marker = "nsDisguise";
     public const string OwnerKey = "nsDisguiseOwner";
+    /// <summary>Disguise entities alive at once. Each is a real world entity, so this bounds the cost of misuse.</summary>
+    public const int MaximumConcurrent = 4;
+    /// <summary>Minimum time between disguise changes by one admin.</summary>
+    public const int CooldownMs = 2000;
 
     /// <summary>"cow" becomes "game:cow"; a code that already has a domain is kept. Returns "" for unusable input.</summary>
     public static string NormalizeCode(string? input)
@@ -75,6 +79,7 @@ public sealed class DisguiseService : IDisposable
     private readonly Dictionary<string, State> states = new(StringComparer.OrdinalIgnoreCase);
     private long tickListener = -1;
     private bool disposed;
+    private readonly Dictionary<string, long> lastChangeAt = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class State
     {
@@ -132,6 +137,16 @@ public sealed class DisguiseService : IDisposable
         if (disposed || player?.Entity == null || string.IsNullOrWhiteSpace(player.PlayerUID))
             return "Disguise is unavailable for this player.";
 
+        long now = Environment.TickCount64;
+        lock (gate)
+        {
+            if (lastChangeAt.TryGetValue(player.PlayerUID, out long previousChange) && now - previousChange < DisguiseRules.CooldownMs)
+                return "Wait a moment before changing your disguise again.";
+            if (!states.ContainsKey(player.PlayerUID) && states.Count >= DisguiseRules.MaximumConcurrent)
+                return $"{DisguiseRules.MaximumConcurrent} disguises are already active. Ask another admin to use /disguise off first.";
+            lastChangeAt[player.PlayerUID] = now;
+        }
+
         var registered = RegisteredCodes();
         string code;
         if (registered.Count > 0)
@@ -158,7 +173,8 @@ public sealed class DisguiseService : IDisposable
             if (states.TryGetValue(player.PlayerUID, out State? previous)) wasHidden = previous.HiddenByDisguise;
         RemoveEntityFor(player.PlayerUID, keepState: true);
 
-        Entity? entity = Spawn(code, x, y, z, yaw, pitch, player.PlayerUID, out string error);
+        // Pitch is the admin's head tilt. On a mob it would tilt the whole body, so the disguise always stands level.
+        Entity? entity = Spawn(code, x, y, z, yaw, 0f, player.PlayerUID, out string error);
         if (entity == null)
         {
             lock (gate) states.Remove(player.PlayerUID);
@@ -219,6 +235,7 @@ public sealed class DisguiseService : IDisposable
         if (player == null) return;
         // AdminService restores ghost state itself on disconnect; here only the entity needs to go.
         RemoveEntityFor(player.PlayerUID, keepState: false);
+        lock (gate) lastChangeAt.Remove(player.PlayerUID);
     }
 
     private Entity? Spawn(string code, double x, double y, double z, float yaw, float pitch, string ownerUid, out string error)
@@ -333,11 +350,12 @@ public sealed class DisguiseService : IDisposable
                         continue;
                     }
                     pair.Value.Respawns++;
-                    disguise = Spawn(pair.Value.EntityCode, x, y, z, yaw, pitch, owner.PlayerUID, out _);
+                    disguise = Spawn(pair.Value.EntityCode, x, y, z, yaw, 0f, owner.PlayerUID, out _);
                     if (disguise == null) continue;
                     pair.Value.EntityId = disguise.EntityId;
+                    pair.Value.Animation = ""; // a new entity has no animation running yet
                 }
-                EntityPositionResolver.TrySetPose(disguise, x, y, z, yaw, pitch);
+                EntityPositionResolver.TrySetPose(disguise, x, y, z, yaw, 0f);
                 MatchAnimation(disguise, pair.Value, x, z);
             }
             catch (Exception ex) { api.Logger.Debug("[ServerEssentials/Disguise] follow tick: {0}", ex.Message); }
