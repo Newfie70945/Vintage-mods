@@ -392,6 +392,8 @@ public sealed class WebMapBridgeService : IDisposable
             incoming.LastTerrainExportDurationMilliseconds = config.LastTerrainExportDurationMilliseconds;
             incoming.UseDirectSaveDatabaseTerrain = config.UseDirectSaveDatabaseTerrain;
             incoming.TerrainPyramidWorkers = config.TerrainPyramidWorkers;
+            // File-managed: the dashboard has no editor for these, so a dashboard save must not wipe them.
+            incoming.TerrainColorOverrides = new Dictionary<string, string>(config.TerrainColorOverrides ?? new(), StringComparer.Ordinal);
             incoming.TerrainBaseRenderWorkers = config.TerrainBaseRenderWorkers;
         }
 
@@ -1325,7 +1327,7 @@ public sealed class WebMapBridgeService : IDisposable
                 !string.Equals(manifest.SavegameIdentifier ?? "", saveId, StringComparison.Ordinal) ||
                 !Directory.Exists(Path.Combine(mapDataRoot, "terrain", "lod")))
             {
-                return "Changed terrain update requires Full Rebuild Map first because the current terrain cache is missing or incompatible with the v11 raised-relief fast-patch/true-pyramid renderer cache.";
+                return "Changed terrain update requires Full Rebuild Map first because the current terrain cache is missing or was written by an older renderer version.";
             }
         }
         if (Interlocked.CompareExchange(ref forcedTerrainExportInFlight, 1, 0) != 0)
@@ -2450,6 +2452,9 @@ public sealed class WebMapConfig
     public bool UseDirectSaveDatabaseTerrain { get; set; } = true;
     // CPU-only true-pyramid generation. Keep conservative to avoid stealing server CPU.
     public int TerrainPyramidWorkers { get; set; } = 2;
+    // Map colour overrides, edited in the config file. Key: block code pattern ("game:rock-limestone", "rock-*",
+    // "*-limestone"); value: "#rrggbb". The longest matching pattern wins. Rebuild the map to apply changes.
+    public Dictionary<string, string> TerrainColorOverrides { get; set; } = new(StringComparer.Ordinal);
     // Read-only save-DB workers used only for independent base-tile rendering during a full
     // startup export. Live world API chunk loading remains serialized/cooperative.
     public int TerrainBaseRenderWorkers { get; set; } = 2;
@@ -2492,6 +2497,10 @@ public sealed class WebMapConfig
         TerrainTileSize = Math.Clamp(TerrainTileSize, 128, 512);
         TerrainTileSize = Math.Max(128, (TerrainTileSize / 32) * 32);
         TerrainPyramidWorkers = Math.Clamp(TerrainPyramidWorkers, 1, 4);
+        TerrainColorOverrides = (TerrainColorOverrides ?? new Dictionary<string, string>())
+            .Where(x => x.Key != null && x.Value != null).Take(64)
+            .GroupBy(x => x.Key.Trim().ToLowerInvariant(), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last().Value.Trim(), StringComparer.Ordinal);
         TerrainBaseRenderWorkers = Math.Clamp(TerrainBaseRenderWorkers, 1, 4);
         if (!AllowLivePlayerData) ShowPlayers = false;
         if (!ExportNormalTerrain && !ExportSepiaTerrain && !ExportTopographicTerrain) ExportNormalTerrain = true;
@@ -2560,6 +2569,7 @@ public sealed class WebMapConfig
         LiveTerrainMaxTilesPerPass = LiveTerrainMaxTilesPerPass,
         UseDirectSaveDatabaseTerrain = UseDirectSaveDatabaseTerrain,
         TerrainPyramidWorkers = TerrainPyramidWorkers,
+        TerrainColorOverrides = new Dictionary<string, string>(TerrainColorOverrides ?? new(), StringComparer.Ordinal),
         TerrainBaseRenderWorkers = TerrainBaseRenderWorkers,
         ScheduledTerrainExportEnabled = ScheduledTerrainExportEnabled,
         ScheduledTerrainExportTime = ScheduledTerrainExportTime,

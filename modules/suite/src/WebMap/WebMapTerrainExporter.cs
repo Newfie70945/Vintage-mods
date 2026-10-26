@@ -37,7 +37,7 @@ internal sealed class WebMapTerrainExporter
     private const int ChunkSize = 32;
     private const int DimensionMask = 31;
     private const long CoordMask21 = (1L << 21) - 1;
-    private const int ManifestVersion = 12;
+    private const int ManifestVersion = 13;
     private static readonly string[] DerivedTerrainStyles = { "sepia", "topo" };
 
     private readonly ICoreServerAPI api;
@@ -93,6 +93,7 @@ internal sealed class WebMapTerrainExporter
 
     public bool Export(WebMapConfig config, string trigger = "startup", bool requireIncremental = false)
     {
+        TerrainPalette.SetOverrides(config.TerrainColorOverrides);
         using var exportEntityLogScope = WebMapExportLogSuppressor.Begin(api);
         var totalSw = Stopwatch.StartNew();
         var status = new WebMapTerrainExportStatus
@@ -295,6 +296,7 @@ internal sealed class WebMapTerrainExporter
     /// </summary>
     public async Task<bool> ExportRuntimeForcedAsync(WebMapConfig config, CancellationToken cancellationToken, bool fullRebuild, bool automatic = false)
     {
+        TerrainPalette.SetOverrides(config.TerrainColorOverrides);
         automaticSavedTerrainOnly = automatic;
         using var exportEntityLogScope = automatic ? null : WebMapExportLogSuppressor.Begin(api);
         var totalSw = Stopwatch.StartNew();
@@ -672,12 +674,14 @@ internal sealed class WebMapTerrainExporter
         HashSet<ChunkCoord>? patchChunks = null)
     {
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        // One extra byte per pixel after the RGBA data holds water depth for the normal-colour layer.
+        int bufferBytes = checked(pixelBytes + config.TerrainTileSize * config.TerrainTileSize);
+        byte[] rgba = ArrayPool<byte>.Shared.Rent(bufferBytes);
         try
         {
             bool patchMode = rawSourceDir != null && patchChunks != null && patchChunks.Count > 0 &&
-                             TryReadRawTile(rawSourceDir, tile.X, tile.Z, rgba, pixelBytes);
-            if (!patchMode) FillBackground(rgba, pixelBytes);
+                             TryReadRawTile(rawSourceDir, tile.X, tile.Z, rgba, bufferBytes);
+            if (!patchMode) FillBackground(rgba, bufferBytes);
             int tileBlockX = tile.X * config.TerrainTileSize;
             int tileBlockZ = tile.Z * config.TerrainTileSize;
             int firstChunkX = FloorDiv(tileBlockX, ChunkSize);
@@ -725,10 +729,11 @@ internal sealed class WebMapTerrainExporter
                 }
             }
 
-            WriteRawTile(outputDir, tile.X, tile.Z, rgba, pixelBytes);
+            WriteRawTile(outputDir, tile.X, tile.Z, rgba, bufferBytes);
             WriteDerivedTerrainStyles(outputDir, tile.X, tile.Z, rgba, config.TerrainTileSize, config.ExportSepiaTerrain, config.ExportTopographicTerrain);
 
             var shadeSw = Stopwatch.StartNew();
+            ApplyWaterDepthTint(rgba, config.TerrainTileSize);
             ApplyHillshade(rgba, config.TerrainTileSize);
             shadeSw.Stop();
             status.RenderMilliseconds += shadeSw.ElapsedMilliseconds;
@@ -1493,10 +1498,12 @@ internal sealed class WebMapTerrainExporter
     {
         rendered = default;
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        // One extra byte per pixel after the RGBA data holds water depth for the normal-colour layer.
+        int bufferBytes = checked(pixelBytes + config.TerrainTileSize * config.TerrainTileSize);
+        byte[] rgba = ArrayPool<byte>.Shared.Rent(bufferBytes);
         try
         {
-            FillBackground(rgba, pixelBytes);
+            FillBackground(rgba, bufferBytes);
             int tileBlockX = tile.X * config.TerrainTileSize;
             int tileBlockZ = tile.Z * config.TerrainTileSize;
             int firstChunkX = FloorDiv(tileBlockX, ChunkSize);
@@ -1528,9 +1535,10 @@ internal sealed class WebMapTerrainExporter
                 }
             }
 
-            WriteRawTile(outputDir, tile.X, tile.Z, rgba, pixelBytes);
+            WriteRawTile(outputDir, tile.X, tile.Z, rgba, bufferBytes);
             WriteDerivedTerrainStyles(outputDir, tile.X, tile.Z, rgba, config.TerrainTileSize, config.ExportSepiaTerrain, config.ExportTopographicTerrain);
             var shadeSw = Stopwatch.StartNew();
+            ApplyWaterDepthTint(rgba, config.TerrainTileSize);
             ApplyHillshade(rgba, config.TerrainTileSize);
             shadeSw.Stop();
             renderMs += shadeSw.ElapsedMilliseconds;
@@ -1573,12 +1581,14 @@ internal sealed class WebMapTerrainExporter
         HashSet<ChunkCoord>? patchChunks = null)
     {
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        // One extra byte per pixel after the RGBA data holds water depth for the normal-colour layer.
+        int bufferBytes = checked(pixelBytes + config.TerrainTileSize * config.TerrainTileSize);
+        byte[] rgba = ArrayPool<byte>.Shared.Rent(bufferBytes);
         try
         {
             bool patchMode = rawSourceDir != null && patchChunks != null && patchChunks.Count > 0 &&
-                             TryReadRawTile(rawSourceDir, tile.X, tile.Z, rgba, pixelBytes);
-            if (!patchMode) FillBackground(rgba, pixelBytes);
+                             TryReadRawTile(rawSourceDir, tile.X, tile.Z, rgba, bufferBytes);
+            if (!patchMode) FillBackground(rgba, bufferBytes);
             int tileBlockX = tile.X * config.TerrainTileSize;
             int tileBlockZ = tile.Z * config.TerrainTileSize;
             int firstChunkX = FloorDiv(tileBlockX, ChunkSize);
@@ -1667,10 +1677,11 @@ internal sealed class WebMapTerrainExporter
                 }
             }
 
-            WriteRawTile(outputDir, tile.X, tile.Z, rgba, pixelBytes);
+            WriteRawTile(outputDir, tile.X, tile.Z, rgba, bufferBytes);
             WriteDerivedTerrainStyles(outputDir, tile.X, tile.Z, rgba, config.TerrainTileSize, config.ExportSepiaTerrain, config.ExportTopographicTerrain);
 
             var shadeSw = Stopwatch.StartNew();
+            ApplyWaterDepthTint(rgba, config.TerrainTileSize);
             ApplyHillshade(rgba, config.TerrainTileSize);
             shadeSw.Stop();
             status.RenderMilliseconds += shadeSw.ElapsedMilliseconds;
@@ -1977,6 +1988,11 @@ internal sealed class WebMapTerrainExporter
                     rgba[offset + 1] = color.G;
                     rgba[offset + 2] = color.B;
                     rgba[offset + 3] = (byte)Math.Clamp((int)Math.Round(surfaceHeights[idx2d] * 255.0 / mapHeight), 1, 255);
+                    int depthIndex = tileSize * tileSize * 4 + pz * tileSize + px;
+                    if (depthIndex < rgba.Length)
+                        rgba[depthIndex] = IsWaterColor(color)
+                            ? (byte)MeasureWaterDepth(chunks, unpacked, localX, surfaceHeights[idx2d], localZ)
+                            : (byte)0;
                 }
             }
         }
@@ -1985,6 +2001,53 @@ internal sealed class WebMapTerrainExporter
             ArrayPool<bool>.Shared.Return(unpacked, clearArray: false);
             ArrayPool<ushort>.Shared.Return(surfaceHeights, clearArray: false);
             ArrayPool<int>.Shared.Return(surfaceIds, clearArray: false);
+        }
+    }
+
+    private const int MaxWaterDepthScan = 40;
+
+    private static bool IsWaterColor(Rgb c) => Math.Abs(c.R - 54) <= 4 && Math.Abs(c.G - 104) <= 4 && Math.Abs(c.B - 145) <= 4;
+
+    /// <summary>Number of consecutive water blocks from the surface down, counting the surface block (1 = a puddle).</summary>
+    private int MeasureWaterDepth(IServerChunk[] chunks, bool[] unpacked, int localX, int surfaceY, int localZ)
+    {
+        int depth = 1;
+        for (int y = surfaceY - 1; y >= 0 && depth < MaxWaterDepthScan; y--)
+        {
+            int chunkY = y / ChunkSize;
+            if ((uint)chunkY >= (uint)chunks.Length) break;
+            var chunk = chunks[chunkY];
+            if (chunk == null || chunk.Empty) break;
+            EnsureChunkUnpacked(chunk, unpacked, chunkY);
+            if (chunk.Data == null) break;
+            int index3d = ((y % ChunkSize) * ChunkSize + localZ) * ChunkSize + localX;
+            int id = chunk.Data.GetBlockId(index3d, BlockLayersAccess.Default);
+            if (id == 0 || !IsWaterColor(GetBlockColor(id))) break;
+            depth++;
+        }
+        return depth;
+    }
+
+    /// <summary>
+    /// Shades water by depth for the normal-colour layer only: pale and clear in the shallows, deep blue offshore.
+    /// Runs after the raw tile and the sepia/topographic styles are produced, because those detect water by its
+    /// plain palette colour.
+    /// </summary>
+    private static void ApplyWaterDepthTint(byte[] rgba, int size)
+    {
+        int cells = size * size, depthBase = cells * 4;
+        if (rgba.Length < depthBase + cells) return;
+        for (int p = 0; p < cells; p++)
+        {
+            int depth = rgba[depthBase + p];
+            if (depth == 0) continue;
+            int i = p * 4;
+            if (rgba[i + 3] == 0 || !IsSourceWater(rgba, i)) continue;
+            double t = Math.Clamp((depth - 1) / 19.0, 0.0, 1.0);
+            t = t * t * (3 - 2 * t); // smoothstep
+            rgba[i] = (byte)Math.Round(96 + (24 - 96) * t);
+            rgba[i + 1] = (byte)Math.Round(162 + (58 - 162) * t);
+            rgba[i + 2] = (byte)Math.Round(172 + (108 - 172) * t);
         }
     }
 
@@ -2422,6 +2485,9 @@ internal sealed class WebMapTerrainExporter
         Array.Clear(rgba, 0, usedLength);
     }
 
+    private static int ScaleSpan(int difference, int fullSpan, int actualSpan) =>
+        actualSpan <= 0 || actualSpan == fullSpan ? (actualSpan <= 0 ? 0 : difference) : difference * fullSpan / actualSpan;
+
     private static void ApplyHillshade(byte[] rgba, int size)
     {
         int cells = size * size;
@@ -2441,10 +2507,13 @@ internal sealed class WebMapTerrainExporter
                     int offset = (z * size + x) * 4;
                     if (rgba[offset + 3] == 0) continue;
 
-                    int hx = heights[z * size + xp] - heights[z * size + xm];
-                    int hz = heights[zp * size + x] - heights[zm * size + x];
-                    int hxWide = heights[z * size + xp2] - heights[z * size + xm2];
-                    int hzWide = heights[zp2 * size + x] - heights[zm2 * size + x];
+                    // At a tile edge the neighbour lookup is clamped, so the difference spans fewer pixels and
+                    // understates the slope. Scale it back to the full span; otherwise every tile border shows as a
+                    // faint seam because the neighbouring tile is shaded without knowing about this one.
+                    int hx = ScaleSpan(heights[z * size + xp] - heights[z * size + xm], 2, xp - xm);
+                    int hz = ScaleSpan(heights[zp * size + x] - heights[zm * size + x], 2, zp - zm);
+                    int hxWide = ScaleSpan(heights[z * size + xp2] - heights[z * size + xm2], 4, xp2 - xm2);
+                    int hzWide = ScaleSpan(heights[zp2 * size + x] - heights[zm2 * size + x], 4, zp2 - zm2);
                     int slope = Math.Abs(hx) + Math.Abs(hz);
 
                     // Multi-scale raised-relief lighting. Screen/world Z increases downward on
@@ -2472,7 +2541,7 @@ internal sealed class WebMapTerrainExporter
             WorldName = api.WorldManager.SaveGame.WorldName ?? "",
             SavegameIdentifier = api.WorldManager.SaveGame.SavegameIdentifier ?? "",
             TileSize = config.TerrainTileSize,
-            Style = "server-palette-save-db-fastpatch-true-pyramid-hillshade-raised-v11",
+            Style = "server-palette-save-db-fastpatch-true-pyramid-hillshade-raised-depth-v12",
             Tiles = new Dictionary<string, WebMapTerrainTileMetadata>(StringComparer.Ordinal)
         };
     }
@@ -2895,8 +2964,12 @@ internal sealed class WebMapTerrainExporter
         int x1 = Math.Clamp(pixelOffsetX + ChunkSize, 0, tileSize);
         int z1 = Math.Clamp(pixelOffsetZ + ChunkSize, 0, tileSize);
         int rowBytes = Math.Max(0, (x1 - x0) * 4);
+        int depthBase = tileSize * tileSize * 4;
         for (int z = z0; z < z1; z++)
+        {
             Array.Clear(rgba, (z * tileSize + x0) * 4, rowBytes);
+            if (rgba.Length >= depthBase + tileSize * tileSize) Array.Clear(rgba, depthBase + z * tileSize + x0, x1 - x0);
+        }
     }
 
     private static string TilePath(string root, int x, int z) => Path.Combine(root, x.ToString(System.Globalization.CultureInfo.InvariantCulture), z.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".png");
@@ -2952,11 +3025,62 @@ internal sealed class WebMapTerrainExporter
 
     private static class TerrainPalette
     {
+        private readonly record struct ColorOverride(string Pattern, bool Prefix, bool Suffix, bool Qualified, Rgb Color);
+        private static volatile ColorOverride[] overrides = Array.Empty<ColorOverride>();
+
+        /// <summary>
+        /// Server-owner colour overrides: "game:rock-limestone" (exact), "rock-*" (prefix), "*-limestone" (suffix),
+        /// with or without a "domain:" part, mapped to "#rrggbb". Later entries do not beat earlier ones; the longest
+        /// pattern wins so a specific block overrides a broad wildcard. Invalid entries are ignored.
+        /// </summary>
+        public static void SetOverrides(IReadOnlyDictionary<string, string>? source)
+        {
+            var list = new List<ColorOverride>();
+            if (source != null)
+                foreach (var pair in source)
+                    if (TryParseOverride(pair.Key, pair.Value, out ColorOverride parsed)) list.Add(parsed);
+            list.Sort((a, b) => b.Pattern.Length.CompareTo(a.Pattern.Length));
+            overrides = list.ToArray();
+        }
+
+        private static bool TryParseOverride(string? pattern, string? hex, out ColorOverride result)
+        {
+            result = default;
+            string text = (pattern ?? "").Trim().ToLowerInvariant();
+            string color = (hex ?? "").Trim();
+            if (text.Length == 0 || text.Length > 120 || text == "*" || text.Any(char.IsWhiteSpace)) return false;
+            if (color.Length != 7 || color[0] != '#') return false;
+            if (!byte.TryParse(color.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out byte r) ||
+                !byte.TryParse(color.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out byte g) ||
+                !byte.TryParse(color.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out byte b)) return false;
+            bool prefix = text.EndsWith('*'), suffix = text.StartsWith('*');
+            if (prefix && suffix) return false;
+            string core = text.Trim('*');
+            if (core.Length == 0 || core.Contains('*')) return false;
+            result = new ColorOverride(core, prefix, suffix, core.Contains(':'), new Rgb(r, g, b));
+            return true;
+        }
+
+        private static bool TryOverride(string domain, string code, out Rgb color)
+        {
+            foreach (var entry in overrides)
+            {
+                string subject = entry.Qualified ? domain + ":" + code : code;
+                bool hit = entry.Prefix ? subject.StartsWith(entry.Pattern, StringComparison.Ordinal)
+                    : entry.Suffix ? subject.EndsWith(entry.Pattern, StringComparison.Ordinal)
+                    : string.Equals(subject, entry.Pattern, StringComparison.Ordinal);
+                if (hit) { color = entry.Color; return true; }
+            }
+            color = default;
+            return false;
+        }
+
         public static Rgb Get(Block? block)
         {
             if (block == null || block.Id == 0) return new Rgb(16, 22, 29);
             string domain = block.Code?.Domain?.ToLowerInvariant() ?? "";
             string code = block.Code?.Path?.ToLowerInvariant() ?? "";
+            if (overrides.Length > 0 && TryOverride(domain, code, out Rgb overridden)) return overridden;
 
             // Vintage Story soil blocks keep their grass state in the grasscoverage variant;
             // the block code can still look like ordinary soil. Resolve that before the generic

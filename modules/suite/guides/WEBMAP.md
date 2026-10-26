@@ -197,3 +197,26 @@ Enable **Web Map → Public layers → Translocators**, then **Save Settings**. 
 - No terrain generation, chunk loading, target-area reads or full-world scans. Only loaded terrain near actual players is inspected. Created/repaired pads are picked up while this layer is enabled; previously visited pads become known when revisited after enabling.
 - JSON loading/serialization/writing uses one background worker, coalescing changes for about a second and replacing the file through a temporary file. The worker is retained across live toggles; disabling tracking removes tick/event handlers and keeps discoveries. Shutdown allows a bounded final flush. A failed write is retried and shown in the WebPanel status; normal game saves are not modified.
 - Records are bounded to 5,000, saved in `translocators-v2-<world-hash>.json` under the map's data directory, and scoped to the savegame identity. The old proposed v1 file is not imported because its inferred links/discovery provenance were not reliable. Public feed caching means map markers may take the normal metadata refresh interval to appear.
+
+## Terrain rendering notes
+
+- **Water depth:** in the normal-colour layer, water is pale and clear in the shallows and deep blue offshore (depth is
+  measured down to 40 blocks). Sepia and topographic layers keep their flat water treatment.
+- **Tile borders:** relief shading is corrected at tile edges so the borders no longer show as a faint grid. It cannot be
+  perfect, because each tile is shaded on its own.
+- **Colour overrides:** add `TerrainColorOverrides` to `NewfiesWebMap.json` and rebuild the map (Full Rebuild Map):
+
+  ```json
+  "TerrainColorOverrides": {
+    "game:rock-limestone": "#e9e4d4",
+    "rock-*": "#a0a0a0",
+    "*-chalk": "#ffffff"
+  }
+  ```
+
+  A key is a block code: exact (`game:rock-limestone`), prefix (`rock-*`) or suffix (`*-chalk`), with or without the
+  `domain:` part. The longest matching key wins. Values are `#rrggbb`; invalid entries are ignored (at most 64 are kept).
+  Saving settings from the dashboard keeps this list.
+- Terrain cache version 13: the first start after this update asks for one **Full Rebuild Map**, because tile files now
+  carry water depth and the shading changed. (The map service and exporter previously disagreed about the expected cache
+  version, which could block "Update changed terrain" on a freshly built map; both now use 13.)
