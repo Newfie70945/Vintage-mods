@@ -25,9 +25,9 @@ for(int i=0;i<size*size;i++){flat[i*4]=100;flat[i*4+1]=120;flat[i*4+2]=80;flat[i
 exporter.GetMethod("ApplyHillshade",S)!.Invoke(null,[flat,size]);
 Check(Enumerable.Range(0,size*size).All(p=>flat[p*4]==flat[0]),"flat terrain shades uniformly, edges included");
 var scale=exporter.GetMethod("ScaleSpan",S)!;
-Check((int)scale.Invoke(null,[5,2,2])!==5,"full span unchanged");
-Check((int)scale.Invoke(null,[3,2,1])!==6,"half span is scaled up");
-Check((int)scale.Invoke(null,[3,2,0])!==0,"zero span is safe");
+Check((int)scale.Invoke(null,[5,2,2])! ==5,"full span unchanged");
+Check((int)scale.Invoke(null,[3,2,1])! ==6,"half span is scaled up");
+Check((int)scale.Invoke(null,[3,2,0])! ==0,"zero span is safe");
 
 // PNG round trip through the pooled decoder used by pyramid building.
 var writer=exporter.GetNestedType("PngWriter",BindingFlags.NonPublic)!;
