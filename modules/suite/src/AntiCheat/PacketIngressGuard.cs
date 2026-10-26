@@ -308,10 +308,39 @@ internal sealed class PacketIngressGuard : IDisposable
                 if (!BlockBudget(client)) return false;
                 if (!PacketIngressPolicy.IsValidFace(packet.BlockDamage.Facing)) return Malformed(client, packet.Id);
                 return ValidateBlockTarget(client, packet.BlockDamage.PosX, packet.BlockDamage.PosY, packet.BlockDamage.PosZ);
+            // Official protocol IDs verified against ServerSystemInventory. Preserve native
+            // tabbed/ground slot semantics and all normal batch quantities.
+            case 7: // ActivateInventorySlot
+                if (packet.ActivateInventorySlot == null || client.Player == null ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.ActivateInventorySlot.TargetInventoryId)) return Malformed(client, packet.Id);
+                return true;
+            case 8: // MoveItemstack
+                if (packet.MoveItemstack == null || client.Player == null ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.MoveItemstack.SourceInventoryId) ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.MoveItemstack.TargetInventoryId) ||
+                    packet.MoveItemstack.Quantity < 0) return Malformed(client, packet.Id);
+                return true;
+            case 9: // FlipItemstacks
+                if (packet.Flipitemstacks == null || client.Player == null ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.Flipitemstacks.SourceInventoryId) ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.Flipitemstacks.TargetInventoryId)) return Malformed(client, packet.Id);
+                return true;
+            case 30: // InvOpenedClosed
+                if (packet.InvOpenedClosed == null || client.Player == null ||
+                    !PacketIngressPolicy.IsValidInventoryId(packet.InvOpenedClosed.InventoryId)) return Malformed(client, packet.Id);
+                return true;
             case Packet_ClientIdEnum.CreateItemstack:
                 if (packet.CreateItemstack == null || client.Player == null) return Malformed(client, packet.Id);
+                if (!PacketIngressPolicy.IsValidInventoryId(packet.CreateItemstack.TargetInventoryId) ||
+                    packet.CreateItemstack.TargetSlot < 0 || packet.CreateItemstack.Itemstack == null) return Malformed(client, packet.Id);
                 if (client.Player.WorldData.CurrentGameMode != EnumGameMode.Creative)
                     return Reject(client, "PACKET_UNAUTHORIZED_ITEMSTACK", "Rejected a creative inventory creation packet from a non-creative player.", $"packetId={packet.Id}");
+                // Creative mode is not permission to index an absent/stale inventory.
+                // Resolve only server-known inventories; do not deserialize the supplied stack here.
+                if (client.Player.InventoryManager == null ||
+                    !client.Player.InventoryManager.GetInventory(packet.CreateItemstack.TargetInventoryId, out var creationInventory) ||
+                    creationInventory == null) return false;
+                if (packet.CreateItemstack.TargetSlot >= creationInventory.Count) return false;
                 return true;
             case Packet_ClientIdEnum.CustomPacket:
                 return packet.CustomPacket != null && packet.CustomPacket.Data != null && ValidCustomMessageId(packet.CustomPacket.MessageId) || Malformed(client, packet.Id);
@@ -320,7 +349,13 @@ internal sealed class PacketIngressGuard : IDisposable
             case Packet_ClientIdEnum.EntityPacket:
                 return packet.EntityPacket != null || Malformed(client, packet.Id);
             case Packet_ClientIdEnum.EntityInteraction:
-                return packet.EntityInteraction != null || Malformed(client, packet.Id);
+                if (packet.EntityInteraction == null || client.Player == null) return Malformed(client, packet.Id);
+                var interaction = packet.EntityInteraction;
+                if (!PacketIngressPolicy.IsValidEntityInteraction(interaction.SelectionBoxIndex,
+                    CollectibleNet.DeserializeDouble(interaction.HitX),
+                    CollectibleNet.DeserializeDouble(interaction.HitY),
+                    CollectibleNet.DeserializeDouble(interaction.HitZ))) return Malformed(client, packet.Id);
+                return true;
             case Packet_ClientIdEnum.RuntimeSetting:
                 return packet.RuntimeSetting != null || Malformed(client, packet.Id);
             case Packet_ClientIdEnum.SetToolMode:

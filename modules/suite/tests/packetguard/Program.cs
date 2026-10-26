@@ -126,3 +126,11 @@ for (int i=0;i<24;i++) Check(!exemptFlight.Observe(i*250,100,true,6000,1000), "P
 Check(!exemptFlight.Observe(6000,100,false,6000,1000) && exemptFlight.DurationMs==0, "Mounted or authorized flight clears pending evidence");
 for (int i=0;i<24;i++) Check(!exemptFlight.Observe(6250+i*250,100,true,6000,1000), "After exemption a new full confirmation window is required");
 Check(exemptFlight.Observe(12250,100,true,6000,1000), "Sustained eligible flight is still detectable after exemption");
+
+Check(!PacketIngressPolicy.IsValidInventoryId(null) && !PacketIngressPolicy.IsValidInventoryId("") && !PacketIngressPolicy.IsValidInventoryId(new string('x',513)), "Malformed inventory IDs rejected");
+Check(PacketIngressPolicy.IsValidInventoryId("ground-player") && PacketIngressPolicy.IsValidInventoryId("custom:tabbed-container"), "Native ground and modded inventory IDs preserved");
+Check(PacketIngressPolicy.IsValidEntityInteraction(8192,1000,-25,0), "Large creature hit offsets remain valid");
+Check(!PacketIngressPolicy.IsValidEntityInteraction(-1,0,0,0) && !PacketIngressPolicy.IsValidEntityInteraction(8193,0,0,0), "Entity selection bounds enforced");
+foreach(double invalid in new[]{double.NaN,double.PositiveInfinity,double.NegativeInfinity,double.MaxValue})
+    Check(!PacketIngressPolicy.IsValidEntityInteraction(0,invalid,0,0), "Malformed entity hit rejected");
+Console.WriteLine("PASS: bounded inventory IDs and entity-hit numerical invariants, including large modded creatures.");

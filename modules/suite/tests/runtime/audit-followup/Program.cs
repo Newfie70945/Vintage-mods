@@ -146,6 +146,48 @@ pending.Clear();Set(client,"Player",null);report.Invoke(sessionGuard,new object?
 if(findings!=0||logs==0)throw new Exception("Pre-authentication finding was assigned to authenticated player");
 Console.WriteLine("PASS: compiled ingress callbacks discard replaced sessions and keep anonymous observations anonymous; no world access.");
 
+
+// Exercise the actual dispatch guard, preserving native tab/ground slots and batch sizes.
+bool Dispatch(int id,string field,object? payload) {
+ object packet=Activator.CreateInstance(E("Packet_Client"))!;Set(packet,"Id",id);Set(packet,field,payload);
+ return (bool)validate.Invoke(guard,new[]{client,packet})!;
+}
+foreach(var envelope in new[]{(7,"ActivateInventorySlot","Packet_ActivateInventorySlot"),(8,"MoveItemstack","Packet_MoveItemstack"),(9,"Flipitemstacks","Packet_FlipItemstacks"),(30,"InvOpenedClosed","Packet_InvOpenedClosed")}) {
+ if(Dispatch(envelope.Item1,envelope.Item2,null))throw new Exception("Missing inventory payload accepted");
+ object payload=Activator.CreateInstance(E("Packet_Client").GetField(envelope.Item2)!.FieldType)!;
+ if(Dispatch(envelope.Item1,envelope.Item2,payload))throw new Exception("Missing inventory ID accepted");
+ if(envelope.Item1==30)Set(payload,"InventoryId","ground-audit-fixture");
+ else { Set(payload,"TargetInventoryId","custom-tabbed-audit-fixture");if(envelope.Item1 is 8 or 9)Set(payload,"SourceInventoryId","hotbar-audit-fixture"); }
+ if(envelope.Item1==8) {
+   Set(payload,"Quantity",-1);if(Dispatch(8,envelope.Item2,payload))throw new Exception("Negative transfer accepted");
+   Set(payload,"Quantity",int.MaxValue); // Native all-stack/modded batch requests remain unchanged.
+   Set(payload,"TargetSlot",-1); // Leave special slot interpretation to native inventory implementation.
+ }
+ if(!Dispatch(envelope.Item1,envelope.Item2,payload))throw new Exception("Valid inventory envelope rejected");
+}
+object entityInteraction=Activator.CreateInstance(E("Packet_EntityInteraction"))!;
+Set(entityInteraction,"SelectionBoxIndex",-1);
+if(Dispatch(17,"EntityInteraction",entityInteraction))throw new Exception("Negative entity selection accepted");
+Set(entityInteraction,"SelectionBoxIndex",0);
+if(!Dispatch(17,"EntityInteraction",entityInteraction))throw new Exception("Valid entity interaction rejected");
+Console.WriteLine("PASS: production inventory envelopes, negative transfer rejection, full-size batches, special slots and entity selection validation.");
+
+
+object creation=Activator.CreateInstance(E("Packet_Client").GetField("CreateItemstack")!.FieldType)!;
+Set(creation,"TargetInventoryId","hotbar-audit-fixture");Set(creation,"TargetSlot",0);
+Set(creation,"Itemstack",Activator.CreateInstance(creation.GetType().GetField("Itemstack")!.FieldType));
+var modeType=worldData.GetType().GetField("GameMode",fields)!.FieldType;
+Set(worldData,"connected",true);
+Set(worldData,"GameMode",Enum.Parse(modeType,"Survival"));
+if(Dispatch(10,"CreateItemstack",creation))throw new Exception("Survival creative creation accepted");
+Set(worldData,"GameMode",Enum.Parse(modeType,"Creative"));
+if(!Dispatch(10,"CreateItemstack",creation))throw new Exception("Valid creative destination rejected");
+Set(creation,"TargetSlot",count);
+if(Dispatch(10,"CreateItemstack",creation))throw new Exception("Out-of-bounds creative slot accepted");
+Set(creation,"TargetSlot",0);Set(creation,"TargetInventoryId","absent-fixture");
+if(Dispatch(10,"CreateItemstack",creation))throw new Exception("Unknown creative destination accepted");
+Console.WriteLine("PASS: creative creation requires creative mode, a known inventory and a bounded destination slot.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> handler) {
     object result = DispatchProxy.Create(type, typeof(AuditProxy));
     ((AuditProxy)result).Handler = handler; return result;

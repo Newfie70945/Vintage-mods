@@ -18,6 +18,13 @@ internal static class PacketIngressPolicy
 
     internal static bool IsValidBlockId(int blockId, int registryCount) => blockId >= 0 && blockId < registryCount;
 
+    internal static bool IsValidInventoryId(string? id) => !string.IsNullOrWhiteSpace(id) && id.Length <= 512;
+
+    // Entity hit positions are not block-local: large modded creatures must not inherit
+    // the +/-16 block-selection bound. Reject only non-addressable numerical values.
+    internal static bool IsValidEntityInteraction(int selection, double x, double y, double z) =>
+        selection >= 0 && selection <= 8192 && IsValidCoordinate(x) && IsValidCoordinate(y) && IsValidCoordinate(z);
+
     internal static bool IsValidFace(int face) => face >= 0 && face <= 5;
 
     // Modded selection boxes can legitimately extend beyond a block's unit cube. This is
