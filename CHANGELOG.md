@@ -1,5 +1,12 @@
 # Current release changes
 
+## Realistic Sailing 0.9.0
+
+- Sound: six generated sound effects (fog horn, wind gust, hull creak, wave slam, balloon hiss, sea shanty). Fog horn and concertina items; wind and creak ambience aboard in rough weather.
+- Crew morale per boat: fair weather lifts it; gales, storms, leaks and fog sap it; low morale slows the boat. Shanties +20, rescues +15, rogue waves -5, capsize -30. Warnings at 30% and 10%.
+- Drifting wrecks appear in fog and can be salvaged once for loot (`WrecksEnabled`, `MaxWrecks`).
+- Experimental client `HeaveEnabled` (off by default) adds vertical swell. Added `docs/SAILING-TEST-CHECKLIST.md`. Floating markets are not implemented. Unverified in game.
+
 ## Realistic Sailing 0.8.0
 
 - Fog banks: scheduled every 10-25 minutes for 2-4 minutes. Visibility drops (client ambient fog near boats), wind falls light, sailors are warned, the compass report and weather glass mention it. Config `FogEnabled`, intervals and durations; client `FogVisualsEnabled`.

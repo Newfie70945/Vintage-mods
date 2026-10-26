@@ -21,6 +21,7 @@ public sealed class SailingModSystem : ModSystem
     public const string WaterKey = "newfiessailing:water";
     public const string SalvageKey = "newfiessailing:salvage";
     public const string WaveKey = "newfiessailing:wave";
+    public const string MoraleKey = "newfiessailing:morale";
     public const string SailKey = "newfiessailing:sail";
     private const string LogPrefix = "newfiessailing:log:";
 
@@ -54,6 +55,10 @@ public sealed class SailingModSystem : ModSystem
     private double seasonFactor = 1;
     private double nextFogAt, fogStart = -1, fogDuration, fogIntensity;
     private bool fogAnnounced;
+    private readonly List<long> wrecks = new();
+    private double lastWreckAt = -1000;
+    private readonly Dictionary<long, double> lastShanty = new();
+    private readonly Dictionary<string, double> lastHorn = new();
     private string seasonName = "";
     private readonly Dictionary<string, Vec3d> lastPlayerPos = new();
 
@@ -61,6 +66,7 @@ public sealed class SailingModSystem : ModSystem
     {
         api.RegisterItemClass("ItemSailingTool", typeof(ItemSailingTool));
         api.RegisterEntity("EntityRecoveryBalloon", typeof(EntityRecoveryBalloon));
+        api.RegisterEntity("EntityDriftingWreck", typeof(EntityDriftingWreck));
         api.Network.RegisterChannel(ChannelName).RegisterMessageType<SailingSyncPacket>();
     }
 
@@ -155,11 +161,84 @@ public sealed class SailingModSystem : ModSystem
         if (Math.Floor(old) != Math.Floor(value)) boat.WatchedAttributes.MarkPathDirty(WaterKey);
     }
 
+    private static double GetMorale(Entity boat) => boat.WatchedAttributes.GetDouble(MoraleKey, 70);
+
+    private static void SetMorale(Entity boat, double value)
+    {
+        value = Math.Clamp(value, 0, 100);
+        double old = GetMorale(boat);
+        boat.WatchedAttributes.SetDouble(MoraleKey, value);
+        if (Math.Floor(old) != Math.Floor(value)) boat.WatchedAttributes.MarkPathDirty(MoraleKey);
+    }
+
+    private void Play(string name, Vec3d pos, float range = 40, float volume = 1f)
+    {
+        try { sapi!.World.PlaySoundAt(new AssetLocation("newfiessailing:sounds/" + name), pos.X, pos.Y, pos.Z, null, true, range, volume); }
+        catch (Exception ex) { sapi!.Logger.Debug("[NewfiesSailing] Sound failed: " + ex.Message); }
+    }
+
+    /// <summary>Fog horn: audible far across the water; every sailor in range is told roughly which way it came from.</summary>
+    private (string Text, bool Used) Horn(IServerPlayer player)
+    {
+        if (lastHorn.TryGetValue(player.PlayerUID, out double at) && elapsed - at < 8) return ("The horn needs a moment to recover its breath.", false);
+        lastHorn[player.PlayerUID] = elapsed;
+        Vec3d pos = player.Entity.Pos.XYZ;
+        Play("foghorn", pos, 120, 1f);
+        foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
+        {
+            if (p.PlayerUID == player.PlayerUID || p is not IServerPlayer sp || p.Entity?.MountedOn == null) continue;
+            double dx = pos.X - p.Entity.Pos.X, dz = pos.Z - p.Entity.Pos.Z, dist = Math.Sqrt(dx * dx + dz * dz);
+            if (dist > 250) continue;
+            double bearing = (Math.Atan2(dx, -dz) * 180.0 / Math.PI + 360) % 360;
+            sp.SendMessage(GlobalConstants.InfoLogChatGroup, $"[Sailing] A fog horn sounds to the {SailingModel.Compass(bearing)}, {(dist < 60 ? "very close" : dist < 150 ? "not far off" : "far away")}.", EnumChatType.Notification);
+        }
+        return ("You sound the fog horn: a long, low blast rolls out over the water.", false);
+    }
+
+    /// <summary>Concertina: plays a sea shanty and lifts the morale of the boat's crew within 10 blocks.</summary>
+    private (string Text, bool Used) Shanty(IServerPlayer player)
+    {
+        Play("shanty", player.Entity.Pos.XYZ, 40, 1f);
+        Entity? boat = BoatOf(player, requireMount: false, radius: 10);
+        if (boat == null) return ("You squeeze out a shanty, but there is no boat's crew to hear it.", false);
+        if (lastShanty.TryGetValue(boat.EntityId, out double at) && elapsed - at < 60) return ("The crew has heard enough shanties for a minute.", false);
+        lastShanty[boat.EntityId] = elapsed;
+        SetMorale(boat, GetMorale(boat) + 20);
+        return ($"The crew joins in on the chorus! Morale {GetMorale(boat):0}% ({SailingModel.MoraleLabel(GetMorale(boat))}).", false);
+    }
+
+    private void TrySpawnWreck()
+    {
+        if (!config.WrecksEnabled || fogIntensity < 0.5 || elapsed - lastWreckAt < config.WreckSpawnCooldownSeconds) return;
+        wrecks.RemoveAll(id => !sapi!.World.LoadedEntities.ContainsKey(id));
+        if (wrecks.Count >= config.MaxWrecks) return;
+        IPlayer? sailor = sapi!.World.AllOnlinePlayers.FirstOrDefault(p => p.Entity?.MountedOn != null);
+        if (sailor?.Entity == null) return;
+        lastWreckAt = elapsed;
+        try
+        {
+            EntityProperties? type = sapi.World.GetEntityType(new AssetLocation("newfiessailing:driftingwreck"));
+            if (type == null) return;
+            double angle = rng.NextDouble() * Math.PI * 2, dist = 40 + rng.NextDouble() * 30;
+            double x = sailor.Entity.Pos.X + Math.Cos(angle) * dist, z = sailor.Entity.Pos.Z + Math.Sin(angle) * dist, y = sailor.Entity.Pos.Y;
+            if (!sapi.World.BlockAccessor.GetBlock(new BlockPos((int)x, (int)(y - 0.6), (int)z)).IsLiquid()) return;
+            Entity ent = sapi.World.ClassRegistry.CreateEntity(type);
+            ent.ServerPos.SetPos(x, y, z);
+            ent.Pos.SetFrom(ent.ServerPos);
+            sapi.World.SpawnEntity(ent);
+            wrecks.Add(ent.EntityId);
+            NotifySailors("[Sailing] Something dark looms in the fog - the hulk of a wreck, adrift.");
+        }
+        catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not spawn wreck: " + ex.Message); }
+    }
+
     private static bool IsCapsized(Entity boat) => boat.WatchedAttributes.GetBool(CapsizedKey, false);
 
     private void Capsize(Entity boat)
     {
         LogEvent("capsizes");
+        SetMorale(boat, GetMorale(boat) - 30);
+        Play("waveslam", boat.Pos.XYZ, 48, 1f);
         boat.WatchedAttributes.SetBool(CapsizedKey, true);
         boat.WatchedAttributes.MarkPathDirty(CapsizedKey);
         SetCond(boat, HullKey, GetCond(boat, HullKey) - 10);
@@ -230,6 +309,8 @@ public sealed class SailingModSystem : ModSystem
         IPlayer? rescuer = sapi.World.AllOnlinePlayers.FirstOrDefault(p => p.PlayerUID == playerUid);
         if (rescuer?.Entity != null)
             rescuer.Entity.WatchedAttributes.SetInt(LogPrefix + "rescues", rescuer.Entity.WatchedAttributes.GetInt(LogPrefix + "rescues", 0) + 1);
+        SetMorale(boat, GetMorale(boat) + 15);
+        Play("balloon", boat.Pos.XYZ, 40, 1f);
         BalloonBurst(boat.Pos.XYZ);
         NotifyNear(boat, "[Sailing] The balloons haul the hull upright and the boat is afloat again - bail it out and patch the hull.");
     }
@@ -290,7 +371,8 @@ public sealed class SailingModSystem : ModSystem
                $"Temporal storms survived at sea: {a.GetInt(LogPrefix + "storms", 0)}\n" +
                $"Strongest wind faced: {a.GetDouble(LogPrefix + "topknots", 0):0.#} kn\n" +
                $"Repairs made: {a.GetInt(LogPrefix + "repairs", 0)}\n" +
-               $"Capsizes: {a.GetInt(LogPrefix + "capsizes", 0)}, boats rescued: {a.GetInt(LogPrefix + "rescues", 0)}";
+               $"Capsizes: {a.GetInt(LogPrefix + "capsizes", 0)}, boats rescued: {a.GetInt(LogPrefix + "rescues", 0)}\n" +
+               $"Wrecks salvaged: {a.GetInt(LogPrefix + "wrecks", 0)}";
     }
 
     private void LogEvent(string name)
@@ -341,6 +423,8 @@ public sealed class SailingModSystem : ModSystem
         "trim" => (CycleTrim(player), false),
         "repair" => RepairBoat(player),
         "balloon" => Balloon(player),
+        "horn" => Horn(player),
+        "shanty" => Shanty(player),
         "bail" => Bail(player),
         "log" => (LogBook(player), false),
         _ => ("", false)
@@ -493,6 +577,7 @@ public sealed class SailingModSystem : ModSystem
         }
         double age = elapsed - fogStart;
         fogIntensity = SailingModel.FogIntensity(age, fogDuration);
+        TrySpawnWreck();
         if (!fogAnnounced && fogIntensity > 0.3)
         {
             fogAnnounced = true;
@@ -513,6 +598,8 @@ public sealed class SailingModSystem : ModSystem
         var (water, hull) = SailingModel.RogueWaveImpact(force, sailArea);
         SetWater(boat, GetWater(boat) + water * config.RogueWaveStrength);
         SetCond(boat, HullKey, GetCond(boat, HullKey) - hull * config.RogueWaveStrength);
+        SetMorale(boat, GetMorale(boat) - 5);
+        Play("waveslam", boat.Pos.XYZ, 48, 0.9f);
         boat.SidedPos.Motion.X *= 0.6;
         boat.SidedPos.Motion.Z *= 0.6;
         boat.WatchedAttributes.SetInt(WaveKey, boat.WatchedAttributes.GetInt(WaveKey, 0) + 1);
@@ -634,6 +721,15 @@ public sealed class SailingModSystem : ModSystem
                 target *= SailingModel.ConditionSpeedFactor(GetCond(boat, HullKey), GetCond(boat, SailKey));
             }
             int seaForce = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+            if (config.MoraleEnabled)
+            {
+                double moraleBefore = GetMorale(boat);
+                SetMorale(boat, moraleBefore + SailingModel.MoraleChangePerSecond(seaForce, temporalStorm, fogIntensity, GetCond(boat, HullKey), GetWater(boat)) * dt);
+                double moraleNow = GetMorale(boat);
+                if (moraleBefore > 30 && moraleNow <= 30) NotifyNear(boat, "[Sailing] The crew is grumbling. A shanty on the concertina would help.");
+                else if (moraleBefore > 10 && moraleNow <= 10) NotifyNear(boat, "[Sailing] The crew is close to mutiny! Their hands are slow on the ropes.");
+                target *= SailingModel.MoraleSpeedFactor(moraleNow);
+            }
             if (config.HeadSeasEnabled) target *= SailingModel.HeadSeaFactor(seaForce, off);
             if (config.RogueWavesEnabled && rng.NextDouble() < SailingModel.RogueWaveChancePerSecond(seaForce) * dt) RogueWave(boat, seaForce, area);
             if (config.SwampingEnabled)
@@ -757,6 +853,7 @@ public sealed class SailingModSystem : ModSystem
             SailTrim trim = GetTrim(boat);
             text += $"\nSails: {trim.ToString().ToLowerInvariant()}." + (boat.WatchedAttributes.GetBool(AnchorKey, false) ? " Anchor down." : "");
             if (SailingModel.Overpowered(knots, SailingModel.SailArea(trim), config.OverloadKnots)) text += " Overpowered - reef!";
+            if (config.MoraleEnabled) text += $"\nCrew morale: {GetMorale(boat):0}% ({SailingModel.MoraleLabel(GetMorale(boat))}).";
             if (IsCapsized(boat)) text += "\nThe boat is CAPSIZED.";
             else if (GetWater(boat) >= 1) text += $"\nWater in the hull: {GetWater(boat):0}%.";
             if (config.WearEnabled)

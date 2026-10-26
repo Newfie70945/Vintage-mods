@@ -1,0 +1,35 @@
+{
+ "code": "driftingwreck",
+ "class": "EntityDriftingWreck",
+ "hitboxSize": {
+  "x": 2.2,
+  "y": 1.4
+ },
+ "deadHitboxSize": {
+  "x": 0.1,
+  "y": 0.1
+ },
+ "client": {
+  "renderer": "Shape",
+  "shape": {
+   "base": "entity/driftingwreck"
+  },
+  "size": 0.9,
+  "textures": {
+   "wood": {
+    "base": "entity/wreck-wood"
+   },
+   "cloth": {
+    "base": "entity/wreck-cloth"
+   }
+  },
+  "behaviors": [
+   {
+    "code": "interpolateposition"
+   }
+  ]
+ },
+ "server": {
+  "behaviors": []
+ }
+}

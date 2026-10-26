@@ -25,6 +25,10 @@ public sealed class SailingConfig
     public int FogMaxIntervalSeconds { get; set; } = 1500;
     public int FogMinDurationSeconds { get; set; } = 120;
     public int FogMaxDurationSeconds { get; set; } = 240;
+    public bool MoraleEnabled { get; set; } = true;
+    public bool WrecksEnabled { get; set; } = true;
+    public int MaxWrecks { get; set; } = 2;
+    public int WreckSpawnCooldownSeconds { get; set; } = 40;
     public bool RogueWavesEnabled { get; set; } = true;
     /// <summary>Multiplier on rogue wave water and hull damage.</summary>
     public double RogueWaveStrength { get; set; } = 1.0;
@@ -68,6 +72,9 @@ public sealed class SailingVisualsConfig
     /// <summary>Extra multiplier on the rough-sea roll and pitch (1 = previous behaviour, 1.5 = rougher).</summary>
     public double SeaRoughness { get; set; } = 1.5;
     public bool FogVisualsEnabled { get; set; } = true;
+    public bool AmbientSoundsEnabled { get; set; } = true;
+    /// <summary>Experimental vertical swell motion; the game's buoyancy may fight it, so it is off by default.</summary>
+    public bool HeaveEnabled { get; set; } = false;
     public double KnotsPerWindUnit { get; set; } = 30;
     public string[] BoatCodeContains { get; set; } = { "sail" };
     public float Range { get; set; } = 48;

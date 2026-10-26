@@ -47,7 +47,7 @@
       "id": "sailing",
       "path": "modules/sailing",
       "assembly": "NewfiesSailing",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "origin": "new module"
     }
   ],

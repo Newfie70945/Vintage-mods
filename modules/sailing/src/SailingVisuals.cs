@@ -26,6 +26,8 @@ public sealed class SailingVisuals
     private double serverFog, appliedFog;
     private readonly Dictionary<long, int> lastWave = new();
     private readonly Dictionary<long, double> kick = new();
+    private double nextGustSound = 5, nextCreakAt;
+    private readonly Dictionary<long, double> heaveApplied = new();
     private const string FogModifierKey = "newfiessailing:fog";
 
     public void ApplySync(SailingSyncPacket p)
@@ -92,11 +94,46 @@ public sealed class SailingVisuals
                 boat.Pos.Roll = (float)(roll * rough + HeelFor(boat, wind, knots) + WaveKick(boat));
             }
 
+            if (cfg.HeaveEnabled)
+            {
+                heaveApplied.TryGetValue(boat.EntityId, out double prevHeave);
+                double heave = SailingModel.Heave(elapsed, force, boat.EntityId % 64);
+                boat.Pos.Y += heave - prevHeave;
+                heaveApplied[boat.EntityId] = heave;
+            }
             if (cfg.SplashesEnabled) Splash(boat, force);
             if (cfg.WakeEnabled) Wake(boat);
             if (temporalStorm && cfg.StormGlowEnabled) Glow(boat);
         }
         UpdateFog(onBoat || boats.Length > 0);
+        if (onBoat && cfg.AmbientSoundsEnabled) AmbientSounds(player);
+    }
+
+    private void Play(string name, EntityPlayer player, float volume)
+    {
+        try { capi.World.PlaySoundAt(new AssetLocation("newfiessailing:sounds/" + name), player.Pos.X, player.Pos.Y, player.Pos.Z, null, true, 24, volume); }
+        catch { }
+    }
+
+    /// <summary>Wind gusts in rough weather and hull creaks when the boat leans hard.</summary>
+    private void AmbientSounds(EntityPlayer player)
+    {
+        Vec3d wind = capi.World.BlockAccessor.GetWindSpeedAt(player.Pos.XYZ) ?? new Vec3d();
+        double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog);
+        int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+        if (elapsed >= nextGustSound && force >= 4)
+        {
+            Play("windgust", player, (float)Math.Min(1.0, force / 10.0));
+            nextGustSound = elapsed + 6 + rng.NextDouble() * 6;
+        }
+        else if (elapsed >= nextGustSound) nextGustSound = elapsed + 4;
+        Entity? ride = capi.World.GetNearestEntity(player.Pos.XYZ, 6, 6, IsSailBoat);
+        double lean = Math.Abs(ride?.Pos.Roll ?? 0);
+        if (force >= 6 && elapsed >= nextCreakAt && lean > 0.2)
+        {
+            Play("creak", player, 0.7f);
+            nextCreakAt = elapsed + 5 + rng.NextDouble() * 5;
+        }
     }
 
     /// <summary>Rogue wave: a sudden lurch that rings out over a couple of seconds, with a big burst of spray.</summary>

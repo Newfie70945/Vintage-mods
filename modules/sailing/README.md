@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.8.0
+# Newfie's Realistic Sailing 0.9.0
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -14,6 +14,8 @@ Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everythi
 | Shipwright's repair kit | near a sailboat, patch the worse of hull or sails (+25%); 24 uses | plank, flax twine, 2 copper ingots |
 | Bailing bucket | within 6 blocks of a boat, bail out 30% of the water; 40 uses | 5 planks (bucket shape) |
 | Recovery balloon | within 10 blocks of a capsized or swamped boat: rights and refloats it; single use | 6 flax fibres over flax twine |
+| Fog horn | sounds a loud blast; sailors within 250 blocks get a bearing | 5 copper ingots |
+| Sailor's concertina | plays a shanty: crew morale +20 (once a minute per boat) | 2 planks, flax twine, copper ingot |
 | Sailor's logbook | your record: distance, squalls, temporal storms, strongest wind, repairs | 4 parchment |
 
 Models are multi-part shapes sharing one colour-swatch texture (`textures/item/palette.png`) and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
@@ -30,6 +32,9 @@ Models are multi-part shapes sharing one colour-swatch texture (`textures/item/p
 - **Wear.** Hull and sail condition (stored on the boat) wear faster in gales, when overpowered and in temporal storms; worn boats are slower. Warnings at 50/25/10%.
 - **Fog banks.** Every 10-25 minutes a fog bank lasts 2-4 minutes: visibility falls to roughly 40 blocks, the wind drops by up to 40% and sailors are warned. The ship's compass report and weather glass mention it. The client eases an ambient fog in while you are on or near a boat.
 - **Rougher seas.** Boats roll and pitch harder (client `SeaRoughness` 1.5); beating into Force 5+ seas costs up to 40% speed; from Force 7 rogue waves slam boats under way, shipping water, damaging the hull, checking speed and lurching the hull with a spray burst.
+- **Crew morale.** Each boat has morale: fair weather lifts it, gales, storms, leaks and fog sap it, and a low morale slows the boat by up to 12%. Shanties raise it; capsizes and rogue waves hurt it.
+- **Sound.** Generated effects for the fog horn, wind gusts, hull creaks, wave slams, balloon hiss and the shanty (`assets/newfiessailing/sounds`).
+- **Drifting wrecks.** In fog, wrecks drift out of the mist near sailors. Right-click one once for rusty gears, twine, planks and the odd ingot.
 - **Swamping.** Boats with a hull under 50% leak, and Force 7+ seas slop water aboard. Waterlogged boats slow to a quarter speed and warn at 60% and 100%. Bail with the bucket or patch the hull.
 - **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon launches three real balloon entities (red, yellow, blue) that rise above the boat; after 3 seconds the hull is righted and refloated (water set to 35%, hull at least 25%), then the balloons hover and drift away.
 - **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.
@@ -40,6 +45,10 @@ Only entities whose code contains `boat` and one of `BoatCodeContains` (default 
 ## Configuration
 
 `ModConfig/NewfiesSailing.json` is written on first start. Tune `KnotsPerWindUnit`, `Min/MaxSpeedMultiplier`, `ReferenceKnots`, `OverloadKnots`, `LeewayStrength`, squall and temporal-storm settings, `WearRate`, `AnchorHoldKnots` and `BoatCodeContains`.
+
+## Testing
+
+See [the test checklist](../../docs/SAILING-TEST-CHECKLIST.md). Floating markets are not implemented, and `HeaveEnabled` (vertical swell) is experimental.
 
 ## Status
 

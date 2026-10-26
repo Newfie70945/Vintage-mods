@@ -19,5 +19,10 @@
  "itemdesc-recoveryballoon": "Right-click within 10 blocks of a capsized or swamped sailboat: balloons haul it upright and refloat it. Single use.",
  "entity-recoveryballoon-red": "Recovery balloon",
  "entity-recoveryballoon-yellow": "Recovery balloon",
- "entity-recoveryballoon-blue": "Recovery balloon"
+ "entity-recoveryballoon-blue": "Recovery balloon",
+ "item-foghorn": "Fog horn",
+ "itemdesc-foghorn": "Right-click to sound a long blast. Other sailors within 250 blocks are told which way it came from. Essential in fog.",
+ "item-concertina": "Sailor's concertina",
+ "itemdesc-concertina": "Right-click aboard or beside a boat to play a sea shanty and lift the crew's morale by 20% (once a minute per boat).",
+ "entity-driftingwreck": "Drifting wreck"
 }

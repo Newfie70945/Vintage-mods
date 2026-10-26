@@ -365,4 +365,41 @@ public static class SailingModel
 
     /// <summary>Fog sits on light air: wind strength multiplier (1 clear, 0.6 in dense fog).</summary>
     public static double FogWindFactor(double intensity) => 1 - 0.4 * Math.Clamp(intensity, 0, 1);
+
+    // ---- Crew morale ----
+
+    /// <summary>Morale change per second: fair weather and a sound boat lift the crew; gales, storms, leaks and fog sap them.</summary>
+    public static double MoraleChangePerSecond(int force, bool temporalStorm, double fog, double hull, double water)
+    {
+        double d = 0;
+        if (force <= 4 && hull >= 60 && water < 30 && !temporalStorm) d += 0.15;
+        if (force >= 7) d -= (force - 6) * 0.12;
+        if (temporalStorm) d -= 0.3;
+        if (hull < 30) d -= 0.1;
+        if (water >= 60) d -= 0.1;
+        return d - 0.05 * Math.Clamp(fog, 0, 1);
+    }
+
+    /// <summary>A cheerful crew pulls harder: 0.88 at zero morale up to 1.0.</summary>
+    public static double MoraleSpeedFactor(double morale) => 0.88 + 0.12 * Math.Clamp(morale / 100.0, 0, 1);
+
+    public static string MoraleLabel(double morale) => morale switch
+    {
+        >= 80 => "cheerful",
+        >= 55 => "steady",
+        >= 30 => "grumbling",
+        >= 10 => "close to mutiny",
+        _ => "mutinous"
+    };
+
+    // ---- Hull heave ----
+
+    /// <summary>Vertical swell motion in blocks (experimental; the game's buoyancy may fight it).</summary>
+    public static double Heave(double seconds, int force, double phase = 0)
+    {
+        double f = Math.Clamp(force, 0, 12);
+        double amp = Math.Min(0.35, 0.02 * f);
+        double w = 2 * Math.PI / Math.Max(2.5, 5.5 - 0.3 * f);
+        return amp * (0.7 * Math.Sin(w * seconds + phase) + 0.3 * Math.Sin(1.7 * w * seconds + phase * 2));
+    }
 }
