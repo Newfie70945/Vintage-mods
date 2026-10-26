@@ -54,3 +54,11 @@ The full optimizer suite (`tools/build.py`) passes against the official 1.22.7 s
 - Barrels that hold contents matching a recipe that isn't valid yet still search natively whenever their contents change. Only the unchanged-storage case is skipped.
 - Callback bursts are still aligned: this module makes each barrel cheap but does not spread barrels across ticks.
 - Mods that change barrel recipe results from world state without touching the slots see their change applied up to N × 3 s late. Lower `BarrelRecipeRescanEvery`, or leave the module off, if that matters on your server.
+
+## Follow-up: slow block-update diagnostics
+
+Optional `BlockUpdateDiagnostics` logs slow native 100 ms update passes at most once per 10 seconds. Default off, threshold 50 ms (10–1000). Counts cover queued neighbour notifications, resends, modified/no-relight/minimal/decor blocks and dirty block entities. Native neighbour notifications retain their 500-entry cap; several other queues drain natively without a cap.
+
+Changed-block handling and block-entity sync have separate observational hooks. Missing/conflicting child hooks report unavailable; residual time is unmeasured. Inclusive elapsed time includes pauses and waits, so this does not prove a mod or GC caused a stall. It is diagnostics, not a simulation budget or performance optimization.
+
+Observer failures increment `blockUpdateDiagnosticFailures` and stand down the observer while preserving native execution and exception identity. Tests inject queue-read and logging failures, check direct sync timing, disabled children, rate limiting and unchanged queue contents.

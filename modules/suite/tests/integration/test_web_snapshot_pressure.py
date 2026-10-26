@@ -184,6 +184,18 @@ try:
         time.sleep(1.1)
         code, applied, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'barrelRecipeMemo':False,'barrelRecipeRescanEvery':10}})
         assert code == 200 and applied.get('success') and applied['optimizer']['settings']['barrelRecipeMemo'] is False, (code, applied)
+        assert applied['optimizer']['settings']['blockUpdateDiagnostics'] is False, applied
+        time.sleep(1.1)
+        code, observed, _, _ = request('/api/optimizations/newfies', {'operation':'set','settings':{'blockUpdateDiagnostics':True,'blockUpdateDiagnosticsMs':50}})
+        assert code == 200 and observed.get('success'), (code, observed)
+        for name in ['blockUpdateDiagnostics','blockUpdateDiagnosticsSplit','blockUpdateDiagnosticsSync']:
+            assert any(m['name'] == name and m['status'] == 'active' for m in observed['optimizer']['modules']), (name,observed)
+        time.sleep(1.1)
+        code, observed, _, _ = request('/api/optimizations/newfies')
+        assert code == 200 and observed['optimizer']['counters']['blockUpdatePassesObserved'] > 0, observed
+        time.sleep(1.1)
+        code, observed, _, _ = request('/api/optimizations/newfies', {'operation':'set','settings':{'blockUpdateDiagnostics':False}})
+        assert code == 200 and observed.get('success') and not observed['optimizer']['settings']['blockUpdateDiagnostics'], (code,observed)
         time.sleep(1.1)
         code, started, _, _ = request('/api/optimizations/newfies', {'operation':'profile-start'})
         assert code == 200 and started.get('success') and started['optimizer']['profiling'], (code, started)
@@ -252,7 +264,7 @@ if optimizer_test:
     assert module_states.get('chunkLifecycleTimings') == 'captured', module_states
     targets = {h['name'] for h in capture['hotspots']}
     assert {'ServerSystemSupplyChunks.mainThreadLoadChunkColumn','ServerSystemUnloadChunks.UnloadChunkColumns','ServerSystemEntitySimulation.SendEntityDespawns'} <= targets, targets
-    report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True, barrelRecipeMemoRoundtrip=True)
+    report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True, barrelRecipeMemoRoundtrip=True, blockUpdateDiagnosticsRoundtrip=True)
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('NOS phase and three lifecycle targets captured; shutdown removed hooks: ok', flush=True)
 

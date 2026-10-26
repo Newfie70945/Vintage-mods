@@ -2666,7 +2666,7 @@ __NSS_RETENTION_HTML__
             <p class="small">Exact official types and methods only. Active cooking, fermentation and berry growth retain native timing. Chunk eligibility, force-load checks, unload callbacks and save queues stay native.</p>
             <label><input type="checkbox" id="nosBlockUpdateDiagnostics"> Log slow 100 ms block-update passes (diagnostics)</label>
             <label>Report passes slower than <input type="number" id="nosBlockUpdateDiagnosticsMs" min="10" max="1000" step="10"> ms</label>
-            <div class="small">Off by default. Observation only: logs at most one line every 10 s with the queued changed-block counts and the time split between block handling and block-entity sync.</div>
+            <div class="small">Off by default. Observation only: logs at most one line every 10 s with queued changed-block counts, directly measured block handling/sync, and remaining or unavailable time. Elapsed timings include pauses/waits and do not prove a mod caused the stall.</div>
             <label><input type="checkbox" id="nosBlockUpdateListReuse"> Reuse block-update batching lists</label><br>
           <label><input type="checkbox" id="nosChunkLoadRequestListReuse"> Reuse chunk-load request staging list</label><br>
           <label><input type="checkbox" id="nosChunkUnloadListReuse"> Reuse chunk-unload lists and packet coordinates</label><br>
