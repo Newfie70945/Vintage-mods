@@ -118,6 +118,8 @@
     "BarrelMatchCountGuard": false,
     "BarrelRecipeMemo": false,
     "BarrelRecipeRescanEvery": 10,
+    "BlockUpdateDiagnostics": false,
+    "BlockUpdateDiagnosticsMs": 50,
     "BlockSimulationBudget": false,
     "BlockSimulationBudgetMs": 5,
     "EntityLoadedDispatchReuse": false,
