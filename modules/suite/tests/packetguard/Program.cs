@@ -117,7 +117,7 @@ Console.WriteLine("PASS: flight identity/dimension resets and fresh/healthy nocl
 
 Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP",""),"Old noclip observations without fresh eligibility cannot punish");
 Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=False;correctionConfigured=False"),"Noclip correction-off observations stay review-only");
-Check(!AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=True;correctionConfigured=True"),"Qualified correction-enabled collision evidence retains configured enforcement");
+Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=True;correctionConfigured=True"),"Even legacy enforcement-enabled noclip cannot automatically punish");
 Console.WriteLine("PASS: noclip review-mode and legacy findings cannot enter automatic punishment paths.");
 
 // Mount/authorized-flight eligibility must discard accumulated hover evidence.
@@ -134,3 +134,16 @@ Check(!PacketIngressPolicy.IsValidEntityInteraction(-1,0,0,0) && !PacketIngressP
 foreach(double invalid in new[]{double.NaN,double.PositiveInfinity,double.NegativeInfinity,double.MaxValue})
     Check(!PacketIngressPolicy.IsValidEntityInteraction(0,invalid,0,0), "Malformed entity hit rejected");
 Console.WriteLine("PASS: bounded inventory IDs and entity-hit numerical invariants, including large modded creatures.");
+
+var terrainEvidence=new NoclipTerrainEvidence();
+terrainEvidence.Add(1,2,3,"game:stone",false);terrainEvidence.Add(1,2,3,"game:stone",false);terrainEvidence.Add(2,2,3,"game:stone",false);
+Check(terrainEvidence.Describe().Contains("uniqueIntersectedBlocks=2;") && terrainEvidence.Describe().Contains("uniqueBlockTypes=1;"),"Repeated samples distinguish block positions from types");
+Check(terrainEvidence.CorrectionCompatible,"Ordinary complete solid terrain can support repeated correction evidence");
+terrainEvidence.Add(3,2,3,"game:door",true);Check(!terrainEvidence.CorrectionCompatible,"Dynamic geometry cannot support corrections");
+var cappedTerrain=new NoclipTerrainEvidence();for(int i=0;i<130;i++)cappedTerrain.Add(i,0,0,"game:stone",false);
+Check(cappedTerrain.Truncated && !cappedTerrain.CorrectionCompatible,"Truncated terrain evidence cannot support corrections");
+var confirmation=new NoclipConfirmationWindow();
+Check(!confirmation.Observe(1000),"First noclip cannot correct");Check(!confirmation.Observe(1100),"Repeated same burst cannot correct");
+Check(!confirmation.Observe(1750),"Second noclip cannot correct");Check(confirmation.Observe(2500),"Three spaced observations over 1.5s can support configured correction");
+confirmation.Reset();Check(!confirmation.Observe(3000),"Transitions clear noclip confirmation");Check(!confirmation.Observe(10000),"Old observations cannot confirm a new episode");
+Console.WriteLine("PASS: no noclip automatic punishment; distinct block evidence, complex geometry exclusions, bounded retention and repeated correction confirmation.");

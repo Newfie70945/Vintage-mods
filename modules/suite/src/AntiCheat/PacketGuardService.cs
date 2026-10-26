@@ -1234,6 +1234,7 @@ internal sealed class PacketGuardService : IDisposable
                 PacketGuardTrustedState.RecordSuppression(player, "entity-recreated", $"EntityId {state.EntityId} -> {entity.EntityId}; movement/reach baseline reset.", 1500, now);
                 reachPositionHistory.Remove(player.PlayerUID);
                 reachViolations.Remove(player.PlayerUID);
+                state.NoclipConfirmation.Reset();
                 state.EntityId = entity.EntityId;
                 state.GraceUntilUtc = Math.Max(state.GraceUntilUtc, now + config.PacketGuardEngineTeleportGraceMs);
                 state.Accept(pos, now);
@@ -1259,11 +1260,13 @@ internal sealed class PacketGuardService : IDisposable
             // because valid seat offsets can overlap complex mount collision geometry.
             if (mounted)
             {
+                state.NoclipConfirmation.Reset();
                 // The first mounted sample must not be compared against the pre-mount player
                 // position. Seat attachment can move the rider several blocks vertically or
                 // horizontally in one server update, which is legitimate mount synchronization.
                 if (!state.WasMounted)
                 {
+                    state.NoclipConfirmation.Reset();
                     state.WasMounted = true;
                     state.ResetMountedViolation();
                     PacketGuardTrustedState.Mark(player, "mount-transition", config.PacketGuardMountGraceMs, PacketGuardTrustScope.Movement);
@@ -1414,6 +1417,7 @@ internal sealed class PacketGuardService : IDisposable
             }
             if (state.WasMounted)
             {
+                state.NoclipConfirmation.Reset();
                 state.WasMounted = false;
                 PacketGuardTrustedState.Mark(player, "dismount-reposition", config.PacketGuardMountGraceMs, PacketGuardTrustScope.Movement);
                 PacketGuardTrustedState.RecordSuppression(player, "mounted-movement", "Dismount reposition grace re-baselined movement.", 1500, now);
@@ -1445,6 +1449,7 @@ internal sealed class PacketGuardService : IDisposable
             if (PacketGuardTrustedState.IsActive(player.PlayerUID, now, PacketGuardTrustScope.Movement) ||
                 state.Dimension != pos.Dimension || now < state.GraceUntilUtc)
             {
+                state.NoclipConfirmation.Reset();
                 if (state.Dimension != pos.Dimension)
                 {
                     RecordTrustedMovementTransition(player, "dimension-change", state, pos, TeleportVerificationForReason("dimension-change"), "dimension-change");
@@ -1611,6 +1616,7 @@ internal sealed class PacketGuardService : IDisposable
                 // through a wall in increments smaller than the path-sampling minimum distance.
                 bool collisionTimingReliable=PacketMovementEvidence.ReliableCollisionTiming(tps.Enabled,tps.Ready,tps.IsDegraded,tps.IsCritical,
                     player is ServerPlayer observedPlayer && PacketMovementEvidence.FreshPosition(api.World.ElapsedMilliseconds,observedPlayer.LastReceivedClientPosition));
+                if(!collisionTimingReliable)state.NoclipConfirmation.Reset();
                 bool endpointPenetrating = false;
                 double endpointPenetration = 0;
                 double endpointNetMovement = 0;
@@ -1643,20 +1649,24 @@ internal sealed class PacketGuardService : IDisposable
                     state.EndpointCollisionSamples >= config.PacketGuardNoclipEndpointConfirmSamples &&
                     endpointNetMovement >= config.PacketGuardNoclipEndpointMinNetMovement && now-state.EndpointCollisionSinceUtc>=500)
                 {
-                    double endpointMovementRisk = config.PacketGuardRejectNoclip ? AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now) : state.MovementRiskScore;
+                    var terrain = new NoclipTerrainEvidence();
+                    EntityBodyIntersectsCollision(entity,pos.X,pos.Y,pos.Z,pos.Dimension,out _,out _,out bool terrainKnown,terrain);
+                    bool correctionConfirmed=terrainKnown && terrain.CorrectionCompatible && state.NoclipConfirmation.Observe(now);
+                    if(!terrainKnown || !terrain.CorrectionCompatible)state.NoclipConfirmation.Reset();
+                    double endpointMovementRisk = state.MovementRiskScore;
                     string endpointEvidence =
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"endpointPenetration={endpointPenetration:0.000};minPenetration={config.PacketGuardNoclipEndpointMinPenetrationDepth:0.000};" +
                         $"endpointConfirm={state.EndpointCollisionSamples}/{config.PacketGuardNoclipEndpointConfirmSamples};endpointSpanMs={Math.Max(0,now-state.EndpointCollisionSinceUtc)};minimumSpanMs=500;" +
-                        $"endpointNetMovement={endpointNetMovement:0.000};minNetMovement={config.PacketGuardNoclipEndpointMinNetMovement:0.000};block={endpointBlock};" +
-                        $"noclipEnforcementEligible={config.PacketGuardRejectNoclip};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"endpointNetMovement={endpointNetMovement:0.000};minNetMovement={config.PacketGuardNoclipEndpointMinNetMovement:0.000};block={endpointBlock};{terrain.Describe()};" +
+                        $"noclipEnforcementEligible=False;automaticPunishment=False;correctionConfirmed={correctionConfirmed};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(
                         player,
                         "PACKET_NOCLIP",
-                        AntiCheatSeverity.Critical,
-                        "The server observed repeated untrusted player-body penetration into solid collision geometry and rolled the player back to a verified safe position.",
+                        AntiCheatSeverity.Moderate,
+                        "The server observed player-body penetration into collision geometry. Review terrain evidence; correction requires repeated compatible observations. This finding cannot automatically punish.",
                         player.PlayerUID,
                         endpointEvidence);
 
@@ -1665,7 +1675,7 @@ internal sealed class PacketGuardService : IDisposable
                         player.PlayerName,
                         endpointEvidence);
 
-                    if (config.PacketGuardRejectNoclip)
+                    if (config.PacketGuardRejectNoclip && correctionConfirmed)
                     {
                         RollbackMovement(player, state, entity, now, "packetguard-noclip-endpoint-correction");
                     }
@@ -1683,18 +1693,21 @@ internal sealed class PacketGuardService : IDisposable
                     TryDetectNoclipPath(entity, state.X, state.Y, state.Z, pos.X, pos.Y, pos.Z, pos.Dimension,
                         out int collisionSamples, out double maxPenetrationDepth, out string collisionBlock))
                 {
-                    double pathMovementRisk = config.PacketGuardRejectNoclip ? AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now) : state.MovementRiskScore;
+                    bool compatible=AntiCheatObservationPolicy.HasValue(collisionBlock,"geometryCorrectionCompatible","True");
+                    bool correctionConfirmed=compatible && state.NoclipConfirmation.Observe(now);
+                    if(!compatible)state.NoclipConfirmation.Reset();
+                    double pathMovementRisk = state.MovementRiskScore;
                     string noclipEvidence =
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"collisionSamples={collisionSamples};required={config.PacketGuardNoclipRequiredCollisionSamples};" +
                         $"maxPenetration={maxPenetrationDepth:0.000};minPenetration={config.PacketGuardNoclipMinPenetrationDepth:0.000};" +
-                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};noclipEnforcementEligible={config.PacketGuardRejectNoclip};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};noclipEnforcementEligible=False;automaticPunishment=False;correctionConfirmed={correctionConfirmed};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(
                         player,
                         "PACKET_NOCLIP",
-                        AntiCheatSeverity.Critical,
+                        AntiCheatSeverity.Moderate,
                         "The server observed a fully loaded movement path crossing solid collision geometry. Review modded movement and geometry compatibility; correction follows the configured policy.",
                         player.PlayerUID,
                         noclipEvidence);
@@ -1704,7 +1717,7 @@ internal sealed class PacketGuardService : IDisposable
                         player.PlayerName,
                         noclipEvidence);
 
-                    if (config.PacketGuardRejectNoclip)
+                    if (config.PacketGuardRejectNoclip && correctionConfirmed)
                     {
                         RollbackMovement(player, state, entity, now, "packetguard-noclip-correction");
                     }
@@ -2096,6 +2109,7 @@ internal sealed class PacketGuardService : IDisposable
 
         if(EntityBodyIntersectsCollision(entity,fromX,fromY,fromZ,dimension,out _,out _,out bool fromKnown)||!fromKnown)return false;
         if(EntityBodyIntersectsCollision(entity,toX,toY,toZ,dimension,out _,out _,out bool toKnown)||!toKnown)return false;
+        var terrain = new NoclipTerrainEvidence();
         int steps = Math.Clamp((int)Math.Ceiling(distance / config.PacketGuardNoclipSampleStep), 2, 96);
         for (int i = 1; i < steps; i++)
         {
@@ -2103,7 +2117,7 @@ internal sealed class PacketGuardService : IDisposable
             double x = fromX + dx * t;
             double y = fromY + dy * t;
             double z = fromZ + dz * t;
-            bool intersects=EntityBodyIntersectsCollision(entity,x,y,z,dimension,out string blockCode,out double penetrationDepth,out bool known);
+            bool intersects=EntityBodyIntersectsCollision(entity,x,y,z,dimension,out string blockCode,out double penetrationDepth,out bool known,terrain);
             if(!known)return false;
             if(!intersects)continue;
             if (penetrationDepth < config.PacketGuardNoclipMinPenetrationDepth) continue;
@@ -2114,6 +2128,7 @@ internal sealed class PacketGuardService : IDisposable
 
         }
 
+        firstBlock += $";{terrain.Describe()};geometryCorrectionCompatible={terrain.CorrectionCompatible}";
         return collisionSamples>=config.PacketGuardNoclipRequiredCollisionSamples;
     }
 
@@ -2121,6 +2136,9 @@ internal sealed class PacketGuardService : IDisposable
         => EntityBodyIntersectsCollision(entity,x,y,z,dimension,out blockCode,out penetrationDepth,out _);
 
     private bool EntityBodyIntersectsCollision(Entity entity,double x,double y,double z,int dimension,out string blockCode,out double penetrationDepth,out bool complete)
+        => EntityBodyIntersectsCollision(entity,x,y,z,dimension,out blockCode,out penetrationDepth,out complete,null);
+
+    private bool EntityBodyIntersectsCollision(Entity entity,double x,double y,double z,int dimension,out string blockCode,out double penetrationDepth,out bool complete,NoclipTerrainEvidence? terrain)
     {
         complete=false;
         blockCode = "";
@@ -2179,6 +2197,15 @@ internal sealed class PacketGuardService : IDisposable
                     double overlapY = Math.Min(maxY, cMaxY) - Math.Max(minY, cMinY);
                     double overlapZ = Math.Min(maxZ, cMaxZ) - Math.Max(minZ, cMinZ);
                     double depth = Math.Max(0, Math.Min(overlapX, Math.Min(overlapY, overlapZ)));
+                    if(terrain!=null && depth>=config.PacketGuardNoclipMinPenetrationDepth)
+                    {
+                        string code=block.Code?.ToString() ?? block.Id.ToString();
+                        // Dynamic/custom geometry is review evidence, never a correction cause.
+                        bool complex=block.GetType()!=typeof(Block) || boxes.Length!=1 ||
+                            box.X1!=0 || box.Y1!=0 || box.Z1!=0 || box.X2!=1 || box.Y2!=1 || box.Z2!=1 ||
+                            code.Contains("door",StringComparison.OrdinalIgnoreCase) || code.Contains("chisel",StringComparison.OrdinalIgnoreCase);
+                        terrain?.Add(bx,by,bz,code,complex);
+                    }
                     if (depth <= penetrationDepth) continue;
 
                     penetrationDepth = depth;
@@ -3665,6 +3692,7 @@ internal sealed class PacketGuardService : IDisposable
         public long GraceUntilUtc;
         public long LastViolationUtc;
         public int ViolationCount;
+        public readonly NoclipConfirmationWindow NoclipConfirmation = new();
         public bool WasMounted;
         public int MountedSuspiciousSamples;
         public long MountedSuspiciousSinceUtc;

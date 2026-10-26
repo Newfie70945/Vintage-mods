@@ -68,6 +68,15 @@ static class Checks{
  loaded=false;Check(!Correct(StateAt(3.5,4000)),"unloaded rollback destination is unknown, not safe");loaded=true;
  wall.Fail=true;Check(!Correct(StateAt(5.5,4000)),"throwing rollback geometry cancels correction");wall.Fail=false;
  Check(!Correct(StateAt(3.5,-1000000)),"expired rollback history cannot revive stale fallback");
+
+ var terrainType=asm.GetType("BlockLogger.AntiCheat.NoclipTerrainEvidence",true)!;
+ var terrainData=Activator.CreateInstance(terrainType,true)!;
+ var detailed=type.GetMethods(F).Single(m=>m.Name=="EntityBodyIntersectsCollision"&&m.GetParameters().Length==9);
+ object?[] detailedArgs=[entity,5.5,4d,3.5,0,null,0d,false,terrainData];
+ Check((bool)detailed.Invoke(guard,detailedArgs)! && (bool)detailedArgs[7]!,"detailed collision remains complete");
+ Check(!(bool)terrainType.GetProperty("CorrectionCompatible",F)!.GetValue(terrainData)!,"custom block class remains review-only even with cube geometry");
+ string summary=(string)terrainType.GetMethod("Describe",F)!.Invoke(terrainData,null)!;
+ Check(summary.Contains("uniqueIntersectedBlocks=2;") && summary.Contains("uniqueBlockTypes=1;"),"compiled probe records distinct intersected cells and types");
  Console.WriteLine($"PASS {count} compiled collision/flight checks: loaded geometry, bounded probes, unknown terrain, shape failures, overlap exit, support and endpoint timing. No chunk loader is available in fixture.");
  }
 }
