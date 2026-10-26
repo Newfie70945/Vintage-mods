@@ -174,6 +174,16 @@ try:
     if optimizer_test:
         code, nos, _, _ = request('/api/optimizations/newfies')
         assert code == 200 and nos.get('available'), (code, nos)
+        settings = nos['optimizer']['settings']
+        assert settings['barrelRecipeMemo'] is False and settings['barrelRecipeRescanEvery'] == 10, settings
+        time.sleep(1.1)
+        code, applied, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'barrelRecipeMemo':True,'barrelRecipeRescanEvery':5}})
+        assert code == 200 and applied.get('success'), (code, applied)
+        assert applied['optimizer']['settings']['barrelRecipeMemo'] is True and applied['optimizer']['settings']['barrelRecipeRescanEvery'] == 5, applied
+        assert any(m['name'] == 'barrelRecipeMemo' and m['status'] == 'active' for m in applied['optimizer']['modules']), applied
+        time.sleep(1.1)
+        code, applied, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'barrelRecipeMemo':False,'barrelRecipeRescanEvery':10}})
+        assert code == 200 and applied.get('success') and applied['optimizer']['settings']['barrelRecipeMemo'] is False, (code, applied)
         time.sleep(1.1)
         code, started, _, _ = request('/api/optimizations/newfies', {'operation':'profile-start'})
         assert code == 200 and started.get('success') and started['optimizer']['profiling'], (code, started)
@@ -242,7 +252,7 @@ if optimizer_test:
     assert module_states.get('chunkLifecycleTimings') == 'captured', module_states
     targets = {h['name'] for h in capture['hotspots']}
     assert {'ServerSystemSupplyChunks.mainThreadLoadChunkColumn','ServerSystemUnloadChunks.UnloadChunkColumns','ServerSystemEntitySimulation.SendEntityDespawns'} <= targets, targets
-    report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True)
+    report.update(optimizerVersion=capture['optimizerVersion'], lifecycleTimingsCaptured=True, barrelRecipeMemoRoundtrip=True)
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('NOS phase and three lifecycle targets captured; shutdown removed hooks: ok', flush=True)
 

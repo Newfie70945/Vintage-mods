@@ -36,7 +36,8 @@ static class Checks
   Assert(BarrelRecipeMemoOptimizations.ValidateContract(out var why),why);
   var tick=BarrelRecipeMemoOptimizations.Target.CreateDelegate<Action<BlockEntityBarrel,float>>();
   var registry=new RecipeRegistrySystem();
-  var accessor=Proxy.Make<IBlockAccessor>((m,a)=>null);
+  bool failDirty=false;
+  var accessor=Proxy.Make<IBlockAccessor>((m,a)=>{if(failDirty)throw new InvalidOperationException("barrel-dirty-sentinel");return null;});
   var world=Proxy.Make<IServerWorldAccessor>((m,a)=>m.Name=="get_BlockAccessor"?accessor:null);
   var loader=Proxy.Make<IModLoader>((m,a)=>m.Name=="GetModSystem"?registry:null);
   var api=Proxy.Make<ICoreServerAPI>((m,a)=>m.Name switch{"get_World"=>world,"get_Side"=>EnumAppSide.Server,"get_ModLoader"=>loader,_=>null});
@@ -135,6 +136,13 @@ static class Checks
    Assert(BarrelRecipeMemoOptimizations.Counters.Failures>0,"failure counted for the registry monitor");
    stored.Hook=()=>hooks++;hooks=0;long checksAfterFailure=BarrelRecipeMemoOptimizations.Counters.Checks;for(int i=0;i<3;i++)tick(faulty,3);
    Assert(hooks==3*recipeCount&&BarrelRecipeMemoOptimizations.Counters.Checks==checksAfterFailure,"failed module keeps stock until reapply");
+
+   BarrelRecipeMemoOptimizations.Configure(true);var failedSkip=Barrel<BlockEntityBarrel>(stored);tick(failedSkip,3);failedSkip.Sealed=true;
+   failDirty=true;long failuresBefore=BarrelRecipeMemoOptimizations.Counters.Failures;
+   Assert(Error(()=>tick(failedSkip,3))=="InvalidOperationException:barrel-dirty-sentinel","skip remainder failure propagates");
+   failDirty=false;failedSkip.Sealed=false;
+   Assert(BarrelRecipeMemoOptimizations.Counters.Failures==failuresBefore+1,"skip remainder failure stands module down");
+   hooks=0;tick(failedSkip,3);tick(failedSkip,3);Assert(hooks==recipeCount*2,"skip failure leaves stock active until reapply");
 
    // Measurement: 1,000 storage barrels against the 300-recipe registry, twenty 3-second ticks each.
    object Measure(bool on)

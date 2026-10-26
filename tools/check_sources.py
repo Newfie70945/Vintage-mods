@@ -22,10 +22,9 @@ assert 'website-connector' not in (root/'Newfies.ServerSuite.slnx').read_text()
 # Constants that must agree across files. A mismatch here once made the live map refuse every changed-terrain update.
 exporter = (root/'modules/suite/src/WebMap/WebMapTerrainExporter.cs').read_text(encoding='utf-8-sig')
 bridge = (root/'modules/suite/src/WebMap/WebMapBridgeService.cs').read_text(encoding='utf-8-sig')
-exporter_version = re.search(r'private const int ManifestVersion = (\d+);', exporter)
-bridge_version = re.search(r'private const int CurrentTerrainManifestVersion = (\d+);', bridge)
-assert exporter_version and bridge_version and exporter_version[1] == bridge_version[1], \
-    'Terrain cache version differs: exporter %s vs map service %s' % (exporter_version and exporter_version[1], bridge_version and bridge_version[1])
+exporter_version = re.search(r'(?:private|internal) const int ManifestVersion = (\d+);', exporter)
+assert exporter_version and 'private const int CurrentTerrainManifestVersion = WebMapTerrainExporter.ManifestVersion;' in bridge, \
+    'Map service must reference the exporter cache version directly'
 suite_manifest = next(m for m in manifest['mods'] if m['id'] == 'suite')
 release = re.search(r'public const string Version = "([^"]+)";', (root/'modules/suite/src/SuiteRelease.cs').read_text(encoding='utf-8-sig'))
 assert release and release[1] == suite_manifest['version'], 'SuiteRelease.Version differs from the manifest'

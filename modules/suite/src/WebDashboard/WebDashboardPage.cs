@@ -2659,7 +2659,7 @@ __NSS_RETENTION_HTML__
             <label><input type="checkbox" id="nosBarrelMatchCountGuard"> Reject impossible barrel input counts (experimental)</label>
             <label><input type="checkbox" id="nosBarrelRecipeMemo"> Skip repeated recipe scans in unchanged storage barrels (experimental)</label>
             <label>Full barrel rescan every <input type="number" id="nosBarrelRecipeRescanEvery" min="2" max="100" step="1"> checks (3 s each)</label>
-            <div class="small">Off by default. A barrel whose contents matched no recipe skips the full recipe search until either slot changes; a native rescan still runs every N checks. Starting a recipe after mod-only state changes can take up to N × 3 s.</div>
+            <div class="small">Off by default. A barrel whose contents matched no recipe skips the full recipe search until a stack is replaced or its type/count changes; a native rescan still runs every N checks. In-place attribute or mod-only state changes can take up to N × 3 s to start a recipe.</div>
             <label><input type="checkbox" id="nosBarrelIngredientPairing"> Reduce barrel ingredient matching allocations (opt-in)</label>
             <label><input type="checkbox" id="nosWildBushCallbackFlatten"> Remove redundant wild berry-bush callback wrapper (opt-in)</label>
             <label><input type="checkbox" id="nosChunkUnloadStagingReuse"> Reuse private chunk-unload staging buffers (opt-in)</label>

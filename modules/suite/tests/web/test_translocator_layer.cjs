@@ -8,6 +8,15 @@ const html=source.split('return $$$$"""')[1].split('""";')[0].replace(/\{\{\{\{(
  await page.goto('http://translocator.invalid/');await page.waitForFunction(()=>data?.showTranslocators);
  assert.equal(await page.locator('#layerTranslocatorsRow').isVisible(),false); // panel starts closed
  await page.evaluate(()=>openPanel('layersPanel'));assert.equal(await page.locator('#layerTranslocatorsRow').isVisible(),true);
+ assert.equal(await page.locator('#layerTranslocators').isChecked(),false,'translocators start off');
+ await page.locator('#layerTranslocators').check();
+ assert.equal(await page.evaluate(()=>layers.translocators),true,'player can enable for this visit');
+ await page.evaluate(()=>{layers.grid=false;saveLayers()});
+ await page.reload();await page.waitForFunction(()=>data?.showTranslocators);
+ await page.evaluate(()=>openPanel('layersPanel'));
+ assert.equal(await page.locator('#layerTranslocators').isChecked(),false,'saved enabled preference is reset on reopening');
+ assert.equal(await page.locator('#layerGrid').isChecked(),false,'other layer preferences are retained');
+ await page.locator('#layerTranslocators').check();
  const result=await page.evaluate(()=>{
   const a={id:'0,60,0',x:0,y:60,z:0,state:'active',hasTarget:false};let lines=0;
   const oldLine=ctx.lineTo;ctx.lineTo=()=>lines++;

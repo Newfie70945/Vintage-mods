@@ -103,7 +103,7 @@ public static class BarrelRecipeMemoOptimizations
     }
     public static Exception? Finalizer(Exception? __exception, Scan __state)
     {
-        if (__exception != null && __state.Active) { Interlocked.Increment(ref failures); Configure(false); }
+        if (__exception != null && enabled) { Interlocked.Increment(ref failures); Configure(false); }
         return __exception; // Never replay a recipe scan or craft.
     }
 }

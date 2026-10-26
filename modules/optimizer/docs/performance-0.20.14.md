@@ -12,7 +12,7 @@ This is an unpublished experimental preview for the official Vintage Story 1.22.
 
 ## Capture tools
 
-Python 3 scripts are supplied in the reviewed download's `tools/optimizer` folder and the source repository's `modules/optimizer/tools` directory. They operate offline on exported JSON and do not change a server or world.
+Python 3 scripts are supplied in the reviewed download's `tools/optimizer` folder and the source repository's `modules/optimizer/tools` directory. The analyzer/comparison tools operate offline on exported JSON and do not change a server or world.
 
 ```
 python3 profile_findings.py latest.json
@@ -21,7 +21,7 @@ python3 compare_captures.py --baseline off1.json off2.json --candidate on1.json 
 
 The analyzer ranks measured work, GC windows and module errors. It cannot establish a specific mod as the cause of an individual stall without aligned evidence. A/B comparisons reject short/incomparable captures or missing workload counts; GC deltas are normalized using actual sample intervals. Overwritten history is treated as a retained window rather than a complete capture. Missing GC samples remain unavailable. Adjacent samples are correlated; statistical output does not prove a production performance gain.
 
-The proposed Suite burst timer, live log reader, process-GC-to-tick attribution and public translocator layer were withheld after review. See the repository's `docs/validation/CLAUDE-RELEASE-REVIEW-1.2.52.md`.
+The proposed Suite burst timer, live log reader and process-GC-to-tick attribution were withheld after review. The original translocator prototype was withheld; a corrected implementation is now in Suite 1.2.52. See the repository's `docs/validation/CLAUDE-RELEASE-REVIEW-1.2.52.md`.
 # NOS 0.20.14-preview: barrel recipe rescan skip
 
 ## Why
@@ -47,7 +47,7 @@ The Suite → Optimizations → "Blocks, chunks and saves" section has two new c
 
 ## Evidence
 
-`tests/BarrelRecipeMemoTests` drives the real `BlockEntityBarrel.OnEvery3Second` and `BarrelRecipe` matching under Harmony. It has 21 checks:
+`tests/BarrelRecipeMemoTests` drives the real `BlockEntityBarrel.OnEvery3Second` and `BarrelRecipe` matching under Harmony. It now has 24 checks, including follow-up failure tests:
 
 - disabled behaviour matches stock;
 - an unchanged barrel searches once, then only on its phased rescan schedule;
@@ -58,7 +58,7 @@ The Suite → Optimizations → "Blocks, chunks and saves" section has two new c
 - skipped ticks unseal exactly like native;
 - searches that change the inventory are not remembered;
 - a scripted 40-step mixed sequence matches native results exactly;
-- a throwing hook propagates once and disables the module.
+- a throwing hook propagates once and disables the module; a failure in the skipped unseal/dirty remainder also stands the module down, even before native-search state exists.
 
 Synthetic measurement: 1,000 storage barrels, a 300-recipe registry, three trials on the audit container.
 

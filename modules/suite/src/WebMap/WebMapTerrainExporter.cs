@@ -2437,6 +2437,9 @@ internal sealed partial class WebMapTerrainExporter
         Array.Clear(rgba, 0, usedLength);
     }
 
+    private static int ScaleSpan(int difference, int fullSpan, int actualSpan) =>
+        actualSpan <= 0 || actualSpan == fullSpan ? (actualSpan <= 0 ? 0 : difference) : difference * fullSpan / actualSpan;
+
     private static void ApplyHillshade(byte[] rgba, int size)
     {
         int cells = size * size;
@@ -2456,10 +2459,13 @@ internal sealed partial class WebMapTerrainExporter
                     int offset = (z * size + x) * 4;
                     if (rgba[offset + 3] == 0) continue;
 
-                    int hx = heights[z * size + xp] - heights[z * size + xm];
-                    int hz = heights[zp * size + x] - heights[zm * size + x];
-                    int hxWide = heights[z * size + xp2] - heights[z * size + xm2];
-                    int hzWide = heights[zp2 * size + x] - heights[zm2 * size + x];
+                    // At a tile edge the neighbour lookup is clamped, so the difference spans fewer pixels and
+                    // understates the slope. Scale it back to the full span; otherwise every tile border shows as a
+                    // faint seam because the neighbouring tile is shaded without knowing about this one.
+                    int hx = ScaleSpan(heights[z * size + xp] - heights[z * size + xm], 2, xp - xm);
+                    int hz = ScaleSpan(heights[zp * size + x] - heights[zm * size + x], 2, zp - zm);
+                    int hxWide = ScaleSpan(heights[z * size + xp2] - heights[z * size + xm2], 4, xp2 - xm2);
+                    int hzWide = ScaleSpan(heights[zp2 * size + x] - heights[zm2 * size + x], 4, zp2 - zm2);
                     int slope = Math.Abs(hx) + Math.Abs(hz);
 
                     // Multi-scale raised-relief lighting. Screen/world Z increases downward on
@@ -2763,6 +2769,7 @@ internal sealed partial class WebMapTerrainExporter
         if (half <= 0) return false;
         int pixelBytes = checked(tileSize * tileSize * 4);
         byte[] output = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] childRgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
         try
         {
             Array.Clear(output, 0, pixelBytes);
@@ -2784,8 +2791,7 @@ internal sealed partial class WebMapTerrainExporter
                         : LodTilePath(currentRoot, childFactor, childX, childZ);
                     string? source = File.Exists(stagedChild) ? stagedChild :
                         (!string.IsNullOrEmpty(currentChild) && File.Exists(currentChild) ? currentChild : null);
-                    if (source == null || !PngReader.TryReadRgba(source, out int width, out int height, out byte[] childRgba)) continue;
-                    if (width != tileSize || height != tileSize) continue;
+                    if (source == null || !PngReader.TryReadRgbaInto(source, childRgba, tileSize)) continue;
 
                     any = true;
                     DownsampleChildIntoQuadrant(childRgba, tileSize, output, qx * half, qz * half, half);
@@ -2801,6 +2807,7 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
+            ArrayPool<byte>.Shared.Return(childRgba, clearArray: false);
             ArrayPool<byte>.Shared.Return(output, clearArray: false);
         }
     }
@@ -3296,6 +3303,71 @@ internal sealed partial class WebMapTerrainExporter
     private static class PngReader
     {
         private static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
+
+        public static bool TryReadRgbaInto(string path, byte[] destination, int expectedSize)
+        {
+            long rowBytesLong = (long)expectedSize * 4;
+            if (expectedSize <= 0 || expectedSize > 4096 || destination.Length < rowBytesLong * expectedSize) return false;
+            int rowBytes = (int)rowBytesLong;
+            byte[]? buffer = null;
+            try
+            {
+                using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
+                long length = file.Length;
+                if (length < 45 || length > Math.Min(64L * 1024 * 1024, rowBytesLong * expectedSize * 2 + 65536)) return false;
+                buffer = ArrayPool<byte>.Shared.Rent((int)length);
+                int filled = 0;
+                while (filled < length)
+                {
+                    int n = file.Read(buffer, filled, (int)length - filled);
+                    if (n <= 0) return false;
+                    filled += n;
+                }
+                if (!buffer.AsSpan(0, 8).SequenceEqual(Signature)) return false;
+
+                int position = 8, idatStart = -1, idatLength = 0, idatCount = 0;
+                bool validHeader = false, ended = false;
+                while (position + 12 <= length)
+                {
+                    uint chunkLength = ReadBe32(buffer.AsSpan(position, 4));
+                    if (chunkLength > length) return false;
+                    int dataStart = position + 8;
+                    if (dataStart + (long)chunkLength + 4 > length) return false;
+                    ReadOnlySpan<byte> type = buffer.AsSpan(position + 4, 4);
+                    if (type.SequenceEqual("IHDR"u8))
+                    {
+                        if (chunkLength != 13 || validHeader || position != 8) return false;
+                        uint w = ReadBe32(buffer.AsSpan(dataStart, 4)), h = ReadBe32(buffer.AsSpan(dataStart + 4, 4));
+                        validHeader = w == (uint)expectedSize && h == (uint)expectedSize &&
+                            buffer[dataStart + 8] == 8 && buffer[dataStart + 9] == 6 &&
+                            buffer[dataStart + 10] == 0 && buffer[dataStart + 11] == 0 && buffer[dataStart + 12] == 0;
+                        if (!validHeader) return false;
+                    }
+                    else if (type.SequenceEqual("IDAT"u8))
+                    {
+                        if (!validHeader) return false;
+                        idatCount++;
+                        idatStart = dataStart;
+                        idatLength = (int)chunkLength;
+                    }
+                    else if (type.SequenceEqual("IEND"u8)) { if (chunkLength != 0) return false; ended = true; break; }
+                    position = dataStart + (int)chunkLength + 4; // data + CRC
+                }
+                // Our writer emits one IDAT. Anything else is a foreign file; let the caller skip it.
+                if (!ended || !validHeader || idatCount != 1 || idatLength <= 0) return false;
+
+                using var input = new MemoryStream(buffer, idatStart, idatLength, writable: false);
+                using var zlib = new ZLibStream(input, CompressionMode.Decompress);
+                for (int y = 0; y < expectedSize; y++)
+                {
+                    if (zlib.ReadByte() != 0) return false; // only filter type None is produced
+                    if (!ReadExactly(zlib, destination.AsSpan(y * rowBytes, rowBytes))) return false;
+                }
+                return true;
+            }
+            catch { return false; }
+            finally { if (buffer != null) ArrayPool<byte>.Shared.Return(buffer, clearArray: false); }
+        }
 
         public static bool TryReadRgba(string path, out int width, out int height, out byte[] rgba)
         {
