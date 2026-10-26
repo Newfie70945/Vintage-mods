@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.2.0
+# Newfie's Realistic Sailing 0.3.0
 
 Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weather.
 
@@ -6,6 +6,10 @@ Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weath
 - **Heeling (client).** Under load the hull leans away from the wind, most on a beam reach, nil head to wind or running. If boats lean the wrong way on your install set `HeelDirection` to `-1` in the client config.
 - **Leeway.** Close-hauled boats slide sideways downwind; running boats do not.
 - **Squalls.** Every 5-15 minutes a squall rolls through: sailors get a warning about 25 s before, then wind builds to about 2x for 30-75 s and eases off. Squall strength is synced to clients so waves and heel match. Configure or disable in `NewfiesSailing.json` (`SquallsEnabled`, intervals, `SquallPeakMultiplier`).
+- **Temporal storms at sea.** While a temporal storm is active the wind direction wanders up to ~85 degrees, strength rises 30%, the sea runs two forces rougher, `/sailing` reports a spinning compass, boats glow with violet sparks, and a capped number of `BoarderEntityCode` entities (default drifters) crawl out of the water beside occupied boats, despawning when the storm ends. Storm state is read from the game's temporal stability system by reflection; if it cannot be read the mod logs one warning. Admins can use `/sailing teststorm` to simulate one.
+- **Anchor.** `/sailing anchor` drops or raises it; the boat stops, but in wind above `AnchorHoldKnots` (35) it drags downwind.
+- **Weather glass and wind vane.** `/sailing glass` shows barometric pressure, trend and forecast (pressure falls before squalls) plus the wind direction. These are commands for now; craftable items need models and recipes.
+- **Wake.** Boats trail foam behind the stern, scaling with speed.
 - **Wind-driven speed.** Sailboat speed scales with the wind at the boat's position. Becalmed boats crawl; a fresh breeze (Force 5) gives full drive.
 - **Points of sail.** Speed depends on the angle between course and wind: in irons and close-hauled are slow, a beam reach is fastest, running is moderate.
 - **Gusts.** Deterministic gust and lull cycles vary the wind around its mean.

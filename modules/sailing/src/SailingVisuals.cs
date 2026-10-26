@@ -20,6 +20,19 @@ public sealed class SailingVisuals
 
     /// <summary>Server-synced squall wind multiplier.</summary>
     public double SquallFactor { get; set; } = 1;
+    private bool temporalStorm;
+    private double stormSeconds, windRotation = 1.5, windBoost = 1;
+    private double syncedAt;
+
+    public void ApplySync(SailingSyncPacket p)
+    {
+        SquallFactor = p.Squall;
+        temporalStorm = p.TemporalStorm;
+        stormSeconds = p.Seconds;
+        windRotation = p.WindRotationAmplitude;
+        windBoost = p.WindBoost;
+        syncedAt = elapsed;
+    }
 
     public SailingVisuals(ICoreClientAPI api)
     {
@@ -55,8 +68,13 @@ public sealed class SailingVisuals
         foreach (Entity boat in boats)
         {
             Vec3d wind = capi.World.BlockAccessor.GetWindSpeedAt(boat.Pos.XYZ) ?? new Vec3d();
-            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor;
-            int force = SailingModel.Beaufort(knots);
+            if (temporalStorm)
+            {
+                var (rx, rz) = SailingModel.RotateWind(wind.X, wind.Z, SailingModel.TemporalWindRotation(stormSeconds + (elapsed - syncedAt), windRotation));
+                wind = new Vec3d(rx, wind.Y, rz);
+            }
+            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * (temporalStorm ? windBoost : 1);
+            int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
 
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)
             {
@@ -66,6 +84,8 @@ public sealed class SailingVisuals
             }
 
             if (cfg.SplashesEnabled) Splash(boat, force);
+            if (cfg.WakeEnabled) Wake(boat);
+            if (temporalStorm && cfg.StormGlowEnabled) Glow(boat);
         }
     }
 
@@ -86,6 +106,53 @@ public sealed class SailingVisuals
         cur += (target - cur) * 0.08;
         heel[boat.EntityId] = cur;
         return cur;
+    }
+
+    /// <summary>Foam trailing the stern, spreading in a V.</summary>
+    private void Wake(Entity boat)
+    {
+        var m = boat.Pos.Motion;
+        double speed = Math.Sqrt(m.X * m.X + m.Z * m.Z);
+        int count = SailingModel.WakeCount(speed);
+        if (count <= 0) return;
+        double ux = m.X / speed, uz = m.Z / speed;
+        Vec3d p = boat.Pos.XYZ;
+        double sx = p.X - ux * 2.0, sz = p.Z - uz * 2.0;
+        // Sideways spread perpendicular to the course.
+        float vx = (float)(-uz * 0.5), vz = (float)(ux * 0.5);
+        var props = new SimpleParticleProperties(
+            count, count + 2,
+            ColorUtil.ToRgba(150, 240, 248, 255),
+            new Vec3d(sx - 0.5, p.Y + 0.05, sz - 0.5),
+            new Vec3d(sx + 0.5, p.Y + 0.2, sz + 0.5),
+            new Vec3f(-vx, 0.05f, -vz),
+            new Vec3f(vx, 0.2f, vz),
+            1.6f, 0f, 0.15f, 0.35f, EnumParticleModel.Quad)
+        {
+            OpacityEvolve = EvolvingNatFloat.create(EnumTransform.Linear, -150),
+            SizeEvolve = EvolvingNatFloat.create(EnumTransform.Linear, 0.25f)
+        };
+        capi.World.SpawnParticles(props);
+    }
+
+    /// <summary>Unnatural violet sparks rising from the water around boats in a temporal storm.</summary>
+    private void Glow(Entity boat)
+    {
+        if (rng.NextDouble() > 0.5) return;
+        Vec3d p = boat.Pos.XYZ;
+        var props = new SimpleParticleProperties(
+            2, 5,
+            ColorUtil.ToRgba(180, 170, 90, 255),
+            new Vec3d(p.X - 3, p.Y, p.Z - 3),
+            new Vec3d(p.X + 3, p.Y + 1, p.Z + 3),
+            new Vec3f(-0.1f, 0.4f, -0.1f),
+            new Vec3f(0.1f, 1.0f, 0.1f),
+            2.5f, -0.02f, 0.1f, 0.3f, EnumParticleModel.Quad)
+        {
+            OpacityEvolve = EvolvingNatFloat.create(EnumTransform.Quadratic, -180),
+            GlowLevel = 90
+        };
+        capi.World.SpawnParticles(props);
     }
 
     private void Splash(Entity boat, int force)

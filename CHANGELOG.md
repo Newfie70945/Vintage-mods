@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.3.0
+
+- Temporal storms at sea: wandering wind, +2 sea force, unreliable compass, violet glow and optional drifter boarders (`BoarderEntityCode`, capped and despawned when the storm ends). Storm state is read from the game by reflection; `/sailing teststorm` simulates one.
+- `/sailing anchor` (holds to `AnchorHoldKnots`, drags beyond), `/sailing glass` (barometer, trend, forecast and wind vane readout, no item required) and stern wake foam. Not yet verified in game.
+
 ## Realistic Sailing 0.2.0
 
 - Sail trim and reefing (`/sailing trim full|reefed|furled`), overpowered warnings, hull heeling, leeway and scheduled squalls (server-synced to clients). `StormKnots` config renamed `OverloadKnots`. Unit-tested model; in-game behaviour not yet verified.

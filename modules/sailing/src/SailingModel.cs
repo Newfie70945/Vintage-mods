@@ -188,4 +188,61 @@ public static class SailingModel
         double n = (force - 2) * 1.5 + Math.Min(boatSpeed, 0.3) * 20;
         return (int)Math.Min(40, Math.Round(n));
     }
+
+    // ---- Temporal storms at sea ----
+
+    /// <summary>Slowly wandering wind rotation (radians) used while a temporal storm scrambles the weather.</summary>
+    public static double TemporalWindRotation(double seconds, double amplitude = 1.5)
+        => amplitude * (0.6 * Math.Sin(seconds / 9.1) + 0.4 * Math.Sin(seconds / 3.7 + 1.3));
+
+    public static (double X, double Z) RotateWind(double x, double z, double angle)
+    {
+        double c = Math.Cos(angle), s = Math.Sin(angle);
+        return (x * c - z * s, x * s + z * c);
+    }
+
+    /// <summary>Compass error in degrees while a temporal storm spins the needle.</summary>
+    public static double CompassNoise(double seconds)
+        => 40 * (0.5 * Math.Sin(seconds / 1.7) + 0.5 * Math.Sin(seconds / 0.9 + 2));
+
+    /// <summary>Beaufort force as felt on the water: a temporal storm adds two forces of unnatural sea.</summary>
+    public static int StormForce(int force, bool temporalStorm) => temporalStorm ? Math.Min(12, force + 2) : force;
+
+    // ---- Anchor ----
+
+    /// <summary>0 when the anchor holds, up to 1 when it is dragging badly (wind far above the holding limit).</summary>
+    public static double AnchorDrag(double knots, double holdKnots)
+        => knots <= holdKnots ? 0 : Math.Clamp((knots - holdKnots) / Math.Max(1, holdKnots), 0, 1);
+
+    // ---- Weather glass ----
+
+    /// <summary>Barometer reading in hPa. It falls ahead of a squall, bottoms out in one and swings wildly in a temporal storm.</summary>
+    public static double Barometer(double? secondsToSquall, bool squallActive, bool temporalStorm, double seconds)
+    {
+        double slow = 1.5 * Math.Sin(seconds / 600.0);
+        if (temporalStorm) return 1000 + 25 * Math.Sin(seconds / 2.1) + slow;
+        if (squallActive) return 982 + slow;
+        double drop = secondsToSquall is double eta ? 28 * Math.Clamp(1 - eta / 180.0, 0, 1) : 0;
+        return 1013 - drop + slow;
+    }
+
+    public static string Trend(double now, double thirtySecondsLater)
+    {
+        double d = thirtySecondsLater - now;
+        return d < -3 ? "falling rapidly" : d < -0.8 ? "falling" : d > 0.8 ? "rising" : "steady";
+    }
+
+    public static string GlassForecast(double hPa) => hPa switch
+    {
+        < 990 => "storm conditions",
+        < 1000 => "squall imminent",
+        < 1008 => "unsettled weather ahead",
+        _ => "fair"
+    };
+
+    // ---- Wake ----
+
+    /// <summary>Foam particles per visual tick trailing the stern at the given speed (blocks/tick).</summary>
+    public static int WakeCount(double speed)
+        => speed < 0.01 ? 0 : (int)Math.Min(14, Math.Round(2 + Math.Min(speed, 0.25) * 40));
 }

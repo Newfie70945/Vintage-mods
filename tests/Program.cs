@@ -92,4 +92,12 @@ Check(SailingModel.Heel(25, 90, 1, 17) > SailingModel.Heel(25, 90, 0.55, 17) && 
 Check(SailingModel.WindSide(0, -1, 1, 0) != 0 && SailingModel.WindSide(0, -1, 1, 0) == -SailingModel.WindSide(0, -1, -1, 0), "Wind side flips with the wind");
 Check(SailingModel.LeewayFraction(40, 1, 1) > SailingModel.LeewayFraction(120, 1, 1) && SailingModel.LeewayFraction(180, 1, 1) == 0, "Leeway greatest close-hauled, nil running");
 Check(SailingModel.SquallFactor(-1, 60, 2) == 1 && SailingModel.SquallFactor(60, 60, 2) == 1 && Math.Abs(SailingModel.SquallFactor(30, 60, 2) - 2) < 1e-9 && SailingModel.SquallFactor(5, 60, 2) < 2, "Squall ramps to the peak and ends");
+Check(Math.Abs(SailingModel.TemporalWindRotation(123.4)) <= 1.5 && Enumerable.Range(0, 300).Select(i => SailingModel.TemporalWindRotation(i)).Max() > 0.5, "Storm wind rotation is bounded but wanders");
+var rotated = SailingModel.RotateWind(1, 0, Math.PI / 2);
+Check(Math.Abs(rotated.X) < 1e-9 && Math.Abs(rotated.Z - 1) < 1e-9, "Wind rotation preserves length and turns the vector");
+Check(Enumerable.Range(0, 200).All(i => Math.Abs(SailingModel.CompassNoise(i * 0.37)) <= 40) && SailingModel.StormForce(11, true) == 12 && SailingModel.StormForce(4, true) == 6 && SailingModel.StormForce(4, false) == 4, "Compass noise bounded; storm force boost clamped");
+Check(SailingModel.AnchorDrag(20, 35) == 0 && SailingModel.AnchorDrag(70, 35) == 1 && SailingModel.AnchorDrag(50, 35) > 0, "Anchor holds in moderate wind, drags in a gale");
+Check(SailingModel.Barometer(null, false, false, 0) > 1010 && SailingModel.Barometer(30, false, false, 0) < SailingModel.Barometer(170, false, false, 0) && SailingModel.Barometer(null, true, false, 0) < 990, "Glass falls before and during a squall");
+Check(SailingModel.Trend(1013, 1005) == "falling rapidly" && SailingModel.Trend(1013, 1013.2) == "steady" && SailingModel.GlassForecast(985) == "storm conditions" && SailingModel.GlassForecast(1013) == "fair", "Trend and forecast text");
+Check(SailingModel.WakeCount(0) == 0 && SailingModel.WakeCount(0.2) > SailingModel.WakeCount(0.02) && SailingModel.WakeCount(5) <= 14, "Wake scales with speed and is capped");
 Console.WriteLine($"{checks} checks passed");
