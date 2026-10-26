@@ -43,3 +43,11 @@ The sailing module was written without access to Vintage Story, so none of it ha
 - [ ] Chart: bearing/distance reads sensibly; standing within 6 blocks and right-clicking digs loot and consumes the chart.
 - [ ] Nameplate names a nearby boat; the name appears in capsize/swamp/rogue wave messages and the compass report.
 - [ ] Upgrades: each can be fitted once per boat; effects are noticeable (keel less leeway, cloth slower sail wear, reinforcement slower flooding).
+
+## Added in 0.11.0
+- [ ] Lightning: in a squall peak or temporal storm a strike lights up the boat, thunder plays, sails/morale drop; with a rod fitted nothing is lost.
+- [ ] Whirlpool: appears in a temporal storm (`/sailingadmin`), spins, spirals boats in, floods the boat at the centre; rowing/sail/anchor can escape.
+- [ ] Oars: holding right-click aboard pushes the boat where you look; stops at the speed limit; refuses when anchored or capsized. Check the item's step event fires on the server.
+- [ ] Tow rope: attach, drag, cast off; rope particles; rope parts beyond 40 blocks.
+- [ ] Three or more riders slow the boat.
+- [ ] Night glow: cyan specks in the wake after dark.

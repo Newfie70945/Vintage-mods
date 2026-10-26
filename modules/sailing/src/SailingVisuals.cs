@@ -196,6 +196,27 @@ public sealed class SailingVisuals
     }
 
     /// <summary>Foam trailing the stern, spreading in a V.</summary>
+    /// <summary>Phosphorescent specks in the wake after dark.</summary>
+    private void NightGlowWake(Entity boat, double ux, double uz, int count)
+    {
+        double daylight = capi.World.Calendar.GetDayLightStrength(boat.Pos.X, boat.Pos.Z);
+        double glow = SailingModel.NightGlow(daylight);
+        if (glow < 0.15) return;
+        Vec3d p = boat.Pos.XYZ;
+        var props = new SimpleParticleProperties(
+            Math.Max(1, (int)(count * glow)), Math.Max(2, (int)(count * glow) + 2),
+            ColorUtil.ToRgba(200, 90, 255, 220),
+            new Vec3d(p.X - ux * 2.5 - 0.8, p.Y + 0.05, p.Z - uz * 2.5 - 0.8),
+            new Vec3d(p.X - ux * 1.5 + 0.8, p.Y + 0.25, p.Z - uz * 1.5 + 0.8),
+            new Vec3f(-0.1f, 0.05f, -0.1f), new Vec3f(0.1f, 0.2f, 0.1f),
+            1.8f, 0f, 0.08f, 0.2f, EnumParticleModel.Quad)
+        {
+            OpacityEvolve = EvolvingNatFloat.create(EnumTransform.Linear, -200),
+            GlowLevel = 200
+        };
+        capi.World.SpawnParticles(props);
+    }
+
     private void Wake(Entity boat)
     {
         var m = boat.Pos.Motion;
@@ -203,6 +224,7 @@ public sealed class SailingVisuals
         int count = SailingModel.WakeCount(speed);
         if (count <= 0) return;
         double ux = m.X / speed, uz = m.Z / speed;
+        if (cfg.NightGlowEnabled) NightGlowWake(boat, ux, uz, count);
         Vec3d p = boat.Pos.XYZ;
         double sx = p.X - ux * 2.0, sz = p.Z - uz * 2.0;
         // Sideways spread perpendicular to the course.

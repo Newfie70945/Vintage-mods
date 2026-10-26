@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.10.0
+# Newfie's Realistic Sailing 0.11.0
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -22,6 +22,9 @@ Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everythi
 | Deep keel | upgrade: leeway x0.4, capsize risk x0.5 | 3 planks over an iron ingot |
 | Heavy sailcloth | upgrade: sail wear x0.5, +5% speed | ring of flax fibres around twine |
 | Hull reinforcement | upgrade: hull wear and flooding x0.5 | iron, planks |
+| Oars | hold right-click aboard to row where you look (speed-limited) | plank over 2 sticks |
+| Tow rope | beside a boat, then beside the towing boat, to hitch; use again to cast off | 3 flax twine, iron ingot |
+| Lightning rod | upgrade: lightning strikes do no damage | 3 copper ingots (vertical) |
 | Sailor's logbook | your record: distance, squalls, temporal storms, strongest wind, repairs | 4 parchment |
 
 Models are multi-part shapes sharing one colour-swatch texture (`textures/item/palette.png`) and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
@@ -44,6 +47,10 @@ Models are multi-part shapes sharing one colour-swatch texture (`textures/item/p
 - **Tides and currents.** The tide turns about every 12.4 game hours; a current swings back and forth along a locally varying axis and pushes boats that have a rider (unattended boats stay put unless `CurrentsAffectEmptyBoats`). The anchor holds against it. The ship's compass report shows the tide state and current.
 - **Bottles and charts.** Messages in bottles drift on the wind; open one for a note and often a treasure chart. Wrecks can hold charts too. Follow the chart's bearing and distance, stand on the mark and right-click to dig up loot.
 - **Names and upgrades.** Nameplates give a boat a name used in messages and reports. A deep keel, heavy sailcloth and a reinforced hull are one-off upgrades that change leeway, capsize risk, wear, flooding and speed.
+- **Lightning.** Squall peaks, temporal storms and Force 9+ gales can bring strikes: scorched sails and shaken crew unless a lightning rod is fitted.
+- **Whirlpools.** In temporal storms a whirlpool can open 45-70 blocks from a sailor. It spirals nearby boats inward for 90 seconds and floods and damages any that reach the centre. Sail, oars or the anchor (half the pull) help escape.
+- **Rowing, towing, crowding.** Oars let a boat move in a calm or fog. A tow rope hitches a swamped or disabled boat behind a healthy one. More than two riders slows a boat by 6% each, to a minimum of 70%.
+- **Night glow.** After dark the wake sparkles with phosphorescent specks.
 - **Swamping.** Boats with a hull under 50% leak, and Force 7+ seas slop water aboard. Waterlogged boats slow to a quarter speed and warn at 60% and 100%. Bail with the bucket or patch the hull.
 - **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon launches three real balloon entities (red, yellow, blue) that rise above the boat; after 3 seconds the hull is righted and refloated (water set to 35%, hull at least 25%), then the balloons hover and drift away.
 - **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.

@@ -37,5 +37,12 @@
  "itemdesc-sailcloth": "Fit to a nearby sailboat: sails wear half as fast and the boat is 5% quicker. Single use.",
  "item-reinforce": "Hull reinforcement",
  "itemdesc-reinforce": "Fit to a nearby sailboat: hull wears and floods half as fast. Single use.",
- "entity-driftingbottle": "Message in a bottle"
+ "entity-driftingbottle": "Message in a bottle",
+ "item-oars": "Oars",
+ "itemdesc-oars": "Hold right-click aboard a sailboat to row it where you are looking. Slow, but works in a calm, in fog and against a whirlpool.",
+ "item-towrope": "Tow rope",
+ "itemdesc-towrope": "Use beside a boat to make the rope fast, then beside the towing boat to hitch them. Use again beside either to cast off. Parts if stretched too far.",
+ "item-lightningrod": "Lightning rod",
+ "itemdesc-lightningrod": "Fit to a nearby sailboat: lightning strikes are carried harmlessly into the sea. Single use.",
+ "entity-whirlpool": "Whirlpool"
 }

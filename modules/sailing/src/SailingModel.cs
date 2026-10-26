@@ -445,7 +445,7 @@ public static class SailingModel
 
     // ---- Upgrades (bit flags) ----
 
-    public const int UpgradeKeel = 1, UpgradeSailcloth = 2, UpgradeReinforcement = 4;
+    public const int UpgradeKeel = 1, UpgradeSailcloth = 2, UpgradeReinforcement = 4, UpgradeLightningRod = 8;
 
     public static double UpgradeLeewayMult(int flags) => (flags & UpgradeKeel) != 0 ? 0.4 : 1;
     public static double UpgradeCapsizeMult(int flags) => (flags & UpgradeKeel) != 0 ? 0.5 : 1;
@@ -460,6 +460,7 @@ public static class SailingModel
         if ((flags & UpgradeKeel) != 0) parts.Add("deep keel");
         if ((flags & UpgradeSailcloth) != 0) parts.Add("heavy sailcloth");
         if ((flags & UpgradeReinforcement) != 0) parts.Add("reinforced hull");
+        if ((flags & UpgradeLightningRod) != 0) parts.Add("lightning rod");
         return parts.Count == 0 ? "none" : string.Join(", ", parts);
     }
 
@@ -473,5 +474,46 @@ public static class SailingModel
         double bearing = (Math.Atan2(dx, -dz) * 180.0 / Math.PI + 360) % 360;
         double rounded = dist > 100 ? Math.Round(dist / 50) * 50 : dist > 30 ? Math.Round(dist / 10) * 10 : Math.Round(dist / 5) * 5;
         return $"The mark lies about {rounded:0} blocks to the {Compass(bearing)}.";
+    }
+
+    // ---- Lightning ----
+
+    /// <summary>Strike chance per second for a boat under way: squall peaks, temporal storms and gales all raise it.</summary>
+    public static double LightningChancePerSecond(int force, double squallFactor, bool temporalStorm)
+    {
+        double intensity = (squallFactor > 1.3 ? squallFactor - 1 : 0) + (temporalStorm ? 1 : 0) + (force >= 9 ? 0.5 : 0);
+        return Math.Min(0.02, 0.004 * intensity);
+    }
+
+    // ---- Crowding ----
+
+    /// <summary>A crowded boat is slower: no penalty for two aboard, 6% less speed per extra rider, never below 70%.</summary>
+    public static double CrowdFactor(int riders) => Math.Clamp(1 - 0.06 * Math.Max(0, riders - 2), 0.7, 1);
+
+    // ---- Rowing ----
+
+    /// <summary>Speed (blocks/tick) added by one row stroke tick, tapering to nothing at the rowing speed limit.</summary>
+    public static double RowPush(double currentSpeed, double push, double maxSpeed)
+        => currentSpeed >= maxSpeed ? 0 : push * (1 - currentSpeed / Math.Max(1e-6, maxSpeed));
+
+    // ---- Towing ----
+
+    /// <summary>Pull on a towed boat toward its tower: none while the rope has slack, growing with stretch.</summary>
+    public static double TowPull(double distance, double slack, double stiffness, double maxPull)
+        => distance <= slack ? 0 : Math.Min(maxPull, (distance - slack) * stiffness);
+
+    // ---- Night glow ----
+
+    /// <summary>0 in daylight to 1 in full darkness, for phosphorescent wake.</summary>
+    public static double NightGlow(double daylight) => Math.Clamp(1 - daylight * 2.5, 0, 1);
+
+    // ---- Whirlpools ----
+
+    /// <summary>Inward pull and swirl speeds (blocks/tick) of a whirlpool at the given distance from its centre.</summary>
+    public static (double Pull, double Swirl) WhirlpoolForce(double distance, double radius)
+    {
+        if (distance >= radius || distance < 0.5) return (0, 0);
+        double k = 1 - distance / radius;
+        return (0.006 * k, 0.004 * k);
     }
 }

@@ -23,6 +23,7 @@ public sealed class ItemSailingTool : Item
             if (api is ICoreClientAPI capi) SpyglassZoom.Begin(capi, capi.ModLoader.GetModSystem<SailingModSystem>()?.SpyglassFraction ?? 0.22);
             return;
         }
+        if (tool == "oars") return;
         if (!firstEvent || api.Side != EnumAppSide.Server) return;
         if ((byEntity as EntityPlayer)?.Player is not IServerPlayer player) return;
 
@@ -35,7 +36,11 @@ public sealed class ItemSailingTool : Item
     }
 
     public override bool OnHeldInteractStep(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel)
-        => Tool == "spyglass";
+    {
+        if (Tool == "oars" && api.Side == EnumAppSide.Server && (byEntity as EntityPlayer)?.Player is IServerPlayer rower)
+            api.ModLoader.GetModSystem<SailingModSystem>()?.Row(rower);
+        return Tool == "spyglass" || Tool == "oars";
+    }
 
     public override void OnHeldInteractStop(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel)
     {

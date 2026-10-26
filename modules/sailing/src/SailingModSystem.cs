@@ -59,6 +59,12 @@ public sealed class SailingModSystem : ModSystem
     private bool fogAnnounced;
     private readonly List<long> wrecks = new();
     private readonly List<long> bottles = new();
+    private readonly List<long> whirlpools = new();
+    private double lastWhirlpoolAt = -1000;
+    private readonly Dictionary<long, long> lastWhirlWarn = new();
+    private readonly Dictionary<long, long> tows = new(); // towed boat id -> tower boat id
+    private readonly Dictionary<string, long> pendingTow = new(); // player uid -> boat id to be towed
+    private double lastTowParticles;
     private double nextBottleAt = 300;
     private double lastWreckAt = -1000;
     private readonly Dictionary<long, double> lastShanty = new();
@@ -75,6 +81,7 @@ public sealed class SailingModSystem : ModSystem
         api.RegisterEntity("EntityRecoveryBalloon", typeof(EntityRecoveryBalloon));
         api.RegisterEntity("EntityDriftingWreck", typeof(EntityDriftingWreck));
         api.RegisterEntity("EntityDriftingBottle", typeof(EntityDriftingBottle));
+        api.RegisterEntity("EntityWhirlpool", typeof(EntityWhirlpool));
         api.Network.RegisterChannel(ChannelName).RegisterMessageType<SailingSyncPacket>();
     }
 
@@ -340,6 +347,152 @@ public sealed class SailingModSystem : ModSystem
         boat.SidedPos.Motion.Z += cz * config.CurrentPush;
     }
 
+    private int RidersNear(Entity boat) => sapi!.World.AllOnlinePlayers.Count(p => p.Entity?.MountedOn != null && p.Entity.Pos.DistanceTo(boat.Pos.XYZ) < 6);
+
+    /// <summary>Lightning strike on a boat: sails and morale suffer unless a lightning rod carries it away.</summary>
+    private void Lightning(Entity boat)
+    {
+        Vec3d p = boat.Pos.XYZ;
+        Play("thunder", p, 96, 1f);
+        sapi!.World.SpawnParticles(new SimpleParticleProperties(
+            40, 60, ColorUtil.ToRgba(255, 245, 250, 255),
+            new Vec3d(p.X - 0.3, p.Y + 1, p.Z - 0.3), new Vec3d(p.X + 0.3, p.Y + 14, p.Z + 0.3),
+            new Vec3f(-0.1f, 0f, -0.1f), new Vec3f(0.1f, 0.1f, 0.1f),
+            0.35f, 0f, 0.5f, 1.1f, EnumParticleModel.Quad) { GlowLevel = 255 });
+        if ((GetUpgrades(boat) & SailingModel.UpgradeLightningRod) != 0)
+        {
+            NotifyNear(boat, $"[Sailing] Lightning strikes {Nm(boat).ToLowerInvariant()}, but the rod carries it harmlessly into the sea!");
+            return;
+        }
+        SetCond(boat, SailKey, GetCond(boat, SailKey) - 25);
+        SetMorale(boat, GetMorale(boat) - 15);
+        NotifyNear(boat, $"[Sailing] Lightning strikes {Nm(boat).ToLowerInvariant()}! The sails are scorched and the crew are shaken. A lightning rod would have saved them.");
+    }
+
+    private void TrySpawnWhirlpool()
+    {
+        if (!config.WhirlpoolsEnabled || elapsed - lastWhirlpoolAt < config.WhirlpoolCooldownSeconds) return;
+        whirlpools.RemoveAll(id => !sapi!.World.LoadedEntities.ContainsKey(id));
+        if (whirlpools.Count >= 1) return;
+        IPlayer? sailor = sapi!.World.AllOnlinePlayers.FirstOrDefault(p => p.Entity?.MountedOn != null);
+        if (sailor?.Entity == null) return;
+        lastWhirlpoolAt = elapsed;
+        try
+        {
+            EntityProperties? type = sapi.World.GetEntityType(new AssetLocation("newfiessailing:whirlpool"));
+            if (type == null) return;
+            double angle = rng.NextDouble() * Math.PI * 2, dist = 45 + rng.NextDouble() * 25;
+            double x = sailor.Entity.Pos.X + Math.Cos(angle) * dist, z = sailor.Entity.Pos.Z + Math.Sin(angle) * dist, y = sailor.Entity.Pos.Y;
+            if (!sapi.World.BlockAccessor.GetBlock(new BlockPos((int)x, (int)(y - 0.6), (int)z)).IsLiquid()) return;
+            Entity ent = sapi.World.ClassRegistry.CreateEntity(type);
+            ent.ServerPos.SetPos(x, y, z);
+            ent.Pos.SetFrom(ent.ServerPos);
+            sapi.World.SpawnEntity(ent);
+            whirlpools.Add(ent.EntityId);
+            NotifySailors("[Sailing] The water ahead is turning - a whirlpool is opening where the sky is torn! Steer clear or fight free.");
+        }
+        catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not spawn whirlpool: " + ex.Message); }
+    }
+
+    /// <summary>Called by a whirlpool each tick a boat is near its centre.</summary>
+    public void WhirlpoolHit(Entity boat, float dt)
+    {
+        SetWater(boat, GetWater(boat) + 3 * dt);
+        SetCond(boat, HullKey, GetCond(boat, HullKey) - 1.5 * dt);
+        SetMorale(boat, GetMorale(boat) - 1 * dt);
+        long now = Environment.TickCount64;
+        if (!lastWhirlWarn.TryGetValue(boat.EntityId, out long at) || now - at > 15000)
+        {
+            lastWhirlWarn[boat.EntityId] = now;
+            NotifyNear(boat, $"[Sailing] {Nm(boat)} is caught in the whirlpool! Hull groaning, water pouring in!");
+        }
+    }
+
+    /// <summary>Oars: each stroke tick pushes the boat the rower is riding along their view direction, up to a rowing speed limit.</summary>
+    public void Row(IServerPlayer player)
+    {
+        if (!config.RowingEnabled) return;
+        Entity? boat = BoatOf(player);
+        if (boat == null || IsCapsized(boat) || boat.WatchedAttributes.GetBool(AnchorKey, false)) return;
+        var look = player.Entity.SidedPos.GetViewVector();
+        double len = Math.Sqrt(look.X * look.X + look.Z * look.Z);
+        if (len < 1e-6) return;
+        var m = boat.SidedPos.Motion;
+        double push = SailingModel.RowPush(Math.Sqrt(m.X * m.X + m.Z * m.Z), config.RowPush, config.RowMaxSpeed);
+        m.X += look.X / len * push;
+        m.Z += look.Z / len * push;
+    }
+
+    /// <summary>
+    /// Tow rope: first use makes the rope fast to the nearest boat; the second use, beside a different boat, hitches the first
+    /// to it. Using it again beside a towed or towing boat casts the rope off.
+    /// </summary>
+    private (string Text, bool Used) Tow(IServerPlayer player)
+    {
+        if (!config.TowingEnabled) return ("Towing is disabled on this server.", false);
+        Entity? boat = BoatOf(player, requireMount: false, radius: 10);
+        if (boat == null) return ("No sailboat within 10 blocks.", false);
+
+        if (tows.ContainsKey(boat.EntityId) || tows.ContainsValue(boat.EntityId))
+        {
+            foreach (long key in tows.Where(kv => kv.Key == boat.EntityId || kv.Value == boat.EntityId).Select(kv => kv.Key).ToList()) tows.Remove(key);
+            pendingTow.Remove(player.PlayerUID);
+            return ($"You cast off the tow rope at {Nm(boat).ToLowerInvariant()}.", false);
+        }
+        if (!pendingTow.TryGetValue(player.PlayerUID, out long first))
+        {
+            pendingTow[player.PlayerUID] = boat.EntityId;
+            return ($"The rope is made fast to {Nm(boat).ToLowerInvariant()}. Go to the towing boat and use the rope again.", false);
+        }
+        pendingTow.Remove(player.PlayerUID);
+        if (first == boat.EntityId) return ("That is the same boat - pick the boat that will do the towing.", false);
+        if (!boats.ContainsKey(first)) return ("The first boat is no longer here.", false);
+        tows[first] = boat.EntityId;
+        return ($"{Nm(boats[first])} is now under tow behind {Nm(boat).ToLowerInvariant()}.", false);
+    }
+
+    private void ApplyTows()
+    {
+        if (tows.Count == 0) return;
+        bool particles = elapsed - lastTowParticles >= 1;
+        if (particles) lastTowParticles = elapsed;
+        foreach (var (towedId, towerId) in tows.ToList())
+        {
+            if (!boats.TryGetValue(towedId, out Entity? towed) || !boats.TryGetValue(towerId, out Entity? tower) || !towed.Alive || !tower.Alive)
+            {
+                tows.Remove(towedId);
+                continue;
+            }
+            double dx = tower.ServerPos.X - towed.ServerPos.X, dz = tower.ServerPos.Z - towed.ServerPos.Z, d = Math.Sqrt(dx * dx + dz * dz);
+            if (d > config.TowBreakDistance)
+            {
+                tows.Remove(towedId);
+                NotifyNear(towed, "[Sailing] The tow rope parts with a crack!");
+                continue;
+            }
+            double pull = SailingModel.TowPull(d, config.TowSlack, 0.0004, 0.01);
+            if (pull > 0 && d > 1e-6)
+            {
+                towed.ServerPos.Motion.X += dx / d * pull;
+                towed.ServerPos.Motion.Z += dz / d * pull;
+            }
+            if (particles) RopeParticles(towed.ServerPos.XYZ, tower.ServerPos.XYZ);
+        }
+    }
+
+    private void RopeParticles(Vec3d a, Vec3d b)
+    {
+        for (int i = 1; i <= 5; i++)
+        {
+            double t = i / 6.0;
+            double x = a.X + (b.X - a.X) * t, y = a.Y + 0.9 - 0.25 * Math.Sin(t * Math.PI) + (b.Y - a.Y) * t, z = a.Z + (b.Z - a.Z) * t;
+            sapi!.World.SpawnParticles(new SimpleParticleProperties(
+                1, 1, ColorUtil.ToRgba(255, 190, 160, 110),
+                new Vec3d(x, y, z), new Vec3d(x + 0.05, y + 0.05, z + 0.05),
+                new Vec3f(0, 0, 0), new Vec3f(0, 0, 0), 1.4f, 0f, 0.15f, 0.15f, EnumParticleModel.Cube));
+        }
+    }
+
     private static bool IsCapsized(Entity boat) => boat.WatchedAttributes.GetBool(CapsizedKey, false);
 
     private void Capsize(Entity boat)
@@ -536,6 +689,8 @@ public sealed class SailingModSystem : ModSystem
         "keel" => Upgrade(player, SailingModel.UpgradeKeel, "deep keel"),
         "cloth" => Upgrade(player, SailingModel.UpgradeSailcloth, "set of heavy sailcloth"),
         "reinforce" => Upgrade(player, SailingModel.UpgradeReinforcement, "reinforced hull"),
+        "rod" => Upgrade(player, SailingModel.UpgradeLightningRod, "lightning rod"),
+        "tow" => Tow(player),
         "horn" => Horn(player),
         "shanty" => Shanty(player),
         "bail" => Bail(player),
@@ -633,7 +788,7 @@ public sealed class SailingModSystem : ModSystem
                 : "[Sailing] The temporal storm fades. The sea settles.");
             if (!now) { DespawnBoarders(); LogEvent("storms"); }
         }
-        if (temporalStorm) SpawnBoarder();
+        if (temporalStorm) { SpawnBoarder(); TrySpawnWhirlpool(); }
     }
 
     private void SpawnBoarder()
@@ -791,6 +946,7 @@ public sealed class SailingModSystem : ModSystem
         UpdateTemporalStorm();
         TrackDistance();
         TrySpawnBottle();
+        ApplyTows();
         if (elapsed - lastSyncAt >= 1)
         {
             lastSyncAt = elapsed;
@@ -846,6 +1002,8 @@ public sealed class SailingModSystem : ModSystem
                 else if (moraleBefore > 10 && moraleNow <= 10) NotifyNear(boat, "[Sailing] The crew is close to mutiny! Their hands are slow on the ropes.");
                 target *= SailingModel.MoraleSpeedFactor(moraleNow);
             }
+            if (config.CrowdingEnabled) target *= SailingModel.CrowdFactor(RidersNear(boat));
+            if (config.LightningEnabled && rng.NextDouble() < SailingModel.LightningChancePerSecond(seaForce, squallFactor, temporalStorm) * dt) Lightning(boat);
             if (config.HeadSeasEnabled) target *= SailingModel.HeadSeaFactor(seaForce, off);
             if (config.RogueWavesEnabled && rng.NextDouble() < SailingModel.RogueWaveChancePerSecond(seaForce) * dt) RogueWave(boat, seaForce, area);
             if (config.SwampingEnabled)

@@ -1,0 +1,15 @@
+{
+ "ingredientPattern": "C,C,C",
+ "ingredients": {
+  "C": {
+   "type": "item",
+   "code": "game:ingot-copper"
+  }
+ },
+ "width": 1,
+ "height": 3,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:lightningrod"
+ }
+}

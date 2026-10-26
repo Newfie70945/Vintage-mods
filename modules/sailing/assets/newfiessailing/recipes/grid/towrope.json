@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "TT,TI",
+ "ingredients": {
+  "T": {
+   "type": "item",
+   "code": "game:flaxtwine"
+  },
+  "I": {
+   "type": "item",
+   "code": "game:ingot-iron"
+  }
+ },
+ "width": 2,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:towrope"
+ }
+}

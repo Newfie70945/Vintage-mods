@@ -1,0 +1,35 @@
+{
+ "code": "whirlpool",
+ "class": "EntityWhirlpool",
+ "hitboxSize": {
+  "x": 2,
+  "y": 0.3
+ },
+ "deadHitboxSize": {
+  "x": 0.1,
+  "y": 0.1
+ },
+ "client": {
+  "renderer": "Shape",
+  "shape": {
+   "base": "entity/whirlpool"
+  },
+  "size": 1.0,
+  "textures": {
+   "water": {
+    "base": "entity/whirl-water"
+   },
+   "foam": {
+    "base": "entity/whirl-foam"
+   }
+  },
+  "behaviors": [
+   {
+    "code": "interpolateposition"
+   }
+  ]
+ },
+ "server": {
+  "behaviors": []
+ }
+}

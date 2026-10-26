@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "P,S,S",
+ "ingredients": {
+  "P": {
+   "type": "item",
+   "code": "game:plank-*"
+  },
+  "S": {
+   "type": "item",
+   "code": "game:stick"
+  }
+ },
+ "width": 1,
+ "height": 3,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:oars"
+ }
+}

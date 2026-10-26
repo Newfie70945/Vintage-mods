@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.11.0
+
+- Lightning strikes boats in squall peaks, temporal storms and Force 9+ gales (sails -25, morale -15, flash and thunder); the new lightning rod upgrade absorbs them. Temporal whirlpools open on the water during temporal storms, pull boats into a spiral and damage those that reach the centre (`EntityWhirlpool`).
+- Oars (hold right-click aboard to row where you look, speed-limited), tow rope (hitch one boat behind another; rope particles; parts at 40 blocks), crowding penalty for more than two riders, and phosphorescent night glow in the wake. New thunder sound. Unverified in game.
+
 ## Realistic Sailing 0.10.0
 
 - Spyglass (hold right-click to zoom; `SpyglassZoom` client setting; thins fog while zoomed). Tides and currents: the tide turns every ~12.4 game hours and pushes boats with a rider along a locally varying axis (`CurrentsEnabled`, `CurrentPush`, `CurrentsAffectEmptyBoats`); the compass report shows tide state and current.

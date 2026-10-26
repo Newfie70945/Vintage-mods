@@ -26,6 +26,18 @@ public sealed class SailingConfig
     public int FogMinDurationSeconds { get; set; } = 120;
     public int FogMaxDurationSeconds { get; set; } = 240;
     public bool MoraleEnabled { get; set; } = true;
+    public bool LightningEnabled { get; set; } = true;
+    public bool WhirlpoolsEnabled { get; set; } = true;
+    public int WhirlpoolCooldownSeconds { get; set; } = 150;
+    public bool RowingEnabled { get; set; } = true;
+    /// <summary>Speed added per stroke tick while rowing (blocks/tick).</summary>
+    public double RowPush { get; set; } = 0.0015;
+    /// <summary>Rowing cannot push a boat past this speed (blocks/tick).</summary>
+    public double RowMaxSpeed { get; set; } = 0.035;
+    public bool TowingEnabled { get; set; } = true;
+    public double TowSlack { get; set; } = 8;
+    public double TowBreakDistance { get; set; } = 40;
+    public bool CrowdingEnabled { get; set; } = true;
     public bool CurrentsEnabled { get; set; } = true;
     /// <summary>Full-strength current push in blocks per tick added to boat motion.</summary>
     public double CurrentPush { get; set; } = 0.003;
@@ -83,6 +95,7 @@ public sealed class SailingVisualsConfig
     public double SeaRoughness { get; set; } = 1.5;
     public bool FogVisualsEnabled { get; set; } = true;
     public bool AmbientSoundsEnabled { get; set; } = true;
+    public bool NightGlowEnabled { get; set; } = true;
     /// <summary>Spyglass zoom: fraction of the normal field of view.</summary>
     public double SpyglassZoom { get; set; } = 0.22;
     /// <summary>Experimental vertical swell motion; the game's buoyancy may fight it, so it is off by default.</summary>
