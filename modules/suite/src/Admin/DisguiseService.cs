@@ -5,6 +5,7 @@ using System.Linq;
 using BlockLogger.Services;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
 namespace BlockLogger.Admin;
@@ -25,6 +26,10 @@ public static class DisguiseRules
         if (text.Count(c => c == ':') > 1 || text.StartsWith(':') || text.EndsWith(':')) return "";
         return text.Contains(':') ? text : "game:" + text;
     }
+
+    /// <summary>Animation to play for a horizontal speed in blocks per second.</summary>
+    public static string PickAnimation(double blocksPerSecond) =>
+        blocksPerSecond < 0.4 ? "idle" : blocksPerSecond < 3.5 ? "walk" : "run";
 
     /// <summary>Real players are never a valid disguise.</summary>
     public static bool IsForbidden(string code) =>
@@ -61,7 +66,7 @@ public static class DisguiseRules
 /// </summary>
 public sealed class DisguiseService : IDisposable
 {
-    private const int FollowIntervalMs = 100;
+    private const int FollowIntervalMs = 50;
     private const int MaximumNameLength = 100;
 
     private readonly ICoreServerAPI api;
@@ -77,6 +82,10 @@ public sealed class DisguiseService : IDisposable
         public long EntityId;
         public bool HiddenByDisguise;
         public int Respawns;
+        public double LastX, LastZ;
+        public long LastAtMs;
+        public bool HasLast;
+        public string Animation = "";
     }
 
     public DisguiseService(ICoreServerAPI api, AdminService admin)
@@ -84,6 +93,7 @@ public sealed class DisguiseService : IDisposable
         this.api = api;
         this.admin = admin;
         api.Event.OnEntitySpawn += OnEntitySpawn;
+        api.Event.OnPlayerInteractEntity += OnPlayerInteractEntity;
         // Entities saved with the world after a crash are removed once the world is running.
         api.Event.RegisterCallback(_ => RemoveStrayDisguises(), 20_000);
     }
@@ -166,8 +176,25 @@ public sealed class DisguiseService : IDisposable
         lock (gate) states[player.PlayerUID] = new State { EntityCode = code, EntityId = entity.EntityId, HiddenByDisguise = hidden };
         EnsureTickListener();
         admin.Audit(player.PlayerName, "disguise-on", player.PlayerUID, player.PlayerName, "Disguised as " + code, "ingame");
+        string note = hidden ? DescribeHideSupport(player) : "";
         return $"You are disguised as {code}." + (hidden ? " You are hidden in ghost mode (spectator), so you cannot interact until you use /disguise off." : "") +
-               " The entity follows your position; use /disguise off to remove it.";
+               note + " The entity follows your position; other players cannot hit or use it. Use /disguise off to remove it.";
+    }
+
+    /// <summary>
+    /// Ghost hiding needs a client that advertises support. Say how many online players may still see the real model,
+    /// so the admin knows whether the disguise will hold up in front of them.
+    /// </summary>
+    private string DescribeHideSupport(IServerPlayer self)
+    {
+        try
+        {
+            int unsupported = api.World.AllOnlinePlayers.OfType<IServerPlayer>()
+                .Count(p => !string.Equals(p.PlayerUID, self.PlayerUID, StringComparison.OrdinalIgnoreCase) &&
+                            !BlockLogger.AntiCheat.GhostVisibilityCompatibilityRegistry.IsSafe(p.PlayerUID));
+            return unsupported == 0 ? "" : $" {unsupported} online player(s) use a client without ghost-hide support and may still see your real model next to the disguise.";
+        }
+        catch { return ""; }
     }
 
     public string Disable(IServerPlayer player, string source = "ingame")
@@ -311,9 +338,50 @@ public sealed class DisguiseService : IDisposable
                     pair.Value.EntityId = disguise.EntityId;
                 }
                 EntityPositionResolver.TrySetPose(disguise, x, y, z, yaw, pitch);
+                MatchAnimation(disguise, pair.Value, x, z);
             }
             catch (Exception ex) { api.Logger.Debug("[ServerEssentials/Disguise] follow tick: {0}", ex.Message); }
         }
+    }
+
+    /// <summary>
+    /// Plays idle, walk or run on the disguise from how fast the admin is moving. Animation codes differ per entity, so
+    /// an unknown code simply does nothing; the call is made by name so a changed animation API cannot break the Suite.
+    /// </summary>
+    private void MatchAnimation(Entity entity, State state, double x, double z)
+    {
+        long now = Environment.TickCount64;
+        double speed = 0;
+        if (state.HasLast && now > state.LastAtMs)
+        {
+            double dx = x - state.LastX, dz = z - state.LastZ;
+            speed = Math.Sqrt(dx * dx + dz * dz) / ((now - state.LastAtMs) / 1000.0);
+        }
+        state.LastX = x; state.LastZ = z; state.LastAtMs = now; state.HasLast = true;
+
+        string wanted = DisguiseRules.PickAnimation(speed);
+        if (wanted == state.Animation) return;
+        try
+        {
+            object? animations = entity.GetType().GetProperty("AnimManager")?.GetValue(entity);
+            if (animations == null) return;
+            var stringArgument = new[] { typeof(string) };
+            if (state.Animation.Length > 0)
+                animations.GetType().GetMethod("StopAnimation", stringArgument)?.Invoke(animations, new object[] { state.Animation });
+            animations.GetType().GetMethod("StartAnimation", stringArgument)?.Invoke(animations, new object[] { wanted });
+            state.Animation = wanted;
+        }
+        catch (Exception ex) { api.Logger.Debug("[ServerEssentials/Disguise] animation {0}: {1}", wanted, ex.Message); state.Animation = wanted; }
+    }
+
+    /// <summary>Nobody else can hit, mount or otherwise use a disguise entity.</summary>
+    private void OnPlayerInteractEntity(Entity entity, IPlayer byPlayer, ItemSlot slot, Vec3d hitPosition, int mode, ref EnumHandling handling)
+    {
+        try
+        {
+            if (entity != null && entity.WatchedAttributes.GetBool(DisguiseRules.Marker, false)) handling = EnumHandling.PreventDefault;
+        }
+        catch { }
     }
 
     private void OnEntitySpawn(Entity entity)
@@ -349,6 +417,7 @@ public sealed class DisguiseService : IDisposable
         if (disposed) return;
         disposed = true;
         try { api.Event.OnEntitySpawn -= OnEntitySpawn; } catch { }
+        try { api.Event.OnPlayerInteractEntity -= OnPlayerInteractEntity; } catch { }
         long[] ids;
         lock (gate)
         {

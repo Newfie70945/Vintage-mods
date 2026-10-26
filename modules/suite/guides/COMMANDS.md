@@ -596,5 +596,9 @@ position and facing every 100 ms while you are hidden in ghost mode (spectator, 
 `/disguise off`, disconnect, or the server stops, and any left behind after a crash are swept shortly after the next start.
 Names can be partial (`chicken-hen`); an ambiguous name lists the matches instead of guessing. Every use is audit-logged.
 
-Limits: it is an ordinary world entity, so another player can hit it, and a hostile type may try to act until its AI is
-removed (the Suite removes it where the game allows). Treat this as an admin tool, not a security boundary.
+While you move, the disguise plays `idle`, `walk` or `run` to match your speed (entities without those animations simply
+stay still). Other players cannot hit, mount or use the disguise. If some online players run a client without
+ghost-hide support, `/disguise` tells you how many may still see your real model next to it.
+
+Limits: environmental damage can still affect the entity, and a hostile type may try to act until its AI is removed (the
+Suite removes it where the game allows). Treat this as an admin tool, not a security boundary.

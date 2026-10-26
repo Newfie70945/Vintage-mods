@@ -30,4 +30,6 @@ Check(Resolve("drifter",out _)=="game:drifter-normal","a single partial match is
 Check(Resolve("chicken",out var many)==""&&many.Count==3,"an ambiguous name is reported, not guessed");
 Check(Resolve("player",out var none)==""&&none.Count==0,"player is not offered");
 Check(Resolve("zzz",out _)=="","unknown names resolve to nothing");
-Console.WriteLine("PASS: disguise code normalisation, forbidden types, search and resolution");
+string Anim(double v)=>(string)rules.GetMethod("PickAnimation")!.Invoke(null,[v])!;
+Check(Anim(0)=="idle"&&Anim(0.39)=="idle"&&Anim(0.4)=="walk"&&Anim(3.4)=="walk"&&Anim(3.5)=="run"&&Anim(12)=="run","animation follows movement speed");
+Console.WriteLine("PASS: disguise code normalisation, forbidden types, search, resolution and animation choice");
