@@ -9,7 +9,17 @@ public sealed class SailingConfig
     public double MinSpeedMultiplier { get; set; } = 0.35;
     public double MaxSpeedMultiplier { get; set; } = 1.35;
     public double ReferenceKnots { get; set; } = 17;
-    public double StormKnots { get; set; } = 41;
+    /// <summary>Wind load (knots x sail area) above which a boat is overpowered and slows. Reefing keeps the load down.</summary>
+    public double OverloadKnots { get; set; } = 25;
+    /// <summary>Fraction of speed lost sideways close-hauled (0 disables leeway).</summary>
+    public double LeewayStrength { get; set; } = 0.15;
+    public bool SquallsEnabled { get; set; } = true;
+    public int SquallMinIntervalSeconds { get; set; } = 300;
+    public int SquallMaxIntervalSeconds { get; set; } = 900;
+    public int SquallMinDurationSeconds { get; set; } = 30;
+    public int SquallMaxDurationSeconds { get; set; } = 75;
+    public double SquallPeakMultiplier { get; set; } = 2.1;
+    public int SquallWarningSeconds { get; set; } = 25;
     public double GustAmplitude { get; set; } = 0.35;
     public int TickMilliseconds { get; set; } = 100;
     /// <summary>Speed (blocks/tick) below which a boat counts as stationary and is not modified.</summary>
@@ -29,4 +39,8 @@ public sealed class SailingVisualsConfig
     public double KnotsPerWindUnit { get; set; } = 30;
     public string[] BoatCodeContains { get; set; } = { "sail" };
     public float Range { get; set; } = 48;
+    public bool HeelingEnabled { get; set; } = true;
+    public double ReferenceKnots { get; set; } = 17;
+    /// <summary>Set to -1 if boats lean INTO the wind instead of away from it.</summary>
+    public int HeelDirection { get; set; } = 1;
 }

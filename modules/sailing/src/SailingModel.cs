@@ -4,6 +4,8 @@ namespace NewfiesSailing;
 /// Pure sailing maths with no game dependencies so it can be unit tested by tests/Checks.
 /// Wind vectors are the direction the wind blows TOWARD, in world X/Z (north is -Z).
 /// </summary>
+public enum SailTrim { Furled = 0, Reefed = 1, Full = 2 }
+
 public static class SailingModel
 {
     private static readonly string[] BeaufortNames =
@@ -98,17 +100,72 @@ public static class SailingModel
     /// Speed multiplier (relative to the boat's unmodified speed) for the given wind and point of sail.
     /// Becalmed boats crawl, drive scales with wind up to a reference force, and above storm force the crew reefs and slows.
     /// </summary>
-    public static double SpeedMultiplier(double knots, double angleOffWind, double minMultiplier, double maxMultiplier, double referenceKnots, double stormKnots)
+    public static double SpeedMultiplier(double knots, double angleOffWind, double minMultiplier, double maxMultiplier, double referenceKnots, double overloadKnots)
+        => SpeedMultiplier(knots, angleOffWind, minMultiplier, maxMultiplier, referenceKnots, overloadKnots, 1.0);
+
+    /// <summary>
+    /// Same as above for a given sail area (see <see cref="SailArea"/>). Wind load is knots times area, so a reefed
+    /// boat is slower in light air but stays under the overload threshold in a gale. Furled sails barely drive the boat.
+    /// </summary>
+    public static double SpeedMultiplier(double knots, double angleOffWind, double minMultiplier, double maxMultiplier, double referenceKnots, double overloadKnots, double sailArea)
     {
         double eff = PointOfSailEfficiency(angleOffWind);
-        double drive = Math.Clamp(knots / Math.Max(1, referenceKnots), 0, 1.25);
+        double load = knots * sailArea;
+        double drive = Math.Clamp(load / Math.Max(1, referenceKnots), 0, 1.25);
         double m = minMultiplier + (maxMultiplier - minMultiplier) * eff * drive;
-        if (knots > stormKnots)
+        if (load > overloadKnots)
         {
-            double over = Math.Clamp((knots - stormKnots) / Math.Max(1, stormKnots * 0.5), 0, 1);
-            m = m * (1 - 0.6 * over);
+            double over = Math.Clamp((load - overloadKnots) / Math.Max(1, overloadKnots * 0.5), 0, 1);
+            m *= 1 - 0.6 * over;
         }
+        if (sailArea <= 0.1) m *= 0.4;
         return Math.Clamp(m, 0.05, maxMultiplier);
+    }
+
+    public static double SailArea(SailTrim trim) => trim switch { SailTrim.Furled => 0.05, SailTrim.Reefed => 0.55, _ => 1.0 };
+
+    public static bool TryParseTrim(string? text, out SailTrim trim)
+    {
+        switch ((text ?? "").Trim().ToLowerInvariant())
+        {
+            case "full": trim = SailTrim.Full; return true;
+            case "reef": case "reefed": trim = SailTrim.Reefed; return true;
+            case "furl": case "furled": trim = SailTrim.Furled; return true;
+            default: trim = SailTrim.Full; return false;
+        }
+    }
+
+    /// <summary>True when the sail is carrying more wind load than it should (time to reef).</summary>
+    public static bool Overpowered(double knots, double sailArea, double overloadKnots) => knots * sailArea > overloadKnots;
+
+    /// <summary>Heel angle magnitude in radians: greatest on a beam reach under full sail in strong wind, nil head to wind or running.</summary>
+    public static double Heel(double knots, double angleOffWind, double sailArea, double referenceKnots, double maxHeel = 0.5)
+    {
+        double load = Math.Clamp(knots * sailArea / Math.Max(1, referenceKnots * 1.5), 0, 1.2);
+        return maxHeel * load * Math.Sin(Math.Clamp(angleOffWind, 0, 180) * Math.PI / 180.0);
+    }
+
+    /// <summary>Which side the wind comes from relative to the course: +1 starboard-side wind source, -1 port, 0 if undefined.</summary>
+    public static int WindSide(double motionX, double motionZ, double windX, double windZ)
+    {
+        double cross = motionX * windZ - motionZ * windX;
+        return cross > 1e-12 ? 1 : cross < -1e-12 ? -1 : 0;
+    }
+
+    /// <summary>Fraction of boat speed lost sideways as leeway: most when close-hauled, none when running.</summary>
+    public static double LeewayFraction(double angleOffWind, double sailArea, double drive01, double strength = 0.15)
+        => strength * sailArea * Math.Clamp(drive01, 0, 1) * Math.Clamp(1 - angleOffWind / 150.0, 0, 1);
+
+    /// <summary>
+    /// Squall wind multiplier: 1 outside the squall, ramping up over the first quarter, holding the peak, then
+    /// easing off over the last third. <paramref name="age"/> is seconds since the squall began.
+    /// </summary>
+    public static double SquallFactor(double age, double duration, double peak)
+    {
+        if (age <= 0 || age >= duration || duration <= 0) return 1;
+        double t = age / duration;
+        double k = t < 0.25 ? t / 0.25 : t > 0.67 ? (1 - t) / 0.33 : 1;
+        return 1 + (peak - 1) * Math.Clamp(k, 0, 1);
     }
 
     /// <summary>Hull pitch and roll in radians for a boat in a sea of the given Beaufort force. Phase decorrelates boats.</summary>

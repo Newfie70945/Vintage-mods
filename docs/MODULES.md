@@ -8,7 +8,7 @@ The regular mods use original author source restored from the uploaded CENTER1 a
 - `modules/chatguard`: 2.1.4.
 - `modules/discord-link`: 1.0.13.
 - `modules/player-list`: 1.1.2.
-- `modules/sailing`: 0.1.0, new sailing-weather module (not in game tested).
+- `modules/sailing`: 0.2.0, new sailing-weather module (not in game tested).
 - `modules/shared`: shared storage source linked by Suite and ChatGuard.
 - `modules/optimizer`: 0.5.0-preview continues the reconstructed profiling project with guarded API patches. It is experimental and was not recovered from this archive.
 

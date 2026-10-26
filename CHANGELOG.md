@@ -1,5 +1,13 @@
 # Current release changes
 
+## Realistic Sailing 0.2.0
+
+- Sail trim and reefing (`/sailing trim full|reefed|furled`), overpowered warnings, hull heeling, leeway and scheduled squalls (server-synced to clients). `StormKnots` config renamed `OverloadKnots`. Unit-tested model; in-game behaviour not yet verified.
+
+## Realistic Sailing 0.2.0
+
+- Sail trim and reefing (`/sailing trim full|reefed|furled`), overpowered warnings, hull heeling, leeway and scheduled squalls (server-synced to clients). `StormKnots` config renamed `OverloadKnots`. Unit-tested model; in-game behaviour not yet verified.
+
 ## Realistic Sailing 0.1.0
 
 - New server-side module: wind-dependent sailboat speed by point of sail, gusts, Beaufort sea state, storm slowdown/warnings and a `/sailing` report. Physics model unit tested; in-game behaviour not yet verified.

@@ -16,6 +16,10 @@ public sealed class SailingVisuals
     private long listener;
     private double elapsed;
     private readonly Random rng = new();
+    private readonly Dictionary<long, double> heel = new();
+
+    /// <summary>Server-synced squall wind multiplier.</summary>
+    public double SquallFactor { get; set; } = 1;
 
     public SailingVisuals(ICoreClientAPI api)
     {
@@ -51,18 +55,37 @@ public sealed class SailingVisuals
         foreach (Entity boat in boats)
         {
             Vec3d wind = capi.World.BlockAccessor.GetWindSpeedAt(boat.Pos.XYZ) ?? new Vec3d();
-            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit;
+            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor;
             int force = SailingModel.Beaufort(knots);
 
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)
             {
                 var (pitch, roll) = SailingModel.Bob(elapsed, force, boat.EntityId % 64);
                 boat.Pos.Pitch = (float)(pitch * cfg.BobIntensity);
-                boat.Pos.Roll = (float)(roll * cfg.BobIntensity);
+                boat.Pos.Roll = (float)(roll * cfg.BobIntensity + HeelFor(boat, wind, knots));
             }
 
             if (cfg.SplashesEnabled) Splash(boat, force);
         }
+    }
+
+    /// <summary>Smoothed heel (radians) that leans the hull away from the wind according to trim, wind load and point of sail.</summary>
+    private double HeelFor(Entity boat, Vec3d wind, double knots)
+    {
+        double target = 0;
+        var m = boat.Pos.Motion;
+        if (cfg.HeelingEnabled && Math.Sqrt(m.X * m.X + m.Z * m.Z) > 0.004)
+        {
+            double area = SailingModel.SailArea((SailTrim)Math.Clamp(boat.WatchedAttributes.GetInt(SailingModSystem.TrimKey, (int)SailTrim.Full), 0, 2));
+            double off = SailingModel.AngleOffWind(m.X, m.Z, wind.X, wind.Z);
+            int side = SailingModel.WindSide(m.X, m.Z, wind.X, wind.Z);
+            // Wind blowing toward one side leans the hull toward the other.
+            target = -side * cfg.HeelDirection * SailingModel.Heel(knots, off, area, cfg.ReferenceKnots);
+        }
+        heel.TryGetValue(boat.EntityId, out double cur);
+        cur += (target - cur) * 0.08;
+        heel[boat.EntityId] = cur;
+        return cur;
     }
 
     private void Splash(Entity boat, int force)

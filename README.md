@@ -10,7 +10,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 | ChatGuard | 2.1.4 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.14 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Realistic Sailing | 0.1.0 | [modules/sailing](modules/sailing) |
+| Realistic Sailing | 0.2.0 | [modules/sailing](modules/sailing) |
 | Server Optimizer | 0.20.13-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
