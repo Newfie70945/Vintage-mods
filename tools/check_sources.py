@@ -19,4 +19,26 @@ assert json.loads((optimizer_root/'src/NewfiesOptimizer/modinfo.json').read_text
 assert ET.parse(optimizer_root/'src/NewfiesOptimizer/NewfiesOptimizer.csproj').getroot().findtext('.//Version') == version
 assert not (root/'modules/website-connector').exists(), 'Connector is maintained outside this repository'
 assert 'website-connector' not in (root/'Newfies.ServerSuite.slnx').read_text()
-print('Module versions, exclusions and editor fixtures are consistent')
+# Constants that must agree across files. A mismatch here once made the live map refuse every changed-terrain update.
+exporter = (root/'modules/suite/src/WebMap/WebMapTerrainExporter.cs').read_text(encoding='utf-8-sig')
+bridge = (root/'modules/suite/src/WebMap/WebMapBridgeService.cs').read_text(encoding='utf-8-sig')
+exporter_version = re.search(r'private const int ManifestVersion = (\d+);', exporter)
+bridge_version = re.search(r'private const int CurrentTerrainManifestVersion = (\d+);', bridge)
+assert exporter_version and bridge_version and exporter_version[1] == bridge_version[1], \
+    'Terrain cache version differs: exporter %s vs map service %s' % (exporter_version and exporter_version[1], bridge_version and bridge_version[1])
+suite_manifest = next(m for m in manifest['mods'] if m['id'] == 'suite')
+release = re.search(r'public const string Version = "([^"]+)";', (root/'modules/suite/src/SuiteRelease.cs').read_text(encoding='utf-8-sig'))
+assert release and release[1] == suite_manifest['version'], 'SuiteRelease.Version differs from the manifest'
+# Every WebMapConfig setting must be copied by Clone(), otherwise saving silently resets it.
+start = bridge.index('public sealed class WebMapConfig'); clone_at = bridge.index('public WebMapConfig Clone()')
+settings = re.findall(r'public [\w<>\[\], ]+? (\w+) \{ get; set; \}', bridge[start:clone_at])
+clone_body = bridge[clone_at:bridge.index('};', clone_at)]
+missing = [name for name in settings if not re.search(r'\b' + name + r'\s*=', clone_body)]
+assert not missing, 'WebMapConfig.Clone() does not copy: ' + ', '.join(missing)
+# State-changing dashboard routes must be in the route policy registry, which drives safe-mode blocking and cooldowns.
+service = (root/'modules/suite/src/WebDashboard/WebDashboardService.cs').read_text(encoding='utf-8-sig')
+registered = set(re.findall(r'new\(\) \{ Method = "(?:POST|PUT|DELETE)", Path = "([^"]+)"', service))
+handled = set(re.findall(r'request\.Method == "(?:POST|PUT|DELETE)" && path == "([^"]+)"', service))
+unregistered = sorted(handled - registered - {'/api/login', '/api/logout'})
+assert not unregistered, 'Dashboard routes missing from the route policy registry: ' + ', '.join(unregistered)
+print('Module versions, exclusions, editor fixtures, paired constants and config cloning are consistent')
