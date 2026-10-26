@@ -1677,7 +1677,7 @@ internal sealed class PacketGuardService : IDisposable
 
                     if (config.PacketGuardRejectNoclip && correctionConfirmed)
                     {
-                        RollbackMovement(player, state, entity, now, "packetguard-noclip-endpoint-correction");
+                        CorrectNoclip(player,state,entity,now,"packetguard-noclip-endpoint-correction");
                     }
                     else
                     {
@@ -1719,7 +1719,7 @@ internal sealed class PacketGuardService : IDisposable
 
                     if (config.PacketGuardRejectNoclip && correctionConfirmed)
                     {
-                        RollbackMovement(player, state, entity, now, "packetguard-noclip-correction");
+                        CorrectNoclip(player,state,entity,now,"packetguard-noclip-correction");
                     }
                     else
                     {
@@ -2216,6 +2216,22 @@ internal sealed class PacketGuardService : IDisposable
 
         complete=true;
         return penetrationDepth > 0;
+    }
+
+    private void CorrectNoclip(IServerPlayer player,MovementState state,Entity entity,long now,string reason)
+    {
+        // Failed/unknown destinations never become punishment strikes. Start a new
+        // confirmation episode after each correction, rather than recycling old samples.
+        if(!RollbackMovement(player,state,entity,now,reason))return;
+        state.NoclipConfirmation.Reset();
+        bool threshold=state.NoclipCorrections.Record(now,config.PacketGuardNoclipCorrectionsBeforeKick,
+            config.PacketGuardNoclipCorrectionDecaySeconds,config.PacketGuardNoclipCorrectionMinimumIntervalSeconds);
+        string evidence=$"decision=successful-correction;activeCorrections={state.NoclipCorrections.Count};kickThreshold={config.PacketGuardNoclipCorrectionsBeforeKick};decaySeconds={config.PacketGuardNoclipCorrectionDecaySeconds};minimumIntervalSeconds={config.PacketGuardNoclipCorrectionMinimumIntervalSeconds};kickEnabled={config.PacketGuardNoclipKickAfterCorrections}";
+        reportFinding(player,"PACKET_NOCLIP_CORRECTION",AntiCheatSeverity.Moderate,
+            "Noclip correction completed. Only independently spaced successful corrections count toward the configured kick threshold.",player.PlayerUID,evidence);
+        if(!threshold || !config.Enabled || !config.PacketGuardNoclipKickAfterCorrections)return;
+        api.Logger.Audit("[PacketGuard/Noclip] playerUid={0};{1};action=kick",player.PlayerUID,evidence);
+        player.Disconnect("Repeated noclip corrections. Please reconnect; contact an administrator if this was legitimate movement.");
     }
 
     private bool RollbackMovement(IServerPlayer player, MovementState state, Entity entity, long now, string reason)
@@ -3693,6 +3709,7 @@ internal sealed class PacketGuardService : IDisposable
         public long LastViolationUtc;
         public int ViolationCount;
         public readonly NoclipConfirmationWindow NoclipConfirmation = new();
+        public readonly NoclipCorrectionHistory NoclipCorrections = new();
         public bool WasMounted;
         public int MountedSuspiciousSamples;
         public long MountedSuspiciousSinceUtc;

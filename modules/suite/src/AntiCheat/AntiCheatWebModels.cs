@@ -844,6 +844,11 @@ public sealed class AntiCheatPacketGuardWebSnapshot
 {
     public int ConfirmedSpeedRepeatRisk { get; set; }
     public bool KickRepeatedConfirmedSpeed { get; set; }
+    public bool NoclipKickAfterCorrections { get; set; } = true;
+    public int NoclipCorrectionsBeforeKick { get; set; } = 5;
+    public int NoclipCorrectionDecaySeconds { get; set; } = 120;
+    public int NoclipCorrectionMinimumIntervalSeconds { get; set; } = 10;
+
     public bool MovementModeLimitsEnabled { get; set; }
     public double MaxHorizontalSpeed { get; set; }
     public double GroundMaxHorizontalSpeed { get; set; }
@@ -1022,6 +1027,11 @@ public sealed class AntiCheatPacketGuardSaveRequest
     // Nullable request values preserve settings for older web/Shift+L clients.
     public int? ConfirmedSpeedRepeatRisk { get; set; }
     public bool? KickRepeatedConfirmedSpeed { get; set; }
+    public bool? NoclipKickAfterCorrections { get; set; }
+    public int? NoclipCorrectionsBeforeKick { get; set; }
+    public int? NoclipCorrectionDecaySeconds { get; set; }
+    public int? NoclipCorrectionMinimumIntervalSeconds { get; set; }
+
     public bool? MovementModeLimitsEnabled { get; set; }
     public double? MaxHorizontalSpeed { get; set; }
     public double? GroundMaxHorizontalSpeed { get; set; }

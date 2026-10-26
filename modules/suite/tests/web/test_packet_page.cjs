@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),{chromium}=require('playwright');
 const html=require('./embedded_page.cjs')();
-const settings={ingressEnabled:false,confirmedSpeedRepeatRisk:30,kickRepeatedConfirmedSpeed:false,movementModeLimitsEnabled:true,maxHorizontalSpeed:35,groundMaxHorizontalSpeed:42,swimmingMaxHorizontalSpeed:25,airborneMaxHorizontalSpeed:38,mountProfilesEnabled:true,mountProfileEnforcementEnabled:true,unknownMountEnforcementEnabled:false,mountProfileConfirmSamples:4,mountProfileConfirmWindowMs:1500,mountRiderCorrelationEnabled:true};
+const settings={noclipKickAfterCorrections:true,noclipCorrectionsBeforeKick:7,noclipCorrectionDecaySeconds:180,noclipCorrectionMinimumIntervalSeconds:15,ingressEnabled:false,confirmedSpeedRepeatRisk:30,kickRepeatedConfirmedSpeed:false,movementModeLimitsEnabled:true,maxHorizontalSpeed:35,groundMaxHorizontalSpeed:42,swimmingMaxHorizontalSpeed:25,airborneMaxHorizontalSpeed:38,mountProfilesEnabled:true,mountProfileEnforcementEnabled:true,unknownMountEnforcementEnabled:false,mountProfileConfirmSamples:4,mountProfileConfirmWindowMs:1500,mountRiderCorrelationEnabled:true};
 for(const prefix of ['draconis','shipwright','unknownMount'])Object.assign(settings,{[prefix+'MaxHorizontalSpeed']:110,[prefix+'MaxVerticalSpeed']:75.25,[prefix+'MaxAcceleration']:500,[prefix+'MaxRiderDistance']:18,[prefix+'MaxRiderRelativeSpeed']:32});
 const initial={...settings,enabled:true,movementEnabled:true,exemptAdmins:true,exemptMountedPlayers:true,tpRunesCompatibility:true,reachEnabled:true,miningEnabled:true};
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{
@@ -55,5 +55,5 @@ const initial={...settings,enabled:true,movementEnabled:true,exemptAdmins:true,e
   assert.equal(overflow,false,key+' controls fit mobile');
  }
  await page.locator('#packetTab-mounts').click();await page.screenshot({path:'/workspace/nss-revamp/artifacts/packetpage1-mobile.png',fullPage:true});
- assert.deepEqual(errors,[]);console.log('PASS: 29 fields display/collect, real save, drafts/failed saves/discard, keyboard tabs, read-only access, desktop/mobile layouts.');
+ assert.deepEqual(errors,[]);console.log('PASS: 33 fields display/collect, real save, drafts/failed saves/discard, keyboard tabs, read-only access, desktop/mobile layouts.');
 }finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

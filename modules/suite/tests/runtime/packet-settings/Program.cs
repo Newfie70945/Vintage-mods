@@ -31,7 +31,7 @@ object Request(){var r=Activator.CreateInstance(requestType)!;requestType.GetPro
 object Property(object obj,string name)=>obj.GetType().GetProperty(name)!.GetValue(obj)!;
 void Set(object obj,string name,object value)=>obj.GetType().GetProperty(name)!.SetValue(obj,value);
 bool Save(object request){var result=save.Invoke(service,new[]{request})!;return(bool)result.GetType().GetField("Item1")!.GetValue(result)!;}
-var names=new List<string>{"IngressEnabled","ConfirmedSpeedRepeatRisk","KickRepeatedConfirmedSpeed","MovementModeLimitsEnabled","MaxHorizontalSpeed","GroundMaxHorizontalSpeed","SwimmingMaxHorizontalSpeed","AirborneMaxHorizontalSpeed","MountProfilesEnabled","MountProfileEnforcementEnabled","UnknownMountEnforcementEnabled","MountProfileConfirmSamples","MountProfileConfirmWindowMs","MountRiderCorrelationEnabled"};
+var names=new List<string>{"NoclipKickAfterCorrections","NoclipCorrectionsBeforeKick","NoclipCorrectionDecaySeconds","NoclipCorrectionMinimumIntervalSeconds","IngressEnabled","ConfirmedSpeedRepeatRisk","KickRepeatedConfirmedSpeed","MovementModeLimitsEnabled","MaxHorizontalSpeed","GroundMaxHorizontalSpeed","SwimmingMaxHorizontalSpeed","AirborneMaxHorizontalSpeed","MountProfilesEnabled","MountProfileEnforcementEnabled","UnknownMountEnforcementEnabled","MountProfileConfirmSamples","MountProfileConfirmWindowMs","MountRiderCorrelationEnabled"};
 foreach(var prefix in new[]{"Draconis","Shipwright","UnknownMount"})foreach(var suffix in new[]{"HorizontalSpeed","VerticalSpeed","Acceleration","RiderDistance","RiderRelativeSpeed"})names.Add(prefix+"Max"+suffix);
 try{
  object request=Request();

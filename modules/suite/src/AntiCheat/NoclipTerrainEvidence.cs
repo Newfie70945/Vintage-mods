@@ -35,3 +35,21 @@ internal sealed class NoclipConfirmationWindow
     }
     internal void Reset(){first=last=0;count=0;}
 }
+
+// Counts only successful authoritative corrections, never raw collision samples.
+internal sealed class NoclipCorrectionHistory
+{
+    private readonly Queue<long> corrections = new();
+    private long last;
+    internal int Count => corrections.Count;
+    internal bool Record(long now,int threshold,int decaySeconds,int minimumIntervalSeconds)
+    {
+        if(corrections.Count>0 && now<last){corrections.Clear();last=0;}
+        long expiry=now-(long)Math.Clamp(decaySeconds,30,3600)*1000;
+        while(corrections.Count>0 && corrections.Peek()<=expiry)corrections.Dequeue();
+        if(corrections.Count>0 && now-last<(long)Math.Clamp(minimumIntervalSeconds,5,300)*1000)return false;
+        if(corrections.Count>=50)corrections.Dequeue();
+        corrections.Enqueue(now);last=now;
+        return corrections.Count>=Math.Clamp(threshold,2,50);
+    }
+}

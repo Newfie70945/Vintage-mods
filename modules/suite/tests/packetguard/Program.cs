@@ -147,3 +147,13 @@ Check(!confirmation.Observe(1000),"First noclip cannot correct");Check(!confirma
 Check(!confirmation.Observe(1750),"Second noclip cannot correct");Check(confirmation.Observe(2500),"Three spaced observations over 1.5s can support configured correction");
 confirmation.Reset();Check(!confirmation.Observe(3000),"Transitions clear noclip confirmation");Check(!confirmation.Observe(10000),"Old observations cannot confirm a new episode");
 Console.WriteLine("PASS: no noclip automatic punishment; distinct block evidence, complex geometry exclusions, bounded retention and repeated correction confirmation.");
+
+var corrections=new NoclipCorrectionHistory();
+Check(!corrections.Record(1000,5,120,10),"First correction never kicks");
+Check(!corrections.Record(1100,5,120,10) && corrections.Count==1,"Burst corrections count once");
+for(int i=1;i<4;i++)Check(!corrections.Record(1000+i*10000,5,120,10),"Corrections below threshold do not kick");
+Check(corrections.Record(41000,5,120,10),"Fifth spaced correction can kick");
+Check(!corrections.Record(162000,5,120,10) && corrections.Count==1,"Expired corrections decay independently");
+Check(!corrections.Record(1000,5,120,10) && corrections.Count==1,"Clock regression discards old corrections");
+Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP_CORRECTION",""),"Correction audit cannot trigger generic first-finding punishment");
+Console.WriteLine("PASS: correction-first noclip escalation, minimum spacing, independent expiry and clock reset.");

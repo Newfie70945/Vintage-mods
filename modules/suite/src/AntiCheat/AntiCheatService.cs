@@ -4524,6 +4524,11 @@ public sealed class AntiCheatService : IDisposable
         {
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
+            NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            NoclipCorrectionsBeforeKick = config.PacketGuardNoclipCorrectionsBeforeKick,
+            NoclipCorrectionDecaySeconds = config.PacketGuardNoclipCorrectionDecaySeconds,
+            NoclipCorrectionMinimumIntervalSeconds = config.PacketGuardNoclipCorrectionMinimumIntervalSeconds,
+
             MovementModeLimitsEnabled = config.PacketGuardMovementModeLimitsEnabled,
             MaxHorizontalSpeed = config.PacketGuardMaxHorizontalSpeed,
             GroundMaxHorizontalSpeed = config.PacketGuardGroundMaxHorizontalSpeed,
@@ -5227,6 +5232,11 @@ public sealed class AntiCheatService : IDisposable
         {
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
+            NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            NoclipCorrectionsBeforeKick = config.PacketGuardNoclipCorrectionsBeforeKick,
+            NoclipCorrectionDecaySeconds = config.PacketGuardNoclipCorrectionDecaySeconds,
+            NoclipCorrectionMinimumIntervalSeconds = config.PacketGuardNoclipCorrectionMinimumIntervalSeconds,
+
             MovementModeLimitsEnabled = config.PacketGuardMovementModeLimitsEnabled,
             MaxHorizontalSpeed = config.PacketGuardMaxHorizontalSpeed,
             GroundMaxHorizontalSpeed = config.PacketGuardGroundMaxHorizontalSpeed,
@@ -5364,6 +5374,10 @@ public sealed class AntiCheatService : IDisposable
     {
         if (request.IngressEnabled.HasValue) config.PacketGuardIngressEnabled = request.IngressEnabled.Value;
         if (request.ConfirmedSpeedRepeatRisk.HasValue) config.PacketGuardConfirmedSpeedRepeatRisk = request.ConfirmedSpeedRepeatRisk.Value;
+        if (request.NoclipKickAfterCorrections.HasValue) config.PacketGuardNoclipKickAfterCorrections = request.NoclipKickAfterCorrections.Value;
+        if (request.NoclipCorrectionsBeforeKick.HasValue) config.PacketGuardNoclipCorrectionsBeforeKick = request.NoclipCorrectionsBeforeKick.Value;
+        if (request.NoclipCorrectionDecaySeconds.HasValue) config.PacketGuardNoclipCorrectionDecaySeconds = request.NoclipCorrectionDecaySeconds.Value;
+        if (request.NoclipCorrectionMinimumIntervalSeconds.HasValue) config.PacketGuardNoclipCorrectionMinimumIntervalSeconds = request.NoclipCorrectionMinimumIntervalSeconds.Value;
         if (request.KickRepeatedConfirmedSpeed.HasValue) config.PacketGuardKickRepeatedConfirmedSpeed = request.KickRepeatedConfirmedSpeed.Value;
         if (request.MovementModeLimitsEnabled.HasValue) config.PacketGuardMovementModeLimitsEnabled = request.MovementModeLimitsEnabled.Value;
         if (request.MaxHorizontalSpeed.HasValue) config.PacketGuardMaxHorizontalSpeed = request.MaxHorizontalSpeed.Value;
