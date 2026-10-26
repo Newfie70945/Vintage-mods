@@ -48,7 +48,10 @@ internal sealed class PacketIngressGuard : IDisposable
     private sealed class ConnectionState
     {
         internal readonly BlockNukerWindow Nuker = new();
-        internal bool NukerKickPending;
+        internal bool NukerKickPending, NukerKicked;
+        internal IServerPlayer? NukerPlayer;
+        internal long NukerEntity;
+        internal int NukerDimension,NukerLimit,NukerEpoch;
         internal readonly PacketIngressBudget Wire = new();
         internal readonly PacketIngressBudget Blocks = new();
         internal readonly PacketIngressBudget Settings = new();
@@ -398,31 +401,55 @@ internal sealed class PacketIngressGuard : IDisposable
         long now=Environment.TickCount64;
         var state=connections.GetValue(client,_=>new ConnectionState());
         (bool Allow,bool Kick,int Distinct) result;
-        lock(state)result=state.Nuker.Observe(now,x,y,z,config.PacketGuardBlockNukerLimit,reliable);
-        if(result.Allow)return true;
-        string evidence=$"decision=denied;distinctBreakTargets={result.Distinct};limit={config.PacketGuardBlockNukerLimit};windowMs=1000;repeatedHealthyBurst={result.Kick};{health.Evidence}";
-        Report(client,"PACKET_BLOCK_NUKER", "Denied excessive distinct client block-break requests before the native handler. A single burst is not sufficient for a kick.",evidence,AntiCheatSeverity.Moderate);
+        int limit=config.PacketGuardBlockNukerLimit;
+        int dimension=EntityRuntimeCompat.GetPos(player.Entity)?.Dimension ?? -1;
+        int epoch;
         lock(state)
         {
-            if(!result.Kick || !config.PacketGuardBlockNukerKickEnabled || state.NukerKickPending)return false;
-            state.NukerKickPending=true;
+            if(!ReferenceEquals(state.NukerPlayer,player) || state.NukerEntity!=player.Entity.EntityId ||
+                state.NukerDimension!=dimension || state.NukerLimit!=limit)
+            {
+                state.Nuker.Reset();state.NukerPlayer=player;state.NukerEntity=player.Entity.EntityId;
+                state.NukerDimension=dimension;state.NukerLimit=limit;state.NukerEpoch++;
+                state.NukerKickPending=state.NukerKicked=false;
+            }
+            epoch=state.NukerEpoch;
+            result=state.Nuker.Observe(now,x,y,z,limit,reliable);
         }
+        if(result.Allow)return true;
+        bool emitReport,scheduleKick;
+        lock(state)
+        {
+            emitReport=!state.ReportTimes.TryGetValue("PACKET_BLOCK_NUKER",out long previous) ||
+                now-previous>=config.PacketGuardIngressFindingCooldownSeconds*1000L;
+            scheduleKick=result.Kick && config.PacketGuardBlockNukerKickEnabled && !state.NukerKickPending && !state.NukerKicked;
+            if(scheduleKick)state.NukerKickPending=true;
+        }
+        // Saturated traffic must not allocate evidence strings for every denied packet.
+        if(!emitReport && !scheduleKick)return false;
+        string evidence=$"decision=denied;distinctBreakTargets={result.Distinct};limit={limit};windowMs=1000;repeatedHealthyBurst={result.Kick};{health.Evidence}";
+        if(emitReport)Report(client,"PACKET_BLOCK_NUKER", "Denied excessive distinct client block-break requests before the native handler. A single burst is not sufficient for a kick.",evidence,AntiCheatSeverity.Moderate);
+        if(!scheduleKick)return false;
         api.Event.EnqueueMainThreadTask(()=>
         {
             try
             {
+                lock(state)if(state.NukerEpoch!=epoch)return;
                 var currentHealth=getTickHealth();
                 if(!active || !config.Enabled || !config.PacketGuardBlockNukerEnabled || !config.PacketGuardBlockNukerKickEnabled ||
-                    !ReferenceEquals(client.Player,player) || player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
+                    !ReferenceEquals(client.Player,player) || config.PacketGuardBlockNukerLimit!=limit ||
+                    player.Entity==null || player.Entity.EntityId!=state.NukerEntity || (EntityRuntimeCompat.GetPos(player.Entity)?.Dimension ?? -1)!=dimension ||
+                    player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
                     (config.PacketGuardExemptAdmins && (player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver))) ||
                     Environment.TickCount64-now>1000 ||
                     (currentHealth.Enabled && (!currentHealth.Ready||currentHealth.IsDegraded||currentHealth.IsCritical)))return;
                 reportFinding(player,"PACKET_BLOCK_NUKER_KICK",AntiCheatSeverity.High,
                     "Kicked after independently spaced excessive client break bursts; secondary server-side mining actions are excluded.",player.PlayerUID,evidence+";decision=kick");
                 api.Logger.Audit("[PacketGuard/BlockNuker] playerUid={0};action=kick;{1}",player.PlayerUID,evidence);
+                lock(state)state.NukerKicked=true;
                 player.Disconnect("Repeated excessive block-breaking requests (Block Nuker protection).");
             }
-            finally {lock(state)state.NukerKickPending=false;}
+            finally {lock(state)if(state.NukerEpoch==epoch)state.NukerKickPending=false;}
         },"packetguard-block-nuker-kick");
         return false;
     }

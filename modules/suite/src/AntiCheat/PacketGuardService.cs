@@ -1235,11 +1235,17 @@ internal sealed class PacketGuardService : IDisposable
                 reachPositionHistory.Remove(player.PlayerUID);
                 reachViolations.Remove(player.PlayerUID);
                 state.NoclipConfirmation.Reset();
+                state.PendingNoclipCorrection.Reset();
                 state.EntityId = entity.EntityId;
                 state.GraceUntilUtc = Math.Max(state.GraceUntilUtc, now + config.PacketGuardEngineTeleportGraceMs);
                 state.Accept(pos, now);
                 continue;
             }
+
+            bool correctionTimingReliable=!tps.Enabled || (tps.Ready&&!tps.IsDegraded&&!tps.IsCritical);
+            if(state.PendingNoclipCorrection.Observe(now,entity.EntityId,pos.Dimension,pos.X,pos.Y,pos.Z,
+                config.Enabled && config.PacketGuardNoclipEnabled && config.PacketGuardRejectNoclip && !mounted && correctionTimingReliable))
+                if(RecordConfirmedNoclipCorrection(player,state,now))continue;
 
             // If the sampler did not run for a meaningful interval (chunk load, save stall, heavy
             // GC, debugger pause, etc.), displacement divided across that blind interval is not
@@ -2222,18 +2228,24 @@ internal sealed class PacketGuardService : IDisposable
     {
         // Failed/unknown destinations never become punishment strikes. Start a new
         // confirmation episode after each correction, rather than recycling old samples.
-        if(!RollbackMovement(player,state,entity,now,reason))return;
+        if(state.PendingNoclipCorrection.Active || !RollbackMovement(player,state,entity,now,reason))return;
         state.NoclipConfirmation.Reset();
+        state.PendingNoclipCorrection.Stage(now,entity.EntityId,state.Dimension,state.X,state.Y,state.Z);
+    }
+
+    private bool RecordConfirmedNoclipCorrection(IServerPlayer player,MovementState state,long now)
+    {
         bool threshold=state.NoclipCorrections.Record(now,config.PacketGuardNoclipCorrectionsBeforeKick,
             config.PacketGuardNoclipCorrectionDecaySeconds,config.PacketGuardNoclipCorrectionMinimumIntervalSeconds);
-        string evidence=$"decision=successful-correction;activeCorrections={state.NoclipCorrections.Count};kickThreshold={config.PacketGuardNoclipCorrectionsBeforeKick};decaySeconds={config.PacketGuardNoclipCorrectionDecaySeconds};minimumIntervalSeconds={config.PacketGuardNoclipCorrectionMinimumIntervalSeconds};kickEnabled={config.PacketGuardNoclipKickAfterCorrections}";
+        string evidence=$"decision=observed-correction-arrival;activeCorrections={state.NoclipCorrections.Count};kickThreshold={config.PacketGuardNoclipCorrectionsBeforeKick};decaySeconds={config.PacketGuardNoclipCorrectionDecaySeconds};minimumIntervalSeconds={config.PacketGuardNoclipCorrectionMinimumIntervalSeconds};kickEnabled={config.PacketGuardNoclipKickAfterCorrections}";
         reportFinding(player,"PACKET_NOCLIP_CORRECTION",AntiCheatSeverity.Moderate,
-            "Noclip correction completed. Only independently spaced successful corrections count toward the configured kick threshold.",player.PlayerUID,evidence);
-        if(!threshold || !config.Enabled || !config.PacketGuardNoclipKickAfterCorrections)return;
+            "The server observed arrival at the requested noclip correction destination. Only independently spaced observed corrections count toward the configured kick threshold.",player.PlayerUID,evidence);
+        if(!threshold || !config.Enabled || !config.PacketGuardNoclipKickAfterCorrections)return false;
         api.Logger.Audit("[PacketGuard/Noclip] playerUid={0};{1};action=kick",player.PlayerUID,evidence);
         reportFinding(player,"PACKET_NOCLIP_KICK",AntiCheatSeverity.High,
             "Kicked after the configured number of independently spaced, unexpired noclip corrections.",player.PlayerUID,evidence+";action=kick");
         player.Disconnect("Repeated noclip corrections. Please reconnect; contact an administrator if this was legitimate movement.");
+        return true;
     }
 
     private bool RollbackMovement(IServerPlayer player, MovementState state, Entity entity, long now, string reason)
@@ -3712,6 +3724,7 @@ internal sealed class PacketGuardService : IDisposable
         public int ViolationCount;
         public readonly NoclipConfirmationWindow NoclipConfirmation = new();
         public readonly NoclipCorrectionHistory NoclipCorrections = new();
+        public readonly PendingNoclipCorrection PendingNoclipCorrection = new();
         public bool WasMounted;
         public int MountedSuspiciousSamples;
         public long MountedSuspiciousSinceUtc;

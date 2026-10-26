@@ -9,6 +9,7 @@ internal sealed class BlockNukerWindow
     private readonly HashSet<(int X,int Y,int Z)> unique=new();
     private long last,lastBurst,firstBurst;
     private int bursts;
+    internal void Reset(){targets.Clear();unique.Clear();last=lastBurst=firstBurst=0;bursts=0;}
     internal (bool Allow,bool Kick,int Distinct) Observe(long now,int x,int y,int z,int limit,bool reliable)
     {
         limit=Math.Clamp(limit,5,200);

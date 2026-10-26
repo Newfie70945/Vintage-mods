@@ -168,3 +168,16 @@ var lagged=new BlockNukerWindow();for(int i=0;i<100;i++)Check(!lagged.Observe(10
 var repeated=new BlockNukerWindow();for(int i=0;i<100;i++)Check(repeated.Observe(1000,1,2,3,30,true).Allow,"Duplicate targets are not distinct blocks");
 Check(nuker.Observe(30000,100,0,0,30,true).Allow,"Old window expires");
 Console.WriteLine("PASS: Block Nuker distinct-target cap, denial, independent burst confirmation, lag safety and duplicate exclusion.");
+
+var pendingCorrection=new PendingNoclipCorrection();
+pendingCorrection.Stage(1000,1,0,10,20,30);
+Check(!pendingCorrection.Observe(1000,1,0,10,20,30,true),"Teleport request cannot instantly count as arrival");
+Check(!pendingCorrection.Observe(1100,1,0,50,20,30,true)&&pendingCorrection.Active,"Wrong destination does not count");
+Check(pendingCorrection.Observe(1200,1,0,10.1,20,30,true)&&!pendingCorrection.Active,"Observed destination counts once");
+Check(!pendingCorrection.Observe(1300,1,0,10,20,30,true),"Same arrival cannot count twice");
+pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(4100,1,0,10,20,30,true)&&!pendingCorrection.Active,"Late arrival cannot punish");
+pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(1200,2,0,10,20,30,true),"Different entity cannot confirm correction");
+pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(1200,1,1,10,20,30,true),"Different dimension cannot confirm correction");
+pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(1200,1,0,10,20,30,false),"Lag/mount/disabled protection cancels correction confirmation");
+nuker.Reset();for(int i=0;i<31;i++)Check(!nuker.Observe(40000,i,0,0,30,true).Kick,"Reset context cannot inherit old burst confirmation");
+Console.WriteLine("PASS: asynchronous correction arrival, timeout, identity/dimension/health exclusions and nuker context reset.");

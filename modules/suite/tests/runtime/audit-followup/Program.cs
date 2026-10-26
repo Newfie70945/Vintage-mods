@@ -201,6 +201,33 @@ if((long)occurrenceRow.GetType().GetProperty("Count")!.GetValue(occurrenceRow)!=
 if(((IList)occurrenceSession.GetType().GetProperty("Findings")!.GetValue(occurrenceSession)!).Count!=1)throw new Exception("Occurrence counting duplicated risk evidence rows");
 Console.WriteLine("PASS: recorded occurrence counts/timestamps are separate from current deduplicated findings.");
 
+
+// Native queued-kick regression: changing the configured limit invalidates old evidence.
+object nukerConfig=Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatConfig"))!;
+Set(nukerConfig,"PacketGuardExemptAdmins",false);
+object nukerGuard=constructor.Invoke(new[]{sessionApi,nukerConfig,reporter,health});Set(nukerGuard,"active",true);
+var entityField=worldData.GetType().GetField("Entityplayer",fields)!;
+object nativeEntity=Activator.CreateInstance(entityField.FieldType)!;
+entityField.SetValue(worldData,nativeEntity);
+Set(worldData,"GameMode",Enum.Parse(modeType,"Survival"));Set(client,"Player",player);
+var breakBurst=guardType.GetMethod("ValidateBreakBurst",fields)!;
+breakBurst.Invoke(nukerGuard,[client,0,0,0]);
+var table=guardType.GetField("connections",fields)!.GetValue(nukerGuard)!;
+object?[] lookup=[client,null];table.GetType().GetMethod("TryGetValue")!.Invoke(table,lookup);
+object context=lookup[1]!;var window=context.GetType().GetField("Nuker",fields)!.GetValue(context)!;
+var observeNuker=window.GetType().GetMethod("Observe",fields)!;
+long earlier=Environment.TickCount64-1100;
+for(int n=0;n<31;n++)observeNuker.Invoke(window,[earlier,n,0,0,30,true]);
+pending.Clear();for(int n=0;n<31;n++)breakBurst.Invoke(nukerGuard,[client,n,0,0]);
+if(pending.Count==0 || !(bool)context.GetType().GetField("NukerKickPending",fields)!.GetValue(context)!)throw new Exception("Expected confirmed queued kick fixture");
+var obsoleteKick=pending.Last();int beforeObsolete=findings;
+Set(nukerConfig,"PacketGuardBlockNukerLimit",200);obsoleteKick();
+if(findings!=beforeObsolete || (bool)context.GetType().GetField("NukerKicked",fields)!.GetValue(context)!)throw new Exception("Changed limit did not invalidate queued kick");
+// After resetting context, an old callback must not clear the new pending flag.
+breakBurst.Invoke(nukerGuard,[client,1,0,0]);Set(context,"NukerKickPending",true);obsoleteKick();
+if(!(bool)context.GetType().GetField("NukerKickPending",fields)!.GetValue(context)!)throw new Exception("Old kick callback cleared new context pending state");
+Console.WriteLine("PASS: compiled queued Block Nuker kick respects changed limit and context generation.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> handler) {
     object result = DispatchProxy.Create(type, typeof(AuditProxy));
     ((AuditProxy)result).Handler = handler; return result;

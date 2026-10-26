@@ -53,3 +53,25 @@ internal sealed class NoclipCorrectionHistory
         return corrections.Count>=Math.Clamp(threshold,2,50);
     }
 }
+
+// A teleport API return is not evidence that the correction reached its destination.
+internal sealed class PendingNoclipCorrection
+{
+    internal bool Active { get; private set; }
+    private long requested,entity;
+    private int dimension;
+    private double x,y,z;
+    internal void Stage(long now,long entityId,int dim,double targetX,double targetY,double targetZ)
+    {requested=now;entity=entityId;dimension=dim;x=targetX;y=targetY;z=targetZ;Active=true;}
+    internal bool Observe(long now,long entityId,int dim,double actualX,double actualY,double actualZ,bool eligible)
+    {
+        if(!Active)return false;
+        if(!eligible || entityId!=entity || dim!=dimension || now<requested || now-requested>3000 ||
+            !double.IsFinite(actualX)||!double.IsFinite(actualY)||!double.IsFinite(actualZ)){Reset();return false;}
+        if(now-requested<75)return false;
+        double dx=actualX-x,dy=actualY-y,dz=actualZ-z;
+        if(dx*dx+dy*dy+dz*dz>0.75*0.75)return false;
+        Reset();return true;
+    }
+    internal void Reset()=>Active=false;
+}
