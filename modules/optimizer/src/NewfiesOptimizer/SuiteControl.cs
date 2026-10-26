@@ -14,7 +14,7 @@ public sealed partial class OptimizerMod
         available = true, protocol = 1, version = typeof(OptimizerMod).Assembly.GetName().Version?.ToString(3) ?? "unknown", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "emotion-search-reuse", "temperature-animation-checks", "crafting-candidate-dedup", "barrel-recipe-memo", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
+        capabilities = new[] { "emotion-search-reuse", "temperature-animation-checks", "crafting-candidate-dedup", "barrel-recipe-memo", "block-update-diagnostics", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
             idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
             craftingCandidateDedup=currentConfig.EngineOptimizations.CraftingCandidateDedup,
@@ -22,6 +22,8 @@ public sealed partial class OptimizerMod
             barrelMatchCountGuard = currentConfig.EngineOptimizations.BarrelMatchCountGuard,
             barrelRecipeMemo = currentConfig.EngineOptimizations.BarrelRecipeMemo,
             barrelRecipeRescanEvery = currentConfig.EngineOptimizations.BarrelRecipeRescanEvery,
+            blockUpdateDiagnostics = currentConfig.EngineOptimizations.BlockUpdateDiagnostics,
+            blockUpdateDiagnosticsMs = currentConfig.EngineOptimizations.BlockUpdateDiagnosticsMs,
             barrelIngredientPairing = currentConfig.EngineOptimizations.BarrelIngredientPairing,
             wildBushCallbackFlatten = currentConfig.EngineOptimizations.WildBushCallbackFlatten,
             chunkUnloadStagingReuse = currentConfig.EngineOptimizations.ChunkUnloadStagingReuse,
@@ -143,6 +145,8 @@ public sealed partial class OptimizerMod
                 case "barrelMatchCountGuard": candidate.EngineOptimizations.BarrelMatchCountGuard=B(); break;
                 case "barrelRecipeMemo": candidate.EngineOptimizations.BarrelRecipeMemo=B(); break;
                 case "barrelRecipeRescanEvery": candidate.EngineOptimizations.BarrelRecipeRescanEvery=N(2,100); break;
+                case "blockUpdateDiagnostics": candidate.EngineOptimizations.BlockUpdateDiagnostics=B(); break;
+                case "blockUpdateDiagnosticsMs": candidate.EngineOptimizations.BlockUpdateDiagnosticsMs=N(10,1000); break;
                 case "barrelIngredientPairing": candidate.EngineOptimizations.BarrelIngredientPairing=B(); break;
                 case "wildBushCallbackFlatten": candidate.EngineOptimizations.WildBushCallbackFlatten=B(); break;
                 case "chunkUnloadStagingReuse": candidate.EngineOptimizations.ChunkUnloadStagingReuse=B(); break;

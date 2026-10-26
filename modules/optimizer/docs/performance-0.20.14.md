@@ -54,3 +54,9 @@ The full optimizer suite (`tools/build.py`) passes against the official 1.22.7 s
 - Barrels that hold contents matching a recipe that isn't valid yet still search natively whenever their contents change. Only the unchanged-storage case is skipped.
 - Callback bursts are still aligned: this module makes each barrel cheap but does not spread barrels across ticks.
 - Mods that change barrel recipe results from world state without touching the slots see their change applied up to N × 3 s late. Lower `BarrelRecipeRescanEvery`, or leave the module off, if that matters on your server.
+
+## Block-update diagnostics
+
+A later capture from the same server, taken before the barrel module was deployed, showed `gmleVintagestory.Server.ServerSystemBlockSimulation` at 100–336 ms in most slow ticks. Decompiled 1.22.7 code shows that this entry is the 100 ms `UpdateEvery100ms` listener, not the queued block ticks that `blockSimulationBudget` limits. Each pass drains every changed-block queue with no cap: for each block it runs neighbour updates and block-entity sync, and sends set-block packets to clients. The profiler does not show which queue was large.
+
+`EngineOptimizations.BlockUpdateDiagnostics` (off by default) logs one rate-limited line for passes slower than `BlockUpdateDiagnosticsMs`. The line gives the queue sizes before the pass and the time split, so a later change can target the real cause rather than a guess. It is observational only. `tests/BlockUpdateDiagnosticsTests` (9 checks) drives the real listener and verifies the following: no observation while disabled; counted but silent fast passes; correct queue counts and time attribution; queued work left untouched; rate limiting; and unchanged exception propagation.

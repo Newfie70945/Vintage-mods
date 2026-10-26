@@ -23,6 +23,7 @@ public sealed class OptimizerConfig
         Dashboard ??= new(); Compatibility ??= new(); Benchmarking ??= new();
         EngineOptimizations.BlockSimulationBudgetMs = Math.Clamp(EngineOptimizations.BlockSimulationBudgetMs, 1, 20);
         EngineOptimizations.BarrelRecipeRescanEvery = Math.Clamp(EngineOptimizations.BarrelRecipeRescanEvery, 2, 100);
+        EngineOptimizations.BlockUpdateDiagnosticsMs = Math.Clamp(EngineOptimizations.BlockUpdateDiagnosticsMs, 10, 1000);
         EngineOptimizations.EntityProtectionRadius = Math.Clamp(EngineOptimizations.EntityProtectionRadius, 48, 256);
         EngineOptimizations.AiDistanceIntervalMs = Math.Clamp(EngineOptimizations.AiDistanceIntervalMs, 100, 1000);
         EngineOptimizations.DistantWanderIntervalMs = Math.Clamp(EngineOptimizations.DistantWanderIntervalMs, 250, 10000);
@@ -95,6 +96,8 @@ public sealed class EngineOptimizationOptions
     public int BlockSimulationBudgetMs { get; set; } = 5;
     public bool BarrelMatchCountGuard { get; set; } = false;
     public bool BarrelRecipeMemo { get; set; } = false;
+    public bool BlockUpdateDiagnostics { get; set; } = false;
+    public int BlockUpdateDiagnosticsMs { get; set; } = 50;
     public int BarrelRecipeRescanEvery { get; set; } = 10;
     public bool IdleFirepitFastPath { get; set; } = false;
     public bool BarrelIngredientPairing { get; set; } = true;
