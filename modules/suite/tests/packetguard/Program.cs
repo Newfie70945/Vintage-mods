@@ -114,3 +114,8 @@ Check(!PacketMovementEvidence.FreshPosition(1000,1001)&&!PacketMovementEvidence.
 Check(!PacketMovementEvidence.ReliableCollisionTiming(true,false,false,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,true,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,false,true,true),"Warmup, degraded timing and critical lag suppress noclip evidence");
 Check(PacketMovementEvidence.ReliableCollisionTiming(true,true,false,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,false,false,false),"Healthy fresh movement remains eligible");
 Console.WriteLine("PASS: flight identity/dimension resets and fresh/healthy noclip evidence eligibility.");
+
+Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP",""),"Old noclip observations without fresh eligibility cannot punish");
+Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=False;correctionConfigured=False"),"Noclip correction-off observations stay review-only");
+Check(!AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=True;correctionConfigured=True"),"Qualified correction-enabled collision evidence retains configured enforcement");
+Console.WriteLine("PASS: noclip review-mode and legacy findings cannot enter automatic punishment paths.");

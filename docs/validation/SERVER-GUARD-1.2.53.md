@@ -12,6 +12,7 @@ Follow-up to main `8eb44fa`. This is a Suite-only change; client protocol, optim
 - Noclip checks require healthy/ready timing and a recent position. Unknown terrain, invalid/oversized/throwing collision geometry and oversized body probes are insufficient evidence. Probes never request/load terrain.
 - Path checks require known clear endpoints, so exiting an existing overlap is not a new wall crossing. The whole sampled path must remain known, even after enough collisions were seen earlier in the segment.
 - Endpoint overlap still requires configured penetration, independent samples and net movement, plus at least 500 ms elapsed. Same-time samples, stale gaps and dimension changes reset the confirmation window.
+- Noclip with correction disabled is now explicitly review-only: no added noclip movement risk or automatic consequence eligibility. Legacy collision findings lacking fresh eligibility metadata remain review-only after upgrade.
 - Collision finding text no longer claims a successful rollback when corrections may be disabled; evidence records the configured correction policy.
 
 ## Use and limits

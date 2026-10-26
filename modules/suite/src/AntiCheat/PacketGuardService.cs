@@ -1656,13 +1656,13 @@ internal sealed class PacketGuardService : IDisposable
                     state.EndpointCollisionSamples >= config.PacketGuardNoclipEndpointConfirmSamples &&
                     endpointNetMovement >= config.PacketGuardNoclipEndpointMinNetMovement && now-state.EndpointCollisionSinceUtc>=500)
                 {
-                    double endpointMovementRisk = AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now);
+                    double endpointMovementRisk = config.PacketGuardRejectNoclip ? AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now) : state.MovementRiskScore;
                     string endpointEvidence =
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"endpointPenetration={endpointPenetration:0.000};minPenetration={config.PacketGuardNoclipEndpointMinPenetrationDepth:0.000};" +
                         $"endpointConfirm={state.EndpointCollisionSamples}/{config.PacketGuardNoclipEndpointConfirmSamples};endpointSpanMs={Math.Max(0,now-state.EndpointCollisionSinceUtc)};minimumSpanMs=500;" +
                         $"endpointNetMovement={endpointNetMovement:0.000};minNetMovement={config.PacketGuardNoclipEndpointMinNetMovement:0.000};block={endpointBlock};" +
-                        $"correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"noclipEnforcementEligible={config.PacketGuardRejectNoclip};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(
@@ -1696,12 +1696,12 @@ internal sealed class PacketGuardService : IDisposable
                     TryDetectNoclipPath(entity, state.X, state.Y, state.Z, pos.X, pos.Y, pos.Z, pos.Dimension,
                         out int collisionSamples, out double maxPenetrationDepth, out string collisionBlock))
                 {
-                    double pathMovementRisk = AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now);
+                    double pathMovementRisk = config.PacketGuardRejectNoclip ? AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now) : state.MovementRiskScore;
                     string noclipEvidence =
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"collisionSamples={collisionSamples};required={config.PacketGuardNoclipRequiredCollisionSamples};" +
                         $"maxPenetration={maxPenetrationDepth:0.000};minPenetration={config.PacketGuardNoclipMinPenetrationDepth:0.000};" +
-                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};noclipEnforcementEligible={config.PacketGuardRejectNoclip};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(

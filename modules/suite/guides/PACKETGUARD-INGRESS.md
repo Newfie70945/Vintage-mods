@@ -39,3 +39,11 @@ The supplied exploit client and an attack capture were not available. A vanilla 
 The frame cap applies after the network library has allocated its socket buffer. It protects downstream parsing/queueing, not the entire network stack. Native UDP's existing transport frame cap remains the engine's responsibility; the new scoped reader prevents declared-array allocation amplification inside that frame.
 
 Run the production policy tests with `dotnet run --project tests/packetguard/PacketIngressPolicyTests.csproj`. The runtime tests under `tests/runtime/ingress` load the official assemblies to verify real Harmony targets/field access and safe valid/corrupt byte-array fixtures without launching a server. Complete a staged server check with normal building/mining, inventory interactions, initial/revised view distance, decor removal, teleports, mounted movement and the server's installed mod set before production deployment.
+
+## Server evidence follow-up (1.2.53 / serverguard1)
+
+Flood confirmation requires independently spaced observations; one large burst cannot supply all the evidence for a sparse tail. Existing resource limits still drop excess traffic. Findings show accepted/dropped totals and the configured budget. Delayed findings remain bound to the observed session.
+
+Unsupported unmounted flight remains advisory-only (`PACKET_FLIGHT_REVIEW`); legitimate modded physics can look similar. Entity/dimension changes reset its window. Noclip checks skip stale positions, lag/warmup and unknown/invalid terrain geometry.
+
+For noclip testing, enable the detector but turn **Reject noclip** off (`PacketGuardRejectNoclip=false`). This now makes new noclip findings review-only, without added noclip movement risk or automatic punishment eligibility. Review live modpack evidence before enabling corrections. No detector can prove intent from collision overlap alone.

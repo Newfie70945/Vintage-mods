@@ -13,6 +13,7 @@ internal static class AntiCheatObservationPolicy
     // without confirmation metadata remain review-only after upgrading.
     internal static bool IsReviewOnly(string? code,string? evidence) => IsReviewOnly(code) ||
         (string.Equals(code,"PACKET_FLOOD",StringComparison.OrdinalIgnoreCase) && !HasValue(evidence,"floodConfirmed","True")) ||
+        (string.Equals(code,"PACKET_NOCLIP",StringComparison.OrdinalIgnoreCase) && !HasValue(evidence,"noclipEnforcementEligible","True")) ||
         (string.Equals(code,"PACKET_BLOCK_REACH",StringComparison.OrdinalIgnoreCase) &&
             (!HasValue(evidence,"reachEnforcementEligible","True") || HasValue(evidence,"action","use") || HasValue(evidence,"timingRejectSuppressed","True")));
 
