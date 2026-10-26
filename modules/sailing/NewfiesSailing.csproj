@@ -7,7 +7,7 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AssemblyName>NewfiesSailing</AssemblyName>
     <RootNamespace>NewfiesSailing</RootNamespace>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Product>Newfie's Realistic Sailing</Product>
   </PropertyGroup>
   <ItemGroup>
@@ -19,6 +19,7 @@
       <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <None Include="assets\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="modinfo.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
   </ItemGroup>
 </Project>

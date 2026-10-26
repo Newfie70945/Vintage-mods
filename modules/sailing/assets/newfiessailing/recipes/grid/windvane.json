@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "F,S",
+ "ingredients": {
+  "F": {
+   "type": "item",
+   "code": "game:feather"
+  },
+  "S": {
+   "type": "item",
+   "code": "game:stick"
+  }
+ },
+ "width": 1,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:windvane"
+ }
+}

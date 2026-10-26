@@ -1,0 +1,10 @@
+{
+ "item-weatherglass": "Weather glass",
+ "itemdesc-weatherglass": "A brass barometer. Right-click to read pressure, trend and forecast. Pressure falls before squalls.",
+ "item-windvane": "Wind vane",
+ "itemdesc-windvane": "Right-click to read the wind: direction, strength in knots and Beaufort force.",
+ "item-anchor": "Ship's anchor",
+ "itemdesc-anchor": "Right-click while riding a sailboat to drop or raise the anchor. Drags in gales.",
+ "item-logbook": "Sailor's logbook",
+ "itemdesc-logbook": "Right-click to read your sailing record: distance, squalls and temporal storms survived."
+}

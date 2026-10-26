@@ -27,6 +27,8 @@ public sealed class SailingConfig
     public string[] HullRepairItems { get; set; } = { "plank", "resin" };
     public string[] SailRepairItems { get; set; } = { "linen", "flaxtwine", "rope" };
     public bool SeasonalWindEnabled { get; set; } = true;
+    /// <summary>When true, /sailing glass, vane, anchor and log need the matching crafted item in the hotbar (creative mode exempt).</summary>
+    public bool RequireItemsForCommands { get; set; } = true;
     public bool TemporalStormsEnabled { get; set; } = true;
     /// <summary>Max radians the wind direction wanders either side during a temporal storm.</summary>
     public double TemporalStormWindRotation { get; set; } = 1.5;

@@ -1,0 +1,15 @@
+{
+ "ingredientPattern": "_I_,III",
+ "ingredients": {
+  "I": {
+   "type": "item",
+   "code": "game:ingot-iron"
+  }
+ },
+ "width": 3,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:anchor"
+ }
+}

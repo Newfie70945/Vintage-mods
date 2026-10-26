@@ -1,0 +1,50 @@
+{
+ "code": "weatherglass",
+ "class": "ItemSailingTool",
+ "maxstacksize": 1,
+ "attributes": {
+  "sailingTool": "glass"
+ },
+ "shape": {
+  "base": "item/weatherglass"
+ },
+ "textures": {
+  "main": {
+   "base": "item/weatherglass"
+  }
+ },
+ "creativeinventory": {
+  "general": [
+   "*"
+  ]
+ },
+ "guiTransform": {
+  "rotation": {
+   "x": -25,
+   "y": -35,
+   "z": 0
+  },
+  "origin": {
+   "x": 0.5,
+   "y": 0.45,
+   "z": 0.5
+  },
+  "scale": 1.6
+ },
+ "groundTransform": {
+  "scale": 2.2
+ },
+ "tpHandTransform": {
+  "translation": {
+   "x": -0.8,
+   "y": -0.2,
+   "z": -0.6
+  },
+  "rotation": {
+   "x": 0,
+   "y": -30,
+   "z": -20
+  },
+  "scale": 0.7
+ }
+}

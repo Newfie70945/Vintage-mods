@@ -53,6 +53,7 @@ public sealed class SailingModSystem : ModSystem
 
     public override void Start(ICoreAPI api)
     {
+        api.RegisterItemClass("ItemSailingTool", typeof(ItemSailingTool));
         api.Network.RegisterChannel(ChannelName).RegisterMessageType<SailingSyncPacket>();
     }
 
@@ -86,13 +87,17 @@ public sealed class SailingModSystem : ModSystem
                 .WithArgs(api.ChatCommands.Parsers.WordRange("mode", "full", "reefed", "furled"))
                 .HandleWith(args => SetTrim(args.Caller.Player as IServerPlayer, args[0] as string))
             .EndSubCommand()
+            .BeginSubCommand("vane")
+                .WithDescription("Read the wind vane: direction, strength and Beaufort force")
+                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "vane", () => TextCommandResult.Success(Vane(args.Caller.Player as IServerPlayer))))
+            .EndSubCommand()
             .BeginSubCommand("anchor")
                 .WithDescription("Drop or raise the anchor of the boat you are riding")
-                .HandleWith(args => ToggleAnchor(args.Caller.Player as IServerPlayer))
+                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "anchor", () => ToggleAnchor(args.Caller.Player as IServerPlayer)))
             .EndSubCommand()
             .BeginSubCommand("glass")
                 .WithDescription("Read the weather glass and wind vane: pressure, trend and forecast")
-                .HandleWith(args => TextCommandResult.Success(Glass(args.Caller.Player as IServerPlayer)))
+                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "glass", () => TextCommandResult.Success(Glass(args.Caller.Player as IServerPlayer))))
             .EndSubCommand()
             .BeginSubCommand("repair")
                 .WithDescription("Repair the hull or sails of a nearby boat using the item in your hand")
@@ -101,7 +106,7 @@ public sealed class SailingModSystem : ModSystem
             .EndSubCommand()
             .BeginSubCommand("log")
                 .WithDescription("Show your sailing logbook")
-                .HandleWith(args => TextCommandResult.Success(LogBook(args.Caller.Player as IServerPlayer)))
+                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "log", () => TextCommandResult.Success(LogBook(args.Caller.Player as IServerPlayer))))
             .EndSubCommand()
             .BeginSubCommand("teststorm")
                 .WithDescription("Toggle a simulated temporal storm at sea (testing)")
@@ -240,6 +245,52 @@ public sealed class SailingModSystem : ModSystem
             seasonFactor = SailingModel.SeasonWindFactor(seasonName);
         }
         catch { seasonFactor = 1; }
+    }
+
+    private static string? ToolOf(ItemSlot slot) => slot?.Itemstack?.Collectible?.Attributes?["sailingTool"]?.AsString();
+
+    private bool HasTool(IServerPlayer player, string tool)
+    {
+        if (player.WorldData.CurrentGameMode == EnumGameMode.Creative) return true;
+        IInventory? hotbar = player.InventoryManager.GetHotbarInventory();
+        if (hotbar == null) return false;
+        foreach (ItemSlot slot in hotbar)
+            if (!slot.Empty && ToolOf(slot) == tool) return true;
+        return false;
+    }
+
+    private static readonly Dictionary<string, string> ToolNames = new()
+    {
+        ["glass"] = "weather glass", ["vane"] = "wind vane", ["anchor"] = "anchor", ["log"] = "sailor's logbook"
+    };
+
+    /// <summary>Commands remain available, but require the matching item in the hotbar unless RequireItemsForCommands is false.</summary>
+    private TextCommandResult Gated(IServerPlayer? player, string tool, Func<TextCommandResult> run)
+    {
+        if (player != null && config.RequireItemsForCommands && !HasTool(player, tool))
+            return TextCommandResult.Error($"You need a {ToolNames[tool]} in your hotbar. Craft one, or ask an admin to enable commands without items.");
+        return run();
+    }
+
+    /// <summary>Called by the tool items on right-click (server only).</summary>
+    public string UseTool(IServerPlayer player, string tool) => tool switch
+    {
+        "glass" => Glass(player),
+        "vane" => Vane(player),
+        "anchor" => ToggleAnchor(player).StatusMessage ?? "",
+        "log" => LogBook(player),
+        _ => ""
+    };
+
+    private string Vane(IServerPlayer? player)
+    {
+        if (player?.Entity == null) return "No position available.";
+        double knots = KnotsAt(player.Entity.Pos.XYZ, out Vec3d wind);
+        int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+        double from = SailingModel.WindFromBearing(wind.X, wind.Z);
+        if (temporalStorm) from = (from + SailingModel.CompassNoise(elapsed) + 360) % 360;
+        return $"Wind vane: out of the {SailingModel.Compass(from)} ({from:0} deg) at {knots:0.#} kn, Force {force} - {SailingModel.BeaufortName(force)}." +
+               (temporalStorm ? "\nThe vane spins uselessly." : "");
     }
 
     private TextCommandResult ToggleAnchor(IServerPlayer? player)

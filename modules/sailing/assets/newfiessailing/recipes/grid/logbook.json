@@ -1,0 +1,15 @@
+{
+ "ingredientPattern": "PP,PP",
+ "ingredients": {
+  "P": {
+   "type": "item",
+   "code": "game:paper-parchment"
+  }
+ },
+ "width": 2,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:logbook"
+ }
+}

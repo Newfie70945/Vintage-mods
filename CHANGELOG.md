@@ -1,5 +1,9 @@
 # Current release changes
 
+## Realistic Sailing 0.5.0
+
+- Real items: weather glass, wind vane, ship's anchor and sailor's logbook (right-click to use, craftable, English lang). `/sailing glass|vane|anchor|log` now need the matching item in the hotbar unless `RequireItemsForCommands` is false; creative mode is exempt. The mod is now required on clients. Item models/textures are simple placeholders and recipes use vanilla codes that have not been verified in game.
+
 ## Realistic Sailing 0.4.0
 
 - Boat wear and repair: hull and sail condition drop faster in gales, when overpowered and in temporal storms, slow the boat and warn at 50/25/10%. `/sailing repair hull|sail` consumes a held plank/resin or linen/flaxtwine/rope (configurable) for +25%.

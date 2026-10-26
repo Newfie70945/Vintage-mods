@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.4.0
+# Newfie's Realistic Sailing 0.5.0
 
 Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weather.
 
@@ -21,6 +21,17 @@ Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weath
 - **`/sailing`.** Shows wind speed in knots, direction (compass), Beaufort force, wave height and, while under way, your current point of sail.
 
 Only entities whose code contains `boat` and one of `BoatCodeContains` (default `sail`) are affected, so rafts are untouched. Mounted players must be within 6 blocks of the boat.
+
+## Items
+
+| Item | Use (right-click) | Recipe |
+| --- | --- | --- |
+| Weather glass | pressure, trend, forecast | glass over copper ingot |
+| Wind vane | wind direction, knots, Beaufort force | feather over stick |
+| Ship's anchor | drop/raise anchor on the boat you ride | 4 iron ingots (T shape) |
+| Sailor's logbook | your sailing record | 4 parchment |
+
+The matching `/sailing` commands still work but require the item in your hotbar (`RequireItemsForCommands`, creative exempt). Because the mod adds items it must be installed on clients too. Textures and shapes are simple placeholders; recipe ingredient codes (`glass-plain`, `feather`, `paper-parchment`) are unverified against the game.
 
 ## Configuration
 
