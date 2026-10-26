@@ -255,6 +255,8 @@ These changes remove temporary allocations. They do not reduce animation frequen
 
 `EngineOptimizations.BarrelMatchCountGuard=false` controls rejection of impossible native barrel ingredient counts without allocating a failed-match list. Enable individually and verify actual state/counters. From 0.20.2 the accepted exact native slot types include ItemSlotBarrelInput, with inherited getter verification and conflict checks. Matching recipes and custom types retain native behavior. See [evidence and limits](performance-0.19.0.md).
 
+`EngineOptimizations.BarrelRecipeMemo=false` (experimental) skips the full barrel recipe search that a non-empty barrel without a current recipe repeats every 3 s. A barrel is skipped only while both slots hold the same stack objects, collectibles and sizes as its last search that found nothing and left the contents unchanged. `BarrelRecipeRescanEvery=10` (2–100) forces a native search every N checks, so a recipe that becomes valid through mod-hook or in-place attribute state alone starts within N × 3 s instead of the next tick. Content changes, sealed-recipe barrels, custom barrel subclasses, empty barrels and recipe crafting stay native. Counters: `barrelRecipeMemoChecks`, `Skipped`, `Scans`, `Fallbacks`, `Failures`. See [the 0.20.14 notes](performance-0.20.14.md).
+
 ## Native block simulation scheduling (0.20.0)
 
 `EngineOptimizations.BlockSimulationBudget=false`; `BlockSimulationBudgetMs=5` (1–20). Optional soft time budget for the native queued block-tick loop. Pending callbacks remain FIFO and may run later; individual callbacks cannot be interrupted. More than 8,192 queued entries triggers stock fallback. This changes simulation timing. [Details and limits](performance-0.20.0.md).

@@ -116,6 +116,8 @@
     "SpawnOpportunityListReuse": false,
     "SpawnColumnArrayReuse": false,
     "BarrelMatchCountGuard": false,
+    "BarrelRecipeMemo": false,
+    "BarrelRecipeRescanEvery": 10,
     "BlockSimulationBudget": false,
     "BlockSimulationBudgetMs": 5,
     "EntityLoadedDispatchReuse": false,
