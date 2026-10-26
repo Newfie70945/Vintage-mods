@@ -47,7 +47,7 @@ static class Checks
   // A long registry where every recipe reaches the collectible hook: one hook call per recipe per native scan.
   const int recipeCount=300;
   for(int i=0;i<recipeCount;i++)registry.BarrelRecipes.Add(new BarrelRecipe{Code="test"+i,SealHours=10,Ingredients=[new(){Code=new("test:*"),Type=EnumItemClass.Item,Quantity=1,MatchingType=EnumRecipeMatchType.Wildcard}],Output=new(){Code=new("test:out"),StackSize=1}});
-  T Barrel<T>(Item? item) where T:BlockEntityBarrel,new(){var barrel=new T{Api=api,Pos=new BlockPos(1,2,3)};if(item!=null)barrel.Inventory[0].Itemstack=new ItemStack(item);return barrel;}
+  T Barrel<T>(Item? item,BlockPos? pos=null) where T:BlockEntityBarrel,new(){var barrel=new T{Api=api,Pos=pos??new BlockPos(1,2,3)};if(item!=null)barrel.Inventory[0].Itemstack=new ItemStack(item);return barrel;}
   var harmony=new Harmony("test.nos.barrelmemo");
   harmony.Patch(BarrelRecipeMemoOptimizations.Target,prefix:new HarmonyMethod(typeof(BarrelRecipeMemoOptimizations),nameof(BarrelRecipeMemoOptimizations.Prefix)),
    postfix:new HarmonyMethod(typeof(BarrelRecipeMemoOptimizations),nameof(BarrelRecipeMemoOptimizations.Postfix)),finalizer:new HarmonyMethod(typeof(BarrelRecipeMemoOptimizations),nameof(BarrelRecipeMemoOptimizations.Finalizer)));
@@ -62,8 +62,19 @@ static class Checks
    var storage=Barrel<BlockEntityBarrel>(stored);hooks=0;var before=BarrelRecipeMemoOptimizations.Counters;
    for(int i=0;i<20;i++)tick(storage,3);
    var after=BarrelRecipeMemoOptimizations.Counters;
-   Assert(hooks==2*recipeCount,"unchanged contents scan on ticks 1 and 11 only, got "+hooks/recipeCount);
-   Assert(after.Skipped-before.Skipped==18&&after.Scans-before.Scans==2&&after.Checks-before.Checks==20,"counters report skips and scans");
+   // Expected schedule: scan once, then a native rescan every 10 checks, offset by the barrel's position phase.
+   int phase=BarrelRecipeMemoOptimizations.Phase(storage,10),expectedScans=0,skips=-1;
+   for(int i=0;i<20;i++){if(skips>=0&&skips<9)skips++;else{skips=expectedScans==0?phase:0;expectedScans++;}}
+   Assert(phase>=0&&phase<9,"position phase stays inside the rescan interval");
+   Assert(hooks==expectedScans*recipeCount&&expectedScans<=3,"unchanged contents rescan only on the phased schedule, got "+hooks/recipeCount+" expected "+expectedScans);
+   Assert(after.Skipped-before.Skipped==20-expectedScans&&after.Scans-before.Scans==expectedScans&&after.Checks-before.Checks==20,"counters report skips and scans");
+
+   // Barrels that load together must not all rescan on the same tick.
+   BarrelRecipeMemoOptimizations.Configure(true);
+   var spread=Enumerable.Range(0,1000).Select(i=>Barrel<BlockEntityBarrel>(stored,new BlockPos(512000+i%37*3,110+i%7,511000+i/37*2))).ToArray();
+   foreach(var b in spread)tick(b,3);int worst=0;
+   for(int round=0;round<30;round++){long s0=BarrelRecipeMemoOptimizations.Counters.Scans;foreach(var b in spread)tick(b,3);worst=Math.Max(worst,(int)(BarrelRecipeMemoOptimizations.Counters.Scans-s0));}
+   Assert(worst<=250,"forced rescans spread across ticks; worst round rescanned "+worst+" of 1000 barrels");
 
    // Any content change forces the very next tick to scan natively.
    hooks=0;storage.Inventory[0].Itemstack!.StackSize++;tick(storage,3);Assert(hooks==recipeCount,"stack size change rescans");
@@ -125,16 +136,16 @@ static class Checks
    stored.Hook=()=>hooks++;hooks=0;long checksAfterFailure=BarrelRecipeMemoOptimizations.Counters.Checks;for(int i=0;i<3;i++)tick(faulty,3);
    Assert(hooks==3*recipeCount&&BarrelRecipeMemoOptimizations.Counters.Checks==checksAfterFailure,"failed module keeps stock until reapply");
 
-   // Measurement: 1,000 storage barrels against the 300-recipe registry, ten 3-second ticks each.
+   // Measurement: 1,000 storage barrels against the 300-recipe registry, twenty 3-second ticks each.
    object Measure(bool on)
    {
     BarrelRecipeMemoOptimizations.SetRescanEvery(10);BarrelRecipeMemoOptimizations.Configure(on);stored.Hook=null;
-    var barrels=Enumerable.Range(0,1000).Select(_=>Barrel<BlockEntityBarrel>(stored)).ToArray();
+    var barrels=Enumerable.Range(0,1000).Select(i=>Barrel<BlockEntityBarrel>(stored,new BlockPos(512000+i%37*3,110+i%7,511000+i/37*2))).ToArray();
     foreach(var b in barrels)tick(b,3);
-    long bytes=GC.GetAllocatedBytesForCurrentThread(),start=Stopwatch.GetTimestamp();
-    for(int round=0;round<10;round++)foreach(var b in barrels)tick(b,3);
+    long bytes=GC.GetAllocatedBytesForCurrentThread(),start=Stopwatch.GetTimestamp();double worstRound=0;
+    for(int round=0;round<20;round++){long r=Stopwatch.GetTimestamp();foreach(var b in barrels)tick(b,3);worstRound=Math.Max(worstRound,Stopwatch.GetElapsedTime(r).TotalMilliseconds);}
     double ms=Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-    return new{enabled=on,barrels=1000,recipes=recipeCount,msPerTickOfAllBarrels=ms/10,bytesPerBarrelTick=(GC.GetAllocatedBytesForCurrentThread()-bytes)/10000d};
+    return new{enabled=on,barrels=1000,recipes=recipeCount,msPerTickOfAllBarrels=ms/20,worstTickOfAllBarrelsMs=worstRound,bytesPerBarrelTick=(GC.GetAllocatedBytesForCurrentThread()-bytes)/20000d};
    }
    var measurements=new List<object>();for(int trial=0;trial<3;trial++){measurements.Add(Measure(false));measurements.Add(Measure(true));}
    string json=JsonSerializer.Serialize(new{checks,measurements,scope="Actual official BlockEntityBarrel.OnEvery3Second and BarrelRecipe matching with a synthetic 300-recipe registry and stored items that match no recipe. Not a production TPS claim."});

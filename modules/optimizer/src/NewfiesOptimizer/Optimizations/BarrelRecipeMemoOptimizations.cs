@@ -87,8 +87,19 @@ public static class BarrelRecipeMemoOptimizations
         // Memoize only a scan that found nothing and left the contents untouched:
         // an instant recipe may have crafted, and its output must be rescanned natively.
         if (__instance.CurrentRecipe != null || !Contents.Of(inventory[0], inventory[1]).Same(__state.Before)) { memos.Remove(__instance); return; }
-        var memo = memos.GetOrCreateValue(__instance);
-        memo.Last = __state.Before; memo.Skips = 0;
+        bool first = !memos.TryGetValue(__instance, out var memo);
+        if (first) memo = memos.GetOrCreateValue(__instance);
+        // Barrels loaded together share one 3 s listener beat. Start each new memo at a
+        // position-derived phase so forced rescans spread over the interval instead of
+        // every barrel rescanning on the same tick.
+        memo!.Last = __state.Before; memo.Skips = first ? Phase(__instance, Volatile.Read(ref rescanEvery)) : 0;
+    }
+    internal static int Phase(BlockEntityBarrel barrel, int every)
+    {
+        var pos = barrel.Pos;
+        if (pos == null || every <= 2) return 0;
+        uint hash = unchecked((uint)(pos.X * 73856093 ^ pos.InternalY * 19349663 ^ pos.Z * 83492791));
+        return (int)(hash % (uint)(every - 1));
     }
     public static Exception? Finalizer(Exception? __exception, Scan __state)
     {

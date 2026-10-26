@@ -13,6 +13,7 @@ The decompiled official `BlockEntityBarrel.OnEvery3Second` explains the cost. Ev
 - **When it skips.** It skips the recipe search only while both slots hold the same stack objects, collectibles and stack sizes as the barrel's last search. That last search must also have found no recipe and left the contents unchanged.
 - **When it searches anyway.** If a search changes the contents (for example an instant recipe crafts), the result is never remembered and the next tick searches natively.
 - **Periodic full search.** `BarrelRecipeRescanEvery` (default 10, range 2–100) forces a native search every N checks. Mod `MatchesForCrafting` hooks and in-place attribute changes therefore still take effect. A recipe that becomes valid through that kind of state alone starts within N × 3 s (30 s by default) instead of on the next tick. Any slot change still triggers the game's own immediate search through `SlotModified`.
+- **Spread rescans.** Barrels register their 3 s listener with no random offset, so barrels loaded together tick together. Each barrel's first memo therefore starts at a phase derived from its position. Forced rescans then spread across the interval, instead of every barrel rescanning on the same tick every 30 s.
 - **Sealed barrels.** On a skipped tick, the module runs the native remainder exactly: a sealed barrel without a recipe is unsealed and marked dirty.
 - **What stays native.** Barrels with a current recipe, empty barrels, custom barrel subclasses, non-standard inventories or slots, and client-side APIs all run the stock method. Recipe matching, sealing, crafting, outputs and recipe order are untouched.
 - **Guards.** The module is guarded by the official 1.22.7 IL hashes of `OnEvery3Second` and `FindMatchingRecipe(IPlayer)`. It is blocked if VSSurvivalMod's hash differs, and it conflicts out if another mod patches the tick, the search, the recipe accessor, `Matches` or `PairInput`.
@@ -22,10 +23,11 @@ The Suite → Optimizations → "Blocks, chunks and saves" section has two new c
 
 ## Evidence
 
-`tests/BarrelRecipeMemoTests` drives the real `BlockEntityBarrel.OnEvery3Second` and `BarrelRecipe` matching under Harmony. It has 19 checks:
+`tests/BarrelRecipeMemoTests` drives the real `BlockEntityBarrel.OnEvery3Second` and `BarrelRecipe` matching under Harmony. It has 21 checks:
 
 - disabled behaviour matches stock;
-- an unchanged barrel searches only on ticks 1 and 11;
+- an unchanged barrel searches once, then only on its phased rescan schedule;
+- barrels loaded together spread their forced rescans across rounds;
 - changes to stack size, the stack object, or either slot trigger a search;
 - a hook-only state change starts the recipe within the rescan interval;
 - barrels with an active recipe, empty barrels and custom subclasses keep the native path;
@@ -36,10 +38,12 @@ The Suite → Optimizations → "Blocks, chunks and saves" section has two new c
 
 Synthetic measurement: 1,000 storage barrels, a 300-recipe registry, three trials on the audit container.
 
-| | One tick of all barrels | Allocated per barrel tick |
-| --- | --- | --- |
-| Stock | 32–68 ms | 67.5 KB |
-| `BarrelRecipeMemo` (N = 10) | 3.3–4.0 ms | 6.8 KB |
+| | Average tick of all barrels | Worst tick of all barrels | Allocated per barrel tick |
+| --- | --- | --- | --- |
+| Stock | 31–34 ms | 34–70 ms | 67.5 KB |
+| `BarrelRecipeMemo` (N = 10) | 3.1–3.7 ms | 4.2–6.0 ms | 6.8 KB |
+
+A spread check confirms that no 3 s round rescans more than 250 of the 1,000 barrels. With phases forced to zero, that check fails, because every barrel rescans on the same round.
 
 These are component timings with synthetic recipes and items. They are not a production TPS claim, and real recipe counts and mod hooks will differ.
 
