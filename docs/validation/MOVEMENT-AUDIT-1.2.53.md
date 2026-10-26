@@ -26,3 +26,12 @@ Validation: official 1.22.7 build passed with zero warnings/errors; 21 compiled
 collision/flight runtime checks passed, including five rollback regression checks.
 PacketGuard policy suite, source consistency and whitespace checks passed.
 No live-player or modded-teleport integration run was performed in this pass.
+
+## Mounted flight follow-up
+Shared mount/dismount transition grace no longer depends on the general mount exemption
+switch. This covers flight review when main movement sampling is disabled. Existing
+server-side MountedOn, FreeMove/NoClip, game-mode and configured admin exemptions remain.
+PACKET_FLIGHT_REVIEW is advisory and excluded from automatic punishment.
+Policy regression confirms ineligible flight clears accumulated hover evidence and a full
+new observation window is needed after returning to eligibility. No live Draconis test
+was performed; compatibility relies on the mount exposing the native MountedOn relation.

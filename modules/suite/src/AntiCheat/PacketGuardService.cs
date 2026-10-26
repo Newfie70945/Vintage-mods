@@ -1066,7 +1066,9 @@ internal sealed class PacketGuardService : IDisposable
                 continue;
             }
 
-            if (config.PacketGuardExemptMountedPlayers && previous.Mounted != mounted)
+            // Transition grace is independent of whether mounted movement is enforced.
+            // Flight review also runs when the main movement detector is disabled.
+            if (previous.Mounted != mounted)
             {
                 PacketGuardTrustedState.Mark(
                     player,

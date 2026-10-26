@@ -119,3 +119,10 @@ Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP",""),"Old noclip ob
 Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=False;correctionConfigured=False"),"Noclip correction-off observations stay review-only");
 Check(!AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP","noclipEnforcementEligible=True;correctionConfigured=True"),"Qualified correction-enabled collision evidence retains configured enforcement");
 Console.WriteLine("PASS: noclip review-mode and legacy findings cannot enter automatic punishment paths.");
+
+// Mount/authorized-flight eligibility must discard accumulated hover evidence.
+var exemptFlight = new PacketFlightReviewWindow();
+for (int i=0;i<24;i++) Check(!exemptFlight.Observe(i*250,100,true,6000,1000), "Pre-exemption hover has not confirmed");
+Check(!exemptFlight.Observe(6000,100,false,6000,1000) && exemptFlight.DurationMs==0, "Mounted or authorized flight clears pending evidence");
+for (int i=0;i<24;i++) Check(!exemptFlight.Observe(6250+i*250,100,true,6000,1000), "After exemption a new full confirmation window is required");
+Check(exemptFlight.Observe(12250,100,true,6000,1000), "Sustained eligible flight is still detectable after exemption");
