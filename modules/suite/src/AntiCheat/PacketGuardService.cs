@@ -1125,11 +1125,6 @@ internal sealed class PacketGuardService : IDisposable
                     RecordTrustedTransitionSample(player, "tp-runes", previous, pos, TeleportVerificationForReason("tp-runes"), "trusted-server-teleport", now);
                     PacketGuardTrustedState.Mark(player, "tp-runes", config.PacketGuardTPRunesGraceMs, PacketGuardTrustScope.All);
                 }
-                else if (IsTrustedSpawnArrival(pos))
-                {
-                    RecordTrustedTransitionSample(player, "spawn", previous, pos, TeleportVerificationForReason("spawn"), "trusted-server-teleport", now);
-                    PacketGuardTrustedState.Mark(player, "spawn", config.PacketGuardEngineTeleportGraceMs, PacketGuardTrustScope.All);
-                }
                 else if (IsTrustedLinkedTranslocatorJump(player, previous.X, previous.Y, previous.Z, previous.Dimension, pos))
                 {
                     RecordTrustedTransitionSample(player, "vanilla-translocator-linked-direct", previous, pos, TeleportVerificationForReason("vanilla-translocator-linked-direct"), "trusted-translocator", now);
@@ -1415,7 +1410,7 @@ internal sealed class PacketGuardService : IDisposable
                     continue;
                 }
             }
-            if (config.PacketGuardExemptMountedPlayers && state.WasMounted)
+            if (state.WasMounted)
             {
                 state.WasMounted = false;
                 PacketGuardTrustedState.Mark(player, "dismount-reposition", config.PacketGuardMountGraceMs, PacketGuardTrustScope.Movement);
@@ -1506,18 +1501,8 @@ internal sealed class PacketGuardService : IDisposable
                 continue;
             }
 
-            // /spawn is a normal server-authorized teleport, but VSEssentials can complete the
-            // position snap before PacketGuard observes Entity.IsTeleport/Teleporting. Only trust
-            // the arrival when it actually lands in the saved default-spawn area; this does not
-            // create a general-purpose teleport bypass.
-            if (impossibleJump && IsTrustedSpawnArrival(pos))
-            {
-                RecordTrustedMovementTransition(player, "spawn", state, pos, TeleportVerificationForReason("spawn"), "trusted-server-teleport");
-                PacketGuardTrustedState.Mark(player, "spawn", config.PacketGuardEngineTeleportGraceMs, PacketGuardTrustScope.All);
-                state.GraceUntilUtc = Math.Max(state.GraceUntilUtc, now + config.PacketGuardEngineTeleportGraceMs);
-                state.Accept(pos, now);
-                continue;
-            }
+            // A destination near spawn is not teleport authorization. Server API hooks,
+            // lifecycle events and explicitly registered transitions establish trust instead.
 
             // Vanilla static translocators expose their actual linked destination. Verify the
             // player's last accepted source position against that link directly before relying on
@@ -2206,8 +2191,6 @@ internal sealed class PacketGuardService : IDisposable
 
     private bool RollbackMovement(IServerPlayer player, MovementState state, Entity entity, long now, string reason)
     {
-        state.GraceUntilUtc = now + config.PacketGuardCorrectionGraceMs;
-        PacketGuardTrustedState.Mark(player, reason, config.PacketGuardCorrectionGraceMs, PacketGuardTrustScope.All);
         SafePositionSample rollback = state.GetRollbackPosition(
             now,
             config.PacketGuardRollbackSafetyLagMs,
@@ -2216,18 +2199,27 @@ internal sealed class PacketGuardService : IDisposable
 
         if (config.PacketGuardRollbackValidateCollision)
         {
+            bool foundClearDestination = false;
             foreach (SafePositionSample candidate in state.GetRollbackCandidates(
                          now, config.PacketGuardRollbackSafetyLagMs, config.PacketGuardSafePositionMaxAgeMs,
                          config.PacketGuardSafePositionHistorySize, config.PacketGuardRollbackValidationCandidates))
             {
-                if (!EntityBodyIntersectsCollision(entity, candidate.X, candidate.Y, candidate.Z, candidate.Dimension, out _, out double penetration) || penetration < 0.03)
+                EntityBodyIntersectsCollision(entity, candidate.X, candidate.Y, candidate.Z, candidate.Dimension,
+                    out _, out double penetration, out bool complete);
+                if (complete && penetration < 0.03)
                 {
                     rollback = candidate;
+                    foundClearDestination = true;
                     break;
                 }
             }
+            // Unknown terrain is not clear terrain. Never fall back to an unvalidated,
+            // stale checkpoint when the bounded candidate search cannot establish safety.
+            if (!foundClearDestination) return false;
         }
 
+        state.GraceUntilUtc = now + config.PacketGuardCorrectionGraceMs;
+        PacketGuardTrustedState.Mark(player, reason, config.PacketGuardCorrectionGraceMs, PacketGuardTrustScope.All);
         var safe = new Vec3d(rollback.X, rollback.Y, rollback.Z);
         try
         {
@@ -2446,26 +2438,6 @@ internal sealed class PacketGuardService : IDisposable
         double dz = pos.Z - spawn.Z;
         if (dx * dx + dz * dz > horizontalAllowance * horizontalAllowance) return false;
         return Math.Abs(pos.Y - spawn.Y) <= 32.0;
-    }
-
-    private bool IsTrustedSpawnArrival(EntityPos pos)
-    {
-        try
-        {
-            var spawn = CoordinateDisplayService.GetDefaultSpawnOrWorldCenter(api);
-            double dx = pos.X - (spawn.X + 0.5);
-            double dz = pos.Z - (spawn.Z + 0.5);
-            double horizontalSq = dx * dx + dz * dz;
-            if (horizontalSq > 24.0 * 24.0) return false;
-
-            // Older saves may not persist a spawn Y. In that case the horizontal match is the
-            // reliable signal. Otherwise also require a reasonable vertical landing distance.
-            return spawn.Y <= 0 || Math.Abs(pos.Y - spawn.Y) <= 16.0;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     /// <summary>

@@ -58,6 +58,16 @@ static class Checks{
  Endpoint(1100);Endpoint(1500);Check((long)stateType.GetField("EndpointCollisionSinceUtc")!.GetValue(state)! ==1000,"sustained endpoint evidence spans actual time");
  Endpoint(3000);Check((int)stateType.GetField("EndpointCollisionSamples")!.GetValue(state)! ==1,"stale endpoint window resets");
  Endpoint(3100,1);Check((long)stateType.GetField("EndpointCollisionSinceUtc")!.GetValue(state)! ==3100,"dimension change resets endpoint window");
+ // A failed correction must not teleport, mutate baselines, or grant transition trust.
+ var rollback=type.GetMethod("RollbackMovement",F)!;
+ object StateAt(double x,long when)=>stateType.GetMethod("From")!.Invoke(null,[new EntityPos(x,4,3.5),when,1L])!;
+ bool Correct(object sample)=> (bool)rollback.Invoke(guard,[null,sample,entity,5000L,"test-correction"])!;
+ var blocked=StateAt(5.5,4000);
+ Check(!Correct(blocked),"all colliding rollback candidates cancel correction instead of falling back");
+ Check((long)stateType.GetField("GraceUntilUtc")!.GetValue(blocked)! ==0,"cancelled correction grants no grace");
+ loaded=false;Check(!Correct(StateAt(3.5,4000)),"unloaded rollback destination is unknown, not safe");loaded=true;
+ wall.Fail=true;Check(!Correct(StateAt(5.5,4000)),"throwing rollback geometry cancels correction");wall.Fail=false;
+ Check(!Correct(StateAt(3.5,-1000000)),"expired rollback history cannot revive stale fallback");
  Console.WriteLine($"PASS {count} compiled collision/flight checks: loaded geometry, bounded probes, unknown terrain, shape failures, overlap exit, support and endpoint timing. No chunk loader is available in fixture.");
  }
 }
