@@ -132,4 +132,13 @@ Check(SailingModel.TowPull(5, 8, 0.0004, 0.01) == 0 && SailingModel.TowPull(20, 
 Check(SailingModel.NightGlow(1) == 0 && SailingModel.NightGlow(0) == 1 && SailingModel.NightGlow(0.2) > 0.4, "Night glow by daylight");
 Check(SailingModel.WhirlpoolForce(20, 16) == (0, 0) && SailingModel.WhirlpoolForce(2, 16).Pull > SailingModel.WhirlpoolForce(10, 16).Pull && SailingModel.WhirlpoolForce(0.1, 16) == (0, 0), "Whirlpool force grows toward the centre");
 Check(SailingModel.UpgradeList(8).Contains("lightning") && SailingModel.UpgradeList(15).Contains("keel"), "Lightning rod in upgrade list");
+var calm = SailingModel.ApparentWind(0, 1, 12, 0, 0, 60);
+var runDown = SailingModel.ApparentWind(0, 1, 12, 0, 0.1, 60);
+var beatUp = SailingModel.ApparentWind(0, 1, 12, 0, -0.1, 60);
+Check(Math.Abs(calm.Knots - 12) < 1e-9 && Math.Abs(runDown.Knots - 6) < 1e-9 && Math.Abs(beatUp.Knots - 18) < 1e-9, "Apparent wind weaker running, stronger beating");
+Check(SailingModel.WindShadowFactor(0, 8) == 1 && Math.Abs(SailingModel.WindShadowFactor(8, 8) - 0.2) < 1e-9 && SailingModel.WindShadowFactor(4, 8) < 1 && SailingModel.WindShadowFactor(1, 0) == 1, "Wind shadow");
+Check(SailingModel.GroundingFactor(2) == 1 && SailingModel.GroundingFactor(1) < 1 && SailingModel.GroundingFactor(0) < SailingModel.GroundingFactor(1) && SailingModel.GroundingWear(2, 1, false) == 0 && SailingModel.GroundingWear(0, 0, false) > 0 && SailingModel.GroundingWear(1, 0.05, true) > SailingModel.GroundingWear(1, 0.05, false) && SailingModel.GroundingWear(1, 0.001, false) == 0, "Grounding");
+Check(SailingModel.TackMomentum(0) < SailingModel.TackMomentum(15) && Math.Abs(SailingModel.TackMomentum(15) - 0.7) < 1e-9 && SailingModel.GybeDamage(8) == 0 && SailingModel.GybeDamage(30) > SailingModel.GybeDamage(15) && SailingModel.GybeDamage(200) == 10, "Tack momentum and gybe damage");
+Check(Math.Abs(SailingModel.DiurnalWindFactor(0) - 0.88) < 1e-9 && Math.Abs(SailingModel.DiurnalWindFactor(1) - 1.12) < 1e-9, "Sea-breeze factor");
+Check(SailingModel.WhitecapCount(3) == 0 && SailingModel.WhitecapCount(8) > SailingModel.WhitecapCount(5) && SailingModel.WhitecapCount(12) <= 24, "Whitecap density");
 Console.WriteLine($"{checks} checks passed");

@@ -51,3 +51,10 @@ The sailing module was written without access to Vintage Story, so none of it ha
 - [ ] Tow rope: attach, drag, cast off; rope particles; rope parts beyond 40 blocks.
 - [ ] Three or more riders slow the boat.
 - [ ] Night glow: cyan specks in the wake after dark.
+
+## Added in 0.12.0
+- [ ] Apparent wind: tune `MotionToKnots`; sailing downwind should feel lighter than beating. Disable with `ApparentWindEnabled` if balance feels off.
+- [ ] Wind shadow: sail close behind an island or tree line and confirm the wind drops (compass report mentions it).
+- [ ] Shoals/groundings: shallow water scrapes the hull and warns; deep water does not; a deep keel scrapes sooner.
+- [ ] Tacking loses momentum; an accidental gybe in a fresh breeze damages the sails (rate-limited).
+- [ ] Daytime winds a little stronger than night; whitecaps appear from Force 4.

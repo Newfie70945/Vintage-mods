@@ -516,4 +516,45 @@ public static class SailingModel
         double k = 1 - distance / radius;
         return (0.006 * k, 0.004 * k);
     }
+
+    // ---- Realism: apparent wind, shelter, shoals, tacking, diurnal wind ----
+
+    /// <summary>
+    /// Apparent wind felt on deck: the true wind vector minus the boat's own velocity. Returns the vector (in knots) and its
+    /// strength. Sailing downwind weakens it; sailing upwind strengthens it and swings it forward.
+    /// </summary>
+    public static (double X, double Z, double Knots) ApparentWind(double windX, double windZ, double trueKnots, double boatVx, double boatVz, double motionToKnots)
+    {
+        double len = Math.Sqrt(windX * windX + windZ * windZ);
+        double wx = len > 1e-9 ? windX / len * trueKnots : 0, wz = len > 1e-9 ? windZ / len * trueKnots : 0;
+        double ax = wx - boatVx * motionToKnots, az = wz - boatVz * motionToKnots;
+        return (ax, az, Math.Sqrt(ax * ax + az * az));
+    }
+
+    /// <summary>Wind left after passing over land: each blocked upwind sample cuts the wind, to at best 20% when fully sheltered.</summary>
+    public static double WindShadowFactor(int blocked, int samples)
+        => samples <= 0 ? 1 : 1 - 0.8 * Math.Clamp(blocked / (double)samples, 0, 1);
+
+    /// <summary>Depth class: 2 = open water, 1 = shoal (keel scrapes), 0 = aground.</summary>
+    public static double GroundingFactor(int depthClass) => depthClass >= 2 ? 1 : depthClass == 1 ? 0.7 : 0.15;
+
+    /// <summary>Hull wear per second from scraping. A deep keel scrapes twice as hard in shoals.</summary>
+    public static double GroundingWear(int depthClass, double speed, bool deepKeel)
+    {
+        if (depthClass >= 2) return 0;
+        double wear = depthClass == 1 ? (speed > 0.02 ? 0.3 : 0) : 1.0;
+        return depthClass == 1 && deepKeel ? wear * 2 : wear;
+    }
+
+    /// <summary>Speed multiplier immediately after going about: a boat loses way through the wind, more so in light air.</summary>
+    public static double TackMomentum(double knots) => 0.7 - 0.3 * (1 - Math.Clamp(knots / 15.0, 0, 1));
+
+    /// <summary>Sail damage from an accidental gybe (boom crashing across) in a fresh breeze.</summary>
+    public static double GybeDamage(double knots) => knots < 12 ? 0 : Math.Min(10, (knots - 12) * 0.4);
+
+    /// <summary>Sea-breeze effect: winds run about 12% stronger in full daylight and 12% lighter in the dark.</summary>
+    public static double DiurnalWindFactor(double daylight) => 0.88 + 0.24 * Math.Clamp(daylight, 0, 1);
+
+    /// <summary>Whitecap foam particles per visual tick for a sea state; none below Force 4.</summary>
+    public static int WhitecapCount(int force) => force < 4 ? 0 : Math.Min(24, (force - 3) * 3);
 }

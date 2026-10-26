@@ -84,7 +84,7 @@ public sealed class SailingVisuals
                 var (rx, rz) = SailingModel.RotateWind(wind.X, wind.Z, SailingModel.TemporalWindRotation(stormSeconds + (elapsed - syncedAt), windRotation));
                 wind = new Vec3d(rx, wind.Y, rz);
             }
-            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog) * (temporalStorm ? windBoost : 1);
+            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * Diurnal(boat.Pos.X, boat.Pos.Z) * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog) * (temporalStorm ? windBoost : 1);
             int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
 
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)
@@ -103,6 +103,7 @@ public sealed class SailingVisuals
                 boat.Pos.Y += heave - prevHeave;
                 heaveApplied[boat.EntityId] = heave;
             }
+            if (cfg.WhitecapsEnabled) Whitecaps(boat, force);
             if (cfg.SplashesEnabled) Splash(boat, force);
             if (cfg.WakeEnabled) Wake(boat);
             if (temporalStorm && cfg.StormGlowEnabled) Glow(boat);
@@ -121,7 +122,7 @@ public sealed class SailingVisuals
     private void AmbientSounds(EntityPlayer player)
     {
         Vec3d wind = capi.World.BlockAccessor.GetWindSpeedAt(player.Pos.XYZ) ?? new Vec3d();
-        double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog);
+        double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * Diurnal(player.Pos.X, player.Pos.Z) * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog);
         int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
         if (elapsed >= nextGustSound && force >= 4)
         {
@@ -196,6 +197,30 @@ public sealed class SailingVisuals
     }
 
     /// <summary>Foam trailing the stern, spreading in a V.</summary>
+    private double Diurnal(double x, double z)
+        => cfg.DiurnalWindEnabled ? SailingModel.DiurnalWindFactor(capi.World.Calendar.GetDayLightStrength(x, z)) : 1;
+
+    /// <summary>White horses: patches of foam scattered over the sea around the boat, denser as the wind rises.</summary>
+    private void Whitecaps(Entity boat, int force)
+    {
+        int count = SailingModel.WhitecapCount(force);
+        if (count <= 0) return;
+        Vec3d p = boat.Pos.XYZ;
+        for (int i = 0; i < Math.Max(1, count / 6); i++)
+        {
+            double a = rng.NextDouble() * Math.PI * 2, r = 4 + rng.NextDouble() * 26;
+            double x = p.X + Math.Cos(a) * r, z = p.Z + Math.Sin(a) * r;
+            capi.World.SpawnParticles(new SimpleParticleProperties(
+                1, 3, ColorUtil.ToRgba(210, 240, 248, 252),
+                new Vec3d(x, p.Y + 0.02, z), new Vec3d(x + 1.2, p.Y + 0.1, z + 1.2),
+                new Vec3f(0, 0.02f, 0), new Vec3f(0.1f, 0.06f, 0.1f),
+                1.8f, 0f, 0.3f, 0.7f, EnumParticleModel.Quad)
+            {
+                OpacityEvolve = EvolvingNatFloat.create(EnumTransform.Linear, -210)
+            });
+        }
+    }
+
     /// <summary>Phosphorescent specks in the wake after dark.</summary>
     private void NightGlowWake(Entity boat, double ux, double uz, int count)
     {

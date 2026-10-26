@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.11.0
+# Newfie's Realistic Sailing 0.12.0
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -31,6 +31,11 @@ Models are multi-part shapes sharing one colour-swatch texture (`textures/item/p
 
 ## What changes at sea
 
+- **Apparent wind.** The wind felt on deck is the true wind minus the boat's own velocity, so running before the wind feels lighter and beating feels stronger and further forward. Drive, overload, capsize risk and heel use it; sea state uses the true wind. `MotionToKnots` (default 60) converts the game's motion units to knots and may need tuning.
+- **Wind shadow.** Land or trees upwind blanket the wind: sail close under an island and you lose up to 80% of it.
+- **Shoals and groundings.** Shallow water scrapes the hull and slows the boat; running aground nearly stops it. A deep keel draws more water, so it scrapes sooner.
+- **Tacking and gybing.** Going about through the wind costs momentum (worse in light air). An accidental gybe in a fresh breeze whips the boom across, damaging the sails and the crew's nerve.
+- **Sea breeze and whitecaps.** Winds run about 12% stronger by day and lighter at night; from Force 4 white horses appear on the sea around you.
 - **Wind-driven speed.** Sailboat speed follows the wind at the boat's position. Becalmed boats crawl; a fresh breeze (Force 5) gives full drive.
 - **Points of sail.** Beam reach is fastest; head to wind and running are slow.
 - **Sail trim.** Full sail is fastest in moderate wind but overpowered above ~25 kn of load; reefed (55% area) is safer in a gale; furled loses way. Overpowered boats get a chat warning.

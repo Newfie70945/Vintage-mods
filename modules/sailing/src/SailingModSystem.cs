@@ -62,6 +62,11 @@ public sealed class SailingModSystem : ModSystem
     private readonly List<long> whirlpools = new();
     private double lastWhirlpoolAt = -1000;
     private readonly Dictionary<long, long> lastWhirlWarn = new();
+    private readonly Dictionary<long, int> prevSide = new();
+    private readonly Dictionary<long, double> tackPenalty = new();
+    private readonly Dictionary<long, long> lastGybeWarn = new();
+    private readonly Dictionary<long, long> lastGroundWarn = new();
+    private readonly Dictionary<long, (double Factor, double At)> shadowCache = new();
     private readonly Dictionary<long, long> tows = new(); // towed boat id -> tower boat id
     private readonly Dictionary<string, long> pendingTow = new(); // player uid -> boat id to be towed
     private double lastTowParticles;
@@ -925,7 +930,90 @@ public sealed class SailingModSystem : ModSystem
             wind = new Vec3d(rx, wind.Y, rz);
         }
         double speed = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z);
-        return speed * config.KnotsPerWindUnit * squallFactor * seasonFactor * SailingModel.FogWindFactor(fogIntensity) * (temporalStorm ? config.TemporalStormWindBoost : 1);
+        double diurnal = config.DiurnalWindEnabled ? SailingModel.DiurnalWindFactor(sapi.World.Calendar.GetDayLightStrength(pos.X, pos.Z)) : 1;
+        return speed * diurnal * config.KnotsPerWindUnit * squallFactor * seasonFactor * SailingModel.FogWindFactor(fogIntensity) * (temporalStorm ? config.TemporalStormWindBoost : 1);
+    }
+
+    /// <summary>Wind left at the boat after passing over land upwind (sampled every 4 blocks for 32 blocks, cached 2 s).</summary>
+    private double WindShadow(Entity boat, Vec3d wind)
+    {
+        if (!config.WindShadowEnabled) return 1;
+        if (shadowCache.TryGetValue(boat.EntityId, out var cached) && elapsed - cached.At < 2) return cached.Factor;
+        double len = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z);
+        if (len < 1e-6) return 1;
+        double ux = -wind.X / len, uz = -wind.Z / len;
+        int blocked = 0;
+        var ba = sapi!.World.BlockAccessor;
+        for (int i = 1; i <= 8; i++)
+        {
+            int x = (int)Math.Floor(boat.ServerPos.X + ux * i * 4), z = (int)Math.Floor(boat.ServerPos.Z + uz * i * 4), y0 = (int)Math.Floor(boat.ServerPos.Y);
+            for (int dy = 1; dy <= 4; dy++)
+            {
+                Block block = ba.GetBlock(new BlockPos(x, y0 + dy, z));
+                if (block.Id != 0 && !block.IsLiquid()) { blocked++; break; }
+            }
+        }
+        double factor = SailingModel.WindShadowFactor(blocked, 8);
+        shadowCache[boat.EntityId] = (factor, elapsed);
+        return factor;
+    }
+
+    /// <summary>Shoals and groundings: scrapes the hull and slows the boat in shallow water or on land.</summary>
+    private double Grounding(Entity boat, double speed, int up, float dt)
+    {
+        if (!config.GroundingEnabled) return 1;
+        var ba = sapi!.World.BlockAccessor;
+        int x = (int)Math.Floor(boat.ServerPos.X), z = (int)Math.Floor(boat.ServerPos.Z), y = (int)Math.Floor(boat.ServerPos.Y - 0.6);
+        bool keel = (up & SailingModel.UpgradeKeel) != 0;
+        int depth = !ba.GetBlock(new BlockPos(x, y, z)).IsLiquid() ? 0
+                  : !ba.GetBlock(new BlockPos(x, y - 1, z)).IsLiquid() ? 1
+                  : keel && !ba.GetBlock(new BlockPos(x, y - 2, z)).IsLiquid() ? 1 : 2;
+        if (depth >= 2) return 1;
+        SetCond(boat, HullKey, GetCond(boat, HullKey) - SailingModel.GroundingWear(depth, speed, keel) * dt);
+        long now = Environment.TickCount64;
+        if (!lastGroundWarn.TryGetValue(boat.EntityId, out long at) || now - at > 20000)
+        {
+            lastGroundWarn[boat.EntityId] = now;
+            NotifyNear(boat, depth == 0
+                ? $"[Sailing] {Nm(boat)} has run aground!"
+                : $"[Sailing] The keel of {Nm(boat).ToLowerInvariant()} scrapes bottom - shallow water ahead!");
+        }
+        return SailingModel.GroundingFactor(depth);
+    }
+
+    /// <summary>Tracks the boat crossing the wind: going about costs momentum, an accidental gybe whips the boom across.</summary>
+    private double TackFactor(Entity boat, Vec3d motion, Vec3d wind, double off, double appKnots, float dt)
+    {
+        if (!config.TackingEnabled) return 1;
+        long id = boat.EntityId;
+        double f = tackPenalty.TryGetValue(id, out double v) ? v : 1;
+        if (off >= 20 && off <= 170)
+        {
+            int side = SailingModel.WindSide(motion.X, motion.Z, wind.X, wind.Z);
+            if (side != 0)
+            {
+                if (prevSide.TryGetValue(id, out int prev) && prev != 0 && prev != side)
+                {
+                    if (off < 90) f = Math.Min(f, SailingModel.TackMomentum(appKnots));
+                    else
+                    {
+                        double dmg = SailingModel.GybeDamage(appKnots);
+                        long now = Environment.TickCount64;
+                        if (dmg > 0 && (!lastGybeWarn.TryGetValue(id, out long at) || now - at > 8000))
+                        {
+                            lastGybeWarn[id] = now;
+                            SetCond(boat, SailKey, GetCond(boat, SailKey) - dmg);
+                            SetMorale(boat, GetMorale(boat) - 2);
+                            NotifyNear(boat, "[Sailing] Gybe! The boom crashes across and the rigging howls.");
+                        }
+                    }
+                }
+                prevSide[id] = side;
+            }
+        }
+        f += (1 - f) * Math.Min(1, dt / 4.0);
+        tackPenalty[id] = f;
+        return f;
     }
 
     private bool HasMountedPlayerNear(Entity boat)
@@ -978,11 +1066,19 @@ public sealed class SailingModSystem : ModSystem
 
             double area = SailingModel.SailArea(GetTrim(boat));
             double knots = KnotsAt(boat.SidedPos.XYZ, out Vec3d wind) * SailingModel.Gust(elapsed, config.GustAmplitude * (temporalStorm ? 2 : 1), boat.EntityId % 100);
+            knots *= WindShadow(boat, wind);
+            double trueKnots = knots;
+            if (config.ApparentWindEnabled)
+            {
+                var (ax, az, apparent) = SailingModel.ApparentWind(wind.X, wind.Z, trueKnots, motion.X, motion.Z, config.MotionToKnots);
+                knots = apparent;
+                wind = new Vec3d(ax, wind.Y, az);
+            }
             double off = SailingModel.AngleOffWind(motion.X, motion.Z, wind.X, wind.Z);
             double target = SailingModel.SpeedMultiplier(knots, off, config.MinSpeedMultiplier, config.MaxSpeedMultiplier * SailingModel.UpgradeSpeedMult(up), config.ReferenceKnots, config.OverloadKnots, area);
             if (config.WearEnabled)
             {
-                int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+                int force = SailingModel.StormForce(SailingModel.Beaufort(trueKnots), temporalStorm);
                 var (hullWear, sailWear) = SailingModel.WearPerSecond(force, SailingModel.Overpowered(knots, area, config.OverloadKnots), temporalStorm, area);
                 double hullBefore = GetCond(boat, HullKey), sailBefore = GetCond(boat, SailKey);
                 double hullNow = hullBefore - hullWear * config.WearRate * SailingModel.UpgradeHullWearMult(up) * dt, sailNow = sailBefore - sailWear * config.WearRate * SailingModel.UpgradeSailWearMult(up) * dt;
@@ -992,7 +1088,7 @@ public sealed class SailingModSystem : ModSystem
                 WarnCondition(boat, "sails", sailBefore, sailNow);
                 target *= SailingModel.ConditionSpeedFactor(GetCond(boat, HullKey), GetCond(boat, SailKey));
             }
-            int seaForce = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+            int seaForce = SailingModel.StormForce(SailingModel.Beaufort(trueKnots), temporalStorm);
             if (config.MoraleEnabled)
             {
                 double moraleBefore = GetMorale(boat);
@@ -1002,6 +1098,7 @@ public sealed class SailingModSystem : ModSystem
                 else if (moraleBefore > 10 && moraleNow <= 10) NotifyNear(boat, "[Sailing] The crew is close to mutiny! Their hands are slow on the ropes.");
                 target *= SailingModel.MoraleSpeedFactor(moraleNow);
             }
+            target *= TackFactor(boat, motion, wind, off, knots, dt) * Grounding(boat, speed, up, dt);
             if (config.CrowdingEnabled) target *= SailingModel.CrowdFactor(RidersNear(boat));
             if (config.LightningEnabled && rng.NextDouble() < SailingModel.LightningChancePerSecond(seaForce, squallFactor, temporalStorm) * dt) Lightning(boat);
             if (config.HeadSeasEnabled) target *= SailingModel.HeadSeaFactor(seaForce, off);
@@ -1125,6 +1222,8 @@ public sealed class SailingModSystem : ModSystem
             double toward = (Math.Atan2(cx, -cz) * 180.0 / Math.PI + 360) % 360;
             text += $"\nTide: {SailingModel.TideState(sapi.World.Calendar.TotalHours)}; current {mag * config.MaxCurrentKnots:0.0} kn setting {SailingModel.Compass(toward)}.";
         }
+        Entity? shelterBoat = BoatOf(player);
+        if (shelterBoat != null && WindShadow(shelterBoat, wind) < 0.85) text += "\nYou are in the lee of the land: the wind is blanketed.";
         if (fogIntensity > 0.05) text += $"\nFog bank: visibility about {SailingModel.FogVisibility(fogIntensity):0} m.";
         if (temporalStorm) text += "\nTEMPORAL STORM: compass unreliable, wind direction wandering, seas unnaturally rough.";
         if (squallFactor > 1.05) text += "\nA squall is passing: wind is up " + $"{(squallFactor - 1) * 100:0}%.";

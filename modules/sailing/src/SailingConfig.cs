@@ -26,6 +26,14 @@ public sealed class SailingConfig
     public int FogMinDurationSeconds { get; set; } = 120;
     public int FogMaxDurationSeconds { get; set; } = 240;
     public bool MoraleEnabled { get; set; } = true;
+    /// <summary>Use the wind felt on deck (true wind minus boat velocity) for drive, overload and capsize.</summary>
+    public bool ApparentWindEnabled { get; set; } = true;
+    /// <summary>Converts boat motion (blocks per tick) to knots for the apparent wind.</summary>
+    public double MotionToKnots { get; set; } = 60;
+    public bool WindShadowEnabled { get; set; } = true;
+    public bool GroundingEnabled { get; set; } = true;
+    public bool TackingEnabled { get; set; } = true;
+    public bool DiurnalWindEnabled { get; set; } = true;
     public bool LightningEnabled { get; set; } = true;
     public bool WhirlpoolsEnabled { get; set; } = true;
     public int WhirlpoolCooldownSeconds { get; set; } = 150;
@@ -96,6 +104,8 @@ public sealed class SailingVisualsConfig
     public bool FogVisualsEnabled { get; set; } = true;
     public bool AmbientSoundsEnabled { get; set; } = true;
     public bool NightGlowEnabled { get; set; } = true;
+    public bool WhitecapsEnabled { get; set; } = true;
+    public bool DiurnalWindEnabled { get; set; } = true;
     /// <summary>Spyglass zoom: fraction of the normal field of view.</summary>
     public double SpyglassZoom { get; set; } = 0.22;
     /// <summary>Experimental vertical swell motion; the game's buoyancy may fight it, so it is off by default.</summary>

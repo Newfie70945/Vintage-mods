@@ -1,5 +1,9 @@
 # Current release changes
 
+## Realistic Sailing 0.12.0
+
+- Realism pass: apparent wind (true wind minus the boat's velocity drives speed, overload, capsize and heel), wind shadow in the lee of land (8 upwind samples), shoals and groundings (hull scrapes and slows; a deep keel scrapes harder), tacking momentum loss and accidental-gybe boom damage, day/night sea-breeze variation in wind strength (synced by each client's own clock) and client-side whitecaps. Each has a config switch (`ApparentWindEnabled`, `MotionToKnots`, `WindShadowEnabled`, `GroundingEnabled`, `TackingEnabled`, `DiurnalWindEnabled`, client `WhitecapsEnabled`). Unverified in game.
+
 ## Realistic Sailing 0.11.0
 
 - Lightning strikes boats in squall peaks, temporal storms and Force 9+ gales (sails -25, morale -15, flash and thunder); the new lightning rod upgrade absorbs them. Temporal whirlpools open on the water during temporal storms, pull boats into a spiral and damage those that reach the centre (`EntityWhirlpool`).
