@@ -53,7 +53,7 @@ public sealed partial class OptimizerMod : ModSystem
         {
             if (config.Enabled && config.Profiling.AutoStart) api.Logger.Notification("[NewfiesOptimizer] " + profiler.Start());
         });
-        api.Logger.Notification("[NewfiesOptimizer] 0.20.14 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
+        api.Logger.Notification("[NewfiesOptimizer] 0.20.15 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
     }
 
     private string Status() => (profiler?.Status() ?? "Profiler unavailable") + "\n" + (optimizations?.Status() ?? "Engine modules unavailable");

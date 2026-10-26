@@ -1,6 +1,6 @@
 # Claude branch audit — 2026-10-26
 
-Review baseline: `9c3d9ef` (Suite 1.2.52 / loaded-map1). The author requested that Suite stay 1.2.52. New Suite build suffix: `ms11-claudeaudit2`; NOS stays the unpublished 0.20.14 engineering preview. Companion modules are unchanged.
+Review baseline: `9c3d9ef` (Suite 1.2.52 / loaded-map1). The author subsequently confirmed the previous versions were released and requested versions ahead of them: Suite **1.2.53 / ms11-claudeaudit2** and NOS **0.20.15-preview**. The optimizer retains its engineering-preview maturity designation; 0.20.14 is the author-reported baseline. Companion modules are unchanged.
 
 Fetched all remote refs. New relevant work was found on `webmap-exporter-improvements` (`b0ea521`) and `claude/optimizer-mod-audit-m5la11` (`e7555d8`). Earlier optimizer audit fixes were already incorporated into main and were preserved. Sailing (`ccr-aa5de6be-3y48gz`) is explicitly excluded at the author's request. Other previously reviewed branch tips have no new changes.
 
