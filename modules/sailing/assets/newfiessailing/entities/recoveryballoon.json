@@ -1,0 +1,45 @@
+{
+ "code": "recoveryballoon",
+ "class": "EntityRecoveryBalloon",
+ "variantgroups": [
+  {
+   "code": "color",
+   "states": [
+    "red",
+    "yellow",
+    "blue"
+   ]
+  }
+ ],
+ "hitboxSize": {
+  "x": 1.2,
+  "y": 2.6
+ },
+ "deadHitboxSize": {
+  "x": 0.1,
+  "y": 0.1
+ },
+ "client": {
+  "renderer": "Shape",
+  "shape": {
+   "base": "entity/recoveryballoon"
+  },
+  "size": 1.4,
+  "textures": {
+   "balloon": {
+    "base": "entity/balloon-{color}"
+   },
+   "wood": {
+    "base": "entity/balloon-wood"
+   }
+  },
+  "behaviors": [
+   {
+    "code": "interpolateposition"
+   }
+  ]
+ },
+ "server": {
+  "behaviors": []
+ }
+}

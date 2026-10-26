@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.7.0
+# Newfie's Realistic Sailing 0.7.1
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -29,7 +29,7 @@ Models are multi-part shapes sharing one colour-swatch texture (`textures/item/p
 - **Temporal storms at sea.** Wandering wind, +30% strength, two forces rougher sea, violet sparks, and capped drifter boarders (`BoarderEntityCode`) that despawn afterwards. State is read from the game by reflection; one warning is logged if it cannot be read.
 - **Wear.** Hull and sail condition (stored on the boat) wear faster in gales, when overpowered and in temporal storms; worn boats are slower. Warnings at 50/25/10%.
 - **Swamping.** Boats with a hull under 50% leak, and Force 7+ seas slop water aboard. Waterlogged boats slow to a quarter speed and warn at 60% and 100%. Bail with the bucket or patch the hull.
-- **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon rights and refloats it (water set to 35%, hull at least 25%).
+- **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon launches three real balloon entities (red, yellow, blue) that rise above the boat; after 3 seconds the hull is righted and refloated (water set to 35%, hull at least 25%), then the balloons hover and drift away.
 - **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.
 - **Storm visuals (client).** Bobbing hulls, spray from Force 3, stern wake foam. Tune in `ModConfig/NewfiesSailingClient.json`.
 

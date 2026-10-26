@@ -1,5 +1,9 @@
 # Current release changes
 
+## Realistic Sailing 0.7.1
+
+- Recovery balloons are now real entities: three red, yellow and blue hot-air balloons rise over the boat, the hull is righted and refloated after 3 s, then the balloons hover and float away (13 s life). New `EntityRecoveryBalloon`, entity type with variants, model and textures. Server-driven position; unverified in game.
+
 ## Realistic Sailing 0.7.0
 
 - Swamping: leaky hulls and rough seas flood the boat; waterlogged boats slow to a quarter speed. Capsizing: boats under badly overloaded full sail, worst beam-on, can roll over, throw riders into the sea and sit upside down (client flips the hull). New bailing bucket (removes 30% water, 40 uses) and single-use recovery balloon (righting/refloating within 10 blocks, with a colourful particle burst). Logbook counts capsizes and rescues. Config: `SwampingEnabled`, `CapsizingEnabled`, `CapsizeSeverity`, client `CapsizeVisualsEnabled`.

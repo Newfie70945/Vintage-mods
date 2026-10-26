@@ -19,6 +19,7 @@ public sealed class SailingModSystem : ModSystem
     public const string HullKey = "newfiessailing:hull";
     public const string CapsizedKey = "newfiessailing:capsized";
     public const string WaterKey = "newfiessailing:water";
+    public const string SalvageKey = "newfiessailing:salvage";
     public const string SailKey = "newfiessailing:sail";
     private const string LogPrefix = "newfiessailing:log:";
 
@@ -56,6 +57,7 @@ public sealed class SailingModSystem : ModSystem
     public override void Start(ICoreAPI api)
     {
         api.RegisterItemClass("ItemSailingTool", typeof(ItemSailingTool));
+        api.RegisterEntity("EntityRecoveryBalloon", typeof(EntityRecoveryBalloon));
         api.Network.RegisterChannel(ChannelName).RegisterMessageType<SailingSyncPacket>();
     }
 
@@ -171,20 +173,61 @@ public sealed class SailingModSystem : ModSystem
                 sp.SendMessage(GlobalConstants.InfoLogChatGroup, message, EnumChatType.Notification);
     }
 
-    /// <summary>Recovery balloon: refloats and rights a capsized or swamped boat within 10 blocks. Consumes one balloon.</summary>
+    /// <summary>
+    /// Recovery balloon: three balloons rise from the pack above a capsized or swamped boat within 10 blocks; after 3 s,
+    /// once they are overhead, the boat is righted and refloated. Consumes one balloon.
+    /// </summary>
     private (string Text, bool Used) Balloon(IServerPlayer player)
     {
         Entity? boat = BoatOf(player, requireMount: false, radius: 10);
         if (boat == null) return ("No sailboat within 10 blocks.", false);
+        if (boat.WatchedAttributes.GetBool(SalvageKey, false)) return ("Balloons are already lifting this boat.", false);
         if (!IsCapsized(boat) && GetWater(boat) < 80) return ("This boat is afloat and sound; it does not need a recovery balloon.", false);
+
+        boat.WatchedAttributes.SetBool(SalvageKey, true);
+        string[] colors = { "red", "yellow", "blue" };
+        double[][] offsets = { new[] { -1.8, 0.4 }, new[] { 1.6, -1.2 }, new[] { 0.2, 1.8 } };
+        bool spawned = false;
+        for (int i = 0; i < 3; i++)
+        {
+            try
+            {
+                EntityProperties? type = sapi!.World.GetEntityType(new AssetLocation("newfiessailing:recoveryballoon-" + colors[i]));
+                if (type == null) continue;
+                Entity ent = sapi.World.ClassRegistry.CreateEntity(type);
+                ent.WatchedAttributes.SetLong(EntityRecoveryBalloon.BoatIdKey, boat.EntityId);
+                ent.WatchedAttributes.SetDouble(EntityRecoveryBalloon.OffsetXKey, offsets[i][0]);
+                ent.WatchedAttributes.SetDouble(EntityRecoveryBalloon.OffsetZKey, offsets[i][1]);
+                ent.ServerPos.SetPos(boat.ServerPos.X + offsets[i][0], boat.ServerPos.Y, boat.ServerPos.Z + offsets[i][1]);
+                ent.Pos.SetFrom(ent.ServerPos);
+                sapi.World.SpawnEntity(ent);
+                spawned = true;
+            }
+            catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not spawn recovery balloon: " + ex.Message); }
+        }
+        if (!spawned) sapi!.Logger.Warning("[NewfiesSailing] Recovery balloon entity type not found; boat will still be refloated.");
+
+        long boatId = boat.EntityId;
+        string playerUid = player.PlayerUID;
+        sapi!.Event.RegisterCallback(_ => FinishSalvage(boatId, playerUid), 3000);
+        return ("Three bright balloons shoot up from the pack and inflate overhead... hold on!", true);
+    }
+
+    private void FinishSalvage(long boatId, string playerUid)
+    {
+        Entity? boat = sapi!.World.GetEntityById(boatId);
+        if (boat == null) return;
+        boat.WatchedAttributes.SetBool(SalvageKey, false);
         boat.WatchedAttributes.SetBool(CapsizedKey, false);
         boat.WatchedAttributes.MarkPathDirty(CapsizedKey);
         SetWater(boat, Math.Min(GetWater(boat), 35));
         SetCond(boat, HullKey, Math.Max(GetCond(boat, HullKey), 25));
         smoothed.Remove(boat.EntityId);
-        player.Entity.WatchedAttributes.SetInt(LogPrefix + "rescues", player.Entity.WatchedAttributes.GetInt(LogPrefix + "rescues", 0) + 1);
+        IPlayer? rescuer = sapi.World.AllOnlinePlayers.FirstOrDefault(p => p.PlayerUID == playerUid);
+        if (rescuer?.Entity != null)
+            rescuer.Entity.WatchedAttributes.SetInt(LogPrefix + "rescues", rescuer.Entity.WatchedAttributes.GetInt(LogPrefix + "rescues", 0) + 1);
         BalloonBurst(boat.Pos.XYZ);
-        return ("Gas hisses and bright balloons haul the hull upright and lift it clear of the water. The boat is afloat again - bail it out and patch the hull.", true);
+        NotifyNear(boat, "[Sailing] The balloons haul the hull upright and the boat is afloat again - bail it out and patch the hull.");
     }
 
     private void BalloonBurst(Vec3d p)

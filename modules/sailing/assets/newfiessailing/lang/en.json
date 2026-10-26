@@ -16,5 +16,8 @@
  "item-bailingbucket": "Bailing bucket",
  "itemdesc-bailingbucket": "Right-click within 6 blocks of a swamped boat to bail out 30% of the water. Wears out after 40 uses.",
  "item-recoveryballoon": "Recovery balloon",
- "itemdesc-recoveryballoon": "Right-click within 10 blocks of a capsized or swamped sailboat: balloons haul it upright and refloat it. Single use."
+ "itemdesc-recoveryballoon": "Right-click within 10 blocks of a capsized or swamped sailboat: balloons haul it upright and refloat it. Single use.",
+ "entity-recoveryballoon-red": "Recovery balloon",
+ "entity-recoveryballoon-yellow": "Recovery balloon",
+ "entity-recoveryballoon-blue": "Recovery balloon"
 }

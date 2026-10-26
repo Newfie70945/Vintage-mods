@@ -312,4 +312,20 @@ public static class SailingModel
         double beam = Math.Sin(Math.Clamp(angleOffWind, 0, 180) * Math.PI / 180.0);
         return Math.Clamp(0.08 * ratio * (0.3 + 0.7 * beam) * severity, 0, 0.5);
     }
+
+    // ---- Recovery balloons ----
+
+    /// <summary>
+    /// Height of a recovery balloon above its boat after <paramref name="age"/> seconds: eases up to the hold height over
+    /// 3 s, hovers, then climbs away over the last 5 s of its life.
+    /// </summary>
+    public static double BalloonHeight(double age, double holdHeight, double life)
+    {
+        if (age <= 0) return 0;
+        if (age < 3) { double t = age / 3.0; return holdHeight * (1 - (1 - t) * (1 - t)); }
+        double leave = life - 5;
+        if (age < leave) return holdHeight + 0.2 * Math.Sin((age - 3) * 2.0);
+        double u = Math.Clamp((age - leave) / 5.0, 0, 1);
+        return holdHeight + 15 * u * u;
+    }
 }
