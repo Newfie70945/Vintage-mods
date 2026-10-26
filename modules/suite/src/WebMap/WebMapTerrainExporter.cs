@@ -1734,6 +1734,7 @@ internal sealed class WebMapTerrainExporter
             cachedCoverageKey = "";
             cachedCoverageRows = -1;
         }
+        lock (overviewScratchGate) { overviewSums = null; overviewPixels = null; }
     }
 
     private TerrainCoverage EnumerateGeneratedTiles(string savePath, int tileSize, bool reuseUnchanged = false)
@@ -2627,6 +2628,17 @@ internal sealed class WebMapTerrainExporter
         }
     }
 
+    private static readonly object overviewScratchGate = new();
+    private static int[]? overviewSums;
+    private static byte[]? overviewPixels;
+
+    private static int[] EnsureOverviewSums(int length) =>
+        overviewSums is { } sums && sums.Length >= length ? sums : overviewSums = new int[length];
+
+    // PngWriter.WriteRgba(width, height, buffer) reads exactly width*height*4 bytes, so a larger buffer is fine.
+    private static byte[] EnsureOverviewPixels(int length) =>
+        overviewPixels is { } pixels && pixels.Length >= length ? pixels : overviewPixels = new byte[length];
+
     private void WriteOverview(string dir, WebMapTerrainManifest manifest, WebMapTerrainExportStatus status)
     {
         var sw = Stopwatch.StartNew();
@@ -2652,9 +2664,14 @@ internal sealed class WebMapTerrainExporter
         int width = Math.Max(1, (rawWidth + stride - 1) / stride);
         int height = Math.Max(1, (rawHeight + stride - 1) / stride);
         int cells = checked(width * height);
-        // One overview per export: these large buffers must not be retained in shared pools.
-        int[] rr = new int[cells], gg = new int[cells], bb = new int[cells], cc = new int[cells];
-        byte[] overview = new byte[checked(cells * 4)];
+        // Reused across passes under a lock: five fresh multi-megabyte arrays every pass churned the large-object heap.
+        // The scratch is released by ReleaseCoverageCache when live updates stop.
+        Monitor.Enter(overviewScratchGate);
+        try
+        {
+        int[] sums = EnsureOverviewSums(checked(cells * 4));
+        Array.Clear(sums, 0, cells * 4);
+        byte[] overview = EnsureOverviewPixels(checked(cells * 4));
         foreach (var tile in tiles)
         {
             byte[] summary = tile.ChunkRgb ?? Array.Empty<byte>();
@@ -2671,7 +2688,8 @@ internal sealed class WebMapTerrainExporter
                     byte r = hasChunkSummary ? summary[src] : tile.R;
                     byte g = hasChunkSummary ? summary[src + 1] : tile.G;
                     byte b = hasChunkSummary ? summary[src + 2] : tile.B;
-                    rr[index] += r; gg[index] += g; bb[index] += b; cc[index]++;
+                    int slot = index * 4;
+                    sums[slot] += r; sums[slot + 1] += g; sums[slot + 2] += b; sums[slot + 3]++;
                 }
             }
         }
@@ -2680,10 +2698,18 @@ internal sealed class WebMapTerrainExporter
         for (int i = 0; i < cells; i++)
         {
             int o = i * 4;
-            if (cc[i] == 0) { overview[o] = 0; overview[o + 1] = 0; overview[o + 2] = 0; overview[o + 3] = 0; }
-            else { overview[o] = (byte)(rr[i] / cc[i]); overview[o + 1] = (byte)(gg[i] / cc[i]); overview[o + 2] = (byte)(bb[i] / cc[i]); overview[o + 3] = 255; }
+            int count = sums[o + 3];
+            if (count == 0) { overview[o] = 0; overview[o + 1] = 0; overview[o + 2] = 0; overview[o + 3] = 0; }
+            else { overview[o] = (byte)(sums[o] / count); overview[o + 1] = (byte)(sums[o + 1] / count); overview[o + 2] = (byte)(sums[o + 2] / count); overview[o + 3] = 255; }
         }
         PngWriter.WriteRgba(Path.Combine(dir, "overview.png"), width, height, overview);
+        }
+        finally
+        {
+            // Only automatic live passes keep the scratch for the next pass; one-off exports give it back.
+            if (!automaticSavedTerrainOnly) { overviewSums = null; overviewPixels = null; }
+            Monitor.Exit(overviewScratchGate);
+        }
 
         manifest.OverviewAvailable = true;
         manifest.OverviewWidth = width;
@@ -2872,6 +2898,7 @@ internal sealed class WebMapTerrainExporter
         if (half <= 0) return false;
         int pixelBytes = checked(tileSize * tileSize * 4);
         byte[] output = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] childRgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
         try
         {
             Array.Clear(output, 0, pixelBytes);
@@ -2893,8 +2920,7 @@ internal sealed class WebMapTerrainExporter
                         : LodTilePath(currentRoot, childFactor, childX, childZ);
                     string? source = File.Exists(stagedChild) ? stagedChild :
                         (!string.IsNullOrEmpty(currentChild) && File.Exists(currentChild) ? currentChild : null);
-                    if (source == null || !PngReader.TryReadRgba(source, out int width, out int height, out byte[] childRgba)) continue;
-                    if (width != tileSize || height != tileSize) continue;
+                    if (source == null || !PngReader.TryReadRgbaInto(source, childRgba, tileSize)) continue;
 
                     any = true;
                     DownsampleChildIntoQuadrant(childRgba, tileSize, output, qx * half, qz * half, half);
@@ -2910,6 +2936,7 @@ internal sealed class WebMapTerrainExporter
         }
         finally
         {
+            ArrayPool<byte>.Shared.Return(childRgba, clearArray: false);
             ArrayPool<byte>.Shared.Return(output, clearArray: false);
         }
     }
@@ -3461,6 +3488,75 @@ internal sealed class WebMapTerrainExporter
     {
         private static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
+        /// <summary>
+        /// Decodes one of our own square RGBA tiles into <paramref name="destination"/> without allocating a new image
+        /// buffer. The pyramid builder decodes dozens of tiles per rendered tile, and a fresh 256 KiB array plus a
+        /// growing stream per decode landed on the large-object heap and drove memory up during live updates.
+        /// </summary>
+        public static bool TryReadRgbaInto(string path, byte[] destination, int expectedSize)
+        {
+            long rowBytesLong = (long)expectedSize * 4;
+            if (expectedSize <= 0 || destination.Length < rowBytesLong * expectedSize) return false;
+            int rowBytes = (int)rowBytesLong;
+            byte[]? buffer = null;
+            try
+            {
+                using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
+                long length = file.Length;
+                if (length < 45 || length > 64L * 1024 * 1024) return false;
+                buffer = ArrayPool<byte>.Shared.Rent((int)length);
+                int filled = 0;
+                while (filled < length)
+                {
+                    int n = file.Read(buffer, filled, (int)length - filled);
+                    if (n <= 0) return false;
+                    filled += n;
+                }
+                if (!buffer.AsSpan(0, 8).SequenceEqual(Signature)) return false;
+
+                int position = 8, idatStart = -1, idatLength = 0, idatCount = 0;
+                bool validHeader = false;
+                while (position + 12 <= length)
+                {
+                    uint chunkLength = ReadBe32(buffer.AsSpan(position, 4));
+                    if (chunkLength > length) return false;
+                    int dataStart = position + 8;
+                    if (dataStart + (long)chunkLength > length) return false;
+                    ReadOnlySpan<byte> type = buffer.AsSpan(position + 4, 4);
+                    if (type.SequenceEqual("IHDR"u8))
+                    {
+                        if (chunkLength != 13) return false;
+                        uint w = ReadBe32(buffer.AsSpan(dataStart, 4)), h = ReadBe32(buffer.AsSpan(dataStart + 4, 4));
+                        validHeader = w == (uint)expectedSize && h == (uint)expectedSize &&
+                            buffer[dataStart + 8] == 8 && buffer[dataStart + 9] == 6 &&
+                            buffer[dataStart + 10] == 0 && buffer[dataStart + 11] == 0 && buffer[dataStart + 12] == 0;
+                        if (!validHeader) return false;
+                    }
+                    else if (type.SequenceEqual("IDAT"u8))
+                    {
+                        idatCount++;
+                        idatStart = dataStart;
+                        idatLength = (int)chunkLength;
+                    }
+                    else if (type.SequenceEqual("IEND"u8)) break;
+                    position = dataStart + (int)chunkLength + 4; // data + CRC
+                }
+                // Our writer emits one IDAT. Anything else is a foreign file; let the caller skip it.
+                if (!validHeader || idatCount != 1 || idatLength <= 0) return false;
+
+                using var input = new MemoryStream(buffer, idatStart, idatLength, writable: false);
+                using var zlib = new ZLibStream(input, CompressionMode.Decompress);
+                for (int y = 0; y < expectedSize; y++)
+                {
+                    if (zlib.ReadByte() != 0) return false; // only filter type None is produced
+                    if (!ReadExactly(zlib, destination.AsSpan(y * rowBytes, rowBytes))) return false;
+                }
+                return true;
+            }
+            catch { return false; }
+            finally { if (buffer != null) ArrayPool<byte>.Shared.Return(buffer, clearArray: false); }
+        }
+
         public static bool TryReadRgba(string path, out int width, out int height, out byte[] rgba)
         {
             width = height = 0;
@@ -3562,6 +3658,7 @@ internal sealed class WebMapTerrainExporter
     {
         private static readonly byte[] Signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
         private static readonly uint[] CrcTable = BuildCrcTable();
+        [ThreadStatic] private static MemoryStream? scratchStream;
 
         public static void WriteRgba(string path, int width, int height, byte[] rgba)
         {
@@ -3575,7 +3672,10 @@ internal sealed class WebMapTerrainExporter
             WriteChunk(file, "IHDR", ihdr);
 
             // Compress directly from the RGBA rows instead of constructing a second full raw image buffer.
-            using var compressed = new MemoryStream();
+            // Reused per thread: a fresh stream grows by doubling and every growth step beyond 85 KB lands on the
+            // large-object heap. Terrain tiles are written constantly during live updates.
+            var compressed = scratchStream ??= new MemoryStream(64 * 1024);
+            compressed.SetLength(0);
             using (var zlib = new ZLibStream(compressed, CompressionLevel.Fastest, true))
             {
                 int rowBytes = width * 4;
@@ -3590,6 +3690,8 @@ internal sealed class WebMapTerrainExporter
             else
                 WriteChunk(file, "IDAT", compressed.ToArray());
             WriteChunk(file, "IEND", Array.Empty<byte>());
+            // Do not keep an unusually large buffer alive on this thread.
+            if (compressed.Capacity > 4 * 1024 * 1024) scratchStream = null;
         }
 
         private static void WriteChunk(Stream stream, string type, byte[] data)

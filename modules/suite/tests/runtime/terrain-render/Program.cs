@@ -54,4 +54,24 @@ Check(!(bool)parse.Invoke(null,P("*a*","#ffffff"))!,"double wildcard rejected");
 Check(!(bool)parse.Invoke(null,P("rock-*","ff00aa"))!&&!(bool)parse.Invoke(null,P("rock-*","#ff00"))!&&!(bool)parse.Invoke(null,P("rock-*","#gg0000"))!,"bad colours rejected");
 Check(!(bool)parse.Invoke(null,P("has space","#ffffff"))!&&!(bool)parse.Invoke(null,P("","#ffffff"))!,"bad patterns rejected");
 Check((bool)parse.Invoke(null,P("rock-*","#FFFFFF"))!&&(bool)parse.Invoke(null,P("*-limestone","#000000"))!,"prefix and suffix wildcards accepted");
-Console.WriteLine("PASS: hillshade edges, water depth tint, colour override parsing");
+// PNG round trip through the pooled decoder used by pyramid building.
+var writer=exporter.GetNestedType("PngWriter",BindingFlags.NonPublic)!;
+var reader=exporter.GetNestedType("PngReader",BindingFlags.NonPublic)!;
+string dir=Path.Combine(Path.GetTempPath(),"nss-png-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
+try{
+ int n=32;var pixels=new byte[n*n*4];var rng=new Random(3);rng.NextBytes(pixels);
+ string file=Path.Combine(dir,"t.png");
+ writer.GetMethod("WriteRgba",S)!.Invoke(null,[file,n,n,pixels]);
+ var dest=new byte[n*n*4+100];
+ object? ok=reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[file,dest,n]);
+ Check((bool)ok!,"pooled decoder reads our PNG");
+ Check(dest.AsSpan(0,n*n*4).SequenceEqual(pixels),"decoded pixels match what was written");
+ Check(!(bool)reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[file,dest,n*2])!,"wrong expected size is rejected");
+ Check(!(bool)reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[file,new byte[10],n])!,"too-small destination is rejected");
+ File.WriteAllBytes(Path.Combine(dir,"bad.png"),new byte[200]);
+ Check(!(bool)reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[Path.Combine(dir,"bad.png"),dest,n])!,"garbage file is rejected");
+ // Writing twice on one thread reuses the scratch stream and must not leak bytes from the first image.
+ var second=new byte[n*n*4];writer.GetMethod("WriteRgba",S)!.Invoke(null,[file,n,n,second]);
+ Check((bool)reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[file,dest,n])!&&dest.AsSpan(0,n*n*4).ToArray().All(x=>x==0),"reused writer scratch does not leak the previous image");
+}finally{Directory.Delete(dir,true);}
+Console.WriteLine("PASS: hillshade edges, water depth tint, colour override parsing, PNG round trip");
