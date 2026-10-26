@@ -285,4 +285,31 @@ public static class SailingModel
         "summer" => 0.85,
         _ => 1.0
     };
+
+    // ---- Swamping and capsizing ----
+
+    /// <summary>Water shipped per second: a leaky hull ships water even in calm, rough seas slop over the gunwale.</summary>
+    public static double FloodPerSecond(int force, double hull)
+    {
+        double leak = hull < 50 ? (1 - Math.Max(0, hull) / 50.0) * 0.8 : 0;
+        double slop = force >= 7 ? (force - 6) * 0.12 : 0;
+        return leak + slop;
+    }
+
+    /// <summary>Water that drains or evaporates per second in settled conditions with a sound hull.</summary>
+    public static double NaturalDrainPerSecond(int force, double hull) => force < 5 && hull >= 50 ? 0.03 : 0;
+
+    /// <summary>Waterlogged boats wallow: no penalty under 40% water, down to a quarter speed when full.</summary>
+    public static double WaterSpeedFactor(double water) => 1 - 0.75 * Math.Clamp((water - 40) / 60.0, 0, 1);
+
+    /// <summary>Probability per second of capsizing: only when badly overloaded, worst beam-on, never under reefed or furled sail.</summary>
+    public static double CapsizeChancePerSecond(double knots, double sailArea, double angleOffWind, double overloadKnots, double severity = 1)
+    {
+        double threshold = Math.Max(1, overloadKnots * 1.4);
+        double load = knots * sailArea;
+        if (load <= threshold) return 0;
+        double ratio = load / threshold - 1;
+        double beam = Math.Sin(Math.Clamp(angleOffWind, 0, 180) * Math.PI / 180.0);
+        return Math.Clamp(0.08 * ratio * (0.3 + 0.7 * beam) * severity, 0, 0.5);
+    }
 }

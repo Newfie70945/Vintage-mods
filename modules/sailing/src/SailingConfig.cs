@@ -21,6 +21,10 @@ public sealed class SailingConfig
     public double SquallPeakMultiplier { get; set; } = 2.1;
     public int SquallWarningSeconds { get; set; } = 25;
     public bool WearEnabled { get; set; } = true;
+    public bool SwampingEnabled { get; set; } = true;
+    public bool CapsizingEnabled { get; set; } = true;
+    /// <summary>Multiplier on capsize probability (0 effectively disables).</summary>
+    public double CapsizeSeverity { get; set; } = 1.0;
     /// <summary>Multiplier on all wear rates (0.5 = half as fast).</summary>
     public double WearRate { get; set; } = 1.0;
     public bool SeasonalWindEnabled { get; set; } = true;
@@ -56,6 +60,8 @@ public sealed class SailingVisualsConfig
     public float Range { get; set; } = 48;
     public bool HeelingEnabled { get; set; } = true;
     public bool WakeEnabled { get; set; } = true;
+    /// <summary>Show overturned and waterlogged boats (flip upside down, bow dips).</summary>
+    public bool CapsizeVisualsEnabled { get; set; } = true;
     public bool StormGlowEnabled { get; set; } = true;
     public double ReferenceKnots { get; set; } = 17;
     /// <summary>Set to -1 if boats lean INTO the wind instead of away from it.</summary>

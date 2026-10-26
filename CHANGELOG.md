@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.7.0
+
+- Swamping: leaky hulls and rough seas flood the boat; waterlogged boats slow to a quarter speed. Capsizing: boats under badly overloaded full sail, worst beam-on, can roll over, throw riders into the sea and sit upside down (client flips the hull). New bailing bucket (removes 30% water, 40 uses) and single-use recovery balloon (righting/refloating within 10 blocks, with a colourful particle burst). Logbook counts capsizes and rescues. Config: `SwampingEnabled`, `CapsizingEnabled`, `CapsizeSeverity`, client `CapsizeVisualsEnabled`.
+- All item models rebuilt as multi-part shapes sharing one colour-swatch texture. Unverified in game.
+
 ## Realistic Sailing 0.6.0
 
 - All player `/sailing` commands removed in favour of crafted items: new ship's compass (full report), rigging line (cycle trim) and shipwright's repair kit (durability 24, patches the worse of hull/sails); weather glass, wind vane, anchor and logbook are unchanged. Hand-held repair materials and `RequireItemsForCommands`, `HullRepairItems`, `SailRepairItems` config removed. Admin-only `/sailingadmin` toggles a simulated temporal storm.

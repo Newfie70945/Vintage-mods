@@ -17,6 +17,8 @@ public sealed class SailingModSystem : ModSystem
     public const string TrimKey = "newfiessailing:trim";
     public const string AnchorKey = "newfiessailing:anchor";
     public const string HullKey = "newfiessailing:hull";
+    public const string CapsizedKey = "newfiessailing:capsized";
+    public const string WaterKey = "newfiessailing:water";
     public const string SailKey = "newfiessailing:sail";
     private const string LogPrefix = "newfiessailing:log:";
 
@@ -106,11 +108,11 @@ public sealed class SailingModSystem : ModSystem
 
     private static SailTrim GetTrim(Entity boat) => (SailTrim)Math.Clamp(boat.WatchedAttributes.GetInt(TrimKey, (int)SailTrim.Full), 0, 2);
 
-    private Entity? BoatOf(IServerPlayer? player, bool requireMount = true)
+    private Entity? BoatOf(IServerPlayer? player, bool requireMount = true, double radius = 6)
     {
         if (player?.Entity == null || (requireMount && player.Entity.MountedOn == null)) return null;
         Entity? best = null;
-        double bestDist = 6;
+        double bestDist = radius;
         foreach (Entity b in boats.Values)
         {
             double d = player.Entity.Pos.DistanceTo(b.Pos.XYZ);
@@ -136,6 +138,78 @@ public sealed class SailingModSystem : ModSystem
     }
 
     private static double GetCond(Entity boat, string key) => boat.WatchedAttributes.GetDouble(key, 100);
+
+    private static double GetWater(Entity boat) => boat.WatchedAttributes.GetDouble(WaterKey, 0);
+
+    private static void SetWater(Entity boat, double value)
+    {
+        value = Math.Clamp(value, 0, 100);
+        double old = GetWater(boat);
+        boat.WatchedAttributes.SetDouble(WaterKey, value);
+        if (Math.Floor(old) != Math.Floor(value)) boat.WatchedAttributes.MarkPathDirty(WaterKey);
+    }
+
+    private static bool IsCapsized(Entity boat) => boat.WatchedAttributes.GetBool(CapsizedKey, false);
+
+    private void Capsize(Entity boat)
+    {
+        LogEvent("capsizes");
+        boat.WatchedAttributes.SetBool(CapsizedKey, true);
+        boat.WatchedAttributes.MarkPathDirty(CapsizedKey);
+        SetCond(boat, HullKey, GetCond(boat, HullKey) - 10);
+        SetCond(boat, SailKey, GetCond(boat, SailKey) - 20);
+        SetWater(boat, GetWater(boat) + 40);
+        foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
+            if (p.Entity?.MountedOn != null && p.Entity.Pos.DistanceTo(boat.Pos.XYZ) < 6) p.Entity.TryUnmount();
+        NotifyNear(boat, "[Sailing] The boat capsizes and throws everyone into the sea! Right it with a recovery balloon, and reef next time.");
+    }
+
+    private void NotifyNear(Entity boat, string message)
+    {
+        foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
+            if (p is IServerPlayer sp && sp.Entity != null && sp.Entity.Pos.DistanceTo(boat.Pos.XYZ) < 24)
+                sp.SendMessage(GlobalConstants.InfoLogChatGroup, message, EnumChatType.Notification);
+    }
+
+    /// <summary>Recovery balloon: refloats and rights a capsized or swamped boat within 10 blocks. Consumes one balloon.</summary>
+    private (string Text, bool Used) Balloon(IServerPlayer player)
+    {
+        Entity? boat = BoatOf(player, requireMount: false, radius: 10);
+        if (boat == null) return ("No sailboat within 10 blocks.", false);
+        if (!IsCapsized(boat) && GetWater(boat) < 80) return ("This boat is afloat and sound; it does not need a recovery balloon.", false);
+        boat.WatchedAttributes.SetBool(CapsizedKey, false);
+        boat.WatchedAttributes.MarkPathDirty(CapsizedKey);
+        SetWater(boat, Math.Min(GetWater(boat), 35));
+        SetCond(boat, HullKey, Math.Max(GetCond(boat, HullKey), 25));
+        smoothed.Remove(boat.EntityId);
+        player.Entity.WatchedAttributes.SetInt(LogPrefix + "rescues", player.Entity.WatchedAttributes.GetInt(LogPrefix + "rescues", 0) + 1);
+        BalloonBurst(boat.Pos.XYZ);
+        return ("Gas hisses and bright balloons haul the hull upright and lift it clear of the water. The boat is afloat again - bail it out and patch the hull.", true);
+    }
+
+    private void BalloonBurst(Vec3d p)
+    {
+        int[] colors = { ColorUtil.ToRgba(255, 230, 60, 50), ColorUtil.ToRgba(255, 240, 200, 60), ColorUtil.ToRgba(255, 60, 120, 230) };
+        foreach (int color in colors)
+        {
+            sapi!.World.SpawnParticles(new SimpleParticleProperties(
+                14, 18, color,
+                new Vec3d(p.X - 2, p.Y + 0.5, p.Z - 2), new Vec3d(p.X + 2, p.Y + 2, p.Z + 2),
+                new Vec3f(-0.4f, 1.2f, -0.4f), new Vec3f(0.4f, 2.0f, 0.4f),
+                3f, -0.05f, 0.3f, 0.6f, EnumParticleModel.Cube));
+        }
+    }
+
+    /// <summary>Bailing bucket: removes 30% water from a boat within 6 blocks.</summary>
+    private (string Text, bool Used) Bail(IServerPlayer player)
+    {
+        Entity? boat = BoatOf(player, requireMount: false);
+        if (boat == null) return ("Stand within 6 blocks of a sailboat to bail it.", false);
+        double water = GetWater(boat);
+        if (water < 1) return ("The bilge is dry.", false);
+        SetWater(boat, water - 30);
+        return ($"You bail furiously. Water in the hull: {GetWater(boat):0}%.", true);
+    }
 
     private static void SetCond(Entity boat, string key, double value)
     {
@@ -168,7 +242,8 @@ public sealed class SailingModSystem : ModSystem
                $"Squalls survived: {a.GetInt(LogPrefix + "squalls", 0)}\n" +
                $"Temporal storms survived at sea: {a.GetInt(LogPrefix + "storms", 0)}\n" +
                $"Strongest wind faced: {a.GetDouble(LogPrefix + "topknots", 0):0.#} kn\n" +
-               $"Repairs made: {a.GetInt(LogPrefix + "repairs", 0)}";
+               $"Repairs made: {a.GetInt(LogPrefix + "repairs", 0)}\n" +
+               $"Capsizes: {a.GetInt(LogPrefix + "capsizes", 0)}, boats rescued: {a.GetInt(LogPrefix + "rescues", 0)}";
     }
 
     private void LogEvent(string name)
@@ -218,6 +293,8 @@ public sealed class SailingModSystem : ModSystem
         "anchor" => (ToggleAnchor(player), false),
         "trim" => (CycleTrim(player), false),
         "repair" => RepairBoat(player),
+        "balloon" => Balloon(player),
+        "bail" => Bail(player),
         "log" => (LogBook(player), false),
         _ => ("", false)
     };
@@ -428,6 +505,13 @@ public sealed class SailingModSystem : ModSystem
         foreach (Entity boat in boats.Values.ToArray())
         {
             if (!boat.Alive) continue;
+            if (IsCapsized(boat))
+            {
+                boat.SidedPos.Motion.X = 0;
+                boat.SidedPos.Motion.Z = 0;
+                SetWater(boat, GetWater(boat) + 0.5 * dt);
+                continue;
+            }
             if (boat.WatchedAttributes.GetBool(AnchorKey, false))
             {
                 HoldAnchor(boat, now);
@@ -453,6 +537,21 @@ public sealed class SailingModSystem : ModSystem
                 WarnCondition(boat, "hull", hullBefore, hullNow);
                 WarnCondition(boat, "sails", sailBefore, sailNow);
                 target *= SailingModel.ConditionSpeedFactor(GetCond(boat, HullKey), GetCond(boat, SailKey));
+            }
+            int seaForce = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+            if (config.SwampingEnabled)
+            {
+                double before = GetWater(boat);
+                double after = before + (SailingModel.FloodPerSecond(seaForce, GetCond(boat, HullKey)) - SailingModel.NaturalDrainPerSecond(seaForce, GetCond(boat, HullKey))) * dt;
+                SetWater(boat, after);
+                if (before < 100 && GetWater(boat) >= 100) NotifyNear(boat, "[Sailing] The boat is swamped! It is barely moving. Bail with a bucket, patch the hull, or use a recovery balloon.");
+                else if (before < 60 && after >= 60) NotifyNear(boat, "[Sailing] Water is sloshing in the bilge - the boat is getting heavy!");
+                target *= SailingModel.WaterSpeedFactor(GetWater(boat));
+            }
+            if (config.CapsizingEnabled && rng.NextDouble() < SailingModel.CapsizeChancePerSecond(knots, area, off, config.OverloadKnots, config.CapsizeSeverity) * dt)
+            {
+                Capsize(boat);
+                continue;
             }
 
             smoothed.TryGetValue(boat.EntityId, out double prev);
@@ -560,6 +659,8 @@ public sealed class SailingModSystem : ModSystem
             SailTrim trim = GetTrim(boat);
             text += $"\nSails: {trim.ToString().ToLowerInvariant()}." + (boat.WatchedAttributes.GetBool(AnchorKey, false) ? " Anchor down." : "");
             if (SailingModel.Overpowered(knots, SailingModel.SailArea(trim), config.OverloadKnots)) text += " Overpowered - reef!";
+            if (IsCapsized(boat)) text += "\nThe boat is CAPSIZED.";
+            else if (GetWater(boat) >= 1) text += $"\nWater in the hull: {GetWater(boat):0}%.";
             if (config.WearEnabled)
             {
                 double h = GetCond(boat, HullKey), sl = GetCond(boat, SailKey);

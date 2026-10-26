@@ -80,7 +80,8 @@ public sealed class SailingVisuals
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)
             {
                 var (pitch, roll) = SailingModel.Bob(elapsed, force, boat.EntityId % 64);
-                boat.Pos.Pitch = (float)(pitch * cfg.BobIntensity);
+                double water = cfg.CapsizeVisualsEnabled ? boat.WatchedAttributes.GetDouble(SailingModSystem.WaterKey, 0) : 0;
+                boat.Pos.Pitch = (float)(pitch * cfg.BobIntensity + 0.15 * Math.Clamp((water - 40) / 60.0, 0, 1));
                 boat.Pos.Roll = (float)(roll * cfg.BobIntensity + HeelFor(boat, wind, knots));
             }
 
@@ -95,7 +96,9 @@ public sealed class SailingVisuals
     {
         double target = 0;
         var m = boat.Pos.Motion;
-        if (cfg.HeelingEnabled && Math.Sqrt(m.X * m.X + m.Z * m.Z) > 0.004)
+        bool capsized = cfg.CapsizeVisualsEnabled && boat.WatchedAttributes.GetBool(SailingModSystem.CapsizedKey, false);
+        if (capsized) target = Math.PI;
+        else if (cfg.HeelingEnabled && Math.Sqrt(m.X * m.X + m.Z * m.Z) > 0.004)
         {
             double area = SailingModel.SailArea((SailTrim)Math.Clamp(boat.WatchedAttributes.GetInt(SailingModSystem.TrimKey, (int)SailTrim.Full), 0, 2));
             double off = SailingModel.AngleOffWind(m.X, m.Z, wind.X, wind.Z);
@@ -104,7 +107,7 @@ public sealed class SailingVisuals
             target = -side * cfg.HeelDirection * SailingModel.Heel(knots, off, area, cfg.ReferenceKnots);
         }
         heel.TryGetValue(boat.EntityId, out double cur);
-        cur += (target - cur) * 0.08;
+        cur += (target - cur) * (capsized ? 0.05 : 0.08);
         heel[boat.EntityId] = cur;
         return cur;
     }

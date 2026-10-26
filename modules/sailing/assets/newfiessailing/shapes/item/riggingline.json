@@ -2,11 +2,11 @@
  "textureWidth": 16,
  "textureHeight": 16,
  "textures": {
-  "main": "newfiessailing:item/riggingline"
+  "main": "newfiessailing:item/palette"
  },
  "elements": [
   {
-   "name": "coil",
+   "name": "coil1",
    "from": [
     4,
     0,
@@ -14,62 +14,200 @@
    ],
    "to": [
     12,
-    2,
+    1.5,
     12
    ],
    "faces": {
     "north": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "east": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "south": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "west": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "up": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "down": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
+     ]
+    }
+   }
+  },
+  {
+   "name": "coil2",
+   "from": [
+    5,
+    1.5,
+    5
+   ],
+   "to": [
+    11,
+    3,
+    11
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    }
+   }
+  },
+  {
+   "name": "coil3",
+   "from": [
+    6,
+    3,
+    6
+   ],
+   "to": [
+    10,
+    4,
+    10
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      13,
+      3,
+      15
      ]
     }
    }
@@ -77,68 +215,275 @@
   {
    "name": "tail",
    "from": [
-    6,
-    2,
-    6
+    10,
+    0,
+    10
    ],
    "to": [
-    10,
-    8,
-    10
+    13.5,
+    1,
+    11.5
    ],
    "faces": {
     "north": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "east": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "south": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "west": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "up": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
      ]
     },
     "down": {
      "texture": "#main",
      "uv": [
-      0,
-      0,
-      16,
-      16
+      1,
+      13,
+      3,
+      15
+     ]
+    }
+   }
+  },
+  {
+   "name": "block",
+   "from": [
+    6,
+    4,
+    6.5
+   ],
+   "to": [
+    10,
+    8,
+    9.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    }
+   }
+  },
+  {
+   "name": "sheave",
+   "from": [
+    5.5,
+    5,
+    7.5
+   ],
+   "to": [
+    10.5,
+    6.5,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    }
+   }
+  },
+  {
+   "name": "hook",
+   "from": [
+    7.5,
+    8,
+    7.5
+   ],
+   "to": [
+    8.5,
+    10,
+    8.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      9,
+      5,
+      11,
+      7
      ]
     }
    }

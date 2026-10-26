@@ -1,0 +1,15 @@
+{
+ "ingredientPattern": "P_P,PPP",
+ "ingredients": {
+  "P": {
+   "type": "item",
+   "code": "game:plank-*"
+  }
+ },
+ "width": 3,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:bailingbucket"
+ }
+}

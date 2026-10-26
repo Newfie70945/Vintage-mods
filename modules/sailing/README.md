@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.6.0
+# Newfie's Realistic Sailing 0.7.0
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -12,9 +12,11 @@ Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everythi
 | Rigging line | while riding a sailboat, cycle sails full, reefed, furled | 3 flax twine |
 | Ship's anchor | while riding, drop or raise the anchor | 4 iron ingots (T shape) |
 | Shipwright's repair kit | near a sailboat, patch the worse of hull or sails (+25%); 24 uses | plank, flax twine, 2 copper ingots |
+| Bailing bucket | within 6 blocks of a boat, bail out 30% of the water; 40 uses | 5 planks (bucket shape) |
+| Recovery balloon | within 10 blocks of a capsized or swamped boat: rights and refloats it; single use | 6 flax fibres over flax twine |
 | Sailor's logbook | your record: distance, squalls, temporal storms, strongest wind, repairs | 4 parchment |
 
-Models and textures are simple placeholders and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
+Models are multi-part shapes sharing one colour-swatch texture (`textures/item/palette.png`) and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
 
 ## What changes at sea
 
@@ -26,6 +28,8 @@ Models and textures are simple placeholders and recipe ingredient codes are unve
 - **Seasonal winds.** Winter +25%, autumn +10%, summer -15%.
 - **Temporal storms at sea.** Wandering wind, +30% strength, two forces rougher sea, violet sparks, and capped drifter boarders (`BoarderEntityCode`) that despawn afterwards. State is read from the game by reflection; one warning is logged if it cannot be read.
 - **Wear.** Hull and sail condition (stored on the boat) wear faster in gales, when overpowered and in temporal storms; worn boats are slower. Warnings at 50/25/10%.
+- **Swamping.** Boats with a hull under 50% leak, and Force 7+ seas slop water aboard. Waterlogged boats slow to a quarter speed and warn at 60% and 100%. Bail with the bucket or patch the hull.
+- **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon rights and refloats it (water set to 35%, hull at least 25%).
 - **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.
 - **Storm visuals (client).** Bobbing hulls, spray from Force 3, stern wake foam. Tune in `ModConfig/NewfiesSailingClient.json`.
 
