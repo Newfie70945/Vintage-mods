@@ -127,6 +127,25 @@ int after = Score();
 if (before != 78 || after != before) throw new Exception("Duplicate evidence inflated confidence");
 Console.WriteLine($"PASS: identical repeated evidence retains displayed confidence {before} -> {after}.");
 
+// Production ingress finding callbacks remain bound to the observed player session.
+var pending=new List<Action>();int findings=0,logs=0;
+var logType=apiType.GetInterfaces().Append(apiType).SelectMany(t=>t.GetProperties()).First(p=>p.Name=="Logger").PropertyType;
+object logProxy=Proxy(logType,(m,a)=>{logs++;return m.ReturnType==typeof(bool)?false:null;});
+object sessionEvents=Proxy(eventsType,(m,a)=>{if(m.Name=="EnqueueMainThreadTask"){pending.Add((Action)a![0]!);return null;}throw new Exception("Unexpected event "+m.Name);});
+object sessionApi=Proxy(apiType,(m,a)=>m.Name=="get_Event"?sessionEvents:m.Name=="get_Logger"?logProxy:throw new Exception("Unexpected API "+m.Name));
+var reportType=constructor.GetParameters()[2].ParameterType;
+Action found=()=>findings++;
+var parameters=reportType.GetMethod("Invoke")!.GetParameters().Select(p=>System.Linq.Expressions.Expression.Parameter(p.ParameterType)).ToArray();
+var reporter=System.Linq.Expressions.Expression.Lambda(reportType,System.Linq.Expressions.Expression.Invoke(System.Linq.Expressions.Expression.Constant(found)),parameters).Compile();
+object sessionGuard=constructor.Invoke(new[]{sessionApi,Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatConfig")),reporter,health});Set(sessionGuard,"active",true);
+var report=guardType.GetMethod("Report",fields)!;object severity=Enum.Parse(report.GetParameters()[4].ParameterType,"High");
+Set(client,"Player",player);report.Invoke(sessionGuard,new object?[]{client,"PACKET_TEST_REPLACED","test","test",severity,false,null,null});
+Set(client,"Player",RuntimeHelpers.GetUninitializedObject(player.GetType()));pending.Single()();
+if(findings!=0||logs!=0)throw new Exception("Replaced session received the previous player's finding");
+pending.Clear();Set(client,"Player",null);report.Invoke(sessionGuard,new object?[]{client,"PACKET_TEST_ANONYMOUS","test","test",severity,false,null,null});Set(client,"Player",player);pending.Single()();
+if(findings!=0||logs==0)throw new Exception("Pre-authentication finding was assigned to authenticated player");
+Console.WriteLine("PASS: compiled ingress callbacks discard replaced sessions and keep anonymous observations anonymous; no world access.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> handler) {
     object result = DispatchProxy.Create(type, typeof(AuditProxy));
     ((AuditProxy)result).Handler = handler; return result;

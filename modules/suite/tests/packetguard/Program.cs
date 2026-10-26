@@ -83,3 +83,34 @@ Check(!PacketReachGeometry.ValidBox(double.NaN,0,0,1,1,1)&&!PacketReachGeometry.
 Console.WriteLine("PASS: burst versus sustained flood, healthy-timing confirmation, distinct-target/span reach evidence, review-only consequence metadata, live stall timing and server selection geometry.");
 
 Check(PacketReachEvidence.PingMilliseconds(double.NaN)==1000&&PacketReachEvidence.PingMilliseconds(double.PositiveInfinity)==1000&&PacketReachEvidence.PingMilliseconds(0.1)==100,"Unknown ping uses bounded reconciliation rather than NaN reach arithmetic");
+
+// A large first burst must not supply all the evidence for later sparse overages.
+var sparse=new PacketFloodConfirmation();
+for(int i=0;i<10000;i++)Check(!sparse.Observe(1000),"Burst cannot add independent observation windows");
+Check(!sparse.Observe(2000)&&!sparse.Observe(3000)&&!sparse.Observe(4000),"Sparse tail cannot inherit a burst's packet count");
+Check(sparse.Evidence.Windows==4&&sparse.Evidence.SpanMs==3000,"Only independently timed observations counted");
+for(int i=0;i<6;i++)sparse.Observe(4100+i*100);
+Check(sparse.Evidence.Windows==10&&sparse.Observe(4700),"Sustained distributed overages still confirm");
+Check(!sparse.Observe(4800,false)&&sparse.Evidence.Windows==0,"Lag clears accumulated observations");
+var shortBurst=new PacketFloodConfirmation();
+for(int i=0;i<=3500;i++)Check(!shortBurst.Observe(i<3000?1000:4000),"Separated bursts cannot confirm across a quiet gap");
+Check(budget.Snapshot.Accepted==17&&budget.Snapshot.Dropped==4&&budget.Snapshot.Rate==2&&budget.Snapshot.Burst==8,"Budget counters match actual decisions without changing limits");
+var culture=System.Globalization.CultureInfo.CurrentCulture;
+try{System.Globalization.CultureInfo.CurrentCulture=new("fr-FR");Check(new PacketIngressBudgetSnapshot(3,2,0.5,60,180).Evidence.Contains("tokensRemaining=0.50"),"Evidence stays invariant across server locales");}finally{System.Globalization.CultureInfo.CurrentCulture=culture;}
+Check(PacketReachEvidence.IsUsableSample(1000,900,350,0,0,12,12),"Recent same-entity/same-dimension sample retained");
+Check(PacketReachEvidence.IsUsableSample(1000,650,350,0,0,12,12),"Rewind boundary inclusive");
+Check(!PacketReachEvidence.IsUsableSample(1000,649,350,0,0,12,12),"Stale reach sample rejected");
+Check(!PacketReachEvidence.IsUsableSample(1000,1001,350,0,0,12,12),"Future sample cannot authorize reach after clock regression");
+Check(!PacketReachEvidence.IsUsableSample(1000,900,350,0,1,12,12),"Different dimensions cannot supply reach history");
+Check(!PacketReachEvidence.IsUsableSample(1000,900,350,0,0,12,13),"Previous entity cannot supply reach history");
+Check(!PacketReachEvidence.IsUsableSample(long.MaxValue,long.MinValue,350,0,0,12,12),"Invalid timestamp cannot wrap into the rewind window");
+Console.WriteLine("PASS: independently spaced flood evidence, burst/sparse-tail isolation, unchanged token decisions, invariant budget telemetry, bounded history and clock/entity/dimension exclusions.");
+
+var identityFlight=new PacketFlightReviewWindow();
+for(int i=0;i<24;i++)Check(!identityFlight.Observe(i*250,100,true,6000,1000,entityId:1,dimension:0),"Flight review waits for sustained evidence");
+Check(!identityFlight.Observe(6000,100,true,6000,1000,entityId:2,dimension:0)&&identityFlight.DurationMs==0,"New entity resets flight review");
+Check(!identityFlight.Observe(6250,100,true,6000,1000,entityId:2,dimension:1)&&identityFlight.DurationMs==0,"New dimension resets flight review");
+Check(!PacketMovementEvidence.FreshPosition(1000,1001)&&!PacketMovementEvidence.FreshPosition(10000,0),"Future/stale movement cannot support collision or flight accusations");
+Check(!PacketMovementEvidence.ReliableCollisionTiming(true,false,false,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,true,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,false,true,true),"Warmup, degraded timing and critical lag suppress noclip evidence");
+Check(PacketMovementEvidence.ReliableCollisionTiming(true,true,false,false,true)&&!PacketMovementEvidence.ReliableCollisionTiming(true,true,false,false,false),"Healthy fresh movement remains eligible");
+Console.WriteLine("PASS: flight identity/dimension resets and fresh/healthy noclip evidence eligibility.");

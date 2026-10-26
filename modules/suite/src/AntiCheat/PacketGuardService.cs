@@ -978,7 +978,7 @@ internal sealed class PacketGuardService : IDisposable
                 !tps.IsDegraded && !tps.IsCritical && (!tps.Enabled || tps.Ready) &&
                 !PacketGuardTrustedState.IsActive(player.PlayerUID, now, PacketGuardTrustScope.Movement);
             if (player is not ServerPlayer serverPlayer ||
-                api.World.ElapsedMilliseconds - serverPlayer.LastReceivedClientPosition > 1500)
+                !PacketMovementEvidence.FreshPosition(api.World.ElapsedMilliseconds,serverPlayer.LastReceivedClientPosition))
                 eligible = false;
             if (player.WorldData is ServerWorldPlayerData worldData && (worldData.FreeMove || worldData.NoClip)) eligible = false;
             if (!sampledPlayerPositions.TryGetValue(player.PlayerUID, out EntityPos? position) || !eligible)
@@ -991,7 +991,7 @@ internal sealed class PacketGuardService : IDisposable
             bool unsupported = HasLoadedUnsupportedFlightVolume(player.Entity, position);
             if (!window.Observe(now, position.Y, unsupported,
                     config.PacketGuardFlightReviewConfirmSeconds * 1000,
-                    Math.Max(1000, config.PacketGuardFlightReviewSampleMs * 3))) continue;
+                    Math.Max(1000, config.PacketGuardFlightReviewSampleMs * 3),entityId:player.Entity.EntityId,dimension:position.Dimension)) continue;
             string evidence = $"decision=review-only;durationMs={window.DurationMs};rise={window.Rise:0.00};" +
                 $"position={position.X:0.00},{position.Y:0.00},{position.Z:0.00};dimension={position.Dimension};" +
                 $"supportProbe=loaded-collision-liquid-climb;groundClearance=2;freshClientPositionMs=1500;{tps.Evidence}";
@@ -1006,7 +1006,7 @@ internal sealed class PacketGuardService : IDisposable
     private bool HasLoadedUnsupportedFlightVolume(Entity entity, EntityPos position)
     {
         Cuboidf? body = entity.OriginCollisionBox;
-        if (body == null) return false;
+        if (body == null || !PacketReachGeometry.ValidBox(body.X1,body.Y1,body.Z1,body.X2,body.Y2,body.Z2)) return false;
         const double margin = 0.3;
         double minX = position.X + body.X1 - margin;
         double maxX = position.X + body.X2 + margin;
@@ -1036,8 +1036,10 @@ internal sealed class PacketGuardService : IDisposable
             try { boxes = block.GetCollisionBoxes(accessor, blockPos); }
             catch { return false; } // Custom collision code is incomplete evidence, not proof of flight.
             if (boxes == null) continue;
+            if(boxes.Length>128)return false;
             foreach (Cuboidf box in boxes)
             {
+                if(box==null||!PacketReachGeometry.ValidBox(box.X1,box.Y1,box.Z1,box.X2,box.Y2,box.Z2))return false;
                 if (x + box.X2 >= minX && x + box.X1 <= maxX && z + box.Z2 >= minZ && z + box.Z1 <= maxZ &&
                     y + box.Y2 >= feet - 2 && y + box.Y1 <= position.Y + body.Y2 + margin)
                     return false; // Nearby support/geometry is deliberately a broad safety exclusion.
@@ -1620,17 +1622,19 @@ internal sealed class PacketGuardService : IDisposable
 
                 // Short-step endpoint validation closes the gap where a noclip client advances
                 // through a wall in increments smaller than the path-sampling minimum distance.
+                bool collisionTimingReliable=PacketMovementEvidence.ReliableCollisionTiming(tps.Enabled,tps.Ready,tps.IsDegraded,tps.IsCritical,
+                    player is ServerPlayer observedPlayer && PacketMovementEvidence.FreshPosition(api.World.ElapsedMilliseconds,observedPlayer.LastReceivedClientPosition));
                 bool endpointPenetrating = false;
                 double endpointPenetration = 0;
                 double endpointNetMovement = 0;
                 string endpointBlock = "";
-                if (config.PacketGuardNoclipEnabled && config.PacketGuardNoclipEndpointEnabled &&
+                if (collisionTimingReliable && config.PacketGuardNoclipEnabled && config.PacketGuardNoclipEndpointEnabled &&
                     EntityBodyIntersectsCollision(entity, pos.X, pos.Y, pos.Z, pos.Dimension, out endpointBlock, out endpointPenetration) &&
                     endpointPenetration >= config.PacketGuardNoclipEndpointMinPenetrationDepth)
                 {
                     endpointPenetrating = true;
                     endpointNetMovement = state.ObserveEndpointPenetration(
-                        state.X, state.Z, pos.X, pos.Z, pos.Dimension);
+                        state.X, state.Z, pos.X, pos.Z, pos.Dimension, now);
                 }
                 else
                 {
@@ -1650,15 +1654,15 @@ internal sealed class PacketGuardService : IDisposable
 
                 if (endpointPenetrating &&
                     state.EndpointCollisionSamples >= config.PacketGuardNoclipEndpointConfirmSamples &&
-                    endpointNetMovement >= config.PacketGuardNoclipEndpointMinNetMovement)
+                    endpointNetMovement >= config.PacketGuardNoclipEndpointMinNetMovement && now-state.EndpointCollisionSinceUtc>=500)
                 {
                     double endpointMovementRisk = AddMovementRisk(state, MovementRiskSignal.Noclip, config.PacketGuardMovementRiskNoclip, now);
                     string endpointEvidence =
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"endpointPenetration={endpointPenetration:0.000};minPenetration={config.PacketGuardNoclipEndpointMinPenetrationDepth:0.000};" +
-                        $"endpointConfirm={state.EndpointCollisionSamples}/{config.PacketGuardNoclipEndpointConfirmSamples};" +
+                        $"endpointConfirm={state.EndpointCollisionSamples}/{config.PacketGuardNoclipEndpointConfirmSamples};endpointSpanMs={Math.Max(0,now-state.EndpointCollisionSinceUtc)};minimumSpanMs=500;" +
                         $"endpointNetMovement={endpointNetMovement:0.000};minNetMovement={config.PacketGuardNoclipEndpointMinNetMovement:0.000};block={endpointBlock};" +
-                        $"movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={endpointMovementRisk:0.0};decision=confirmed;reason=endpoint-penetration-with-movement;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(
@@ -1688,7 +1692,7 @@ internal sealed class PacketGuardService : IDisposable
                 // Noclip is independent of raw speed. A cheat can deliberately move slowly through
                 // a wall, so test the intermediate server-observed body path against real collision
                 // boxes before accepting this sample as a new safe location.
-                if (config.PacketGuardNoclipEnabled &&
+                if (collisionTimingReliable && config.PacketGuardNoclipEnabled &&
                     TryDetectNoclipPath(entity, state.X, state.Y, state.Z, pos.X, pos.Y, pos.Z, pos.Dimension,
                         out int collisionSamples, out double maxPenetrationDepth, out string collisionBlock))
                 {
@@ -1697,14 +1701,14 @@ internal sealed class PacketGuardService : IDisposable
                         $"mode={movementMode};distance={distance:0.00};horizontal={horizontalDistance:0.00};sampleMs={sampleElapsedMs};" +
                         $"collisionSamples={collisionSamples};required={config.PacketGuardNoclipRequiredCollisionSamples};" +
                         $"maxPenetration={maxPenetrationDepth:0.000};minPenetration={config.PacketGuardNoclipMinPenetrationDepth:0.000};" +
-                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"sampleStep={config.PacketGuardNoclipSampleStep:0.00};block={collisionBlock};correctionConfigured={config.PacketGuardRejectNoclip};movementRisk={pathMovementRisk:0.0};decision=confirmed;reason=collision-path-crossing;{MovementDiagnosticEvidence(player, state, movementMode, pos, mounted)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_NOCLIP", now))
                     reportFinding(
                         player,
                         "PACKET_NOCLIP",
                         AntiCheatSeverity.Critical,
-                        "The server observed untrusted survival movement crossing solid block collision geometry and rolled the player back to the last safe position.",
+                        "The server observed a fully loaded movement path crossing solid collision geometry. Review modded movement and geometry compatibility; correction follows the configured policy.",
                         player.PlayerUID,
                         noclipEvidence);
 
@@ -2103,6 +2107,8 @@ internal sealed class PacketGuardService : IDisposable
         double distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (distance < config.PacketGuardNoclipMinPathDistance) return false;
 
+        if(EntityBodyIntersectsCollision(entity,fromX,fromY,fromZ,dimension,out _,out _,out bool fromKnown)||!fromKnown)return false;
+        if(EntityBodyIntersectsCollision(entity,toX,toY,toZ,dimension,out _,out _,out bool toKnown)||!toKnown)return false;
         int steps = Math.Clamp((int)Math.Ceiling(distance / config.PacketGuardNoclipSampleStep), 2, 96);
         for (int i = 1; i < steps; i++)
         {
@@ -2110,24 +2116,30 @@ internal sealed class PacketGuardService : IDisposable
             double x = fromX + dx * t;
             double y = fromY + dy * t;
             double z = fromZ + dz * t;
-            if (!EntityBodyIntersectsCollision(entity, x, y, z, dimension, out string blockCode, out double penetrationDepth)) continue;
+            bool intersects=EntityBodyIntersectsCollision(entity,x,y,z,dimension,out string blockCode,out double penetrationDepth,out bool known);
+            if(!known)return false;
+            if(!intersects)continue;
             if (penetrationDepth < config.PacketGuardNoclipMinPenetrationDepth) continue;
 
             collisionSamples++;
             maxPenetrationDepth = Math.Max(maxPenetrationDepth, penetrationDepth);
             if (firstBlock.Length == 0) firstBlock = blockCode;
-            if (collisionSamples >= config.PacketGuardNoclipRequiredCollisionSamples) return true;
+
         }
 
-        return false;
+        return collisionSamples>=config.PacketGuardNoclipRequiredCollisionSamples;
     }
 
     private bool EntityBodyIntersectsCollision(Entity entity, double x, double y, double z, int dimension, out string blockCode, out double penetrationDepth)
+        => EntityBodyIntersectsCollision(entity,x,y,z,dimension,out blockCode,out penetrationDepth,out _);
+
+    private bool EntityBodyIntersectsCollision(Entity entity,double x,double y,double z,int dimension,out string blockCode,out double penetrationDepth,out bool complete)
     {
+        complete=false;
         blockCode = "";
         penetrationDepth = 0;
         Cuboidf body = entity.OriginCollisionBox;
-        if (body == null) return false;
+        if (body == null || !double.IsFinite(x)||!double.IsFinite(y)||!double.IsFinite(z)||!PacketReachGeometry.ValidBox(body.X1,body.Y1,body.Z1,body.X2,body.Y2,body.Z2)) return false;
 
         // Shrink the body slightly so merely touching floors/walls does not count as clipping.
         const double epsilon = 0.035;
@@ -2146,21 +2158,25 @@ internal sealed class PacketGuardService : IDisposable
         int by1 = (int)Math.Floor(maxY);
         int bz1 = (int)Math.Floor(maxZ);
 
+        if((long)(bx1-bx0+1)*(by1-by0+1)*(bz1-bz0+1)>128)return false;
         var blockAccessor = api.World.BlockAccessor;
         for (int bx = bx0; bx <= bx1; bx++)
         for (int by = by0; by <= by1; by++)
         for (int bz = bz0; bz <= bz1; bz++)
         {
             var blockPos = new BlockPos(bx, by, bz, dimension);
+            if(bx<0||by<0||bz<0||bx>=blockAccessor.MapSizeX||by>=blockAccessor.MapSizeY||bz>=blockAccessor.MapSizeZ||blockAccessor.GetChunkAtBlockPos(blockPos)==null)return false;
             Block block = blockAccessor.GetBlock(blockPos);
             if (block == null || block.Id == 0) continue;
 
             Cuboidf[] boxes;
             try { boxes = block.GetCollisionBoxes(blockAccessor, blockPos) ?? Array.Empty<Cuboidf>(); }
-            catch { continue; }
+            catch { return false; }
 
+            if(boxes.Length>128)return false;
             foreach (Cuboidf box in boxes)
             {
+                if(box==null||!PacketReachGeometry.ValidBox(box.X1,box.Y1,box.Z1,box.X2,box.Y2,box.Z2))return false;
                 double cMinX = bx + box.X1;
                 double cMinY = by + box.Y1;
                 double cMinZ = bz + box.Z1;
@@ -2184,6 +2200,7 @@ internal sealed class PacketGuardService : IDisposable
             }
         }
 
+        complete=true;
         return penetrationDepth > 0;
     }
 
@@ -2955,10 +2972,9 @@ internal sealed class PacketGuardService : IDisposable
         if (config.PacketGuardReachPositionHistoryEnabled &&
             reachPositionHistory.TryGetValue(player.PlayerUID, out Queue<ReachPositionSample>? samples))
         {
-            long cutoff = now - effectiveRewindMs;
             foreach (ReachPositionSample sample in samples)
             {
-                if (sample.Utc < cutoff || sample.Dimension != entityPos.Dimension || sample.EntityId != entity.EntityId) continue;
+                if (!PacketReachEvidence.IsUsableSample(now,sample.Utc,effectiveRewindMs,entityPos.Dimension,sample.Dimension,entity.EntityId,sample.EntityId)) continue;
                 double candidate = DistanceToBlockCube(sample.EyeX, sample.EyeY, sample.EyeZ, pos);
                 if (candidate + 0.0001 >= bestDistance) continue;
                 bestDistance = candidate;
@@ -3012,7 +3028,7 @@ internal sealed class PacketGuardService : IDisposable
                     if(config.PacketGuardReachPositionHistoryEnabled&&reachPositionHistory.TryGetValue(player.PlayerUID,out var shapeSamples))
                     foreach(var sample in shapeSamples)
                     {
-                        if(sample.Utc<now-effectiveRewindMs||sample.Dimension!=entityPos.Dimension||sample.EntityId!=entity.EntityId)continue;
+                        if(!PacketReachEvidence.IsUsableSample(now,sample.Utc,effectiveRewindMs,entityPos.Dimension,sample.Dimension,entity.EntityId,sample.EntityId))continue;
                         double candidate=PacketReachGeometry.Distance(sample.EyeX,sample.EyeY,sample.EyeZ,x1,y1,z1,x2,y2,z2);
                         if(candidate>=bestDistance)continue;bestDistance=candidate;usedHistory=true;bestSampleAgeMs=Math.Max(0,now-sample.Utc);
                     }
@@ -3923,11 +3939,13 @@ internal sealed class PacketGuardService : IDisposable
             return acceleration;
         }
 
+        public long EndpointCollisionSinceUtc, EndpointCollisionLastUtc;
         public double ObserveEndpointPenetration(
-            double previousX, double previousZ, double currentX, double currentZ, int dimension)
+            double previousX, double previousZ, double currentX, double currentZ, int dimension,long now)
         {
-            if (EndpointCollisionSamples <= 0 || EndpointCollisionDimension != dimension)
+            if (EndpointCollisionSamples <= 0 || EndpointCollisionDimension != dimension || now<=EndpointCollisionLastUtc || now-EndpointCollisionLastUtc>1000)
             {
+                EndpointCollisionSinceUtc=now;
                 EndpointCollisionStartX = previousX;
                 EndpointCollisionStartZ = previousZ;
                 EndpointCollisionDimension = dimension;
@@ -3938,6 +3956,7 @@ internal sealed class PacketGuardService : IDisposable
                 EndpointCollisionSamples++;
             }
 
+            EndpointCollisionLastUtc=now;
             double dx = currentX - EndpointCollisionStartX;
             double dz = currentZ - EndpointCollisionStartZ;
             return Math.Sqrt(dx * dx + dz * dz);
@@ -3946,6 +3965,7 @@ internal sealed class PacketGuardService : IDisposable
         public void ResetEndpointPenetration()
         {
             EndpointCollisionSamples = 0;
+            EndpointCollisionSinceUtc=EndpointCollisionLastUtc=0;
             EndpointCollisionStartX = 0;
             EndpointCollisionStartZ = 0;
             EndpointCollisionDimension = 0;

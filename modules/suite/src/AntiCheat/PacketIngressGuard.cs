@@ -456,7 +456,7 @@ internal sealed class PacketIngressGuard : IDisposable
             {var health=getTickHealth();state.TimingReliable=!health.Enabled||(health.Ready&&!health.IsDegraded);state.HealthCheckedUtc=now;}
             confirmed=confirmation.Observe(now,state.TimingReliable);
         }
-        Report(client,"PACKET_FLOOD","Dropped traffic above a bounded resource budget; isolated bursts and lag catch-up are review-only.",evidence,AntiCheatSeverity.High,confirmed);
+        Report(client,"PACKET_FLOOD","Dropped traffic above a bounded resource budget; isolated bursts and lag catch-up are review-only.",evidence,AntiCheatSeverity.High,confirmed,budget,confirmation);
         return false;
     }
 
@@ -469,7 +469,7 @@ internal sealed class PacketIngressGuard : IDisposable
         return false;
     }
 
-    private void Report(ConnectedClient client, string code, string summary, string evidence, AntiCheatSeverity severity,bool floodCandidate=false)
+    private void Report(ConnectedClient client, string code, string summary, string evidence, AntiCheatSeverity severity,bool floodCandidate=false,PacketIngressBudget? budget=null,PacketFloodConfirmation? confirmation=null)
     {
         ConnectionState state = connections.GetValue(client, _ => new ConnectionState());
         long now = Environment.TickCount64;
@@ -477,13 +477,22 @@ internal sealed class PacketIngressGuard : IDisposable
         {
             if (state.ReportTimes.TryGetValue(code, out long previous) && now - previous < config.PacketGuardIngressFindingCooldownSeconds * 1000L) return;
             state.ReportTimes[code] = now;
+            // Snapshot under the same connection lock; format only after the report cooldown,
+            // never for every packet dropped during an attack.
+            if(budget!=null)evidence+=";"+budget.Snapshot.Evidence;
+            if(confirmation!=null){var window=confirmation.Evidence;evidence+=$";observationWindows={window.Windows};confirmationSpanMs={window.SpanMs};minimumObservationWindows=10;observationSpacingMs=100";}
+
         }
+        IServerPlayer? observedPlayer = client.Player;
         // Parser hooks run off-thread. Coalesce before queueing and deliver findings on the
         // main thread, where the anti-cheat session/history/consequence services are owned.
         api.Event.EnqueueMainThreadTask(() =>
         {
             if (!active) return;
-            IServerPlayer? player = client.Player;
+            IServerPlayer? player = observedPlayer;
+            // A queued finding belongs to the player observed on this connection, not
+            // someone authenticated/replaced before the main-thread callback executes.
+            if(player!=null&&!ReferenceEquals(client.Player,player))return;
             if(code=="PACKET_FLOOD")
             {
                 var health=getTickHealth();long queueDelay=Math.Max(0,Environment.TickCount64-now);

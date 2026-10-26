@@ -5,19 +5,26 @@ namespace BlockLogger.AntiCheat;
 internal sealed class PacketFloodConfirmation
 {
     private bool started;
-    private long first,last;
+    private long first,last,lastCounted;
     private int count;
+    internal (int Windows,long SpanMs) Evidence => (count,started?Math.Max(0,last-first):0);
     internal bool Observe(long now,bool timingReliable=true)
     {
         if(!timingReliable){started=false;count=0;return false;}
-        if(!started||now<last||now-last>1500){started=true;first=now;count=0;}
-        last=now;count=Math.Min(1_000_000,count+1);
+        if(!started||now<last||now-last>1500)
+        {started=true;first=now;lastCounted=now;count=1;}
+        else if(now-lastCounted>=100)
+        {lastCounted=now;count=Math.Min(1_000_000,count+1);}
+        last=now;
+        // Distinct observation intervals, not the number of packets in one drained burst.
         return now-first>=3000 && count>=10;
     }
 }
 
 internal static class PacketReachEvidence
 {
+    internal static bool IsUsableSample(long now,long timestamp,int rewindMs,int dimension,int sampleDimension,long entityId,long sampleEntityId) =>
+        timestamp>=0 && now>=timestamp && now-timestamp<=Math.Max(0,rewindMs) && dimension==sampleDimension && entityId==sampleEntityId;
     internal static double PingMilliseconds(double seconds) => double.IsFinite(seconds)&&seconds>=0?Math.Clamp(seconds*1000.0,0.0,1000.0):1000.0;
     internal static bool Eligible(string action,int strikes,int distinctTargets,long spanMs,int requiredStrikes,int requiredTargets,bool timingReliable) =>
         action.Equals("break",StringComparison.OrdinalIgnoreCase) && timingReliable &&
@@ -40,4 +47,11 @@ internal static class PacketReachGeometry
         double dx=x-Math.Clamp(x,x1,x2),dy=y-Math.Clamp(y,y1,y2),dz=z-Math.Clamp(z,z1,z2);
         return Math.Sqrt(dx*dx+dy*dy+dz*dz);
     }
+}
+
+internal static class PacketMovementEvidence
+{
+    internal static bool FreshPosition(long now,long received,int maximumAgeMs=1500) => received>=0 && now>=received && now-received<=maximumAgeMs;
+    internal static bool ReliableCollisionTiming(bool healthEnabled,bool ready,bool degraded,bool critical,bool freshPosition) =>
+        freshPosition && (!healthEnabled || ready&&!degraded&&!critical);
 }

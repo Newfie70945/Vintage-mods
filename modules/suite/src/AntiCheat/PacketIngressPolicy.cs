@@ -34,11 +34,15 @@ internal sealed class PacketIngressBudget
     private double tokens;
     private long lastTimestamp;
     private bool initialized;
+    private long accepted, rejected;
+    private int rate, capacity;
+    internal PacketIngressBudgetSnapshot Snapshot => new(accepted,rejected,tokens,rate,capacity);
 
     internal bool TryConsume(long monotonicMilliseconds, int perSecond, int burst)
     {
         perSecond = Math.Max(1, perSecond);
         burst = Math.Max(1, burst);
+        rate = perSecond; capacity = burst;
         if (!initialized)
         {
             initialized = true;
@@ -51,8 +55,14 @@ internal sealed class PacketIngressBudget
             lastTimestamp = monotonicMilliseconds;
         }
         tokens = Math.Min(tokens, burst);
-        if (tokens < 1.0) return false;
+        if (tokens < 1.0) { if(rejected<long.MaxValue)rejected++; return false; }
+        if(accepted<long.MaxValue)accepted++;
         tokens -= 1.0;
         return true;
     }
+}
+
+internal readonly record struct PacketIngressBudgetSnapshot(long Accepted,long Dropped,double Tokens,int Rate,int Burst)
+{
+    internal string Evidence => FormattableString.Invariant($"acceptedTotal={Accepted};droppedTotal={Dropped};tokensRemaining={Tokens:0.00};configuredRate={Rate};configuredBurst={Burst}");
 }
