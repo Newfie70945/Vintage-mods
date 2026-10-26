@@ -20,6 +20,16 @@ public sealed class SailingConfig
     public int SquallMaxDurationSeconds { get; set; } = 75;
     public double SquallPeakMultiplier { get; set; } = 2.1;
     public int SquallWarningSeconds { get; set; } = 25;
+    public bool FogEnabled { get; set; } = true;
+    public int FogMinIntervalSeconds { get; set; } = 600;
+    public int FogMaxIntervalSeconds { get; set; } = 1500;
+    public int FogMinDurationSeconds { get; set; } = 120;
+    public int FogMaxDurationSeconds { get; set; } = 240;
+    public bool RogueWavesEnabled { get; set; } = true;
+    /// <summary>Multiplier on rogue wave water and hull damage.</summary>
+    public double RogueWaveStrength { get; set; } = 1.0;
+    /// <summary>Speed lost beating into rough seas (false disables).</summary>
+    public bool HeadSeasEnabled { get; set; } = true;
     public bool WearEnabled { get; set; } = true;
     public bool SwampingEnabled { get; set; } = true;
     public bool CapsizingEnabled { get; set; } = true;
@@ -55,6 +65,9 @@ public sealed class SailingVisualsConfig
     public bool SplashesEnabled { get; set; } = true;
     /// <summary>Multiplier on hull roll/pitch; 0 disables, 2 doubles.</summary>
     public double BobIntensity { get; set; } = 1.0;
+    /// <summary>Extra multiplier on the rough-sea roll and pitch (1 = previous behaviour, 1.5 = rougher).</summary>
+    public double SeaRoughness { get; set; } = 1.5;
+    public bool FogVisualsEnabled { get; set; } = true;
     public double KnotsPerWindUnit { get; set; } = 30;
     public string[] BoatCodeContains { get; set; } = { "sail" };
     public float Range { get; set; } = 48;

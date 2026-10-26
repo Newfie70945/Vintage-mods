@@ -23,6 +23,10 @@ public sealed class SailingVisuals
     private bool temporalStorm;
     private double stormSeconds, windRotation = 1.5, windBoost = 1, seasonFactor = 1;
     private double syncedAt;
+    private double serverFog, appliedFog;
+    private readonly Dictionary<long, int> lastWave = new();
+    private readonly Dictionary<long, double> kick = new();
+    private const string FogModifierKey = "newfiessailing:fog";
 
     public void ApplySync(SailingSyncPacket p)
     {
@@ -32,6 +36,7 @@ public sealed class SailingVisuals
         windRotation = p.WindRotationAmplitude;
         windBoost = p.WindBoost;
         seasonFactor = p.SeasonFactor;
+        serverFog = p.Fog;
         syncedAt = elapsed;
     }
 
@@ -65,6 +70,7 @@ public sealed class SailingVisuals
         if (player == null) return;
         elapsed += dt;
 
+        bool onBoat = player.MountedOn != null;
         var boats = capi.World.GetEntitiesAround(player.Pos.XYZ, cfg.Range, cfg.Range / 2f, IsSailBoat);
         foreach (Entity boat in boats)
         {
@@ -74,21 +80,59 @@ public sealed class SailingVisuals
                 var (rx, rz) = SailingModel.RotateWind(wind.X, wind.Z, SailingModel.TemporalWindRotation(stormSeconds + (elapsed - syncedAt), windRotation));
                 wind = new Vec3d(rx, wind.Y, rz);
             }
-            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * (temporalStorm ? windBoost : 1);
+            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * SailingModel.FogWindFactor(serverFog) * (temporalStorm ? windBoost : 1);
             int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
 
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)
             {
                 var (pitch, roll) = SailingModel.Bob(elapsed, force, boat.EntityId % 64);
                 double water = cfg.CapsizeVisualsEnabled ? boat.WatchedAttributes.GetDouble(SailingModSystem.WaterKey, 0) : 0;
-                boat.Pos.Pitch = (float)(pitch * cfg.BobIntensity + 0.15 * Math.Clamp((water - 40) / 60.0, 0, 1));
-                boat.Pos.Roll = (float)(roll * cfg.BobIntensity + HeelFor(boat, wind, knots));
+                double rough = cfg.BobIntensity * cfg.SeaRoughness;
+                boat.Pos.Pitch = (float)(pitch * rough + 0.15 * Math.Clamp((water - 40) / 60.0, 0, 1));
+                boat.Pos.Roll = (float)(roll * rough + HeelFor(boat, wind, knots) + WaveKick(boat));
             }
 
             if (cfg.SplashesEnabled) Splash(boat, force);
             if (cfg.WakeEnabled) Wake(boat);
             if (temporalStorm && cfg.StormGlowEnabled) Glow(boat);
         }
+        UpdateFog(onBoat || boats.Length > 0);
+    }
+
+    /// <summary>Rogue wave: a sudden lurch that rings out over a couple of seconds, with a big burst of spray.</summary>
+    private double WaveKick(Entity boat)
+    {
+        int seen = boat.WatchedAttributes.GetInt(SailingModSystem.WaveKey, 0);
+        lastWave.TryGetValue(boat.EntityId, out int last);
+        if (seen != last)
+        {
+            lastWave[boat.EntityId] = seen;
+            kick[boat.EntityId] = (rng.Next(2) == 0 ? -1 : 1) * 0.55;
+            Splash(boat, 12);
+        }
+        kick.TryGetValue(boat.EntityId, out double k);
+        if (Math.Abs(k) < 0.002) return 0;
+        k *= 0.94;
+        kick[boat.EntityId] = k;
+        return k * Math.Cos(elapsed * 5);
+    }
+
+    /// <summary>Fog banks: applies an ambient fog modifier while the player is on or beside a boat, easing in and out.</summary>
+    private void UpdateFog(bool nearBoat)
+    {
+        double desired = cfg.FogVisualsEnabled && nearBoat ? serverFog : 0;
+        appliedFog += (desired - appliedFog) * 0.03;
+        if (appliedFog < 0.01)
+        {
+            capi.Ambient.CurrentModifiers.Remove(FogModifierKey);
+            return;
+        }
+        var mod = new AmbientModifier().EnsurePopulated();
+        mod.FogDensity.Value = (float)(0.012 * appliedFog);
+        mod.FogDensity.Weight = (float)appliedFog;
+        mod.FogColor.Value = new[] { 0.78f, 0.82f, 0.85f };
+        mod.FogColor.Weight = (float)appliedFog;
+        capi.Ambient.CurrentModifiers[FogModifierKey] = mod;
     }
 
     /// <summary>Smoothed heel (radians) that leans the hull away from the wind according to trim, wind load and point of sail.</summary>

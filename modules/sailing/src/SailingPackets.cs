@@ -13,4 +13,5 @@ public sealed class SailingSyncPacket
     [ProtoMember(4)] public double WindRotationAmplitude { get; set; } = 1.5;
     [ProtoMember(5)] public double WindBoost { get; set; } = 1;
     [ProtoMember(6)] public double SeasonFactor { get; set; } = 1;
+    [ProtoMember(7)] public double Fog { get; set; }
 }

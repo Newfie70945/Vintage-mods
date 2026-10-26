@@ -20,6 +20,7 @@ public sealed class SailingModSystem : ModSystem
     public const string CapsizedKey = "newfiessailing:capsized";
     public const string WaterKey = "newfiessailing:water";
     public const string SalvageKey = "newfiessailing:salvage";
+    public const string WaveKey = "newfiessailing:wave";
     public const string SailKey = "newfiessailing:sail";
     private const string LogPrefix = "newfiessailing:log:";
 
@@ -51,6 +52,8 @@ public sealed class SailingModSystem : ModSystem
     private readonly List<long> boarders = new();
     private double lastBoarderAt = -1000;
     private double seasonFactor = 1;
+    private double nextFogAt, fogStart = -1, fogDuration, fogIntensity;
+    private bool fogAnnounced;
     private string seasonName = "";
     private readonly Dictionary<string, Vec3d> lastPlayerPos = new();
 
@@ -76,6 +79,7 @@ public sealed class SailingModSystem : ModSystem
         catch (Exception ex) { api.Logger.Warning("[NewfiesSailing] Bad config, using defaults: " + ex.Message); }
         api.StoreModConfig(config, "NewfiesSailing.json");
         ScheduleNextSquall();
+        ScheduleNextFog();
 
         api.Event.OnEntitySpawn += Track;
         api.Event.OnEntityLoaded += Track;
@@ -379,6 +383,7 @@ public sealed class SailingModSystem : ModSystem
         string text = $"Weather glass: {now:0} hPa, {SailingModel.Trend(now, later)} - {SailingModel.GlassForecast(now)}.\n" +
                       $"Wind vane points {SailingModel.Compass(from)}; the wind is out of the {SailingModel.Compass(from)}.";
         if (temporalStorm) text += "\nThe glass and vane swing wildly. Something is wrong with the sky.";
+        else if (fogIntensity > 0.05) text += "\nThe glass is steady and the air is thick and damp: fog.";
         return text;
     }
 
@@ -469,6 +474,52 @@ public sealed class SailingModSystem : ModSystem
         boarders.Clear();
     }
 
+    private void ScheduleNextFog()
+        => nextFogAt = elapsed + rng.Next(config.FogMinIntervalSeconds, Math.Max(config.FogMinIntervalSeconds, config.FogMaxIntervalSeconds) + 1);
+
+    private void UpdateFog()
+    {
+        if (!config.FogEnabled) { fogIntensity = 0; return; }
+        if (fogStart < 0)
+        {
+            if (elapsed >= nextFogAt)
+            {
+                fogStart = elapsed;
+                fogDuration = rng.Next(config.FogMinDurationSeconds, Math.Max(config.FogMinDurationSeconds, config.FogMaxDurationSeconds) + 1);
+                fogAnnounced = false;
+            }
+            fogIntensity = 0;
+            return;
+        }
+        double age = elapsed - fogStart;
+        fogIntensity = SailingModel.FogIntensity(age, fogDuration);
+        if (!fogAnnounced && fogIntensity > 0.3)
+        {
+            fogAnnounced = true;
+            NotifySailors("[Sailing] A fog bank rolls in. Visibility is dropping and the wind is falling light - keep your compass handy.");
+        }
+        if (age >= fogDuration)
+        {
+            fogStart = -1;
+            fogIntensity = 0;
+            ScheduleNextFog();
+            NotifySailors("[Sailing] The fog is burning off.");
+        }
+    }
+
+    /// <summary>A rogue wave slams the boat: ships water, damages the hull and checks its way.</summary>
+    private void RogueWave(Entity boat, int force, double sailArea)
+    {
+        var (water, hull) = SailingModel.RogueWaveImpact(force, sailArea);
+        SetWater(boat, GetWater(boat) + water * config.RogueWaveStrength);
+        SetCond(boat, HullKey, GetCond(boat, HullKey) - hull * config.RogueWaveStrength);
+        boat.SidedPos.Motion.X *= 0.6;
+        boat.SidedPos.Motion.Z *= 0.6;
+        boat.WatchedAttributes.SetInt(WaveKey, boat.WatchedAttributes.GetInt(WaveKey, 0) + 1);
+        boat.WatchedAttributes.MarkPathDirty(WaveKey);
+        NotifyNear(boat, "[Sailing] A rogue wave slams over the bow!");
+    }
+
     private void ScheduleNextSquall()
         => nextSquallAt = elapsed + rng.Next(config.SquallMinIntervalSeconds, Math.Max(config.SquallMinIntervalSeconds, config.SquallMaxIntervalSeconds) + 1);
 
@@ -519,7 +570,7 @@ public sealed class SailingModSystem : ModSystem
             wind = new Vec3d(rx, wind.Y, rz);
         }
         double speed = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z);
-        return speed * config.KnotsPerWindUnit * squallFactor * seasonFactor * (temporalStorm ? config.TemporalStormWindBoost : 1);
+        return speed * config.KnotsPerWindUnit * squallFactor * seasonFactor * SailingModel.FogWindFactor(fogIntensity) * (temporalStorm ? config.TemporalStormWindBoost : 1);
     }
 
     private bool HasMountedPlayerNear(Entity boat)
@@ -536,12 +587,13 @@ public sealed class SailingModSystem : ModSystem
     {
         elapsed += dt;
         UpdateSquall();
+        UpdateFog();
         UpdateTemporalStorm();
         TrackDistance();
         if (elapsed - lastSyncAt >= 1)
         {
             lastSyncAt = elapsed;
-            serverChannel?.BroadcastPacket(new SailingSyncPacket { Squall = squallFactor, TemporalStorm = temporalStorm, Seconds = elapsed, WindRotationAmplitude = config.TemporalStormWindRotation, WindBoost = config.TemporalStormWindBoost, SeasonFactor = seasonFactor });
+            serverChannel?.BroadcastPacket(new SailingSyncPacket { Squall = squallFactor, TemporalStorm = temporalStorm, Seconds = elapsed, WindRotationAmplitude = config.TemporalStormWindRotation, WindBoost = config.TemporalStormWindBoost, SeasonFactor = seasonFactor, Fog = fogIntensity });
         }
 
         long now = Environment.TickCount64;
@@ -582,6 +634,8 @@ public sealed class SailingModSystem : ModSystem
                 target *= SailingModel.ConditionSpeedFactor(GetCond(boat, HullKey), GetCond(boat, SailKey));
             }
             int seaForce = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+            if (config.HeadSeasEnabled) target *= SailingModel.HeadSeaFactor(seaForce, off);
+            if (config.RogueWavesEnabled && rng.NextDouble() < SailingModel.RogueWaveChancePerSecond(seaForce) * dt) RogueWave(boat, seaForce, area);
             if (config.SwampingEnabled)
             {
                 double before = GetWater(boat);
@@ -694,6 +748,7 @@ public sealed class SailingModSystem : ModSystem
         string text = $"Wind: {knots:0.#} kn from the {SailingModel.Compass(from)} ({from:0} deg), Force {force} - {SailingModel.BeaufortName(force)}.\n" +
                       $"Sea state: waves about {SailingModel.WaveHeightFor(force):0.#} m. Gust swing: +/-{config.GustAmplitude * 100:0}%.";
         if (seasonName.Length > 0 && Math.Abs(seasonFactor - 1) > 0.01) text += $"\nSeason: {seasonName.ToLowerInvariant()} winds ({(seasonFactor - 1) * 100:+0;-0}% strength).";
+        if (fogIntensity > 0.05) text += $"\nFog bank: visibility about {SailingModel.FogVisibility(fogIntensity):0} m.";
         if (temporalStorm) text += "\nTEMPORAL STORM: compass unreliable, wind direction wandering, seas unnaturally rough.";
         if (squallFactor > 1.05) text += "\nA squall is passing: wind is up " + $"{(squallFactor - 1) * 100:0}%.";
         Entity? boat = BoatOf(player);

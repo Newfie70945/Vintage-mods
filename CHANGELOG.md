@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.8.0
+
+- Fog banks: scheduled every 10-25 minutes for 2-4 minutes. Visibility drops (client ambient fog near boats), wind falls light, sailors are warned, the compass report and weather glass mention it. Config `FogEnabled`, intervals and durations; client `FogVisualsEnabled`.
+- Rougher seas: bobbing amplitude raised and a client `SeaRoughness` multiplier (default 1.5); head seas slow boats beating upwind from Force 5 (`HeadSeasEnabled`); rogue waves from Force 7 ship water, damage the hull, check the boat's way and lurch the hull with a spray burst (`RogueWavesEnabled`, `RogueWaveStrength`). Not verified in game.
+
 ## Realistic Sailing 0.7.1
 
 - Recovery balloons are now real entities: three red, yellow and blue hot-air balloons rise over the boat, the hull is righted and refloated after 3 s, then the balloons hover and float away (13 s life). New `EntityRecoveryBalloon`, entity type with variants, model and textures. Server-driven position; unverified in game.

@@ -172,7 +172,7 @@ public static class SailingModel
     public static (double Pitch, double Roll) Bob(double seconds, int force, double phase = 0)
     {
         double f = Math.Clamp(force, 0, 12);
-        double rollAmp = Math.Min(0.38, 0.008 + 0.028 * f);
+        double rollAmp = Math.Min(0.5, 0.012 + 0.036 * f);
         double pitchAmp = rollAmp * 0.6;
         double period = Math.Max(2.2, 5.0 - 0.25 * f);
         double w = 2 * Math.PI / period;
@@ -328,4 +328,41 @@ public static class SailingModel
         double u = Math.Clamp((age - leave) / 5.0, 0, 1);
         return holdHeight + 15 * u * u;
     }
+
+    // ---- Rougher seas ----
+
+    /// <summary>Beating into big seas costs speed: from Force 5, up to 40% lost head to wind, nothing running.</summary>
+    public static double HeadSeaFactor(int force, double angleOffWind)
+    {
+        if (force < 5) return 1;
+        double into = Math.Clamp(1 - angleOffWind / 90.0, 0, 1);
+        return 1 - Math.Min(0.4, 0.05 * (force - 4)) * into;
+    }
+
+    /// <summary>Chance per second that a rogue wave slams a boat under way: none below Force 7, rising with the sea.</summary>
+    public static double RogueWaveChancePerSecond(int force) => force < 7 ? 0 : Math.Min(0.06, (force - 6) * 0.006);
+
+    /// <summary>Water shipped and hull damage from a rogue wave. Reefed (small) sail area leaves the boat slightly better trimmed.</summary>
+    public static (double Water, double Hull) RogueWaveImpact(int force, double sailArea)
+    {
+        double k = Math.Clamp((force - 6) / 6.0, 0.2, 1.0);
+        return (10 + 20 * k, 2 + 5 * k * (0.7 + 0.3 * sailArea));
+    }
+
+    // ---- Fog banks ----
+
+    /// <summary>Fog intensity 0..1: builds over the first fifth, holds, then burns off over the last quarter.</summary>
+    public static double FogIntensity(double age, double duration)
+    {
+        if (age <= 0 || age >= duration || duration <= 0) return 0;
+        double t = age / duration;
+        double k = t < 0.2 ? t / 0.2 : t > 0.75 ? (1 - t) / 0.25 : 1;
+        return Math.Clamp(k, 0, 1);
+    }
+
+    /// <summary>Approximate visibility in blocks at the given fog intensity.</summary>
+    public static double FogVisibility(double intensity) => 300 - 260 * Math.Clamp(intensity, 0, 1);
+
+    /// <summary>Fog sits on light air: wind strength multiplier (1 clear, 0.6 in dense fog).</summary>
+    public static double FogWindFactor(double intensity) => 1 - 0.4 * Math.Clamp(intensity, 0, 1);
 }

@@ -69,7 +69,7 @@ Check(SailingModel.SpeedMultiplier(0, 90, 0.35, 1.35, 17, 41) == 0.35, "Becalmed
 Check(SailingModel.SpeedMultiplier(17, 90, 0.35, 1.35, 17, 41) > SailingModel.SpeedMultiplier(17, 10, 0.35, 1.35, 17, 41), "Beam reach beats head to wind");
 Check(SailingModel.SpeedMultiplier(70, 90, 0.35, 1.35, 17, 41) < SailingModel.SpeedMultiplier(30, 90, 0.35, 1.35, 17, 41), "Storms slow boats");
 Check(Enumerable.Range(0, 500).All(i => SailingModel.Gust(i * 0.3, 0.35) >= 0), "Gusts stay non-negative");
-Check(Enumerable.Range(0, 400).All(i => { var (p, r) = SailingModel.Bob(i * 0.25, 12); return Math.Abs(r) <= 0.38 && Math.Abs(p) <= 0.38; }), "Bobbing stays within bounds");
+Check(Enumerable.Range(0, 400).All(i => { var (p, r) = SailingModel.Bob(i * 0.25, 12); return Math.Abs(r) <= 0.5 && Math.Abs(p) <= 0.5; }), "Bobbing stays within bounds");
 Check(Math.Abs(SailingModel.Bob(5, 9).Roll) < 1 && Enumerable.Range(0, 200).Max(i => Math.Abs(SailingModel.Bob(i * 0.2, 9).Roll)) > Enumerable.Range(0, 200).Max(i => Math.Abs(SailingModel.Bob(i * 0.2, 2).Roll)), "Rougher seas roll harder");
 Check(SailingModel.SplashCount(2, 0.2) == 0 && SailingModel.SplashCount(9, 0.2) > SailingModel.SplashCount(4, 0.2) && SailingModel.SplashCount(12, 1) <= 40, "Splash scales with force and is capped");
 Check(SailingModel.SailArea(SailTrim.Furled) < SailingModel.SailArea(SailTrim.Reefed) && SailingModel.SailArea(SailTrim.Reefed) < SailingModel.SailArea(SailTrim.Full), "Trim areas ordered");
@@ -111,4 +111,9 @@ Check(SailingModel.WaterSpeedFactor(0) == 1 && SailingModel.WaterSpeedFactor(40)
 Check(SailingModel.CapsizeChancePerSecond(30, 1, 90, 25) == 0 && SailingModel.CapsizeChancePerSecond(60, 1, 90, 25) > SailingModel.CapsizeChancePerSecond(40, 1, 90, 25) && SailingModel.CapsizeChancePerSecond(60, 0.55, 90, 25) == 0 && SailingModel.CapsizeChancePerSecond(60, 1, 90, 25) > SailingModel.CapsizeChancePerSecond(60, 1, 0, 25) && SailingModel.CapsizeChancePerSecond(500, 1, 90, 25, 10) <= 0.5, "Capsize risk needs heavy overload, is worst beam-on, and reefing prevents it");
 Check(SailingModel.BalloonHeight(0, 5, 13) == 0 && Math.Abs(SailingModel.BalloonHeight(3, 5, 13) - 5) < 1e-9 && Math.Abs(SailingModel.BalloonHeight(5, 5, 13) - 5) < 0.21 && SailingModel.BalloonHeight(13, 5, 13) > 19, "Balloon rises, hovers and floats away");
 Check(Enumerable.Range(0, 130).Select(i => SailingModel.BalloonHeight(i * 0.1, 5, 13)).Zip(Enumerable.Range(1, 130).Select(i => SailingModel.BalloonHeight(i * 0.1, 5, 13)), (a, b) => b >= a - 0.25).All(x => x), "Balloon height never drops sharply");
+Check(SailingModel.HeadSeaFactor(3, 0) == 1 && SailingModel.HeadSeaFactor(9, 0) < SailingModel.HeadSeaFactor(9, 60) && SailingModel.HeadSeaFactor(9, 90) == 1 && SailingModel.HeadSeaFactor(12, 0) >= 0.6, "Head seas cost speed upwind only");
+Check(SailingModel.RogueWaveChancePerSecond(6) == 0 && SailingModel.RogueWaveChancePerSecond(10) > SailingModel.RogueWaveChancePerSecond(7) && SailingModel.RogueWaveChancePerSecond(12) <= 0.06, "Rogue waves need Force 7+");
+Check(SailingModel.RogueWaveImpact(12, 1).Water > SailingModel.RogueWaveImpact(7, 1).Water && SailingModel.RogueWaveImpact(10, 0.55).Hull < SailingModel.RogueWaveImpact(10, 1).Hull, "Rogue wave impact scales with sea and sail area");
+Check(SailingModel.FogIntensity(-1, 100) == 0 && SailingModel.FogIntensity(100, 100) == 0 && SailingModel.FogIntensity(50, 100) == 1 && SailingModel.FogIntensity(10, 100) == 0.5 && SailingModel.FogIntensity(90, 100) == 0.4, "Fog builds, holds and burns off");
+Check(SailingModel.FogVisibility(0) == 300 && SailingModel.FogVisibility(1) == 40 && SailingModel.FogWindFactor(1) == 0.6 && SailingModel.FogWindFactor(0) == 1, "Fog visibility and wind");
 Console.WriteLine($"{checks} checks passed");
