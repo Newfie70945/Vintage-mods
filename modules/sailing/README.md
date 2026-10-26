@@ -1,42 +1,40 @@
-# Newfie's Realistic Sailing 0.5.0
+# Newfie's Realistic Sailing 0.6.0
 
-Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weather.
-
-- **Sail trim and reefing.** Ride a sailboat and use `/sailing trim full|reefed|furled`. Full sail is fastest in moderate wind but becomes overpowered above ~25 kn of wind load and slows hard; reefed sails (55% area) are slower in light air but stay efficient in a gale; furled sails stop the boat. Trim is stored on the boat. Overpowered boats get a chat warning.
-- **Heeling (client).** Under load the hull leans away from the wind, most on a beam reach, nil head to wind or running. If boats lean the wrong way on your install set `HeelDirection` to `-1` in the client config.
-- **Leeway.** Close-hauled boats slide sideways downwind; running boats do not.
-- **Squalls.** Every 5-15 minutes a squall rolls through: sailors get a warning about 25 s before, then wind builds to about 2x for 30-75 s and eases off. Squall strength is synced to clients so waves and heel match. Configure or disable in `NewfiesSailing.json` (`SquallsEnabled`, intervals, `SquallPeakMultiplier`).
-- **Temporal storms at sea.** While a temporal storm is active the wind direction wanders up to ~85 degrees, strength rises 30%, the sea runs two forces rougher, `/sailing` reports a spinning compass, boats glow with violet sparks, and a capped number of `BoarderEntityCode` entities (default drifters) crawl out of the water beside occupied boats, despawning when the storm ends. Storm state is read from the game's temporal stability system by reflection; if it cannot be read the mod logs one warning. Admins can use `/sailing teststorm` to simulate one.
-- **Anchor.** `/sailing anchor` drops or raises it; the boat stops, but in wind above `AnchorHoldKnots` (35) it drags downwind.
-- **Weather glass and wind vane.** `/sailing glass` shows barometric pressure, trend and forecast (pressure falls before squalls) plus the wind direction. These are commands for now; craftable items need models and recipes.
-- **Wake.** Boats trail foam behind the stern, scaling with speed.
-- **Wear and repair.** Hull and sail condition (0-100%, stored on the boat) wear faster in gales, when overpowered under full sail and in temporal storms. Ragged sails lose drive and a leaking hull wallows; sailors are warned at 50, 25 and 10%. `/sailing repair hull` consumes a held plank or resin, `/sailing repair sail` a held linen, flax twine or rope (`HullRepairItems`, `SailRepairItems`), restoring 25% each. Stand within 6 blocks of the boat. `/sailing` shows condition. Tune with `WearRate` or turn off with `WearEnabled`.
-- **Seasonal winds.** Winter blows 25% harder, autumn 10% harder, summer 15% lighter (`SeasonalWindEnabled`).
-- **Logbook.** `/sailing log` shows distance sailed, squalls and temporal storms survived, strongest wind faced and repairs made, stored on the player.
-- **Wind-driven speed.** Sailboat speed scales with the wind at the boat's position. Becalmed boats crawl; a fresh breeze (Force 5) gives full drive.
-- **Points of sail.** Speed depends on the angle between course and wind: in irons and close-hauled are slow, a beam reach is fastest, running is moderate.
-- **Gusts.** Deterministic gust and lull cycles vary the wind around its mean.
-- **Storm slowdown and warnings.** Above storm force boats slow sharply, and sailors get a chat warning when the Beaufort force jumps or reaches gale.
-- **Storm visuals (client).** Hulls pitch and roll with the sea state and boats throw spray from Force 3 up, growing with the wind. Cosmetic only; tune or disable in `ModConfig/NewfiesSailingClient.json` (`BobIntensity`, `BobbingEnabled`, `SplashesEnabled`). Players without the mod simply do not see them.
-- **`/sailing`.** Shows wind speed in knots, direction (compass), Beaufort force, wave height and, while under way, your current point of sail.
-
-Only entities whose code contains `boat` and one of `BoatCodeContains` (default `sail`) are affected, so rafts are untouched. Mounted players must be within 6 blocks of the boat.
+Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
 ## Items
 
-| Item | Use (right-click) | Recipe |
+| Item | Right-click | Recipe |
 | --- | --- | --- |
-| Weather glass | pressure, trend, forecast | glass over copper ingot |
+| Weather glass | pressure, trend and forecast (falls before squalls, swings wildly in temporal storms) | glass over copper ingot |
 | Wind vane | wind direction, knots, Beaufort force | feather over stick |
-| Ship's anchor | drop/raise anchor on the boat you ride | 4 iron ingots (T shape) |
-| Sailor's logbook | your sailing record | 4 parchment |
+| Ship's compass | full report: wind, sea state, point of sail, sail/hull condition, season, storms (spins in temporal storms) | copper ingots around glass |
+| Rigging line | while riding a sailboat, cycle sails full, reefed, furled | 3 flax twine |
+| Ship's anchor | while riding, drop or raise the anchor | 4 iron ingots (T shape) |
+| Shipwright's repair kit | near a sailboat, patch the worse of hull or sails (+25%); 24 uses | plank, flax twine, 2 copper ingots |
+| Sailor's logbook | your record: distance, squalls, temporal storms, strongest wind, repairs | 4 parchment |
 
-The matching `/sailing` commands still work but require the item in your hotbar (`RequireItemsForCommands`, creative exempt). Because the mod adds items it must be installed on clients too. Textures and shapes are simple placeholders; recipe ingredient codes (`glass-plain`, `feather`, `paper-parchment`) are unverified against the game.
+Models and textures are simple placeholders and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
+
+## What changes at sea
+
+- **Wind-driven speed.** Sailboat speed follows the wind at the boat's position. Becalmed boats crawl; a fresh breeze (Force 5) gives full drive.
+- **Points of sail.** Beam reach is fastest; head to wind and running are slow.
+- **Sail trim.** Full sail is fastest in moderate wind but overpowered above ~25 kn of load; reefed (55% area) is safer in a gale; furled loses way. Overpowered boats get a chat warning.
+- **Heeling (client) and leeway.** Hulls lean away from the wind under load; close-hauled boats slide sideways. Set `HeelDirection` to `-1` in the client config if the lean looks wrong.
+- **Gusts and squalls.** Every 5-15 minutes a squall hits: a warning ~25 s before, wind ~2x for 30-75 s. Synced to clients.
+- **Seasonal winds.** Winter +25%, autumn +10%, summer -15%.
+- **Temporal storms at sea.** Wandering wind, +30% strength, two forces rougher sea, violet sparks, and capped drifter boarders (`BoarderEntityCode`) that despawn afterwards. State is read from the game by reflection; one warning is logged if it cannot be read.
+- **Wear.** Hull and sail condition (stored on the boat) wear faster in gales, when overpowered and in temporal storms; worn boats are slower. Warnings at 50/25/10%.
+- **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.
+- **Storm visuals (client).** Bobbing hulls, spray from Force 3, stern wake foam. Tune in `ModConfig/NewfiesSailingClient.json`.
+
+Only entities whose code contains `boat` and one of `BoatCodeContains` (default `sail`) are affected; rafts are left alone.
 
 ## Configuration
 
-`ModConfig/NewfiesSailing.json` is written on first start. Tune `KnotsPerWindUnit`, `Min/MaxSpeedMultiplier`, `ReferenceKnots`, `OverloadKnots`, `LeewayStrength`, `GustAmplitude`, `BoatCodeContains` and warning behaviour.
+`ModConfig/NewfiesSailing.json` is written on first start. Tune `KnotsPerWindUnit`, `Min/MaxSpeedMultiplier`, `ReferenceKnots`, `OverloadKnots`, `LeewayStrength`, squall and temporal-storm settings, `WearRate`, `AnchorHoldKnots` and `BoatCodeContains`.
 
 ## Status
 
-The physics model (`src/SailingModel.cs`) is unit tested in `tests/Program.cs`. The game integration was written without a Vintage Story install and has **not** been run in game; boat motion is client-predicted, so verify the speed effect on a test server and adjust `SpeedSmoothing` or boat codes if needed.
+The physics model (`src/SailingModel.cs`) is unit tested in `tests/Program.cs`. The game integration was written without a Vintage Story install and has **not** been run in game; boat motion is client-predicted, so verify on a test server.

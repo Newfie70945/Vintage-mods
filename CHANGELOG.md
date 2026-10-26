@@ -1,5 +1,9 @@
 # Current release changes
 
+## Realistic Sailing 0.6.0
+
+- All player `/sailing` commands removed in favour of crafted items: new ship's compass (full report), rigging line (cycle trim) and shipwright's repair kit (durability 24, patches the worse of hull/sails); weather glass, wind vane, anchor and logbook are unchanged. Hand-held repair materials and `RequireItemsForCommands`, `HullRepairItems`, `SailRepairItems` config removed. Admin-only `/sailingadmin` toggles a simulated temporal storm.
+
 ## Realistic Sailing 0.5.0
 
 - Real items: weather glass, wind vane, ship's anchor and sailor's logbook (right-click to use, craftable, English lang). `/sailing glass|vane|anchor|log` now need the matching item in the hotbar unless `RequireItemsForCommands` is false; creative mode is exempt. The mod is now required on clients. Item models/textures are simple placeholders and recipes use vanilla codes that have not been verified in game.

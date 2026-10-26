@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "_C_,CGC",
+ "ingredients": {
+  "C": {
+   "type": "item",
+   "code": "game:ingot-copper"
+  },
+  "G": {
+   "type": "block",
+   "code": "game:glass-plain"
+  }
+ },
+ "width": 3,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:compass"
+ }
+}

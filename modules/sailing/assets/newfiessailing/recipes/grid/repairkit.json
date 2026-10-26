@@ -1,0 +1,23 @@
+{
+ "ingredientPattern": "PL,CC",
+ "ingredients": {
+  "P": {
+   "type": "item",
+   "code": "game:plank-*"
+  },
+  "L": {
+   "type": "item",
+   "code": "game:flaxtwine"
+  },
+  "C": {
+   "type": "item",
+   "code": "game:ingot-copper"
+  }
+ },
+ "width": 2,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:repairkit"
+ }
+}

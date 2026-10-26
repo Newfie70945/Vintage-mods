@@ -6,5 +6,11 @@
  "item-anchor": "Ship's anchor",
  "itemdesc-anchor": "Right-click while riding a sailboat to drop or raise the anchor. Drags in gales.",
  "item-logbook": "Sailor's logbook",
- "itemdesc-logbook": "Right-click to read your sailing record: distance, squalls and temporal storms survived."
+ "itemdesc-logbook": "Right-click to read your sailing record: distance, squalls and temporal storms survived.",
+ "item-compass": "Ship's compass",
+ "itemdesc-compass": "Right-click for a full sailing report: wind, sea state, point of sail, sail and hull condition. Spins in temporal storms.",
+ "item-riggingline": "Rigging line",
+ "itemdesc-riggingline": "Right-click while riding a sailboat to cycle the sails: full, reefed, furled.",
+ "item-repairkit": "Shipwright's repair kit",
+ "itemdesc-repairkit": "Right-click near a sailboat to patch the worse of hull or sails (+25%). Wears out after 24 uses."
 }

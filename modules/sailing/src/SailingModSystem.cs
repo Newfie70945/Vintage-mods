@@ -77,46 +77,15 @@ public sealed class SailingModSystem : ModSystem
         api.Event.OnEntityLoaded += Track;
         api.Event.OnEntityDespawn += (e, _) => { boats.Remove(e.EntityId); smoothed.Remove(e.EntityId); lastOverloadWarn.Remove(e.EntityId); };
 
-        api.ChatCommands.Create("sailing")
-            .WithDescription("Show wind, sea state and sailing advice at your position")
-            .RequiresPlayer()
-            .RequiresPrivilege(Privilege.chat)
-            .HandleWith(args => TextCommandResult.Success(Report(args.Caller.Player as IServerPlayer)))
-            .BeginSubCommand("trim")
-                .WithDescription("Set the sails of the boat you are riding: full, reefed or furled")
-                .WithArgs(api.ChatCommands.Parsers.WordRange("mode", "full", "reefed", "furled"))
-                .HandleWith(args => SetTrim(args.Caller.Player as IServerPlayer, args[0] as string))
-            .EndSubCommand()
-            .BeginSubCommand("vane")
-                .WithDescription("Read the wind vane: direction, strength and Beaufort force")
-                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "vane", () => TextCommandResult.Success(Vane(args.Caller.Player as IServerPlayer))))
-            .EndSubCommand()
-            .BeginSubCommand("anchor")
-                .WithDescription("Drop or raise the anchor of the boat you are riding")
-                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "anchor", () => ToggleAnchor(args.Caller.Player as IServerPlayer)))
-            .EndSubCommand()
-            .BeginSubCommand("glass")
-                .WithDescription("Read the weather glass and wind vane: pressure, trend and forecast")
-                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "glass", () => TextCommandResult.Success(Glass(args.Caller.Player as IServerPlayer))))
-            .EndSubCommand()
-            .BeginSubCommand("repair")
-                .WithDescription("Repair the hull or sails of a nearby boat using the item in your hand")
-                .WithArgs(api.ChatCommands.Parsers.WordRange("part", "hull", "sail"))
-                .HandleWith(args => Repair(args.Caller.Player as IServerPlayer, args[0] as string))
-            .EndSubCommand()
-            .BeginSubCommand("log")
-                .WithDescription("Show your sailing logbook")
-                .HandleWith(args => Gated(args.Caller.Player as IServerPlayer, "log", () => TextCommandResult.Success(LogBook(args.Caller.Player as IServerPlayer))))
-            .EndSubCommand()
-            .BeginSubCommand("teststorm")
-                .WithDescription("Toggle a simulated temporal storm at sea (testing)")
-                .RequiresPrivilege(Privilege.controlserver)
-                .HandleWith(args =>
-                {
-                    forcedStorm = !forcedStorm;
-                    return TextCommandResult.Success("Simulated temporal storm " + (forcedStorm ? "ON" : "OFF") + ".");
-                })
-            .EndSubCommand();
+        // Everything player-facing is a crafted item (see ItemSailingTool). Only an admin test switch remains a command.
+        api.ChatCommands.Create("sailingadmin")
+            .WithDescription("Admin: toggle a simulated temporal storm at sea (testing)")
+            .RequiresPrivilege(Privilege.controlserver)
+            .HandleWith(args =>
+            {
+                forcedStorm = !forcedStorm;
+                return TextCommandResult.Success("Simulated temporal storm " + (forcedStorm ? "ON" : "OFF") + ".");
+            });
 
         tickListener = api.Event.RegisterGameTickListener(OnTick, Math.Max(50, config.TickMilliseconds));
     }
@@ -150,19 +119,20 @@ public sealed class SailingModSystem : ModSystem
         return best;
     }
 
-    private TextCommandResult SetTrim(IServerPlayer? player, string? mode)
+    /// <summary>Rigging line: cycles full, reefed, furled for the boat the player is riding.</summary>
+    private string CycleTrim(IServerPlayer player)
     {
-        if (!SailingModel.TryParseTrim(mode, out SailTrim trim)) return TextCommandResult.Error("Use full, reefed or furled.");
         Entity? boat = BoatOf(player);
-        if (boat == null) return TextCommandResult.Error("You must be riding a sailboat.");
-        boat.WatchedAttributes.SetInt(TrimKey, (int)trim);
+        if (boat == null) return "You must be riding a sailboat to work the rigging.";
+        SailTrim next = GetTrim(boat) switch { SailTrim.Full => SailTrim.Reefed, SailTrim.Reefed => SailTrim.Furled, _ => SailTrim.Full };
+        boat.WatchedAttributes.SetInt(TrimKey, (int)next);
         boat.WatchedAttributes.MarkPathDirty(TrimKey);
-        return TextCommandResult.Success(trim switch
+        return next switch
         {
             SailTrim.Full => "Full sail set. Fast in moderate wind, but dangerous in a gale.",
             SailTrim.Reefed => "Sails reefed: slower in light air, safe in strong wind.",
             _ => "Sails furled. The boat will lose way."
-        });
+        };
     }
 
     private static double GetCond(Entity boat, string key) => boat.WatchedAttributes.GetDouble(key, 100);
@@ -175,26 +145,18 @@ public sealed class SailingModSystem : ModSystem
         if (Math.Floor(old) != Math.Floor(value)) boat.WatchedAttributes.MarkPathDirty(key);
     }
 
-    private static bool Matches(string[] prefixes, string path) => prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
-
-    private TextCommandResult Repair(IServerPlayer? player, string? part)
+    /// <summary>Repair kit: restores the more damaged of hull and sails on a boat within 6 blocks. Returns whether a use was spent.</summary>
+    private (string Text, bool Used) RepairBoat(IServerPlayer player)
     {
         Entity? boat = BoatOf(player, requireMount: false);
-        if (boat == null || player == null) return TextCommandResult.Error("Stand within 6 blocks of a sailboat.");
-        bool hull = part == "hull";
-        string key = hull ? HullKey : SailKey;
-        string[] accepted = hull ? config.HullRepairItems : config.SailRepairItems;
-        ItemSlot? slot = player.InventoryManager.ActiveHotbarSlot;
-        string path = slot?.Itemstack?.Collectible?.Code?.Path ?? "";
-        if (slot == null || slot.Empty || !Matches(accepted, path))
-            return TextCommandResult.Error($"Hold one of these to repair the {(hull ? "hull" : "sails")}: {string.Join(", ", accepted)}.");
-        double cur = GetCond(boat, key);
-        if (cur >= 99.5) return TextCommandResult.Error($"The {(hull ? "hull" : "sails")} are already in excellent shape.");
-        slot.TakeOut(1);
-        slot.MarkDirty();
-        SetCond(boat, key, cur + SailingModel.RepairPerItem);
+        if (boat == null) return ("Stand within 6 blocks of a sailboat to repair it.", false);
+        double hull = GetCond(boat, HullKey), sail = GetCond(boat, SailKey);
+        if (hull >= 99.5 && sail >= 99.5) return ("The hull and sails are already in excellent shape.", false);
+        bool fixHull = hull <= sail;
+        string key = fixHull ? HullKey : SailKey;
+        SetCond(boat, key, GetCond(boat, key) + SailingModel.RepairPerItem);
         player.Entity.WatchedAttributes.SetInt(LogPrefix + "repairs", player.Entity.WatchedAttributes.GetInt(LogPrefix + "repairs", 0) + 1);
-        return TextCommandResult.Success($"Repaired. {(hull ? "Hull" : "Sails")} now {GetCond(boat, key):0}%.");
+        return ($"Repaired the {(fixHull ? "hull" : "sails")}: now {GetCond(boat, key):0}%.", true);
     }
 
     private string LogBook(IServerPlayer? player)
@@ -247,39 +209,17 @@ public sealed class SailingModSystem : ModSystem
         catch { seasonFactor = 1; }
     }
 
-    private static string? ToolOf(ItemSlot slot) => slot?.Itemstack?.Collectible?.Attributes?["sailingTool"]?.AsString();
-
-    private bool HasTool(IServerPlayer player, string tool)
+    /// <summary>Called by the tool items on right-click (server only). Used = a durability use was spent.</summary>
+    public (string Text, bool Used) UseTool(IServerPlayer player, string tool) => tool switch
     {
-        if (player.WorldData.CurrentGameMode == EnumGameMode.Creative) return true;
-        IInventory? hotbar = player.InventoryManager.GetHotbarInventory();
-        if (hotbar == null) return false;
-        foreach (ItemSlot slot in hotbar)
-            if (!slot.Empty && ToolOf(slot) == tool) return true;
-        return false;
-    }
-
-    private static readonly Dictionary<string, string> ToolNames = new()
-    {
-        ["glass"] = "weather glass", ["vane"] = "wind vane", ["anchor"] = "anchor", ["log"] = "sailor's logbook"
-    };
-
-    /// <summary>Commands remain available, but require the matching item in the hotbar unless RequireItemsForCommands is false.</summary>
-    private TextCommandResult Gated(IServerPlayer? player, string tool, Func<TextCommandResult> run)
-    {
-        if (player != null && config.RequireItemsForCommands && !HasTool(player, tool))
-            return TextCommandResult.Error($"You need a {ToolNames[tool]} in your hotbar. Craft one, or ask an admin to enable commands without items.");
-        return run();
-    }
-
-    /// <summary>Called by the tool items on right-click (server only).</summary>
-    public string UseTool(IServerPlayer player, string tool) => tool switch
-    {
-        "glass" => Glass(player),
-        "vane" => Vane(player),
-        "anchor" => ToggleAnchor(player).StatusMessage ?? "",
-        "log" => LogBook(player),
-        _ => ""
+        "glass" => (Glass(player), false),
+        "vane" => (Vane(player), false),
+        "compass" => (Report(player), false),
+        "anchor" => (ToggleAnchor(player), false),
+        "trim" => (CycleTrim(player), false),
+        "repair" => RepairBoat(player),
+        "log" => (LogBook(player), false),
+        _ => ("", false)
     };
 
     private string Vane(IServerPlayer? player)
@@ -293,16 +233,16 @@ public sealed class SailingModSystem : ModSystem
                (temporalStorm ? "\nThe vane spins uselessly." : "");
     }
 
-    private TextCommandResult ToggleAnchor(IServerPlayer? player)
+    private string ToggleAnchor(IServerPlayer? player)
     {
         Entity? boat = BoatOf(player);
-        if (boat == null) return TextCommandResult.Error("You must be riding a sailboat.");
+        if (boat == null) return "You must be riding a sailboat to use the anchor.";
         bool down = !boat.WatchedAttributes.GetBool(AnchorKey, false);
         boat.WatchedAttributes.SetBool(AnchorKey, down);
         boat.WatchedAttributes.MarkPathDirty(AnchorKey);
-        return TextCommandResult.Success(down
+        return down
             ? $"Anchor dropped. It holds against about {config.AnchorHoldKnots:0} kn of wind."
-            : "Anchor raised. You are free to sail.");
+            : "Anchor raised. You are free to sail.";
     }
 
     private double? SecondsToSquall() => squallStart >= 0 || !config.SquallsEnabled ? null : Math.Max(0, nextSquallAt - elapsed);
@@ -340,7 +280,7 @@ public sealed class SailingModSystem : ModSystem
             if (!stabilityLogged)
             {
                 stabilityLogged = true;
-                sapi!.Logger.Warning("[NewfiesSailing] Could not read temporal storm state from SystemTemporalStability; use /sailing teststorm to test.");
+                sapi!.Logger.Warning("[NewfiesSailing] Could not read temporal storm state from SystemTemporalStability; an admin can use /sailingadmin to simulate one.");
             }
         }
         catch (Exception ex)
@@ -420,7 +360,7 @@ public sealed class SailingModSystem : ModSystem
             if (!squallWarned && elapsed >= nextSquallAt - config.SquallWarningSeconds)
             {
                 squallWarned = true;
-                NotifySailors("[Sailing] Dark clouds and a line of white water are racing toward you - a squall is coming. Reef the sails (/sailing trim reefed)!");
+                NotifySailors("[Sailing] Dark clouds and a line of white water are racing toward you - a squall is coming. Reef the sails with your rigging line!");
             }
             if (elapsed >= nextSquallAt)
             {
@@ -542,7 +482,7 @@ public sealed class SailingModSystem : ModSystem
                 && (!lastOverloadWarn.TryGetValue(boat.EntityId, out long at) || now - at > 20000))
             {
                 lastOverloadWarn[boat.EntityId] = now;
-                NotifySailors("[Sailing] The boat is overpowered and heeling hard! Reef the sails: /sailing trim reefed");
+                NotifySailors("[Sailing] The boat is overpowered and heeling hard! Work the rigging line to reef!");
             }
         }
         WarnSailors();
@@ -555,8 +495,8 @@ public sealed class SailingModSystem : ModSystem
             if (before > threshold && after <= threshold)
             {
                 NotifySailors(part == "hull"
-                    ? $"[Sailing] The hull is at {threshold:0}% and taking on water! Repair with planks: /sailing repair hull"
-                    : $"[Sailing] The sails are at {threshold:0}% and in tatters! Repair with linen or rope: /sailing repair sail");
+                    ? $"[Sailing] The hull is at {threshold:0}% and taking on water! Use a repair kit!"
+                    : $"[Sailing] The sails are at {threshold:0}% and in tatters! Use a repair kit!");
                 return;
             }
         }
