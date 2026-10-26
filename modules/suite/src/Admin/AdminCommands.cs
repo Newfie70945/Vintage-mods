@@ -88,6 +88,7 @@ public sealed class AdminCommands
         SafeRegister("jail", "Jail a player for a duration", "<player> <duration|permanent> [reason]", (p,g,a)=>Jail(p,g,a), AdminService.PrivJail);
         SafeRegister("unjail", "Release a player from jail", "<player> [reason]", (p,g,a)=>Unjail(p,g,a), AdminService.PrivJail);
         SafeRegister("jailinfo", "Show a player jail sentence", "<player>", (p,g,a)=>JailInfo(p,g,a), AdminService.PrivJail);
+        SafeRegister("disguise", "Disguise yourself as an entity (admin)", "<entity> [visible] | off | list [filter]", (p,g,a)=>Disguise(p,g,a), AdminService.PrivManage);
         SafeRegister("ghost", "Toggle your admin ghost/spectator mode", "", (p,g,a)=>ReplyAction(p,g,"ghost",admin.ToggleGhost(p,"ingame")), AdminService.PrivManage);
         SafeRegister("seen", "Show when a player was last seen", "<player>", (p,g,a)=>Seen(p,g,a), AdminService.PrivView);
         SafeRegister("playtime", "Show tracked playtime", "<player>", (p,g,a)=>Playtime(p,g,a), AdminService.PrivView);
@@ -763,6 +764,33 @@ public sealed class AdminCommands
     {
         var t=TimeSpan.FromSeconds(Math.Max(0,seconds));
         return t.TotalDays>=1?$"{t.TotalDays:0.#}d":t.TotalHours>=1?$"{t.TotalHours:0.#}h":$"{t.TotalMinutes:0.#}m";
+    }
+
+    private void Disguise(IServerPlayer player, int groupId, CmdArgs args)
+    {
+        var service = admin.Disguise;
+        string first = (args.PopWord() ?? "").Trim();
+        string word = first.ToLowerInvariant();
+        if (word is "" or "help")
+        {
+            Reply(player, groupId, "Usage: /disguise <entity> [visible] to disguise (hides you in ghost mode unless 'visible'), /disguise off, /disguise list [part of a name]. Example: /disguise chicken-hen", true);
+            return;
+        }
+        if (word is "off" or "remove" or "stop")
+        {
+            string removed = service.Disable(player);
+            Reply(player, groupId, removed, removed.StartsWith("Disguise removed", StringComparison.Ordinal));
+            return;
+        }
+        if (word == "list")
+        {
+            var codes = DisguiseRules.Search(service.RegisteredCodes(), args.PopWord() ?? "", 40);
+            Reply(player, groupId, codes.Count == 0 ? "No entity types matched (or the entity type list is unavailable)." : "Entity types: " + string.Join(", ", codes), codes.Count > 0);
+            return;
+        }
+        string option = (args.PopWord() ?? "").Trim().ToLowerInvariant();
+        string message = service.Enable(player, first, hidePlayer: !(option is "visible" or "show"));
+        Reply(player, groupId, message, service.IsDisguised(player.PlayerUID));
     }
 
     private static void ReplyAction(IServerPlayer p, int g, string action, string message)

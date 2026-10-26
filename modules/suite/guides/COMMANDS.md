@@ -584,3 +584,17 @@ Vintage Story provides the underlying one-time character-selection permission:
 ```
 
 Server Essentials Player Management uses this mechanism for its **Allow Character Selection Once** action. Online players are updated/synchronized directly; offline known players use the server-console player command path. The player then runs `.charsel` client-side.
+
+## /disguise (admin)
+
+`/disguise <entity> [visible]` turns you into an entity, `/disguise off` removes it, `/disguise list [part of a name]`
+searches the registered entity types. Needs the `nse.player.manage` privilege.
+
+Vintage Story cannot change another player's model from the server, so the disguise is a real entity that follows your
+position and facing every 100 ms while you are hidden in ghost mode (spectator, so you cannot interact while disguised).
+`visible` keeps you un-hidden, which shows both your own model and the entity. The entity is removed when you use
+`/disguise off`, disconnect, or the server stops, and any left behind after a crash are swept shortly after the next start.
+Names can be partial (`chicken-hen`); an ambiguous name lists the matches instead of guessing. Every use is audit-logged.
+
+Limits: it is an ordinary world entity, so another player can hit it, and a hostile type may try to act until its AI is
+removed (the Suite removes it where the game allows). Treat this as an admin tool, not a security boundary.

@@ -115,6 +115,7 @@ public sealed class AdminService : IDisposable
         RegisterPrivileges();
         jailService = new JailService(api, Audit);
         jailService.Start();
+        disguiseService = new DisguiseService(api, this);
         RegisterCommands();
         api.Event.PlayerJoin += OnPlayerJoin;
         api.Event.PlayerNowPlaying += OnPlayerNowPlaying;
@@ -2031,6 +2032,10 @@ public sealed class AdminService : IDisposable
         api.Permissions.RegisterPrivilege(PrivJail, "Set the jail cell and jail/release players", true);
     }
 
+    private DisguiseService? disguiseService;
+    public DisguiseService Disguise => disguiseService ??= new DisguiseService(api, this);
+    public bool IsGhosted(string playerUid) => !string.IsNullOrWhiteSpace(playerUid) && ghostStates.ContainsKey(playerUid);
+
     private void RegisterCommands() => new AdminCommands(api, this, reports, playerCommands, getAutomatedRestarts).Register();
 
     private void OnPlayerJoin(IServerPlayer player)
@@ -2079,6 +2084,7 @@ public sealed class AdminService : IDisposable
     private void OnPlayerDisconnect(IServerPlayer player)
     {
         CaptureOfflineInventory(player, "disconnect-capture");
+        disguiseService?.OnPlayerDisconnect(player);
         RestoreGhostOnDisconnect(player);
         RemoveOnlinePlayer(player);
         lock (gate) activity.Remove(player.PlayerUID);
@@ -2757,6 +2763,7 @@ public sealed class AdminService : IDisposable
         if (disposed) return;
         OnGameWorldSave();
         disposed = true;
+        try { disguiseService?.Dispose(); } catch { }
         SaveState();
         api.Event.PlayerJoin -= OnPlayerJoin;
         api.Event.PlayerNowPlaying -= OnPlayerNowPlaying;
