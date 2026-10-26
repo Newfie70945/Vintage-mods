@@ -245,4 +245,44 @@ public static class SailingModel
     /// <summary>Foam particles per visual tick trailing the stern at the given speed (blocks/tick).</summary>
     public static int WakeCount(double speed)
         => speed < 0.01 ? 0 : (int)Math.Min(14, Math.Round(2 + Math.Min(speed, 0.25) * 40));
+
+    // ---- Wear and repair ----
+
+    public const double RepairPerItem = 25;
+
+    /// <summary>Hull and sail wear per second while a boat is under way. Gales, overpowered sail and temporal storms chew boats up.</summary>
+    public static (double Hull, double Sail) WearPerSecond(int force, bool overpowered, bool temporalStorm, double sailArea)
+    {
+        double hull = 0.015 + (force >= 6 ? (force - 5) * 0.05 : 0) + (temporalStorm ? 0.1 : 0);
+        double sail = 0.008 + (overpowered ? 0.45 : 0) + (force >= 8 ? (force - 7) * 0.08 * sailArea : 0);
+        return (hull, sail);
+    }
+
+    /// <summary>Speed factor from boat condition (0..100 each): ragged sails lose drive, a leaking hull wallows.</summary>
+    public static double ConditionSpeedFactor(double hull, double sail)
+    {
+        double sailF = 0.55 + 0.45 * Math.Clamp(sail / 100.0, 0, 1);
+        double hullF = hull >= 30 ? 1 : hull <= 0 ? 0.3 : 0.3 + 0.7 * hull / 30.0;
+        return sailF * hullF;
+    }
+
+    public static string ConditionLabel(double value) => value switch
+    {
+        >= 85 => "excellent",
+        >= 60 => "good",
+        >= 35 => "worn",
+        >= 10 => "poor",
+        _ => "failing"
+    };
+
+    // ---- Seasons ----
+
+    /// <summary>Seasonal wind strength: summer doldrums, autumn and especially winter gales.</summary>
+    public static double SeasonWindFactor(string? season) => (season ?? "").ToLowerInvariant() switch
+    {
+        "winter" => 1.25,
+        "fall" or "autumn" => 1.1,
+        "summer" => 0.85,
+        _ => 1.0
+    };
 }

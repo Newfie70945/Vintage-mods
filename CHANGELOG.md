@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.4.0
+
+- Boat wear and repair: hull and sail condition drop faster in gales, when overpowered and in temporal storms, slow the boat and warn at 50/25/10%. `/sailing repair hull|sail` consumes a held plank/resin or linen/flaxtwine/rope (configurable) for +25%.
+- Seasonal winds (winter gales, summer doldrums, synced to clients) and a per-player `/sailing log` (distance, squalls, temporal storms, strongest wind, repairs). Not yet verified in game.
+
 ## Realistic Sailing 0.3.0
 
 - Temporal storms at sea: wandering wind, +2 sea force, unreliable compass, violet glow and optional drifter boarders (`BoarderEntityCode`, capped and despawned when the storm ends). Storm state is read from the game by reflection; `/sailing teststorm` simulates one.

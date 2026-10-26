@@ -16,6 +16,9 @@ public sealed class SailingModSystem : ModSystem
     public const string ChannelName = "newfiessailing";
     public const string TrimKey = "newfiessailing:trim";
     public const string AnchorKey = "newfiessailing:anchor";
+    public const string HullKey = "newfiessailing:hull";
+    public const string SailKey = "newfiessailing:sail";
+    private const string LogPrefix = "newfiessailing:log:";
 
     private ICoreServerAPI? sapi;
     private IServerNetworkChannel? serverChannel;
@@ -44,6 +47,9 @@ public sealed class SailingModSystem : ModSystem
     private bool stabilityLookedUp, stabilityLogged;
     private readonly List<long> boarders = new();
     private double lastBoarderAt = -1000;
+    private double seasonFactor = 1;
+    private string seasonName = "";
+    private readonly Dictionary<string, Vec3d> lastPlayerPos = new();
 
     public override void Start(ICoreAPI api)
     {
@@ -88,6 +94,15 @@ public sealed class SailingModSystem : ModSystem
                 .WithDescription("Read the weather glass and wind vane: pressure, trend and forecast")
                 .HandleWith(args => TextCommandResult.Success(Glass(args.Caller.Player as IServerPlayer)))
             .EndSubCommand()
+            .BeginSubCommand("repair")
+                .WithDescription("Repair the hull or sails of a nearby boat using the item in your hand")
+                .WithArgs(api.ChatCommands.Parsers.WordRange("part", "hull", "sail"))
+                .HandleWith(args => Repair(args.Caller.Player as IServerPlayer, args[0] as string))
+            .EndSubCommand()
+            .BeginSubCommand("log")
+                .WithDescription("Show your sailing logbook")
+                .HandleWith(args => TextCommandResult.Success(LogBook(args.Caller.Player as IServerPlayer)))
+            .EndSubCommand()
             .BeginSubCommand("teststorm")
                 .WithDescription("Toggle a simulated temporal storm at sea (testing)")
                 .RequiresPrivilege(Privilege.controlserver)
@@ -117,9 +132,9 @@ public sealed class SailingModSystem : ModSystem
 
     private static SailTrim GetTrim(Entity boat) => (SailTrim)Math.Clamp(boat.WatchedAttributes.GetInt(TrimKey, (int)SailTrim.Full), 0, 2);
 
-    private Entity? BoatOf(IServerPlayer? player)
+    private Entity? BoatOf(IServerPlayer? player, bool requireMount = true)
     {
-        if (player?.Entity?.MountedOn == null) return null;
+        if (player?.Entity == null || (requireMount && player.Entity.MountedOn == null)) return null;
         Entity? best = null;
         double bestDist = 6;
         foreach (Entity b in boats.Values)
@@ -143,6 +158,88 @@ public sealed class SailingModSystem : ModSystem
             SailTrim.Reefed => "Sails reefed: slower in light air, safe in strong wind.",
             _ => "Sails furled. The boat will lose way."
         });
+    }
+
+    private static double GetCond(Entity boat, string key) => boat.WatchedAttributes.GetDouble(key, 100);
+
+    private static void SetCond(Entity boat, string key, double value)
+    {
+        value = Math.Clamp(value, 0, 100);
+        double old = GetCond(boat, key);
+        boat.WatchedAttributes.SetDouble(key, value);
+        if (Math.Floor(old) != Math.Floor(value)) boat.WatchedAttributes.MarkPathDirty(key);
+    }
+
+    private static bool Matches(string[] prefixes, string path) => prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+    private TextCommandResult Repair(IServerPlayer? player, string? part)
+    {
+        Entity? boat = BoatOf(player, requireMount: false);
+        if (boat == null || player == null) return TextCommandResult.Error("Stand within 6 blocks of a sailboat.");
+        bool hull = part == "hull";
+        string key = hull ? HullKey : SailKey;
+        string[] accepted = hull ? config.HullRepairItems : config.SailRepairItems;
+        ItemSlot? slot = player.InventoryManager.ActiveHotbarSlot;
+        string path = slot?.Itemstack?.Collectible?.Code?.Path ?? "";
+        if (slot == null || slot.Empty || !Matches(accepted, path))
+            return TextCommandResult.Error($"Hold one of these to repair the {(hull ? "hull" : "sails")}: {string.Join(", ", accepted)}.");
+        double cur = GetCond(boat, key);
+        if (cur >= 99.5) return TextCommandResult.Error($"The {(hull ? "hull" : "sails")} are already in excellent shape.");
+        slot.TakeOut(1);
+        slot.MarkDirty();
+        SetCond(boat, key, cur + SailingModel.RepairPerItem);
+        player.Entity.WatchedAttributes.SetInt(LogPrefix + "repairs", player.Entity.WatchedAttributes.GetInt(LogPrefix + "repairs", 0) + 1);
+        return TextCommandResult.Success($"Repaired. {(hull ? "Hull" : "Sails")} now {GetCond(boat, key):0}%.");
+    }
+
+    private string LogBook(IServerPlayer? player)
+    {
+        if (player?.Entity == null) return "No logbook.";
+        var a = player.Entity.WatchedAttributes;
+        return "Logbook\n" +
+               $"Distance sailed: {a.GetDouble(LogPrefix + "distance", 0):0} blocks\n" +
+               $"Squalls survived: {a.GetInt(LogPrefix + "squalls", 0)}\n" +
+               $"Temporal storms survived at sea: {a.GetInt(LogPrefix + "storms", 0)}\n" +
+               $"Strongest wind faced: {a.GetDouble(LogPrefix + "topknots", 0):0.#} kn\n" +
+               $"Repairs made: {a.GetInt(LogPrefix + "repairs", 0)}";
+    }
+
+    private void LogEvent(string name)
+    {
+        foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
+            if (p.Entity?.MountedOn != null)
+                p.Entity.WatchedAttributes.SetInt(LogPrefix + name, p.Entity.WatchedAttributes.GetInt(LogPrefix + name, 0) + 1);
+    }
+
+    private void TrackDistance()
+    {
+        foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
+        {
+            if (p.Entity?.MountedOn == null) { lastPlayerPos.Remove(p.PlayerUID); continue; }
+            Vec3d pos = p.Entity.Pos.XYZ.Clone();
+            if (lastPlayerPos.TryGetValue(p.PlayerUID, out Vec3d? prev))
+            {
+                double d = Math.Sqrt((pos.X - prev.X) * (pos.X - prev.X) + (pos.Z - prev.Z) * (pos.Z - prev.Z));
+                if (d < 50)
+                {
+                    var a = p.Entity.WatchedAttributes;
+                    a.SetDouble(LogPrefix + "distance", a.GetDouble(LogPrefix + "distance", 0) + d);
+                }
+            }
+            lastPlayerPos[p.PlayerUID] = pos;
+        }
+    }
+
+    private void UpdateSeason()
+    {
+        if (!config.SeasonalWindEnabled) { seasonFactor = 1; return; }
+        try
+        {
+            BlockPos pos = (sapi!.World.AllOnlinePlayers.FirstOrDefault()?.Entity?.Pos.XYZ ?? sapi.World.DefaultSpawnPosition.XYZ).AsBlockPos;
+            seasonName = sapi.World.Calendar.GetSeason(pos).ToString();
+            seasonFactor = SailingModel.SeasonWindFactor(seasonName);
+        }
+        catch { seasonFactor = 1; }
     }
 
     private TextCommandResult ToggleAnchor(IServerPlayer? player)
@@ -213,6 +310,7 @@ public sealed class SailingModSystem : ModSystem
     {
         if (elapsed - lastStormCheck < 1) return;
         lastStormCheck = elapsed;
+        UpdateSeason();
         bool now = ReadTemporalStorm();
         if (now != temporalStorm)
         {
@@ -220,7 +318,7 @@ public sealed class SailingModSystem : ModSystem
             NotifySailors(now
                 ? "[Sailing] The sky tears open - a temporal storm! The wind is veering wildly, compasses spin and things stir in the water."
                 : "[Sailing] The temporal storm fades. The sea settles.");
-            if (!now) DespawnBoarders();
+            if (!now) { DespawnBoarders(); LogEvent("storms"); }
         }
         if (temporalStorm) SpawnBoarder();
     }
@@ -290,6 +388,7 @@ public sealed class SailingModSystem : ModSystem
             squallFactor = 1;
             ScheduleNextSquall();
             NotifySailors("[Sailing] The squall has passed. The wind is easing.");
+            LogEvent("squalls");
         }
     }
 
@@ -309,7 +408,7 @@ public sealed class SailingModSystem : ModSystem
             wind = new Vec3d(rx, wind.Y, rz);
         }
         double speed = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z);
-        return speed * config.KnotsPerWindUnit * squallFactor * (temporalStorm ? config.TemporalStormWindBoost : 1);
+        return speed * config.KnotsPerWindUnit * squallFactor * seasonFactor * (temporalStorm ? config.TemporalStormWindBoost : 1);
     }
 
     private bool HasMountedPlayerNear(Entity boat)
@@ -327,10 +426,11 @@ public sealed class SailingModSystem : ModSystem
         elapsed += dt;
         UpdateSquall();
         UpdateTemporalStorm();
+        TrackDistance();
         if (elapsed - lastSyncAt >= 1)
         {
             lastSyncAt = elapsed;
-            serverChannel?.BroadcastPacket(new SailingSyncPacket { Squall = squallFactor, TemporalStorm = temporalStorm, Seconds = elapsed, WindRotationAmplitude = config.TemporalStormWindRotation, WindBoost = config.TemporalStormWindBoost });
+            serverChannel?.BroadcastPacket(new SailingSyncPacket { Squall = squallFactor, TemporalStorm = temporalStorm, Seconds = elapsed, WindRotationAmplitude = config.TemporalStormWindRotation, WindBoost = config.TemporalStormWindBoost, SeasonFactor = seasonFactor });
         }
 
         long now = Environment.TickCount64;
@@ -351,6 +451,18 @@ public sealed class SailingModSystem : ModSystem
             double knots = KnotsAt(boat.SidedPos.XYZ, out Vec3d wind) * SailingModel.Gust(elapsed, config.GustAmplitude * (temporalStorm ? 2 : 1), boat.EntityId % 100);
             double off = SailingModel.AngleOffWind(motion.X, motion.Z, wind.X, wind.Z);
             double target = SailingModel.SpeedMultiplier(knots, off, config.MinSpeedMultiplier, config.MaxSpeedMultiplier, config.ReferenceKnots, config.OverloadKnots, area);
+            if (config.WearEnabled)
+            {
+                int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
+                var (hullWear, sailWear) = SailingModel.WearPerSecond(force, SailingModel.Overpowered(knots, area, config.OverloadKnots), temporalStorm, area);
+                double hullBefore = GetCond(boat, HullKey), sailBefore = GetCond(boat, SailKey);
+                double hullNow = hullBefore - hullWear * config.WearRate * dt, sailNow = sailBefore - sailWear * config.WearRate * dt;
+                SetCond(boat, HullKey, hullNow);
+                SetCond(boat, SailKey, sailNow);
+                WarnCondition(boat, "hull", hullBefore, hullNow);
+                WarnCondition(boat, "sails", sailBefore, sailNow);
+                target *= SailingModel.ConditionSpeedFactor(GetCond(boat, HullKey), GetCond(boat, SailKey));
+            }
 
             smoothed.TryGetValue(boat.EntityId, out double prev);
             if (prev <= 0) prev = 1;
@@ -385,6 +497,20 @@ public sealed class SailingModSystem : ModSystem
         WarnSailors();
     }
 
+    private void WarnCondition(Entity boat, string part, double before, double after)
+    {
+        foreach (double threshold in new[] { 50.0, 25.0, 10.0 })
+        {
+            if (before > threshold && after <= threshold)
+            {
+                NotifySailors(part == "hull"
+                    ? $"[Sailing] The hull is at {threshold:0}% and taking on water! Repair with planks: /sailing repair hull"
+                    : $"[Sailing] The sails are at {threshold:0}% and in tatters! Repair with linen or rope: /sailing repair sail");
+                return;
+            }
+        }
+    }
+
     private void HoldAnchor(Entity boat, long now)
     {
         var motion = boat.SidedPos.Motion;
@@ -411,6 +537,8 @@ public sealed class SailingModSystem : ModSystem
         {
             if (p is not IServerPlayer sp || p.Entity?.MountedOn == null) continue;
             double knots = KnotsAt(p.Entity.Pos.XYZ, out _);
+            var wa = p.Entity.WatchedAttributes;
+            if (knots > wa.GetDouble(LogPrefix + "topknots", 0)) wa.SetDouble(LogPrefix + "topknots", knots);
             int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
             if (lastWarn.TryGetValue(sp.PlayerUID, out var last))
             {
@@ -432,6 +560,7 @@ public sealed class SailingModSystem : ModSystem
         if (temporalStorm) from = (from + SailingModel.CompassNoise(elapsed) + 360) % 360;
         string text = $"Wind: {knots:0.#} kn from the {SailingModel.Compass(from)} ({from:0} deg), Force {force} - {SailingModel.BeaufortName(force)}.\n" +
                       $"Sea state: waves about {SailingModel.WaveHeightFor(force):0.#} m. Gust swing: +/-{config.GustAmplitude * 100:0}%.";
+        if (seasonName.Length > 0 && Math.Abs(seasonFactor - 1) > 0.01) text += $"\nSeason: {seasonName.ToLowerInvariant()} winds ({(seasonFactor - 1) * 100:+0;-0}% strength).";
         if (temporalStorm) text += "\nTEMPORAL STORM: compass unreliable, wind direction wandering, seas unnaturally rough.";
         if (squallFactor > 1.05) text += "\nA squall is passing: wind is up " + $"{(squallFactor - 1) * 100:0}%.";
         Entity? boat = BoatOf(player);
@@ -440,6 +569,11 @@ public sealed class SailingModSystem : ModSystem
             SailTrim trim = GetTrim(boat);
             text += $"\nSails: {trim.ToString().ToLowerInvariant()}." + (boat.WatchedAttributes.GetBool(AnchorKey, false) ? " Anchor down." : "");
             if (SailingModel.Overpowered(knots, SailingModel.SailArea(trim), config.OverloadKnots)) text += " Overpowered - reef!";
+            if (config.WearEnabled)
+            {
+                double h = GetCond(boat, HullKey), sl = GetCond(boat, SailKey);
+                text += $"\nHull {h:0}% ({SailingModel.ConditionLabel(h)}), sails {sl:0}% ({SailingModel.ConditionLabel(sl)}).";
+            }
             var motion = boat.SidedPos.Motion;
             if (Math.Sqrt(motion.X * motion.X + motion.Z * motion.Z) > config.MinMotion)
             {

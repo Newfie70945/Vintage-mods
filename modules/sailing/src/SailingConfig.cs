@@ -20,6 +20,13 @@ public sealed class SailingConfig
     public int SquallMaxDurationSeconds { get; set; } = 75;
     public double SquallPeakMultiplier { get; set; } = 2.1;
     public int SquallWarningSeconds { get; set; } = 25;
+    public bool WearEnabled { get; set; } = true;
+    /// <summary>Multiplier on all wear rates (0.5 = half as fast).</summary>
+    public double WearRate { get; set; } = 1.0;
+    /// <summary>Held item code prefixes (without domain) that repair the hull / sails. One item restores 25%.</summary>
+    public string[] HullRepairItems { get; set; } = { "plank", "resin" };
+    public string[] SailRepairItems { get; set; } = { "linen", "flaxtwine", "rope" };
+    public bool SeasonalWindEnabled { get; set; } = true;
     public bool TemporalStormsEnabled { get; set; } = true;
     /// <summary>Max radians the wind direction wanders either side during a temporal storm.</summary>
     public double TemporalStormWindRotation { get; set; } = 1.5;

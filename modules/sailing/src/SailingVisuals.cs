@@ -21,7 +21,7 @@ public sealed class SailingVisuals
     /// <summary>Server-synced squall wind multiplier.</summary>
     public double SquallFactor { get; set; } = 1;
     private bool temporalStorm;
-    private double stormSeconds, windRotation = 1.5, windBoost = 1;
+    private double stormSeconds, windRotation = 1.5, windBoost = 1, seasonFactor = 1;
     private double syncedAt;
 
     public void ApplySync(SailingSyncPacket p)
@@ -31,6 +31,7 @@ public sealed class SailingVisuals
         stormSeconds = p.Seconds;
         windRotation = p.WindRotationAmplitude;
         windBoost = p.WindBoost;
+        seasonFactor = p.SeasonFactor;
         syncedAt = elapsed;
     }
 
@@ -73,7 +74,7 @@ public sealed class SailingVisuals
                 var (rx, rz) = SailingModel.RotateWind(wind.X, wind.Z, SailingModel.TemporalWindRotation(stormSeconds + (elapsed - syncedAt), windRotation));
                 wind = new Vec3d(rx, wind.Y, rz);
             }
-            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * (temporalStorm ? windBoost : 1);
+            double knots = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z) * cfg.KnotsPerWindUnit * SquallFactor * seasonFactor * (temporalStorm ? windBoost : 1);
             int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
 
             if (cfg.BobbingEnabled && cfg.BobIntensity > 0)

@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.3.0
+# Newfie's Realistic Sailing 0.4.0
 
 Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weather.
 
@@ -10,6 +10,9 @@ Server-side mod for Vintage Story 1.22.7 that makes sailing depend on real weath
 - **Anchor.** `/sailing anchor` drops or raises it; the boat stops, but in wind above `AnchorHoldKnots` (35) it drags downwind.
 - **Weather glass and wind vane.** `/sailing glass` shows barometric pressure, trend and forecast (pressure falls before squalls) plus the wind direction. These are commands for now; craftable items need models and recipes.
 - **Wake.** Boats trail foam behind the stern, scaling with speed.
+- **Wear and repair.** Hull and sail condition (0-100%, stored on the boat) wear faster in gales, when overpowered under full sail and in temporal storms. Ragged sails lose drive and a leaking hull wallows; sailors are warned at 50, 25 and 10%. `/sailing repair hull` consumes a held plank or resin, `/sailing repair sail` a held linen, flax twine or rope (`HullRepairItems`, `SailRepairItems`), restoring 25% each. Stand within 6 blocks of the boat. `/sailing` shows condition. Tune with `WearRate` or turn off with `WearEnabled`.
+- **Seasonal winds.** Winter blows 25% harder, autumn 10% harder, summer 15% lighter (`SeasonalWindEnabled`).
+- **Logbook.** `/sailing log` shows distance sailed, squalls and temporal storms survived, strongest wind faced and repairs made, stored on the player.
 - **Wind-driven speed.** Sailboat speed scales with the wind at the boat's position. Becalmed boats crawl; a fresh breeze (Force 5) gives full drive.
 - **Points of sail.** Speed depends on the angle between course and wind: in irons and close-hauled are slow, a beam reach is fastest, running is moderate.
 - **Gusts.** Deterministic gust and lull cycles vary the wind around its mean.
