@@ -188,6 +188,19 @@ Set(creation,"TargetSlot",0);Set(creation,"TargetInventoryId","absent-fixture");
 if(Dispatch(10,"CreateItemstack",creation))throw new Exception("Unknown creative destination accepted");
 Console.WriteLine("PASS: creative creation requires creative mode, a known inventory and a bounded destination slot.");
 
+
+// Occurrence totals survive replacement of the current same-code evidence row.
+var occurrenceSession=Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatSession"))!;
+var occurrenceFinding=Activator.CreateInstance(mod.GetType("NewfiesAntiCheat.Shared.Models.ScanFindingDto",true)!)!;
+Set(occurrenceFinding,"Code","PACKET_NOCLIP");Set(occurrenceFinding,"Scanner","ServerBehavior");
+var storeOccurrence=M("BlockLogger.AntiCheat.AntiCheatService").GetMethod("StoreServerBehaviorObservation",BindingFlags.NonPublic|BindingFlags.Static)!;
+storeOccurrence.Invoke(null,[occurrenceSession,occurrenceFinding,1000L]);storeOccurrence.Invoke(null,[occurrenceSession,occurrenceFinding,2000L]);
+var occurrenceMap=(IDictionary)occurrenceSession.GetType().GetProperty("ServerOccurrences")!.GetValue(occurrenceSession)!;
+var occurrenceRow=occurrenceMap["PACKET_NOCLIP"]!;
+if((long)occurrenceRow.GetType().GetProperty("Count")!.GetValue(occurrenceRow)!=2L || (long)occurrenceRow.GetType().GetProperty("FirstSeenUtc")!.GetValue(occurrenceRow)!=1000L || (long)occurrenceRow.GetType().GetProperty("LastSeenUtc")!.GetValue(occurrenceRow)!=2000L)throw new Exception("Occurrence totals/timestamps incorrect");
+if(((IList)occurrenceSession.GetType().GetProperty("Findings")!.GetValue(occurrenceSession)!).Count!=1)throw new Exception("Occurrence counting duplicated risk evidence rows");
+Console.WriteLine("PASS: recorded occurrence counts/timestamps are separate from current deduplicated findings.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> handler) {
     object result = DispatchProxy.Create(type, typeof(AuditProxy));
     ((AuditProxy)result).Handler = handler; return result;

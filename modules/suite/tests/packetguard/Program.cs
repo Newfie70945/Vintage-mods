@@ -157,3 +157,14 @@ Check(!corrections.Record(162000,5,120,10) && corrections.Count==1,"Expired corr
 Check(!corrections.Record(1000,5,120,10) && corrections.Count==1,"Clock regression discards old corrections");
 Check(AntiCheatObservationPolicy.IsReviewOnly("PACKET_NOCLIP_CORRECTION",""),"Correction audit cannot trigger generic first-finding punishment");
 Console.WriteLine("PASS: correction-first noclip escalation, minimum spacing, independent expiry and clock reset.");
+
+var nuker=new BlockNukerWindow();
+for(int i=0;i<30;i++)Check(nuker.Observe(1000,i,0,0,30,true).Allow,"First 30 distinct requests allowed");
+var burst=nuker.Observe(1000,30,0,0,30,true);Check(!burst.Allow&&!burst.Kick,"31st denied but first burst cannot kick");
+Check(!nuker.Observe(1100,31,0,0,30,true).Kick,"Same drained burst cannot kick");
+for(int i=0;i<30;i++)nuker.Observe(2100,i,0,0,30,true);
+Check(nuker.Observe(2100,30,0,0,30,true).Kick,"Repeated independently spaced burst can kick");
+var lagged=new BlockNukerWindow();for(int i=0;i<100;i++)Check(!lagged.Observe(1000,i,0,0,30,false).Kick,"Lag-drained packets cannot kick");
+var repeated=new BlockNukerWindow();for(int i=0;i<100;i++)Check(repeated.Observe(1000,1,2,3,30,true).Allow,"Duplicate targets are not distinct blocks");
+Check(nuker.Observe(30000,100,0,0,30,true).Allow,"Old window expires");
+Console.WriteLine("PASS: Block Nuker distinct-target cap, denial, independent burst confirmation, lag safety and duplicate exclusion.");

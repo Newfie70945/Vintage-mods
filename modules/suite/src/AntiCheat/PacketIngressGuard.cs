@@ -47,6 +47,8 @@ internal sealed class PacketIngressGuard : IDisposable
 
     private sealed class ConnectionState
     {
+        internal readonly BlockNukerWindow Nuker = new();
+        internal bool NukerKickPending;
         internal readonly PacketIngressBudget Wire = new();
         internal readonly PacketIngressBudget Blocks = new();
         internal readonly PacketIngressBudget Settings = new();
@@ -247,6 +249,7 @@ internal sealed class PacketIngressGuard : IDisposable
                     !PacketIngressPolicy.IsValidBlockId(b.BlockType, api.World.Blocks.Count) ||
                     !ValidSelection(b.HitX, b.HitY, b.HitZ, b.SelectionBoxIndex, PacketSelectionIdReader<Packet_ClientBlockPlaceOrBreak>.Read(b))) return Malformed(client, packet.Id);
                 if (!ValidateBlockTarget(client, b.X, b.Y, b.Z)) return false;
+                if (b.Mode == 0 && !ValidateBreakBurst(client,b.X,b.Y,b.Z)) return false;
                 if (b.Mode == 2)
                 {
                     // Vanilla decor removal bypasses BreakBlock/DidBreakBlock, so retain an
@@ -383,6 +386,45 @@ internal sealed class PacketIngressGuard : IDisposable
                     $"packetId={packet.Id};reason=active-slot-bounds;slot={selected};hotbarCount={hotbar.Count};backpackStart={backpackStart};backpackCount={selectedBackpack?.Count ?? 0}");
         }
         return true;
+    }
+
+    private bool ValidateBreakBurst(ConnectedClient client,int x,int y,int z)
+    {
+        var player=client.Player;
+        if(!config.PacketGuardBlockNukerEnabled || player==null || player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
+            (config.PacketGuardExemptAdmins && (player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver))))return true;
+        var health=getTickHealth();
+        bool reliable=!health.Enabled || (health.Ready && !health.IsDegraded && !health.IsCritical);
+        long now=Environment.TickCount64;
+        var state=connections.GetValue(client,_=>new ConnectionState());
+        (bool Allow,bool Kick,int Distinct) result;
+        lock(state)result=state.Nuker.Observe(now,x,y,z,config.PacketGuardBlockNukerLimit,reliable);
+        if(result.Allow)return true;
+        string evidence=$"decision=denied;distinctBreakTargets={result.Distinct};limit={config.PacketGuardBlockNukerLimit};windowMs=1000;repeatedHealthyBurst={result.Kick};{health.Evidence}";
+        Report(client,"PACKET_BLOCK_NUKER", "Denied excessive distinct client block-break requests before the native handler. A single burst is not sufficient for a kick.",evidence,AntiCheatSeverity.Moderate);
+        lock(state)
+        {
+            if(!result.Kick || !config.PacketGuardBlockNukerKickEnabled || state.NukerKickPending)return false;
+            state.NukerKickPending=true;
+        }
+        api.Event.EnqueueMainThreadTask(()=>
+        {
+            try
+            {
+                var currentHealth=getTickHealth();
+                if(!active || !config.Enabled || !config.PacketGuardBlockNukerEnabled || !config.PacketGuardBlockNukerKickEnabled ||
+                    !ReferenceEquals(client.Player,player) || player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
+                    (config.PacketGuardExemptAdmins && (player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver))) ||
+                    Environment.TickCount64-now>1000 ||
+                    (currentHealth.Enabled && (!currentHealth.Ready||currentHealth.IsDegraded||currentHealth.IsCritical)))return;
+                reportFinding(player,"PACKET_BLOCK_NUKER_KICK",AntiCheatSeverity.High,
+                    "Kicked after independently spaced excessive client break bursts; secondary server-side mining actions are excluded.",player.PlayerUID,evidence+";decision=kick");
+                api.Logger.Audit("[PacketGuard/BlockNuker] playerUid={0};action=kick;{1}",player.PlayerUID,evidence);
+                player.Disconnect("Repeated excessive block-breaking requests (Block Nuker protection).");
+            }
+            finally {lock(state)state.NukerKickPending=false;}
+        },"packetguard-block-nuker-kick");
+        return false;
     }
 
     private int NormalizeViewDistance(ConnectedClient client, int requested)

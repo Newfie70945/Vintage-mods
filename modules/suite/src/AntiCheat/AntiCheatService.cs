@@ -4525,6 +4525,10 @@ public sealed class AntiCheatService : IDisposable
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
             NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            BlockNukerEnabled = config.PacketGuardBlockNukerEnabled,
+            BlockNukerLimit = config.PacketGuardBlockNukerLimit,
+            BlockNukerKickEnabled = config.PacketGuardBlockNukerKickEnabled,
+
             NoclipCorrectionsBeforeKick = config.PacketGuardNoclipCorrectionsBeforeKick,
             NoclipCorrectionDecaySeconds = config.PacketGuardNoclipCorrectionDecaySeconds,
             NoclipCorrectionMinimumIntervalSeconds = config.PacketGuardNoclipCorrectionMinimumIntervalSeconds,
@@ -5233,6 +5237,10 @@ public sealed class AntiCheatService : IDisposable
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
             NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            BlockNukerEnabled = config.PacketGuardBlockNukerEnabled,
+            BlockNukerLimit = config.PacketGuardBlockNukerLimit,
+            BlockNukerKickEnabled = config.PacketGuardBlockNukerKickEnabled,
+
             NoclipCorrectionsBeforeKick = config.PacketGuardNoclipCorrectionsBeforeKick,
             NoclipCorrectionDecaySeconds = config.PacketGuardNoclipCorrectionDecaySeconds,
             NoclipCorrectionMinimumIntervalSeconds = config.PacketGuardNoclipCorrectionMinimumIntervalSeconds,
@@ -5374,6 +5382,9 @@ public sealed class AntiCheatService : IDisposable
     {
         if (request.IngressEnabled.HasValue) config.PacketGuardIngressEnabled = request.IngressEnabled.Value;
         if (request.ConfirmedSpeedRepeatRisk.HasValue) config.PacketGuardConfirmedSpeedRepeatRisk = request.ConfirmedSpeedRepeatRisk.Value;
+        if (request.BlockNukerEnabled.HasValue) config.PacketGuardBlockNukerEnabled = request.BlockNukerEnabled.Value;
+        if (request.BlockNukerLimit.HasValue) config.PacketGuardBlockNukerLimit = request.BlockNukerLimit.Value;
+        if (request.BlockNukerKickEnabled.HasValue) config.PacketGuardBlockNukerKickEnabled = request.BlockNukerKickEnabled.Value;
         if (request.NoclipKickAfterCorrections.HasValue) config.PacketGuardNoclipKickAfterCorrections = request.NoclipKickAfterCorrections.Value;
         if (request.NoclipCorrectionsBeforeKick.HasValue) config.PacketGuardNoclipCorrectionsBeforeKick = request.NoclipCorrectionsBeforeKick.Value;
         if (request.NoclipCorrectionDecaySeconds.HasValue) config.PacketGuardNoclipCorrectionDecaySeconds = request.NoclipCorrectionDecaySeconds.Value;
@@ -6539,6 +6550,9 @@ public sealed class AntiCheatService : IDisposable
 
     private static void StoreServerBehaviorObservation(AntiCheatSession session,NewfiesAntiCheat.Shared.Models.ScanFindingDto finding,long observedUtc)
     {
+        if(!session.ServerOccurrences.TryGetValue(finding.Code,out var occurrence) && session.ServerOccurrences.Count<128)
+            session.ServerOccurrences[finding.Code]=occurrence=new AntiCheatOccurrenceWebSnapshot{Code=finding.Code,FirstSeenUtc=observedUtc};
+        if(occurrence!=null){occurrence.Count=Math.Min(long.MaxValue-1,occurrence.Count)+1;occurrence.LastSeenUtc=observedUtc;}
         // Advisory repeats are still recorded in history, but cannot erase or refresh
         // the lifetime of earlier independently confirmed evidence of the same code.
         if(AntiCheatObservationPolicy.IsReviewOnly(finding.Code,finding.Evidence)&&session.Findings.Any(f=>
@@ -6895,6 +6909,7 @@ public sealed class AntiCheatService : IDisposable
         {
             PlayerUid = s.PlayerUid,
             PlayerName = s.PlayerName,
+            ServerOccurrences = s.ServerOccurrences.Values.OrderByDescending(x=>x.Count).Select(x=>new AntiCheatOccurrenceWebSnapshot{Code=x.Code,Count=x.Count,FirstSeenUtc=x.FirstSeenUtc,LastSeenUtc=x.LastSeenUtc}).ToList(),
             Decision = includeDetails || includeEvidence ? BuildDecisionSnapshot(s) : null,
             Status = s.Status.ToString(),
             RiskScore = s.RiskScore,

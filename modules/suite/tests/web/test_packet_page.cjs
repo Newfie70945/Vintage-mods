@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),{chromium}=require('playwright');
 const html=require('./embedded_page.cjs')();
-const settings={noclipKickAfterCorrections:true,noclipCorrectionsBeforeKick:7,noclipCorrectionDecaySeconds:180,noclipCorrectionMinimumIntervalSeconds:15,ingressEnabled:false,confirmedSpeedRepeatRisk:30,kickRepeatedConfirmedSpeed:false,movementModeLimitsEnabled:true,maxHorizontalSpeed:35,groundMaxHorizontalSpeed:42,swimmingMaxHorizontalSpeed:25,airborneMaxHorizontalSpeed:38,mountProfilesEnabled:true,mountProfileEnforcementEnabled:true,unknownMountEnforcementEnabled:false,mountProfileConfirmSamples:4,mountProfileConfirmWindowMs:1500,mountRiderCorrelationEnabled:true};
+const settings={blockNukerEnabled:true,blockNukerLimit:35,blockNukerKickEnabled:false,noclipKickAfterCorrections:true,noclipCorrectionsBeforeKick:7,noclipCorrectionDecaySeconds:180,noclipCorrectionMinimumIntervalSeconds:15,ingressEnabled:false,confirmedSpeedRepeatRisk:30,kickRepeatedConfirmedSpeed:false,movementModeLimitsEnabled:true,maxHorizontalSpeed:35,groundMaxHorizontalSpeed:42,swimmingMaxHorizontalSpeed:25,airborneMaxHorizontalSpeed:38,mountProfilesEnabled:true,mountProfileEnforcementEnabled:true,unknownMountEnforcementEnabled:false,mountProfileConfirmSamples:4,mountProfileConfirmWindowMs:1500,mountRiderCorrelationEnabled:true};
 for(const prefix of ['draconis','shipwright','unknownMount'])Object.assign(settings,{[prefix+'MaxHorizontalSpeed']:110,[prefix+'MaxVerticalSpeed']:75.25,[prefix+'MaxAcceleration']:500,[prefix+'MaxRiderDistance']:18,[prefix+'MaxRiderRelativeSpeed']:32});
 const initial={...settings,enabled:true,movementEnabled:true,exemptAdmins:true,exemptMountedPlayers:true,tpRunesCompatibility:true,reachEnabled:true,miningEnabled:true};
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{
@@ -55,5 +55,8 @@ const initial={...settings,enabled:true,movementEnabled:true,exemptAdmins:true,e
   assert.equal(overflow,false,key+' controls fit mobile');
  }
  await page.locator('#packetTab-mounts').click();await page.screenshot({path:'/workspace/nss-revamp/artifacts/packetpage1-mobile.png',fullPage:true});
- assert.deepEqual(errors,[]);console.log('PASS: 33 fields display/collect, real save, drafts/failed saves/discard, keyboard tabs, read-only access, desktop/mobile layouts.');
+ await page.evaluate(async()=>{const originalApi=api;api=async()=>({playerUid:'occurrence-fixture',playerName:'Fixture',findings:[],mods:[],assemblies:[],serverOccurrences:[{code:'PACKET_NOCLIP',count:7,firstSeenUtc:1000,lastSeenUtc:2000},{code:'PACKET_NOCLIP_CORRECTION',count:2,firstSeenUtc:1500,lastSeenUtc:2000}]});try{await loadAntiCheatPlayer('occurrence-fixture');}finally{api=originalApi;}});
+ assert.match(await page.locator('#acOccurrenceSummary').textContent(),/PACKET_NOCLIP_CORRECTION/);
+ assert.equal(await page.locator('#acOccurrenceSummary tbody tr').count(),2,'separate detection/correction rows');
+ assert.deepEqual(errors,[]);console.log('PASS: 36 fields display/collect, real save, drafts/failed saves/discard, keyboard tabs, read-only access, desktop/mobile layouts.');
 }finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

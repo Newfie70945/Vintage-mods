@@ -277,6 +277,9 @@ public sealed class AntiCheatConfig
     // continuously penetrating before endpoint noclip can be confirmed.
     public double PacketGuardNoclipEndpointMinNetMovement { get; set; } = 0.45;
     public bool PacketGuardRejectNoclip { get; set; } = true;
+    public bool PacketGuardBlockNukerEnabled { get; set; } = true;
+    public int PacketGuardBlockNukerLimit { get; set; } = 30;
+    public bool PacketGuardBlockNukerKickEnabled { get; set; } = true;
     public bool PacketGuardNoclipKickAfterCorrections { get; set; } = true;
     public int PacketGuardNoclipCorrectionsBeforeKick { get; set; } = 5;
     public int PacketGuardNoclipCorrectionDecaySeconds { get; set; } = 120;
@@ -922,6 +925,7 @@ public sealed class AntiCheatConfig
         PacketGuardMovementConfidenceGuardedThreshold = Math.Clamp(PacketGuardMovementConfidenceGuardedThreshold, 1.0, 95.0);
         PacketGuardMovementConfidenceHighThreshold = Math.Clamp(PacketGuardMovementConfidenceHighThreshold, PacketGuardMovementConfidenceGuardedThreshold + 1.0, 98.0);
         PacketGuardMovementConfidenceCriticalThreshold = Math.Clamp(PacketGuardMovementConfidenceCriticalThreshold, PacketGuardMovementConfidenceHighThreshold + 1.0, 100.0);
+        PacketGuardBlockNukerLimit = Math.Clamp(PacketGuardBlockNukerLimit, 5, 200);
         PacketGuardNoclipCorrectionsBeforeKick = Math.Clamp(PacketGuardNoclipCorrectionsBeforeKick, 2, 50);
         PacketGuardNoclipCorrectionDecaySeconds = Math.Clamp(PacketGuardNoclipCorrectionDecaySeconds, 30, 3600);
         PacketGuardNoclipCorrectionMinimumIntervalSeconds = Math.Clamp(PacketGuardNoclipCorrectionMinimumIntervalSeconds, 5, 300);

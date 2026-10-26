@@ -576,6 +576,14 @@ public sealed class AntiCheatPacketProtectionGuiSaveRequest
     public int HistoryMaxRecords { get; set; } = 500;
 }
 
+public sealed class AntiCheatOccurrenceWebSnapshot
+{
+    public string Code { get; set; } = "";
+    public long Count { get; set; }
+    public long FirstSeenUtc { get; set; }
+    public long LastSeenUtc { get; set; }
+}
+
 public sealed class AntiCheatPlayerWebSnapshot
 {
     public string PlayerUid { get; set; } = "";
@@ -626,6 +634,7 @@ public sealed class AntiCheatPlayerWebSnapshot
     public int NetworkPacketsDropped { get; set; }
     public string LastConsequence { get; set; } = "";
     public long LastConsequenceUtc { get; set; }
+    public List<AntiCheatOccurrenceWebSnapshot> ServerOccurrences { get; set; } = new();
     public List<AntiCheatFindingWebSnapshot> Findings { get; set; } = new();
     public List<AntiCheatModWebSnapshot> Mods { get; set; } = new();
     public List<AntiCheatAssemblyWebSnapshot> Assemblies { get; set; } = new();
@@ -845,6 +854,10 @@ public sealed class AntiCheatPacketGuardWebSnapshot
     public int ConfirmedSpeedRepeatRisk { get; set; }
     public bool KickRepeatedConfirmedSpeed { get; set; }
     public bool NoclipKickAfterCorrections { get; set; } = true;
+    public bool BlockNukerEnabled { get; set; } = true;
+    public int BlockNukerLimit { get; set; } = 30;
+    public bool BlockNukerKickEnabled { get; set; } = true;
+
     public int NoclipCorrectionsBeforeKick { get; set; } = 5;
     public int NoclipCorrectionDecaySeconds { get; set; } = 120;
     public int NoclipCorrectionMinimumIntervalSeconds { get; set; } = 10;
@@ -1028,6 +1041,10 @@ public sealed class AntiCheatPacketGuardSaveRequest
     public int? ConfirmedSpeedRepeatRisk { get; set; }
     public bool? KickRepeatedConfirmedSpeed { get; set; }
     public bool? NoclipKickAfterCorrections { get; set; }
+    public bool? BlockNukerEnabled { get; set; }
+    public int? BlockNukerLimit { get; set; }
+    public bool? BlockNukerKickEnabled { get; set; }
+
     public int? NoclipCorrectionsBeforeKick { get; set; }
     public int? NoclipCorrectionDecaySeconds { get; set; }
     public int? NoclipCorrectionMinimumIntervalSeconds { get; set; }

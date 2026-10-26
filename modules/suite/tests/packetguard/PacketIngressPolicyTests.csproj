@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/AntiCheat/BlockNukerWindow.cs" Link="BlockNukerWindow.cs"/>
     <Compile Include="../../src/AntiCheat/NoclipTerrainEvidence.cs" Link="NoclipTerrainEvidence.cs"/>
     <Compile Include="../../src/AntiCheat/PacketEvidenceConfirmation.cs" Link="PacketEvidenceConfirmation.cs"/>
     <Compile Include="../../src/AntiCheat/AntiCheatObservationPolicy.cs" Link="AntiCheatObservationPolicy.cs"/>

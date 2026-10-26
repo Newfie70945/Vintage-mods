@@ -79,6 +79,7 @@ public sealed class AntiCheatSession
     // Last observation time for transient server-side behavior findings. PacketGuard findings
     // are live behavior evidence, not permanent identity/integrity evidence, so their risk must
     // age out instead of remaining sticky for the entire player session.
+    public Dictionary<string, AntiCheatOccurrenceWebSnapshot> ServerOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, long> ServerBehaviorFindingUtc { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     // v40 timestamps all current evidence so each risk family can decay independently.
     // Key format is scanner|code|subject; values are last confirmed observation time.

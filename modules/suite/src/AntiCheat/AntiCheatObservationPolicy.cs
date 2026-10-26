@@ -5,6 +5,9 @@ internal static class AntiCheatObservationPolicy
     // A terrain/movement heuristic is useful to investigators but cannot prove
     // cheating in a modded world. Keep it out of all automatic punishment paths.
     internal static bool IsReviewOnly(string? code) =>
+        string.Equals(code, "PACKET_BLOCK_NUKER", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(code, "PACKET_BLOCK_NUKER_KICK", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(code, "PACKET_NOCLIP_KICK", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(code, "PACKET_NOCLIP_CORRECTION", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(code, "PACKET_NOCLIP", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(code, "PACKET_FLIGHT_REVIEW", StringComparison.OrdinalIgnoreCase) ||

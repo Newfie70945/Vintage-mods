@@ -2231,6 +2231,8 @@ internal sealed class PacketGuardService : IDisposable
             "Noclip correction completed. Only independently spaced successful corrections count toward the configured kick threshold.",player.PlayerUID,evidence);
         if(!threshold || !config.Enabled || !config.PacketGuardNoclipKickAfterCorrections)return;
         api.Logger.Audit("[PacketGuard/Noclip] playerUid={0};{1};action=kick",player.PlayerUID,evidence);
+        reportFinding(player,"PACKET_NOCLIP_KICK",AntiCheatSeverity.High,
+            "Kicked after the configured number of independently spaced, unexpired noclip corrections.",player.PlayerUID,evidence+";action=kick");
         player.Disconnect("Repeated noclip corrections. Please reconnect; contact an administrator if this was legitimate movement.");
     }
 
