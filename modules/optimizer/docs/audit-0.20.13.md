@@ -98,7 +98,7 @@ Confirm against the decompiled 1.22.7 source that neither stock body uses `dimen
 
 ## Fix status
 
-These fixes were made after the audit. They have **not been compiled or tested yet**, because the audit container had no .NET SDK or game binaries. Run `python3 tools/build.py --game-dir "$VINTAGE_STORY"` before release.
+These fixes were made after the audit. They were later compiled and tested: `tools/build.py` passed against the official 1.22.7 server binaries, matching the hashes `build.py` checks, including the new `EngineModuleTests` assertion. That was component testing, not a live-server trial.
 
 | # | Status | Change |
 | --- | --- | --- |
