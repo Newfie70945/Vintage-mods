@@ -338,6 +338,7 @@ public sealed class WebMapBridgeService : IDisposable
     private void DeactivateRuntime()
     {
         translocatorTracker?.Stop();
+        WebMapTerrainExporter.ReleaseCoverageCache();
         CancellationTokenSource? cancel;
         lock (gate) cancel = forcedTerrainExportCts;
         try { cancel?.Cancel(); } catch { }
@@ -440,6 +441,7 @@ public sealed class WebMapBridgeService : IDisposable
                 ConfigurePlayerListener();
         }
         if (previous.ShowTranslocators != incoming.ShowTranslocators && incoming.Enabled) ApplyTranslocatorTracking();
+        if (previous.LiveTerrainUpdatesEnabled && !incoming.LiveTerrainUpdatesEnabled) WebMapTerrainExporter.ReleaseCoverageCache();
         if (previous.ShowLeaderboards != incoming.ShowLeaderboards ||
             previous.LeaderboardShowXSkills != incoming.LeaderboardShowXSkills ||
             previous.LeaderboardShowPlaytime != incoming.LeaderboardShowPlaytime ||
@@ -2365,6 +2367,7 @@ if(LEADERBOARD_ONLY){
     {
         if (disposed) return;
         disposed = true;
+        WebMapTerrainExporter.ReleaseCoverageCache();
         try { forcedTerrainExportCts?.Cancel(); } catch { }
         if (playerListenerId >= 0)
         {

@@ -340,7 +340,9 @@ internal sealed class WebMapTerrainExporter
             if (!automatic) await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
             string savePath = ResolveCurrentWorldFilepath();
             var coverageSw = Stopwatch.StartNew();
-            TerrainCoverage coverage = EnumerateGeneratedTiles(savePath, config.TerrainTileSize);
+            // Automatic passes reuse the previous coverage while the saved map-chunk count is unchanged. Rebuilding two
+            // large hash sets for every pass (every couple of minutes) churned the large-object heap and grew memory.
+            TerrainCoverage coverage = EnumerateGeneratedTiles(savePath, config.TerrainTileSize, reuseUnchanged: automatic);
             coverageSw.Stop();
             status.CoverageScanMilliseconds = coverageSw.ElapsedMilliseconds;
             status.TotalChunkColumns = coverage.ChunkColumns;
@@ -428,8 +430,9 @@ internal sealed class WebMapTerrainExporter
                     : $"Changed-terrain update complete: {status.WrittenTiles:n0} changed/new tiles rendered, {status.ReusedTiles:n0} cached tiles reused.");
             publishStatus(status.Clone());
             api.Logger.Notification(
-                "[ServerEssentials/WebMap] live terrain export complete. mode={0}, readMode={1}, rendered={2}, reused={3}, chunkColumns={4}, elapsed={5}ms, worldRead={6}ms, render={7}ms, png={8}ms, lod={9}ms.",
-                status.ExportMode, status.TerrainReadMode, status.WrittenTiles, status.ReusedTiles, status.ProcessedChunkColumns, status.TotalElapsedMilliseconds, status.WorldReadMilliseconds, status.RenderMilliseconds, status.PngWriteMilliseconds, status.LodWriteMilliseconds);
+                "[ServerEssentials/WebMap] live terrain export complete. mode={0}, readMode={1}, rendered={2}, reused={3}, chunkColumns={4}, elapsed={5}ms, worldRead={6}ms, render={7}ms, png={8}ms, lod={9}ms, coverageScan={10}ms, managedHeap={11:n0}MiB, gen2Collections={12}.",
+                status.ExportMode, status.TerrainReadMode, status.WrittenTiles, status.ReusedTiles, status.ProcessedChunkColumns, status.TotalElapsedMilliseconds, status.WorldReadMilliseconds, status.RenderMilliseconds, status.PngWriteMilliseconds, status.LodWriteMilliseconds,
+                status.CoverageScanMilliseconds, GC.GetTotalMemory(false) / 1048576, GC.CollectionCount(2));
             RecordTimingSummary(status);
             return true;
         }
@@ -1715,7 +1718,25 @@ internal sealed class WebMapTerrainExporter
         return path;
     }
 
-    private TerrainCoverage EnumerateGeneratedTiles(string savePath, int tileSize)
+    private static readonly object coverageCacheGate = new();
+    private static TerrainCoverage? cachedCoverage;
+    private static string cachedCoverageKey = "";
+    private static long cachedCoverageRows = -1;
+    private static long cachedCoverageAtMs;
+    private const long CoverageCacheMaxAgeMs = 30 * 60 * 1000;
+
+    /// <summary>Frees the shared coverage cache (live updates turned off, map stopped).</summary>
+    public static void ReleaseCoverageCache()
+    {
+        lock (coverageCacheGate)
+        {
+            cachedCoverage = null;
+            cachedCoverageKey = "";
+            cachedCoverageRows = -1;
+        }
+    }
+
+    private TerrainCoverage EnumerateGeneratedTiles(string savePath, int tileSize, bool reuseUnchanged = false)
     {
         savePath = Path.GetFullPath(savePath);
         if (!File.Exists(savePath))
@@ -1731,7 +1752,7 @@ internal sealed class WebMapTerrainExporter
         // server service accounts do not have, producing SQLITE_CANTOPEN (14).
         try
         {
-            return EnumerateGeneratedTilesFromDatabase(savePath, tileSize, readOnly: true);
+            return EnumerateGeneratedTilesFromDatabase(savePath, tileSize, readOnly: true, reuseUnchanged);
         }
         catch (SqliteException ex)
         {
@@ -1761,7 +1782,8 @@ internal sealed class WebMapTerrainExporter
             CopyDatabaseSnapshotSidecar(savePath + "-shm", snapshotShm);
             CopyDatabaseSnapshotSidecar(savePath + "-journal", snapshotJournal);
 
-            TerrainCoverage coverage = EnumerateGeneratedTilesFromDatabase(snapshotPath, tileSize, readOnly: false);
+            // A copy is always fresh, so it can never be matched against the cache.
+            TerrainCoverage coverage = EnumerateGeneratedTilesFromDatabase(snapshotPath, tileSize, readOnly: false, reuseUnchanged: false);
             api.Logger.Notification(
                 "[ServerEssentials/WebMap] terrain coverage read succeeded from a private terrain-coverage snapshot ({0:n0} generated overworld map chunks).",
                 coverage.ChunkColumns);
@@ -1784,10 +1806,8 @@ internal sealed class WebMapTerrainExporter
         }
     }
 
-    private TerrainCoverage EnumerateGeneratedTilesFromDatabase(string databasePath, int tileSize, bool readOnly)
+    private TerrainCoverage EnumerateGeneratedTilesFromDatabase(string databasePath, int tileSize, bool readOnly, bool reuseUnchanged = false)
     {
-        var tiles = new HashSet<TileCoord>();
-        var chunks = new HashSet<ChunkCoord>();
         long count = 0;
         var csb = new SqliteConnectionStringBuilder
         {
@@ -1805,6 +1825,30 @@ internal sealed class WebMapTerrainExporter
             pragma.CommandText = "PRAGMA query_only=ON; PRAGMA busy_timeout=10000;";
             pragma.ExecuteNonQuery();
         }
+        long rows = -1;
+        try
+        {
+            using var countCommand = connection.CreateCommand();
+            countCommand.CommandText = "SELECT COUNT(*) FROM mapchunk";
+            countCommand.CommandTimeout = 30;
+            rows = Convert.ToInt64(countCommand.ExecuteScalar() ?? -1L);
+        }
+        catch (Exception ex) when (ex is SqliteException or InvalidCastException or FormatException) { rows = -1; }
+
+        string cacheKey = Path.GetFullPath(databasePath) + "|" + tileSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (reuseUnchanged && rows >= 0)
+        {
+            lock (coverageCacheGate)
+                if (cachedCoverage is TerrainCoverage cached && cachedCoverageKey == cacheKey && cachedCoverageRows == rows &&
+                    Environment.TickCount64 - cachedCoverageAtMs < CoverageCacheMaxAgeMs)
+                    return cached;
+        }
+
+        // Size the sets once: growing them by doubling leaves a trail of large abandoned arrays.
+        int capacity = rows > 0 ? (int)Math.Min(rows, 8_000_000) : 0;
+        int tilesPerRow = Math.Max(1, tileSize / ChunkSize);
+        var tiles = new HashSet<TileCoord>(capacity / (tilesPerRow * tilesPerRow) + 16);
+        var chunks = new HashSet<ChunkCoord>(capacity);
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT position FROM mapchunk";
         command.CommandTimeout = 30;
@@ -1820,7 +1864,18 @@ internal sealed class WebMapTerrainExporter
             tiles.Add(new TileCoord(FloorDiv(worldX, tileSize), FloorDiv(worldZ, tileSize)));
             count++;
         }
-        return new TerrainCoverage(tiles, chunks, count);
+        var coverage = new TerrainCoverage(tiles, chunks, count);
+        if (reuseUnchanged && rows >= 0)
+        {
+            lock (coverageCacheGate)
+            {
+                cachedCoverage = coverage;
+                cachedCoverageKey = cacheKey;
+                cachedCoverageRows = rows;
+                cachedCoverageAtMs = Environment.TickCount64;
+            }
+        }
+        return coverage;
     }
 
     private static void CopyDatabaseSnapshotFile(string source, string destination)
