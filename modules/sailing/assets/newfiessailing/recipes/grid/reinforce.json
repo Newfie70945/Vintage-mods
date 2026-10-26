@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "IPI,PPP",
+ "ingredients": {
+  "I": {
+   "type": "item",
+   "code": "game:ingot-iron"
+  },
+  "P": {
+   "type": "item",
+   "code": "game:plank-*"
+  }
+ },
+ "width": 3,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:reinforce"
+ }
+}

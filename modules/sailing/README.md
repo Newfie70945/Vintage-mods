@@ -1,4 +1,4 @@
-# Newfie's Realistic Sailing 0.9.0
+# Newfie's Realistic Sailing 0.10.0
 
 Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
 
@@ -16,6 +16,12 @@ Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everythi
 | Recovery balloon | within 10 blocks of a capsized or swamped boat: rights and refloats it; single use | 6 flax fibres over flax twine |
 | Fog horn | sounds a loud blast; sailors within 250 blocks get a bearing | 5 copper ingots |
 | Sailor's concertina | plays a shanty: crew morale +20 (once a minute per boat) | 2 planks, flax twine, copper ingot |
+| Brass spyglass | hold to zoom in | copper, glass, copper (vertical) |
+| Treasure chart | bearing and distance to the mark; stand on it to dig | found in bottles and wrecks |
+| Boat nameplate | names the nearest sailboat | 2 copper ingots |
+| Deep keel | upgrade: leeway x0.4, capsize risk x0.5 | 3 planks over an iron ingot |
+| Heavy sailcloth | upgrade: sail wear x0.5, +5% speed | ring of flax fibres around twine |
+| Hull reinforcement | upgrade: hull wear and flooding x0.5 | iron, planks |
 | Sailor's logbook | your record: distance, squalls, temporal storms, strongest wind, repairs | 4 parchment |
 
 Models are multi-part shapes sharing one colour-swatch texture (`textures/item/palette.png`) and recipe ingredient codes are unverified against the game; edit the JSON under `assets/newfiessailing/recipes/grid` if one does not exist. The only command is the admin test switch `/sailingadmin` (needs the `controlserver` privilege), which toggles a simulated temporal storm.
@@ -35,6 +41,9 @@ Models are multi-part shapes sharing one colour-swatch texture (`textures/item/p
 - **Crew morale.** Each boat has morale: fair weather lifts it, gales, storms, leaks and fog sap it, and a low morale slows the boat by up to 12%. Shanties raise it; capsizes and rogue waves hurt it.
 - **Sound.** Generated effects for the fog horn, wind gusts, hull creaks, wave slams, balloon hiss and the shanty (`assets/newfiessailing/sounds`).
 - **Drifting wrecks.** In fog, wrecks drift out of the mist near sailors. Right-click one once for rusty gears, twine, planks and the odd ingot.
+- **Tides and currents.** The tide turns about every 12.4 game hours; a current swings back and forth along a locally varying axis and pushes boats that have a rider (unattended boats stay put unless `CurrentsAffectEmptyBoats`). The anchor holds against it. The ship's compass report shows the tide state and current.
+- **Bottles and charts.** Messages in bottles drift on the wind; open one for a note and often a treasure chart. Wrecks can hold charts too. Follow the chart's bearing and distance, stand on the mark and right-click to dig up loot.
+- **Names and upgrades.** Nameplates give a boat a name used in messages and reports. A deep keel, heavy sailcloth and a reinforced hull are one-off upgrades that change leeway, capsize risk, wear, flooding and speed.
 - **Swamping.** Boats with a hull under 50% leak, and Force 7+ seas slop water aboard. Waterlogged boats slow to a quarter speed and warn at 60% and 100%. Bail with the bucket or patch the hull.
 - **Capsizing.** Badly overloaded full sail (about 1.4x the overload limit), worst on a beam reach, can roll the boat over: riders are thrown into the water, the hull sits upside down and cannot sail. Reefed or furled sail is immune. A recovery balloon launches three real balloon entities (red, yellow, blue) that rise above the boat; after 3 seconds the hull is righted and refloated (water set to 35%, hull at least 25%), then the balloons hover and drift away.
 - **Anchor.** Holds against `AnchorHoldKnots` (35) of wind, drags beyond.

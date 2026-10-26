@@ -1,0 +1,15 @@
+{
+ "ingredientPattern": "CC",
+ "ingredients": {
+  "C": {
+   "type": "item",
+   "code": "game:ingot-copper"
+  }
+ },
+ "width": 2,
+ "height": 1,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:nameplate"
+ }
+}

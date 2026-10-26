@@ -1,0 +1,35 @@
+{
+ "code": "driftingbottle",
+ "class": "EntityDriftingBottle",
+ "hitboxSize": {
+  "x": 0.9,
+  "y": 0.5
+ },
+ "deadHitboxSize": {
+  "x": 0.1,
+  "y": 0.1
+ },
+ "client": {
+  "renderer": "Shape",
+  "shape": {
+   "base": "entity/driftingbottle"
+  },
+  "size": 1.0,
+  "textures": {
+   "glass": {
+    "base": "entity/bottle-glass"
+   },
+   "cork": {
+    "base": "entity/bottle-cork"
+   }
+  },
+  "behaviors": [
+   {
+    "code": "interpolateposition"
+   }
+  ]
+ },
+ "server": {
+  "behaviors": []
+ }
+}

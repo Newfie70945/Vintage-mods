@@ -35,3 +35,11 @@ The sailing module was written without access to Vintage Story, so none of it ha
 - [ ] Drifting wreck can be right-clicked once for loot, then disappears.
 - [ ] `HeaveEnabled` (experimental): turn on and check for jitter; leave off if it fights buoyancy.
 - [ ] Logbook shows distance, squalls, storms, wind, repairs, capsizes, rescues, wrecks.
+
+## Added in 0.10.0
+- [ ] Spyglass: hold right-click zooms; release restores the field of view (check the log for `Spyglass zoom failed`).
+- [ ] Tide: compass report shows tide state and current; boats with a rider drift with it, anchored boats do not. Tune `CurrentPush`.
+- [ ] Bottles appear on water near sailors, can be opened once, and give a note plus often a chart.
+- [ ] Chart: bearing/distance reads sensibly; standing within 6 blocks and right-clicking digs loot and consumes the chart.
+- [ ] Nameplate names a nearby boat; the name appears in capsize/swamp/rogue wave messages and the compass report.
+- [ ] Upgrades: each can be fitted once per boat; effects are noticeable (keel less leeway, cloth slower sail wear, reinforcement slower flooding).

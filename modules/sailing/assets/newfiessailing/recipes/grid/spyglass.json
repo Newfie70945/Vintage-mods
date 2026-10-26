@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "C,G,C",
+ "ingredients": {
+  "C": {
+   "type": "item",
+   "code": "game:ingot-copper"
+  },
+  "G": {
+   "type": "block",
+   "code": "game:glass-plain"
+  }
+ },
+ "width": 1,
+ "height": 3,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:spyglass"
+ }
+}

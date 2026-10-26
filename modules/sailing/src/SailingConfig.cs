@@ -26,6 +26,16 @@ public sealed class SailingConfig
     public int FogMinDurationSeconds { get; set; } = 120;
     public int FogMaxDurationSeconds { get; set; } = 240;
     public bool MoraleEnabled { get; set; } = true;
+    public bool CurrentsEnabled { get; set; } = true;
+    /// <summary>Full-strength current push in blocks per tick added to boat motion.</summary>
+    public double CurrentPush { get; set; } = 0.003;
+    /// <summary>Strongest current in knots, for reports.</summary>
+    public double MaxCurrentKnots { get; set; } = 2.0;
+    /// <summary>When false (default) only boats with a rider nearby are carried by the current; anchor to stay put either way.</summary>
+    public bool CurrentsAffectEmptyBoats { get; set; } = false;
+    public bool BottlesEnabled { get; set; } = true;
+    public int BottleIntervalSeconds { get; set; } = 900;
+    public int MaxBottles { get; set; } = 2;
     public bool WrecksEnabled { get; set; } = true;
     public int MaxWrecks { get; set; } = 2;
     public int WreckSpawnCooldownSeconds { get; set; } = 40;
@@ -73,6 +83,8 @@ public sealed class SailingVisualsConfig
     public double SeaRoughness { get; set; } = 1.5;
     public bool FogVisualsEnabled { get; set; } = true;
     public bool AmbientSoundsEnabled { get; set; } = true;
+    /// <summary>Spyglass zoom: fraction of the normal field of view.</summary>
+    public double SpyglassZoom { get; set; } = 0.22;
     /// <summary>Experimental vertical swell motion; the game's buoyancy may fight it, so it is off by default.</summary>
     public bool HeaveEnabled { get; set; } = false;
     public double KnotsPerWindUnit { get; set; } = 30;

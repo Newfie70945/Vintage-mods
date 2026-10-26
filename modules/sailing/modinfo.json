@@ -5,8 +5,8 @@
   "authors": [
     "Newfie"
   ],
-  "description": "Adds detailed wind, Beaufort sea states, gusts and point-of-sail physics to sailing, with wear and repair, seasonal winds, a logbook, squalls, temporal storms at sea, anchoring, crew morale and shanties, fog horn and sound effects, drifting wrecks, fog banks, rogue waves, rougher seas, capsizing, swamping, recovery balloons, craftable weather glass, wind vane, anchor and logbook items, and storm warnings, and client-side bobbing hulls and spray in rough seas.",
-  "version": "0.9.0",
+  "description": "Adds detailed wind, Beaufort sea states, gusts and point-of-sail physics to sailing, with wear and repair, seasonal winds, a logbook, squalls, temporal storms at sea, anchoring, spyglass, tides and currents, messages in bottles and treasure charts, boat names and upgrades, crew morale and shanties, fog horn and sound effects, drifting wrecks, fog banks, rogue waves, rougher seas, capsizing, swamping, recovery balloons, craftable weather glass, wind vane, anchor and logbook items, and storm warnings, and client-side bobbing hulls and spray in rough seas.",
+  "version": "0.10.0",
   "side": "Universal",
   "requiredOnServer": true,
   "requiredOnClient": true,

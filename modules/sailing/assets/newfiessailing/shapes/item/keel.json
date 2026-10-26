@@ -1,0 +1,354 @@
+{
+ "textureWidth": 16,
+ "textureHeight": 16,
+ "textures": {
+  "main": "newfiessailing:item/palette"
+ },
+ "elements": [
+  {
+   "name": "blade",
+   "from": [
+    7.2,
+    3,
+    2
+   ],
+   "to": [
+    8.8,
+    13,
+    14
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      5,
+      9,
+      7,
+      11
+     ]
+    }
+   }
+  },
+  {
+   "name": "ballast",
+   "from": [
+    6,
+    0,
+    4
+   ],
+   "to": [
+    10,
+    3,
+    12
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      5,
+      5,
+      7,
+      7
+     ]
+    }
+   }
+  },
+  {
+   "name": "edge",
+   "from": [
+    7,
+    12.5,
+    1.5
+   ],
+   "to": [
+    9,
+    13.5,
+    14.5
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      9,
+      3,
+      11
+     ]
+    }
+   }
+  },
+  {
+   "name": "bolt1",
+   "from": [
+    6.8,
+    8,
+    4
+   ],
+   "to": [
+    9.2,
+    8.8,
+    4.8
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    }
+   }
+  },
+  {
+   "name": "bolt2",
+   "from": [
+    6.8,
+    8,
+    11.2
+   ],
+   "to": [
+    9.2,
+    8.8,
+    12
+   ],
+   "faces": {
+    "north": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "east": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "south": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "west": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "up": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    },
+    "down": {
+     "texture": "#main",
+     "uv": [
+      1,
+      1,
+      3,
+      3
+     ]
+    }
+   }
+  }
+ ]
+}

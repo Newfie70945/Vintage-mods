@@ -22,6 +22,8 @@ public sealed class SailingModSystem : ModSystem
     public const string SalvageKey = "newfiessailing:salvage";
     public const string WaveKey = "newfiessailing:wave";
     public const string MoraleKey = "newfiessailing:morale";
+    public const string NameKey = "newfiessailing:name";
+    public const string UpgradeKey = "newfiessailing:upgrades";
     public const string SailKey = "newfiessailing:sail";
     private const string LogPrefix = "newfiessailing:log:";
 
@@ -56,23 +58,30 @@ public sealed class SailingModSystem : ModSystem
     private double nextFogAt, fogStart = -1, fogDuration, fogIntensity;
     private bool fogAnnounced;
     private readonly List<long> wrecks = new();
+    private readonly List<long> bottles = new();
+    private double nextBottleAt = 300;
     private double lastWreckAt = -1000;
     private readonly Dictionary<long, double> lastShanty = new();
     private readonly Dictionary<string, double> lastHorn = new();
     private string seasonName = "";
     private readonly Dictionary<string, Vec3d> lastPlayerPos = new();
 
+    /// <summary>Spyglass zoom fraction from the client config (set by the client side on start).</summary>
+    public double SpyglassFraction { get; private set; } = 0.22;
+
     public override void Start(ICoreAPI api)
     {
         api.RegisterItemClass("ItemSailingTool", typeof(ItemSailingTool));
         api.RegisterEntity("EntityRecoveryBalloon", typeof(EntityRecoveryBalloon));
         api.RegisterEntity("EntityDriftingWreck", typeof(EntityDriftingWreck));
+        api.RegisterEntity("EntityDriftingBottle", typeof(EntityDriftingBottle));
         api.Network.RegisterChannel(ChannelName).RegisterMessageType<SailingSyncPacket>();
     }
 
     public override void StartClientSide(ICoreClientAPI api)
     {
         visuals = new SailingVisuals(api);
+        SpyglassFraction = visuals.SpyglassFraction;
         api.Network.GetChannel(ChannelName).SetMessageHandler<SailingSyncPacket>(p => visuals.ApplySync(p));
         visuals.Start();
     }
@@ -232,6 +241,105 @@ public sealed class SailingModSystem : ModSystem
         catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not spawn wreck: " + ex.Message); }
     }
 
+    private static string Nm(Entity boat)
+    {
+        string name = boat.WatchedAttributes.GetString(NameKey, "");
+        return name.Length > 0 ? "The " + name : "The boat";
+    }
+
+    private static int GetUpgrades(Entity boat) => boat.WatchedAttributes.GetInt(UpgradeKey, 0);
+
+    private (string Text, bool Used) NameBoat(IServerPlayer player)
+    {
+        Entity? boat = BoatOf(player, requireMount: false);
+        if (boat == null) return ("Stand within 6 blocks of a sailboat to name it.", false);
+        string name = SailingModel.BoatName(rng.Next());
+        boat.WatchedAttributes.SetString(NameKey, name);
+        boat.WatchedAttributes.MarkPathDirty(NameKey);
+        return ($"A brass nameplate is screwed to the transom: \"{name}\". Fair winds to her!", true);
+    }
+
+    private (string Text, bool Used) Upgrade(IServerPlayer player, int flag, string what)
+    {
+        Entity? boat = BoatOf(player, requireMount: false);
+        if (boat == null) return ("Stand within 6 blocks of a sailboat to fit it.", false);
+        int flags = GetUpgrades(boat);
+        if ((flags & flag) != 0) return ($"{Nm(boat)} already has a {what}.", false);
+        boat.WatchedAttributes.SetInt(UpgradeKey, flags | flag);
+        boat.WatchedAttributes.MarkPathDirty(UpgradeKey);
+        return ($"You fit a {what} to {Nm(boat).ToLowerInvariant()}.", true);
+    }
+
+    /// <summary>Gives the player a treasure chart marking a random spot 150-400 blocks away. Returns whether it was given.</summary>
+    public bool GiveChart(IServerPlayer player)
+    {
+        try
+        {
+            Item? item = sapi!.World.GetItem(new AssetLocation("newfiessailing:treasurechart"));
+            if (item == null || player.Entity == null) return false;
+            double angle = rng.NextDouble() * Math.PI * 2, dist = 150 + rng.NextDouble() * 250;
+            var stack = new ItemStack(item);
+            stack.Attributes.SetInt("tx", (int)(player.Entity.Pos.X + Math.Cos(angle) * dist));
+            stack.Attributes.SetInt("tz", (int)(player.Entity.Pos.Z + Math.Sin(angle) * dist));
+            if (!player.InventoryManager.TryGiveItemstack(stack, true)) sapi.World.SpawnItemEntity(stack, player.Entity.Pos.XYZ);
+            return true;
+        }
+        catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not give chart: " + ex.Message); return false; }
+    }
+
+    private static readonly (string Code, int Min, int Max, double Chance)[] TreasureLoot =
+    {
+        ("game:ingot-copper", 2, 4, 0.9), ("game:ingot-iron", 1, 3, 0.6), ("game:ingot-tin", 1, 3, 0.5),
+        ("game:ingot-silver", 1, 2, 0.4), ("game:ingot-gold", 1, 2, 0.25), ("game:gear-rusty", 1, 3, 0.7), ("game:flaxtwine", 2, 4, 0.6)
+    };
+
+    /// <summary>Treasure chart: reports the direction and distance to the mark; digs the treasure up when you stand on it.</summary>
+    public (string Text, bool Used) UseChart(IServerPlayer player, ItemSlot slot)
+    {
+        var attrs = slot.Itemstack?.Attributes;
+        if (attrs == null || !attrs.HasAttribute("tx")) return ("The chart is blank - just waves and a smudge.", false);
+        double dx = attrs.GetInt("tx") - player.Entity.Pos.X, dz = attrs.GetInt("tz") - player.Entity.Pos.Z;
+        string hint = SailingModel.ChartHint(dx, dz);
+        if (dx * dx + dz * dz > 36) return (hint, false);
+        int found = SailingLoot.Spawn(sapi!.World, TreasureLoot, player.Entity.Pos.XYZ.AddCopy(0, 0.5, 0));
+        var a = player.Entity.WatchedAttributes;
+        a.SetInt(LogPrefix + "treasures", a.GetInt(LogPrefix + "treasures", 0) + 1);
+        return (found > 0 ? "You dig... and strike a rotten chest! Coins and metal spill out." : "You dig... but someone got here first. Only a rusted hinge remains.", true);
+    }
+
+    private void TrySpawnBottle()
+    {
+        if (!config.BottlesEnabled || elapsed < nextBottleAt) return;
+        nextBottleAt = elapsed + config.BottleIntervalSeconds * (0.7 + rng.NextDouble() * 0.6);
+        bottles.RemoveAll(id => !sapi!.World.LoadedEntities.ContainsKey(id));
+        if (bottles.Count >= config.MaxBottles) return;
+        IPlayer? sailor = sapi!.World.AllOnlinePlayers.FirstOrDefault(p => p.Entity?.MountedOn != null);
+        if (sailor?.Entity == null) return;
+        try
+        {
+            EntityProperties? type = sapi.World.GetEntityType(new AssetLocation("newfiessailing:driftingbottle"));
+            if (type == null) return;
+            double angle = rng.NextDouble() * Math.PI * 2, dist = 30 + rng.NextDouble() * 50;
+            double x = sailor.Entity.Pos.X + Math.Cos(angle) * dist, z = sailor.Entity.Pos.Z + Math.Sin(angle) * dist, y = sailor.Entity.Pos.Y;
+            if (!sapi.World.BlockAccessor.GetBlock(new BlockPos((int)x, (int)(y - 0.6), (int)z)).IsLiquid()) return;
+            Entity ent = sapi.World.ClassRegistry.CreateEntity(type);
+            ent.ServerPos.SetPos(x, y, z);
+            ent.Pos.SetFrom(ent.ServerPos);
+            sapi.World.SpawnEntity(ent);
+            bottles.Add(ent.EntityId);
+        }
+        catch (Exception ex) { sapi!.Logger.Warning("[NewfiesSailing] Could not spawn bottle: " + ex.Message); }
+    }
+
+    /// <summary>Pushes the boat with the tidal current (kept off anchored boats by the caller).</summary>
+    private void ApplyCurrent(Entity boat)
+    {
+        if (!config.CurrentsEnabled || (!config.CurrentsAffectEmptyBoats && !HasMountedPlayerNear(boat))) return;
+        var (cx, cz) = SailingModel.Current(boat.SidedPos.X, boat.SidedPos.Z, sapi!.World.Calendar.TotalHours);
+        boat.SidedPos.Motion.X += cx * config.CurrentPush;
+        boat.SidedPos.Motion.Z += cz * config.CurrentPush;
+    }
+
     private static bool IsCapsized(Entity boat) => boat.WatchedAttributes.GetBool(CapsizedKey, false);
 
     private void Capsize(Entity boat)
@@ -246,7 +354,7 @@ public sealed class SailingModSystem : ModSystem
         SetWater(boat, GetWater(boat) + 40);
         foreach (IPlayer p in sapi!.World.AllOnlinePlayers)
             if (p.Entity?.MountedOn != null && p.Entity.Pos.DistanceTo(boat.Pos.XYZ) < 6) p.Entity.TryUnmount();
-        NotifyNear(boat, "[Sailing] The boat capsizes and throws everyone into the sea! Right it with a recovery balloon, and reef next time.");
+        NotifyNear(boat, $"[Sailing] {Nm(boat)} capsizes and throws everyone into the sea! Right it with a recovery balloon, and reef next time.");
     }
 
     private void NotifyNear(Entity boat, string message)
@@ -372,7 +480,8 @@ public sealed class SailingModSystem : ModSystem
                $"Strongest wind faced: {a.GetDouble(LogPrefix + "topknots", 0):0.#} kn\n" +
                $"Repairs made: {a.GetInt(LogPrefix + "repairs", 0)}\n" +
                $"Capsizes: {a.GetInt(LogPrefix + "capsizes", 0)}, boats rescued: {a.GetInt(LogPrefix + "rescues", 0)}\n" +
-               $"Wrecks salvaged: {a.GetInt(LogPrefix + "wrecks", 0)}";
+               $"Wrecks salvaged: {a.GetInt(LogPrefix + "wrecks", 0)}\n" +
+               $"Treasures dug up: {a.GetInt(LogPrefix + "treasures", 0)}";
     }
 
     private void LogEvent(string name)
@@ -423,6 +532,10 @@ public sealed class SailingModSystem : ModSystem
         "trim" => (CycleTrim(player), false),
         "repair" => RepairBoat(player),
         "balloon" => Balloon(player),
+        "nameplate" => NameBoat(player),
+        "keel" => Upgrade(player, SailingModel.UpgradeKeel, "deep keel"),
+        "cloth" => Upgrade(player, SailingModel.UpgradeSailcloth, "set of heavy sailcloth"),
+        "reinforce" => Upgrade(player, SailingModel.UpgradeReinforcement, "reinforced hull"),
         "horn" => Horn(player),
         "shanty" => Shanty(player),
         "bail" => Bail(player),
@@ -597,14 +710,14 @@ public sealed class SailingModSystem : ModSystem
     {
         var (water, hull) = SailingModel.RogueWaveImpact(force, sailArea);
         SetWater(boat, GetWater(boat) + water * config.RogueWaveStrength);
-        SetCond(boat, HullKey, GetCond(boat, HullKey) - hull * config.RogueWaveStrength);
+        SetCond(boat, HullKey, GetCond(boat, HullKey) - hull * config.RogueWaveStrength * SailingModel.UpgradeHullWearMult(GetUpgrades(boat)));
         SetMorale(boat, GetMorale(boat) - 5);
         Play("waveslam", boat.Pos.XYZ, 48, 0.9f);
         boat.SidedPos.Motion.X *= 0.6;
         boat.SidedPos.Motion.Z *= 0.6;
         boat.WatchedAttributes.SetInt(WaveKey, boat.WatchedAttributes.GetInt(WaveKey, 0) + 1);
         boat.WatchedAttributes.MarkPathDirty(WaveKey);
-        NotifyNear(boat, "[Sailing] A rogue wave slams over the bow!");
+        NotifyNear(boat, $"[Sailing] A rogue wave slams over the bow of {Nm(boat).ToLowerInvariant()}!");
     }
 
     private void ScheduleNextSquall()
@@ -677,6 +790,7 @@ public sealed class SailingModSystem : ModSystem
         UpdateFog();
         UpdateTemporalStorm();
         TrackDistance();
+        TrySpawnBottle();
         if (elapsed - lastSyncAt >= 1)
         {
             lastSyncAt = elapsed;
@@ -699,6 +813,8 @@ public sealed class SailingModSystem : ModSystem
                 HoldAnchor(boat, now);
                 continue;
             }
+            ApplyCurrent(boat);
+            int up = GetUpgrades(boat);
             if (!HasMountedPlayerNear(boat)) continue;
             var motion = boat.SidedPos.Motion;
             double speed = Math.Sqrt(motion.X * motion.X + motion.Z * motion.Z);
@@ -707,13 +823,13 @@ public sealed class SailingModSystem : ModSystem
             double area = SailingModel.SailArea(GetTrim(boat));
             double knots = KnotsAt(boat.SidedPos.XYZ, out Vec3d wind) * SailingModel.Gust(elapsed, config.GustAmplitude * (temporalStorm ? 2 : 1), boat.EntityId % 100);
             double off = SailingModel.AngleOffWind(motion.X, motion.Z, wind.X, wind.Z);
-            double target = SailingModel.SpeedMultiplier(knots, off, config.MinSpeedMultiplier, config.MaxSpeedMultiplier, config.ReferenceKnots, config.OverloadKnots, area);
+            double target = SailingModel.SpeedMultiplier(knots, off, config.MinSpeedMultiplier, config.MaxSpeedMultiplier * SailingModel.UpgradeSpeedMult(up), config.ReferenceKnots, config.OverloadKnots, area);
             if (config.WearEnabled)
             {
                 int force = SailingModel.StormForce(SailingModel.Beaufort(knots), temporalStorm);
                 var (hullWear, sailWear) = SailingModel.WearPerSecond(force, SailingModel.Overpowered(knots, area, config.OverloadKnots), temporalStorm, area);
                 double hullBefore = GetCond(boat, HullKey), sailBefore = GetCond(boat, SailKey);
-                double hullNow = hullBefore - hullWear * config.WearRate * dt, sailNow = sailBefore - sailWear * config.WearRate * dt;
+                double hullNow = hullBefore - hullWear * config.WearRate * SailingModel.UpgradeHullWearMult(up) * dt, sailNow = sailBefore - sailWear * config.WearRate * SailingModel.UpgradeSailWearMult(up) * dt;
                 SetCond(boat, HullKey, hullNow);
                 SetCond(boat, SailKey, sailNow);
                 WarnCondition(boat, "hull", hullBefore, hullNow);
@@ -735,13 +851,13 @@ public sealed class SailingModSystem : ModSystem
             if (config.SwampingEnabled)
             {
                 double before = GetWater(boat);
-                double after = before + (SailingModel.FloodPerSecond(seaForce, GetCond(boat, HullKey)) - SailingModel.NaturalDrainPerSecond(seaForce, GetCond(boat, HullKey))) * dt;
+                double after = before + (SailingModel.FloodPerSecond(seaForce, GetCond(boat, HullKey)) * SailingModel.UpgradeFloodMult(up) - SailingModel.NaturalDrainPerSecond(seaForce, GetCond(boat, HullKey))) * dt;
                 SetWater(boat, after);
-                if (before < 100 && GetWater(boat) >= 100) NotifyNear(boat, "[Sailing] The boat is swamped! It is barely moving. Bail with a bucket, patch the hull, or use a recovery balloon.");
+                if (before < 100 && GetWater(boat) >= 100) NotifyNear(boat, $"[Sailing] {Nm(boat)} is swamped! She is barely moving. Bail with a bucket, patch the hull, or use a recovery balloon.");
                 else if (before < 60 && after >= 60) NotifyNear(boat, "[Sailing] Water is sloshing in the bilge - the boat is getting heavy!");
                 target *= SailingModel.WaterSpeedFactor(GetWater(boat));
             }
-            if (config.CapsizingEnabled && rng.NextDouble() < SailingModel.CapsizeChancePerSecond(knots, area, off, config.OverloadKnots, config.CapsizeSeverity) * dt)
+            if (config.CapsizingEnabled && rng.NextDouble() < SailingModel.CapsizeChancePerSecond(knots, area, off, config.OverloadKnots, config.CapsizeSeverity * SailingModel.UpgradeCapsizeMult(up)) * dt)
             {
                 Capsize(boat);
                 continue;
@@ -759,7 +875,7 @@ public sealed class SailingModSystem : ModSystem
 
             // Leeway: the wind pushes the hull sideways, most when beating.
             double drive = Math.Clamp(knots * area / Math.Max(1, config.ReferenceKnots), 0, 1);
-            double leeway = SailingModel.LeewayFraction(off, area, drive, config.LeewayStrength) * speed;
+            double leeway = SailingModel.LeewayFraction(off, area, drive, config.LeewayStrength * SailingModel.UpgradeLeewayMult(up)) * speed;
             double windLen = Math.Sqrt(wind.X * wind.X + wind.Z * wind.Z);
             if (leeway > 0 && windLen > 1e-6)
             {
@@ -844,6 +960,13 @@ public sealed class SailingModSystem : ModSystem
         string text = $"Wind: {knots:0.#} kn from the {SailingModel.Compass(from)} ({from:0} deg), Force {force} - {SailingModel.BeaufortName(force)}.\n" +
                       $"Sea state: waves about {SailingModel.WaveHeightFor(force):0.#} m. Gust swing: +/-{config.GustAmplitude * 100:0}%.";
         if (seasonName.Length > 0 && Math.Abs(seasonFactor - 1) > 0.01) text += $"\nSeason: {seasonName.ToLowerInvariant()} winds ({(seasonFactor - 1) * 100:+0;-0}% strength).";
+        if (config.CurrentsEnabled)
+        {
+            var (cx, cz) = SailingModel.Current(player.Entity.Pos.X, player.Entity.Pos.Z, sapi!.World.Calendar.TotalHours);
+            double mag = Math.Sqrt(cx * cx + cz * cz);
+            double toward = (Math.Atan2(cx, -cz) * 180.0 / Math.PI + 360) % 360;
+            text += $"\nTide: {SailingModel.TideState(sapi.World.Calendar.TotalHours)}; current {mag * config.MaxCurrentKnots:0.0} kn setting {SailingModel.Compass(toward)}.";
+        }
         if (fogIntensity > 0.05) text += $"\nFog bank: visibility about {SailingModel.FogVisibility(fogIntensity):0} m.";
         if (temporalStorm) text += "\nTEMPORAL STORM: compass unreliable, wind direction wandering, seas unnaturally rough.";
         if (squallFactor > 1.05) text += "\nA squall is passing: wind is up " + $"{(squallFactor - 1) * 100:0}%.";
@@ -853,6 +976,8 @@ public sealed class SailingModSystem : ModSystem
             SailTrim trim = GetTrim(boat);
             text += $"\nSails: {trim.ToString().ToLowerInvariant()}." + (boat.WatchedAttributes.GetBool(AnchorKey, false) ? " Anchor down." : "");
             if (SailingModel.Overpowered(knots, SailingModel.SailArea(trim), config.OverloadKnots)) text += " Overpowered - reef!";
+            if (boat.WatchedAttributes.GetString(NameKey, "").Length > 0) text += $"\nVessel: {boat.WatchedAttributes.GetString(NameKey, "")}.";
+            if (GetUpgrades(boat) != 0) text += $"\nUpgrades: {SailingModel.UpgradeList(GetUpgrades(boat))}.";
             if (config.MoraleEnabled) text += $"\nCrew morale: {GetMorale(boat):0}% ({SailingModel.MoraleLabel(GetMorale(boat))}).";
             if (IsCapsized(boat)) text += "\nThe boat is CAPSIZED.";
             else if (GetWater(boat) >= 1) text += $"\nWater in the hull: {GetWater(boat):0}%.";

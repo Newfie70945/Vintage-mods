@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "PPP,_I_",
+ "ingredients": {
+  "P": {
+   "type": "item",
+   "code": "game:plank-*"
+  },
+  "I": {
+   "type": "item",
+   "code": "game:ingot-iron"
+  }
+ },
+ "width": 3,
+ "height": 2,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:keel"
+ }
+}

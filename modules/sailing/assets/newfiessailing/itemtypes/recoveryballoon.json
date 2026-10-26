@@ -3,7 +3,8 @@
  "class": "ItemSailingTool",
  "maxstacksize": 8,
  "attributes": {
-  "sailingTool": "balloon"
+  "sailingTool": "balloon",
+  "consumable": true
  },
  "shape": {
   "base": "item/recoveryballoon"

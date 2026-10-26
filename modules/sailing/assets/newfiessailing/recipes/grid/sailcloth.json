@@ -1,0 +1,19 @@
+{
+ "ingredientPattern": "FFF,FTF,FFF",
+ "ingredients": {
+  "F": {
+   "type": "item",
+   "code": "game:flaxfibers"
+  },
+  "T": {
+   "type": "item",
+   "code": "game:flaxtwine"
+  }
+ },
+ "width": 3,
+ "height": 3,
+ "output": {
+  "type": "item",
+  "code": "newfiessailing:sailcloth"
+ }
+}

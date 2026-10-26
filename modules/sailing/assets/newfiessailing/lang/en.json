@@ -24,5 +24,18 @@
  "itemdesc-foghorn": "Right-click to sound a long blast. Other sailors within 250 blocks are told which way it came from. Essential in fog.",
  "item-concertina": "Sailor's concertina",
  "itemdesc-concertina": "Right-click aboard or beside a boat to play a sea shanty and lift the crew's morale by 20% (once a minute per boat).",
- "entity-driftingwreck": "Drifting wreck"
+ "entity-driftingwreck": "Drifting wreck",
+ "item-spyglass": "Brass spyglass",
+ "itemdesc-spyglass": "Hold right-click to zoom in. Spot wrecks, bottles, land and other boats; fog is thinner through the lens.",
+ "item-treasurechart": "Treasure chart",
+ "itemdesc-treasurechart": "Right-click for the bearing and distance to the mark. Stand on it and right-click to dig. Found in bottles and wrecks.",
+ "item-nameplate": "Boat nameplate",
+ "itemdesc-nameplate": "Right-click within 6 blocks of a sailboat to give her a new name. Single use.",
+ "item-keel": "Deep keel",
+ "itemdesc-keel": "Fit to a nearby sailboat: less leeway and half the capsize risk. Single use.",
+ "item-sailcloth": "Heavy sailcloth",
+ "itemdesc-sailcloth": "Fit to a nearby sailboat: sails wear half as fast and the boat is 5% quicker. Single use.",
+ "item-reinforce": "Hull reinforcement",
+ "itemdesc-reinforce": "Fit to a nearby sailboat: hull wears and floods half as fast. Single use.",
+ "entity-driftingbottle": "Message in a bottle"
 }

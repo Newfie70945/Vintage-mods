@@ -402,4 +402,76 @@ public static class SailingModel
         double w = 2 * Math.PI / Math.Max(2.5, 5.5 - 0.3 * f);
         return amp * (0.7 * Math.Sin(w * seconds + phase) + 0.3 * Math.Sin(1.7 * w * seconds + phase * 2));
     }
+
+    // ---- Tides and currents ----
+
+    /// <summary>
+    /// Tidal current at a position: a unit-or-smaller vector (world X/Z) that swings back and forth along a locally varying
+    /// axis as the tide turns (period about 12.4 game hours). Magnitude is the fraction of full current strength.
+    /// </summary>
+    public static (double X, double Z) Current(double x, double z, double gameHours)
+    {
+        double axis = Math.PI * (0.5 + 0.5 * Math.Sin(x / 420.0 + Math.Cos(z / 310.0) * 1.7));
+        double phase = 2 * Math.PI * gameHours / 12.4 + 0.8 * Math.Sin(z / 530.0 + x / 760.0);
+        double mag = Math.Sin(phase);
+        return (Math.Cos(axis) * mag, Math.Sin(axis) * mag);
+    }
+
+    public static string TideState(double gameHours)
+    {
+        double phase = 2 * Math.PI * gameHours / 12.4;
+        double s = Math.Sin(phase), c = Math.Cos(phase);
+        if (Math.Abs(s) < 0.2) return c > 0 ? "slack water, tide about to ebb" : "slack water, tide about to flood";
+        return c > 0 ? (s > 0 ? "flood tide building" : "ebb tide building") : (s > 0 ? "flood tide easing" : "ebb tide easing");
+    }
+
+    // ---- Boat names ----
+
+    private static readonly string[] NameAdjectives =
+    {
+        "Gallant", "Saucy", "Restless", "Weathered", "Golden", "Stubborn", "Lucky", "Wandering", "Silver", "Crimson", "Patient", "Bold"
+    };
+
+    private static readonly string[] NameNouns =
+    {
+        "Petrel", "Wren", "Gull", "Heron", "Otter", "Kestrel", "Albatross", "Narwhal", "Tern", "Cormorant", "Seal", "Dolphin"
+    };
+
+    public static string BoatName(int seed)
+    {
+        var r = new Random(seed);
+        return NameAdjectives[r.Next(NameAdjectives.Length)] + " " + NameNouns[r.Next(NameNouns.Length)];
+    }
+
+    // ---- Upgrades (bit flags) ----
+
+    public const int UpgradeKeel = 1, UpgradeSailcloth = 2, UpgradeReinforcement = 4;
+
+    public static double UpgradeLeewayMult(int flags) => (flags & UpgradeKeel) != 0 ? 0.4 : 1;
+    public static double UpgradeCapsizeMult(int flags) => (flags & UpgradeKeel) != 0 ? 0.5 : 1;
+    public static double UpgradeSpeedMult(int flags) => (flags & UpgradeSailcloth) != 0 ? 1.05 : 1;
+    public static double UpgradeSailWearMult(int flags) => (flags & UpgradeSailcloth) != 0 ? 0.5 : 1;
+    public static double UpgradeHullWearMult(int flags) => (flags & UpgradeReinforcement) != 0 ? 0.5 : 1;
+    public static double UpgradeFloodMult(int flags) => (flags & UpgradeReinforcement) != 0 ? 0.5 : 1;
+
+    public static string UpgradeList(int flags)
+    {
+        var parts = new List<string>();
+        if ((flags & UpgradeKeel) != 0) parts.Add("deep keel");
+        if ((flags & UpgradeSailcloth) != 0) parts.Add("heavy sailcloth");
+        if ((flags & UpgradeReinforcement) != 0) parts.Add("reinforced hull");
+        return parts.Count == 0 ? "none" : string.Join(", ", parts);
+    }
+
+    // ---- Treasure charts ----
+
+    /// <summary>Distance (blocks) and bearing from a position to a chart's mark, as readable text.</summary>
+    public static string ChartHint(double dx, double dz)
+    {
+        double dist = Math.Sqrt(dx * dx + dz * dz);
+        if (dist <= 6) return "X marks the spot - you are standing on it! Dig!";
+        double bearing = (Math.Atan2(dx, -dz) * 180.0 / Math.PI + 360) % 360;
+        double rounded = dist > 100 ? Math.Round(dist / 50) * 50 : dist > 30 ? Math.Round(dist / 10) * 10 : Math.Round(dist / 5) * 5;
+        return $"The mark lies about {rounded:0} blocks to the {Compass(bearing)}.";
+    }
 }

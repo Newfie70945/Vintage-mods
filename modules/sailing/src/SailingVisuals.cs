@@ -52,6 +52,8 @@ public sealed class SailingVisuals
         api.StoreModConfig(cfg, "NewfiesSailingClient.json");
     }
 
+    public double SpyglassFraction => cfg.SpyglassZoom;
+
     public void Start() => listener = capi.Event.RegisterGameTickListener(OnTick, 40);
 
     public void Stop()
@@ -157,7 +159,7 @@ public sealed class SailingVisuals
     /// <summary>Fog banks: applies an ambient fog modifier while the player is on or beside a boat, easing in and out.</summary>
     private void UpdateFog(bool nearBoat)
     {
-        double desired = cfg.FogVisualsEnabled && nearBoat ? serverFog : 0;
+        double desired = cfg.FogVisualsEnabled && nearBoat ? serverFog * (SpyglassZoom.Active ? 0.5 : 1) : 0;
         appliedFog += (desired - appliedFog) * 0.03;
         if (appliedFog < 0.01)
         {

@@ -1,5 +1,11 @@
 # Current release changes
 
+## Realistic Sailing 0.10.0
+
+- Spyglass (hold right-click to zoom; `SpyglassZoom` client setting; thins fog while zoomed). Tides and currents: the tide turns every ~12.4 game hours and pushes boats with a rider along a locally varying axis (`CurrentsEnabled`, `CurrentPush`, `CurrentsAffectEmptyBoats`); the compass report shows tide state and current.
+- Messages in bottles drift on the water (`BottlesEnabled`, `MaxBottles`) and hold a note and often a treasure chart; wrecks can also yield charts. Chart: right-click for bearing and distance, stand on the mark and right-click to dig for loot. Refactored wrecks and bottles onto a shared drifting-entity base.
+- Boat nameplate (random name shown in reports and messages) and three single-use upgrades: deep keel (less leeway, half capsize risk), heavy sailcloth (half sail wear, +5% speed) and hull reinforcement (half hull wear and flooding, half rogue-wave damage). Unverified in game.
+
 ## Realistic Sailing 0.9.0
 
 - Sound: six generated sound effects (fog horn, wind gust, hull creak, wave slam, balloon hiss, sea shanty). Fog horn and concertina items; wind and creak ambience aboard in rough weather.
