@@ -12033,6 +12033,8 @@ public sealed partial class WebDashboardService : IDisposable
         return new
         {
             available = true,
+            generatedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            capturedUnixMilliseconds = health.Samples.LastOrDefault()?.UnixMilliseconds ?? 0,
             samples = health.Samples,
             health.SamplingGaps, health.RawSampleCount,
             worldSaves = health.WorldSaves,
@@ -12177,6 +12179,8 @@ public sealed partial class WebDashboardService : IDisposable
         return new
         {
             available = true,
+            generatedUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            capturedUnixMilliseconds = health.Current.UnixMilliseconds,
             diagnosticsEnabled = health.Enabled,
             current = health.Current,
             diagnosticSummary = health.DiagnosticSummary,

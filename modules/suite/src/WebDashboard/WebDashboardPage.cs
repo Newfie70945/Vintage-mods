@@ -7616,12 +7616,7 @@ $('animalRecommend').onclick=async()=>{
   finally{animalRecommendInFlight=false;btn.disabled=false;btn.textContent='Analyze & Recommend';}
 };
 
-async function loadLoginProtection(showLoading=true){
-  if(showLoading)$('loginProtStatus').textContent='Loading…';
-  try{
-    const [status,cfg]=await Promise.all([api('/api/loginprotection/status'),api('/api/loginprotection/config')]);
-    $('loginProtStatus').textContent=(status.lines||[]).join('\n');
-    if(cfg.available){
+function renderLoginProtectionConfig(cfg){
       const c=cfg.config||{};
       setNavStatus('loginProtection',c.enabled?'good':'neutral',c.enabled?'Login Protection enabled':'Login Protection disabled');
       $('lpEnabled').checked=!!c.enabled;
@@ -7636,6 +7631,15 @@ async function loadLoginProtection(showLoading=true){
       $('lpFire').checked=!!c.extinguishFire;
       $('lpSwim').checked=!!c.recoverSwimmingOnLogin;
       $('loginProtConfigState').textContent=`${Number(cfg.activeProtected||0)} player(s) currently protected`;
+}
+
+async function loadLoginProtection(showLoading=true){
+  if(showLoading)$('loginProtStatus').textContent='Loading…';
+  try{
+    const [status,cfg]=await Promise.all([api('/api/loginprotection/status'),api('/api/loginprotection/config')]);
+    $('loginProtStatus').textContent=(status.lines||[]).join('\n');
+    if(cfg.available){
+      renderLoginProtectionConfig(cfg);
     }else { $('loginProtConfigState').textContent='Module unavailable'; setNavStatus('loginProtection','bad','Login Protection module unavailable'); }
   }catch(e){$('loginProtStatus').textContent=e.message;$('loginProtConfigState').textContent='Load failed';setNavStatus('loginProtection','bad','Login Protection status could not be loaded');}
 }
@@ -7654,7 +7658,6 @@ async function saveLoginProtection(){
     extinguishFire:$('lpFire').checked,
     recoverSwimmingOnLogin:$('lpSwim').checked
   };
-  if(!confirm('Save these Login Protection settings? Changes take effect immediately.'))return;
   try{
     const d=await api('/api/loginprotection/config',{method:'POST',body:JSON.stringify(payload)});
     toast(d.message||'Login Protection configuration saved.','success');
@@ -7735,7 +7738,7 @@ async function saveRestartSchedule(){
 }
 async function restartScheduleAction(action,extra={}){
   const dangerous=action==='skip';
-  if(dangerous&&!confirm('Skip the next scheduled automatic restart?'))return;
+  if(dangerous&&!await panelConfirm('Skip the next scheduled automatic restart?',{title:'Skip restart',danger:true,accept:'Skip this restart'}))return;
   try{const d=await api('/api/restarts/action',{method:'POST',body:JSON.stringify({action,...extra})});restartScheduleData=d.restarts||restartScheduleData;renderRestartSchedule();toast(d.message||'Restart schedule updated.','success');}
   catch(e){toast(e.message,'error')}
 }
@@ -7789,7 +7792,7 @@ async function applyAnnouncementEditor(){
   const rows=[...(announcementData.rules||[])];const idx=rows.findIndex(x=>String(x.id)===String(rule.id));if(idx>=0)rows[idx]=rule;else rows.push(rule);announcementData.rules=rows;await saveAnnouncements();clearAnnouncementEditor();
 }
 
-async function deleteAnnouncement(id){if(!confirm('Delete this announcement rule?'))return;announcementData.rules=(announcementData.rules||[]).filter(x=>String(x.id)!==String(id));await saveAnnouncements();if(announcementEditingId===id)clearAnnouncementEditor();}
+async function deleteAnnouncement(id){if(!await panelConfirm('Delete this announcement rule?',{title:'Delete announcement',danger:true,accept:'Delete'}))return;announcementData.rules=(announcementData.rules||[]).filter(x=>String(x.id)!==String(id));await saveAnnouncements();if(announcementEditingId===id)clearAnnouncementEditor();}
 async function announcementAction(action,id){try{const d=await api('/api/announcements/action',{method:'POST',body:JSON.stringify({action,id})});toast(d.message||'Announcement action complete.','success');await loadAnnouncements(false);}catch(e){toast(e.message,'error');}}
 $('restartRefresh').onclick=()=>loadRestartSchedule(true);
 $('restartSave').onclick=saveRestartSchedule;
@@ -8162,7 +8165,7 @@ function renderMemoryCenter(d){
     </div>`;
   }
 
-  $('memoryMetrics').innerHTML=
+  stablePanel('memoryMetrics').html=
     metric('Managed heap',`${Number(a.heapCurrentMb||0).toFixed(0)} MB`)+
     metric('Heap min / max',`${Number(a.heapMinimumMb||0).toFixed(0)} / ${Number(a.heapMaximumMb||0).toFixed(0)} MB`)+
     metric('Heap slope',`${Number(a.heapSlopeMbPerMinute||0)>=0?'+':''}${Number(a.heapSlopeMbPerMinute||0).toFixed(1)} MB/min`,Number(a.heapSlopeMbPerMinute||0)>=50?'warn':'')+
@@ -8917,7 +8920,7 @@ function suiteTimingIsWait(name){return /Web Dashboard (request|worker queue wai
 function renderPerformanceOverview(d){
   if(!d||!d.available){
     $('perfNotice').innerHTML=`<div class="warning">${esc((d||{}).message||'Performance diagnostics unavailable.')}</div>`;
-    $('perfMetrics').innerHTML='';
+    stablePanel('perfMetrics').html='';
     if($('perfQuickRead'))$('perfQuickRead').innerHTML='<div class="empty">Performance diagnostics unavailable.</div>';
     if($('perfWindowSummary'))$('perfWindowSummary').innerHTML='';
     return;
@@ -8937,7 +8940,7 @@ function renderPerformanceOverview(d){
   $('perfNotice').innerHTML+=`<div class="infoBox"><b>Evidence coverage</b> · ${profileAt?`Latest engine profile: ${age(profileAt)} min ago${age(profileAt)>15?' (stale)':''}`:'No completed engine profile — exact tick/mod attribution is unavailable'}. ${scanAt?`Entity scan: ${age(scanAt)} min ago${age(scanAt)>15?' (stale; scan again for current populations)':''}`:'No manual entity scan captured'}. Profiles and scans describe their capture time; they do not establish the cause of another incident.</div>`;
 
   const score=smart.available?Number(smart.healthScore||0):null;
-  $('perfMetrics').innerHTML=
+  stablePanel('perfMetrics').html=
     metric('Smart health',score===null?'Learning':`${score}/100`,score===null?'muted':score<55?'bad':score<75?'orange':score<90?'warn':'good',smart.available?`${smart.state||''} · ${smart.analysisConfidence||'Low'} confidence · data quality ${Number(smart.dataQualityScore||0)}/100 · ${smart.recoveryState||''}`:(smart.state||''))+
     metric('Main-thread delay',enabled?`${Number(cur.mainThreadDelayMs||0).toFixed(1)} ms`:'Off',Number(cur.mainThreadDelayMs||0)>=100?'bad':'')+
     metric('CPU',enabled?`${Number(cur.cpuPercent||0).toFixed(1)}%`:'Off',Number(cur.cpuPercent||0)>=90?'warn':'')+
@@ -8952,7 +8955,7 @@ function renderPerformanceOverview(d){
   renderPerformanceQuickRead(d);
 
   const suiteTimings=d.suiteTimings||[];
-  $('perfSuiteTimings').innerHTML=suiteTimings.length
+  stablePanel('perfSuiteTimings').html=suiteTimings.length
     ? suiteTimings.slice().sort((a,b)=>Number(suiteTimingIsWait(a.name))-Number(suiteTimingIsWait(b.name))||Number(b.timePerMinuteMilliseconds||0)-Number(a.timePerMinuteMilliseconds||0)||Number(b.p95Milliseconds||0)-Number(a.p95Milliseconds||0)).slice(0,20).map(x=>`<tr>
         <td><b>${esc(x.name||'')}</b>${suiteTimingIsWait(x.name)?'<div class="small">Elapsed / waiting — not tick execution</div>':''}</td>
         <td>${Number(x.callsPerMinute||0).toLocaleString()}</td>
@@ -8981,7 +8984,7 @@ function renderPerformanceOverview(d){
   }
   for(const id of ['perfEvidenceFilter','perfSeverityFilter'])if($(id))$(id).onchange=()=>renderPerformanceOverview(d);
   if($('perfClearLagHistory'))$('perfClearLagHistory').disabled=!incidents.length;
-  $('perfIncidents').innerHTML=incidents.length
+  stablePanel('perfIncidents').html=incidents.length
     ? incidents.map(x=>{
         const ts=Number(x.startUnixMilliseconds||0);
         return `<tr class="clickableRow" data-perf-incident="${ts}">
@@ -9421,7 +9424,7 @@ function renderPerformanceTimeline(){
   performanceIncidentHitAreas=[];performanceSaveHitAreas=[];
 
   const data=performanceTimelineData;
-  const samples=[...new Map((data.samples||[]).filter(s=>Number.isFinite(Number(s.unixMilliseconds))).map(s=>[Number(s.unixMilliseconds),s])).values()].sort((a,b)=>Number(a.unixMilliseconds)-Number(b.unixMilliseconds));
+  const samples=[...new Map(inspectedTimelineSamples().filter(s=>Number.isFinite(Number(s.unixMilliseconds))).map(s=>[Number(s.unixMilliseconds),s])).values()].sort((a,b)=>Number(a.unixMilliseconds)-Number(b.unixMilliseconds));
   const rect=canvas.getBoundingClientRect();
   if(rect.width<1||rect.height<1)return; // ResizeObserver redraws after the panel becomes visible.
   const dpr=Math.min(2,window.devicePixelRatio||1);
@@ -9434,7 +9437,7 @@ function renderPerformanceTimeline(){
 
   if(!samples.length){
     ctx.fillStyle='#8492a0';ctx.fillText('No performance samples yet.',18,24);
-    $('perfTimelineState').textContent='No performance samples in this window. Enable diagnostics to collect data.';return;
+    $('perfTimelineState').textContent=timelineInspection.start!==null?'No recorded samples in this zoom. Reset view to return to the rolling graph.':'No performance samples in this window. Enable diagnostics to collect data.';syncTimelineInspection();return;
   }
 
   const pad={l:75,r:12,t:12,b:26};
@@ -9447,7 +9450,7 @@ function renderPerformanceTimeline(){
     {label:'Players',key:'players',suffix:''},
     {label:'Entities',key:'loadedEntities',suffix:''},
     {label:'Heap',key:'managedHeapMb',suffix:'MB'}
-  ];
+  ].filter(b=>!timelineInspection.hidden.has(b.key));
   const bh=(h-pad.t-pad.b)/bands.length;
 
   bands.forEach((band,bi)=>{
@@ -9489,6 +9492,8 @@ function renderPerformanceTimeline(){
     ctx.strokeStyle='#8fda72';ctx.setLineDash([2,5]);ctx.beginPath();ctx.moveTo(px,pad.t);ctx.lineTo(px,h-pad.b);ctx.stroke();ctx.setLineDash([]);
   });
 
+  if(timelineInspection.pinned!==null){const px=xFor(timelineInspection.pinned);if(px>=pad.l&&px<=w-pad.r){ctx.strokeStyle='#e2e8d4';ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(px,pad.t);ctx.lineTo(px,h-pad.b);ctx.stroke();ctx.setLineDash([]);}}
+  syncTimelineInspection();
   ctx.fillStyle='#748392';
   [first,first+span/2,last].forEach((t,i)=>{
     const label=new Date(t).toLocaleTimeString();
@@ -9528,7 +9533,7 @@ async function loadPerformanceEntityGrowth(showLoading=true,preloaded=null){
       metric('Changed entity types',rows.length.toLocaleString())+
       metric('Flagged for review',flagged.length.toLocaleString(),flagged.some(x=>x.severity==='Critical')?'bad':flagged.length?'warn':'good')+
       metric('Largest increase',biggest?`${biggest.code} · ${Number(biggest.delta||0)>=0?'+':''}${Number(biggest.delta||0).toLocaleString()}`:'—',biggest&&Number(biggest.delta||0)>0?'warn':'');
-    $('perfEntityGrowth').innerHTML=rows.length
+    stablePanel('perfEntityGrowth').html=rows.length
       ? rows.slice(0,50).map((x,i)=>`<tr>
           <td><b>${esc(x.code)}</b></td>
           <td>${Number(x.before||0).toLocaleString()}</td>
@@ -9757,7 +9762,7 @@ async function loadPerformanceBlockActivity(showLoading=true){
     const d=await api(`/api/performance/block-activity?minutes=${minutes}&limit=75`);
     const rows=d.rows||[];
     $('perfActivityCount').textContent=`${rows.length} hotspot(s) / ${d.minutes} min`;
-    $('perfBlockActivity').innerHTML=rows.length
+    stablePanel('perfBlockActivity').html=rows.length
       ? rows.map(x=>{
           const last=dotNetTicksToDate(x.lastTimestampTicks);
           return `<tr>
@@ -9771,7 +9776,7 @@ async function loadPerformanceBlockActivity(showLoading=true){
         }).join('')
       : '<tr><td colspan="6" class="muted">No BlockLogger block/container activity was found in this time window.</td></tr>';
   }catch(e){
-    $('perfBlockActivity').innerHTML=`<tr><td colspan="6" class="bad">${esc(e.message)}</td></tr>`;
+    stablePanel('perfBlockActivity').html=`<tr><td colspan="6" class="bad">${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -9818,7 +9823,7 @@ async function loadPerformanceConflicts(showLoading=true,preloaded=null){
 }
 
 $('perfRefresh').onclick=()=>refreshPerformanceReadings(true);
-$('perfWindow').onchange=()=>{ localStorage.setItem('nsu.performance.window',$('perfWindow').value); $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(false); };
+$('perfWindow').onchange=()=>{ resetTimelineInspection();localStorage.setItem('nsu.performance.window',$('perfWindow').value); $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(false); };
 $('perfTimelineRange').onclick=()=>{ const ranges=[60,300,900,1800,3600]; $('perfWindow').value=String(ranges[(ranges.indexOf(performanceWindowSeconds())+1)%ranges.length]); $('perfWindow').onchange(); };
 $('perfEnableDiagnostics').onclick=async()=>{
   try{
@@ -12121,7 +12126,7 @@ async function saveWebMapWaypoint(){
 async function deleteWebMapWaypoint(id){
   if(currentSessionRole==='ReadOnly'||!id)return;
   const w=(webMapData?.waypoints||[]).find(x=>String(x.id||'')===String(id));
-  if(!confirm(`Delete waypoint "${w?.name||'this waypoint'}"?`))return;
+  if(!await panelConfirm(`Delete waypoint "${w?.name||'this waypoint'}"?`,{title:'Delete waypoint',danger:true,accept:'Delete'}))return;
   try{await api('/api/webmap/waypoint/delete',{method:'POST',body:JSON.stringify({id})});toast('Waypoint deleted.','success');if($('webMapWaypointId').value===id)clearWebMapWaypointForm();await loadWebMap(false)}catch(e){toast(e.message,'error')}
 }
 
@@ -13089,7 +13094,7 @@ function renderTickDebug(d){
   const slow=d.slowTickCapture||{},last=d.lastAction||{},prof=d.profiler||{},diag=prof.diagnosticSummary||{},attr=d.modAttribution||{};
   const delay=Number(d.currentMainThreadDelayMs||0),budget=Number(d.tickBudgetMs||0);
   const delayState=budget>0&&delay>budget?'bad':delay>Math.max(20,budget*.5)?'warn':'good';
-  $('tickDebugMetrics').innerHTML=
+  stablePanel('tickDebugMetrics').html=
     tickDebugMetric('Tick budget',`${budget.toFixed(0)} ms`,'good','Configured server TickTime')+
     tickDebugMetric('Main-thread delay',`${delay.toFixed(1)} ms`,delayState,'Lightweight scheduler sample')+
     tickDebugMetric('Network out',fmtRate(d.sendBytesPerSecond),'good',`${fmtBytesCompact(d.totalSentBytes)} total`)+
@@ -13251,7 +13256,7 @@ async function loadProfiler(showLoading=true){
     renderSmartAnalysis(p);
     redrawProfilerCharts();
 
-    $('profMods').innerHTML=(p.modHotspots||[]).length
+    stablePanel('profMods').html=(p.modHotspots||[]).length
       ? (p.modHotspots||[]).slice(0,18).map(x=>`<tr class="${x.modId&&x.modId!=='<unattributed>'?'clickableRow':''}" ${x.modId&&x.modId!=='<unattributed>'?`data-mod-id="${esc(x.modId)}"`:''}><td><b>${esc(x.modId||'unattributed')}</b></td><td>${Number(x.totalMs||0).toFixed(1)}ms</td><td>${Number(x.maxSingleMs||0).toFixed(1)}ms</td><td>${Number(x.slowSegments||0)}</td><td>${Number(x.percentOfProfileTickTime||0).toFixed(1)}%</td><td>${confidenceBadge(x.confidence)}</td></tr>`).join('')
       : '<tr><td colspan="6" class="muted">Run Profile 10s or Profile 30s to generate per-mod attribution.</td></tr>';
     if($('profClearMods'))$('profClearMods').disabled=!(p.modHotspots||[]).length;
@@ -13273,7 +13278,7 @@ async function loadProfiler(showLoading=true){
     // World-save overlap evidence is supplied by the server's actual save observer, not inferred from event counts.
     $('incidentCount').textContent=`${incidents.length} event(s) in selected range · ${incidents.filter(x=>Number(x.worldSaveWindowMs||0)>0).length} save-correlated (overlap, not proof of cause)`;
     if($('profClearLagSamples'))$('profClearLagSamples').disabled=!incidents.length;
-    $('profIncidents').innerHTML=incidents.length
+    stablePanel('profIncidents').html=incidents.length
       ? incidents.slice(0,40).map(x=>{
           const entityDelta=Number(x.entityDelta||0),chunkDelta=Number(x.chunkDelta||0);
           return `<tr class="clickableRow" data-prof-lag="${Number(x.unixMilliseconds||0)}" data-prof-lag-index="${incidents.indexOf(x)}">
@@ -14199,7 +14204,7 @@ function collectAntiCheatOreShield(){
 async function saveAntiCheatOreShield(){
   if(currentSessionRole==='ReadOnly')return;
   const payload=collectAntiCheatOreShield();
-  if(!payload.enabled&&!confirm('Disable Ore Shield? Hidden ore will be sent normally to clients while it is off. PacketGuard and Client Integrity remain active.'))return;
+  if(!payload.enabled&&!await panelConfirm('Disable Ore Shield? Hidden ore will be sent normally to clients while it is off. PacketGuard and Client Integrity remain active.',{title:'Disable Ore Shield',danger:true,accept:'Disable'}))return;
   const btn=$('acOreShieldSave');if(btn){btn.disabled=true;btn.dataset.originalText=btn.textContent;btn.textContent='Saving…';}
   try{
     const d=await api('/api/anticheat/oreshield',{method:'POST',body:JSON.stringify(payload)});
@@ -14439,7 +14444,7 @@ async function saveAntiCheatFullConfig(){
   if(currentSessionRole==='ReadOnly')return;
   let json=$('acFullConfigJson').value||'';
   try{json=JSON.stringify(JSON.parse(json),null,2);$('acFullConfigJson').value=json;}catch(e){toast('Invalid JSON: '+e.message,'error');return;}
-  const typed=prompt('This saves the complete Anti-Cheat configuration and can immediately change live protection behavior. Type SAVE to continue:','');if(typed!=='SAVE')return;
+  const typed=await panelPrompt('This saves the complete Anti-Cheat configuration and can immediately change live protection behavior.','',{title:'Save full anti-cheat configuration',requiredText:'SAVE',accept:'Save configuration'});if(typed!=='SAVE')return;
   const btn=$('acFullConfigSave');if(btn){btn.disabled=true;btn.textContent='Saving…';}
   try{const d=await api('/api/anticheat/full-config',{method:'POST',body:JSON.stringify({json})});toast(d.message||'Full Anti-Cheat configuration saved.','success');$('acFullConfigState').textContent='Saved.';await loadAntiCheat(false);await loadAntiCheatFullConfig();}catch(e){toast(e.message,'error');$('acFullConfigState').textContent='Save failed.';}finally{if(btn){btn.disabled=currentSessionRole==='ReadOnly';btn.textContent='Save Full Configuration';}}
 }
@@ -14480,13 +14485,16 @@ async function saveAntiCheatPacketGuard(){
   finally{packetSettingsSaving=false;document.querySelectorAll('[data-ac-panel=packet] input,[data-ac-panel=packet] textarea,[data-ac-panel=packet] select').forEach(e=>e.disabled=currentSessionRole==='ReadOnly');$('acPacketDiscard').disabled=currentSessionRole==='ReadOnly';if(saveBtn){saveBtn.disabled=currentSessionRole==='ReadOnly';saveBtn.textContent=saveBtn.dataset.originalText||'Save Packet Protection';delete saveBtn.dataset.originalText;}}
 }
 function acSeverityBadge(sev){const n=Number(sev||0);const label=['Info','Low','Moderate','High','Critical'][Math.max(0,Math.min(4,n))]||String(n);const cls=n>=4?'high':n>=2?'medium':'low';return `<span class="badge ${cls}">${esc(label)}</span>`;}
+let antiCheatHistoryRevision=0;
 async function loadAntiCheatHistory(playerFilter='',findingFilter=null){
+  const historyRevision=++antiCheatHistoryRevision;
   if(!$('acHistoryRows'))return;
   $('acHistoryState').textContent='Loading…';
   try{
     const q=String(playerFilter||'').trim();
     const finding=String(findingFilter===null?($('acHistoryFindingFilter')?.value||''):findingFilter).trim();
     const d=await api('/api/anticheat/history?limit=250'+(q?'&player='+encodeURIComponent(q):'')+(finding?'&finding='+encodeURIComponent(finding):''));const rows=d.incidents||[];
+    if(historyRevision!==antiCheatHistoryRevision)return;
     const findingSelect=$('acHistoryFindingFilter');
     if(findingSelect){
       const selected=String(d.findingFilter||finding||'');
@@ -14495,13 +14503,13 @@ async function loadAntiCheatHistory(playerFilter='',findingFilter=null){
     }
     $('acHistoryState').textContent=`${Number(d.totalRecords||0)} stored · ${rows.length} shown${finding?' · '+finding:''}${d.storageError?' · '+d.storageError:''}`;
     $('acHistoryMetrics').innerHTML=metric('Stored reports',Number(d.totalRecords||0))+metric('Players',Number(d.uniquePlayers||0))+metric('Last 24 hours',Number(d.last24Hours||0),Number(d.last24Hours||0)>0?'warn':'')+metric('Retention',`${Number(d.retentionDays||0)}d`)+metric('Max records',Number(d.maxRecords||0));
-    $('acHistoryRows').innerHTML=rows.length?rows.map(x=>{const pos=`${Number(x.x||0).toFixed(1)}, ${Number(x.y||0).toFixed(1)}, ${Number(x.z||0).toFixed(1)}${Number(x.dimension||0)!==0?` · dim ${Number(x.dimension)}`:''}`;const risk=`${Number(x.riskBefore||0)} → ${Number(x.riskAfter||0)}`;return `<tr><td>${esc(acDate(x.unixMilliseconds))}</td><td><b>${esc(x.playerName||'')}</b><div class="small"><code>${esc(x.playerUid||'')}</code></div></td><td>${acSeverityBadge(x.severity)}</td><td><b>${esc(x.confidence||'Low')}</b><div class="small">${Number(x.confidenceScore||0)}/100 · ${Number(x.corroboratingSignals||0)} nearby</div></td><td><code>${esc(x.code||'')}</code><div class="small">${esc(x.category||'Other')} · ${esc(x.summary||'')}</div></td><td><b>${esc(risk)}</b><div class="small">${esc(x.statusAfter||'')}</div></td><td><code>${esc(pos)}</code></td><td><span title="${esc(x.evidence||'')}">${esc(String(x.evidence||'').slice(0,150))}${String(x.evidence||'').length>150?'…':''}</span><div class="small" style="margin-top:4px"><b>Why:</b> ${esc(x.why||'')}</div><div class="small"><b>Next:</b> ${esc(x.recommendedAction||'')}</div></td><td>${x.consequence?esc(x.consequence):'<span class="muted">None</span>'}</td></tr>`;}).join(''):'<tr><td colspan="9" class="muted">No persistent anti-cheat reports match this filter.</td></tr>';
-  }catch(e){$('acHistoryState').textContent='Load failed';toast(e.message,'error');}
+    renderAntiCheatIncidentGroups(rows);
+  }catch(e){if(historyRevision===antiCheatHistoryRevision){$('acHistoryState').textContent='Load failed';toast(e.message,'error');}}
 }
 
 async function clearAllAntiCheatHistory(){
   if(currentSessionRole==='ReadOnly')return;
-  if(!confirm(t('ac.historyClearConfirm')))return;
+  if(!await panelConfirm(t('ac.historyClearConfirm'),{title:'Clear anti-cheat history',danger:true,accept:'Clear reports'}))return;
   const btn=$('acHistoryClearAll');if(btn)btn.disabled=true;
   try{
     const d=await api('/api/anticheat/history/clear',{method:'POST',body:'{}'});
@@ -15209,7 +15217,7 @@ async function loadFeatureGates(){
 async function setFeatureGate(feature,enabled){
   if(!feature)return;
   const action=enabled?'enable':'disable';
-  if(!confirm(`${action[0].toUpperCase()+action.slice(1)} ${feature}? The change takes full effect after a server restart.`))return;
+  if(!await panelConfirm(`${action[0].toUpperCase()+action.slice(1)} ${feature}? The change takes full effect after a server restart.`,{title:'Change Suite module',details:'Module: '+feature+'\nProposed state: '+(enabled?'enabled':'disabled')+'\nApplies after the game server restarts.',danger:!enabled,accept:'Save for next restart'}))return;
   try{
     const d=await api('/api/features',{method:'POST',body:JSON.stringify({feature,enabled})});
     toast(d.message||'Feature gate saved. Restart required.','success');
@@ -15576,7 +15584,7 @@ async function saveWarp(){
   catch(e){toast(e.message,'error');await loadWarps(false);}
 }
 async function deleteWarp(name){
-  if(!confirm(`Delete warp ${name}?`))return;
+  if(!await panelConfirm(`Delete warp ${name}?`,{title:'Delete warp',danger:true,accept:'Delete'}))return;
   try{const d=await api('/api/warps/delete',{method:'POST',body:JSON.stringify({name})});toast(d.message||'Warp deleted.','success');renderWarps(d.snapshot||await api('/api/warps'));resetWarpEditor();await loadPlayerCommands(false);}
   catch(e){toast(e.message,'error');await loadWarps(false);}
 }
@@ -16465,7 +16473,8 @@ const performanceStyle=document.createElement('style');performanceStyle.textCont
 @media(max-width:700px){.performanceWorkspace .rowActions:first-child{flex-wrap:nowrap;overflow:auto;padding-bottom:6px}.performanceWorkspace .rowActions:first-child button{white-space:nowrap;flex-shrink:0}.performanceWorkspace select{max-width:100%}.performanceFreshness{width:100%}}
 `;document.head.append(performanceStyle);
 
-const tableObserver=new MutationObserver(()=>{
+const tableObserver=new MutationObserver(records=>{
+  if(records.length&&records.every(r=>(r.target.nodeType===1?r.target:r.target.parentElement)?.closest('.panelFreshness,.performanceFreshness,.panelDraftBar,#timelineInspector')))return;
   clearTimeout(window.__nsuTableEnhanceTimer);
   window.__nsuTableEnhanceTimer=setTimeout(()=>{enhanceImportantTables();syncWorkspacePage();},60);
 });
@@ -16741,6 +16750,7 @@ function initWorkspacePages(){
 }
 initWorkspacePages();
 __NSS_INTERFACE_SCRIPT__
+__NSS_WORKSPACE_POLISH__
 </script>
 </body>
 </html>
@@ -16756,5 +16766,6 @@ __NSS_INTERFACE_SCRIPT__
     .Replace("__NSS_INVESTIGATION_HTML__",WebDashboardPolishScript.InvestigationHtml)
     .Replace("__NSS_ROLE_HTML__",WebDashboardRoles.Html)
     .Replace("__NSS_ROLE_SCRIPT__",WebDashboardRoles.Script)
-    .Replace("__NSS_PLAYER_COMMANDS_SCRIPT__",WebDashboardPlayerCommandsScript.Script);
+    .Replace("__NSS_PLAYER_COMMANDS_SCRIPT__",WebDashboardPlayerCommandsScript.Script)
+    .Replace("__NSS_WORKSPACE_POLISH__",WebDashboardWorkspacePolish.Script);
 }

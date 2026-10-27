@@ -156,11 +156,13 @@ try:
     status, small, _, _ = request('/api/tick-debug/status')
     assert status == 200 and set(small) == {'enabled'}
     if performance_test:
+        compiled_page=client.open(base+'/',timeout=20).read().decode('utf-8')
+        assert 'function initTimelineInspector' in compiled_page and 'const panelEditors=new Map()' in compiled_page and '__NSS_WORKSPACE_POLISH__' not in compiled_page
         for window in (60, 300, 1800):
             for repeat in range(2):
                 for name in ('overview', 'timeline'):
                     code, payload, _, _ = request('/api/performance/' + name + '?window=' + str(window))
-                    assert code == 200 and isinstance(payload, dict), (name, code)
+                    assert code == 200 and isinstance(payload, dict) and 'capturedUnixMilliseconds' in payload and 'generatedUnixMilliseconds' in payload, (name, code)
         code, before_refresh, _, _ = request('/api/performance/page-snapshot?window=60')
         assert code == 200 and before_refresh['generatedUnixMilliseconds'] > 0
         time.sleep(5.2)  # Cross the page cache TTL; the FIRST next response must be current.
@@ -304,6 +306,8 @@ if performance_test:
     assert stored['LiveTerrainUpdatesEnabled'] and stored['LiveTerrainUpdateSeconds'] == 90 and stored['LiveTerrainMaxTilesPerPass'] == 2 and stored['Enabled'] == translocator_test
     report['liveTerrainSettingsPersisted'] = True
     report['performanceFirstExpiredRefreshFresh'] = True
+    report['workspaceBrowserScriptPresent'] = True
+    report['performanceCaptureTimestampsPresent'] = True
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Performance reading endpoints and opt-in live terrain settings persistence: ok', flush=True)
 

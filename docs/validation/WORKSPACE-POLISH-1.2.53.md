@@ -1,0 +1,23 @@
+# Webpanel workspace improvements — Suite 1.2.53
+
+Build: `ms11-workspace-polish1`, following `ms11-performance-refresh1`. No companion or NOS implementation changes.
+
+## Requested improvements
+
+2. **Chart inspection:** hover readouts, click-to-pin, arrow-key navigation, selectable traces, local zoom in/out and reset. Zoom/pinning never requests new server data. Lag-marker clicks still open the incident drawer. Sampling gaps remain gaps; values identify their recorded timestamp. Reset returns to the rolling view.
+3. **Panel freshness:** overview/timeline responses supply the actual sample timestamp separately from response generation. Performance panels, memory and profile/tick history show source timestamps where supplied. A missing capture timestamp is explicitly unavailable. Network receipt is never presented as proof of a new capture. Age labels reuse the existing workspace tick rather than adding a polling timer.
+4. **Consistent drafts:** sticky review/save/discard bars cover Login Protection, recurring Restarts, Map Settings, Map Export Schedule, Packet Protection, BlockLogger Recording and NOS settings. The latter three retain their existing native draft and lock behavior. Refreshes preserve edits, including edits made while a read was in flight. Drafts remain local to the open page; passwords/files/hidden fields are excluded and settings values are not written to browser storage. Navigation within the panel retains them; leaving/reloading warns about unsaved changes.
+5. **Anti-cheat reports:** repeated player/finding/subject rows group within the loaded result. Groups show first/latest dates and highest recorded severity; confidence and risk identify the latest observation. Expand for full event evidence, risk before/after, recorded consequence/rule text and guidance. Grouping does not change enforcement or infer a missing rule calculation. Counts are explicitly limited to the currently loaded reports, not lifetime occurrences. Changed filters reject older in-flight results.
+6. **Mobile reports:** anti-cheat history, performance spikes and profiler tables become labelled cards on narrow screens. Evidence remains expandable and scrollable.
+7. **Change previews:** the seven registered editors show loaded values → proposed values and when changes apply. Sensitive-looking key names are redacted. Cancellation sends no request; failed validation/saves retain drafts. Duplicate save attempts are blocked while reviewing/saving; role/capture locks are rechecked before calling existing handlers.
+8. **Action dialogs:** accessible native HTML dialogs replace browser prompts for common actions: deleting warps/waypoints/announcements, clearing anti-cheat history, skipping a restart, disabling OreShield typed full anti-cheat configuration saves, and module enable/disable changes with explicit restart requirements. Dialogs keep keyboard cancellation, required text, escaped content and focus restoration. Other legacy action handlers retain their current semantics.
+9. **Performance triage:** timeline, bottleneck summary and incidents remain prominent. Secondary entity/chunk/activity/environment/provider/conflict cards default collapsed unless explicitly configured otherwise. Show/Collapse secondary panels is a local presentation preference and starts no scans.
+10. **Incremental rendering:** frequently refreshed metrics and report bodies skip identical markup. Table updates reuse unchanged keyed rows, preserve wrapper scroll, selected incident controls and active sorting. Draft restoration preserves text selection/focus. Timestamp/hover/draft-counter changes do not trigger the whole-table enhancement observer.
+
+## Performance boundaries
+
+Existing cache TTLs, shared snapshot builds, two parallel browser GET slots and refresh intervals remain in place. Auto refresh still has a cost; these UI controls add no profiler captures, entity scans, history polling, terrain loads, exports or forced GC. Expensive actions stay manual. Local hover/zoom/group expansion changes browser DOM only. No production TPS improvement is claimed.
+
+## Validation
+
+Browser checks cover draft cancellation/success/failure/discard/read-only access, in-flight editing, native PacketGuard/NOS/BlockLogger protections, required-text dialogs/XSS escaping, zoom/pin/keyboard behavior, honest freshness, bounded grouping, full evidence, mobile cards, node reuse/sorting, timeline refresh races, visibility/resize recovery, scheduler gates, incident navigation and incremental map behavior. Official-server integration checks compiled HTML, performance endpoints, first-expired-refresh freshness, all seven mods, and clean save/shutdown. See packaged logs for actual executed results.
