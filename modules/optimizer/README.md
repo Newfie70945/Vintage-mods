@@ -1,5 +1,7 @@
 # Newfie's Server Optimizer 0.20.15 preview
 
+First public release preparation: [defaults comparison, observed production preset, next test options and release criteria](docs/first-release.md). Conservative defaults are unchanged.
+
 0.18.1 enables three tested allocation modules by default for new/missing settings: `AnimationCollisionFlagScan`, `BarrelIngredientPairing`, and `WildBushCallbackFlatten`. Saved false values remain false. Existing servers can enable these individually under Suite → Optimizations, then Save and Apply NOS Settings. Conflict guards and Safe Mode remain authoritative. See [evidence and upgrade notes](docs/performance-0.18.1.md).
 
 A server-only mod for the **official Vintage Story 1.22.7 / .NET 10 server**. This version adds real, independently controlled Harmony replacements to the profiling foundation. Patches are installed in memory during mod startup and removed on disposal; game DLL files are left intact.

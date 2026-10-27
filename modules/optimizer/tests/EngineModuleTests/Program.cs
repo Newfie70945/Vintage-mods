@@ -458,6 +458,18 @@ static class Checks
    using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().Single(x=>x.Name=="blockSimulationBudget").Status=="conflict","foreign simulation dependency retains stock");
    foreign.UnpatchAll(foreign.Id);
   }
+  var jsonOptions=new System.Text.Json.JsonSerializerOptions { UnmappedMemberHandling=System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow };
+  var example=System.Text.Json.JsonSerializer.Deserialize<OptimizerConfig>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"optimizer.example.json")),jsonOptions)!;
+  Assert(System.Text.Json.JsonSerializer.Serialize(example.EngineOptimizations)==System.Text.Json.JsonSerializer.Serialize(new EngineOptimizationOptions()),"shipped example matches compiled engine defaults");
+  var observedPreset=System.Text.Json.JsonSerializer.Deserialize<OptimizerConfig>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"newfies-observed-1.22.7.json")),jsonOptions)!;
+  using(var observedModule=new EngineOptimizations(Api().Api,observedPreset))
+  {
+   var states=observedModule.Modules().ToDictionary(x=>x.Name,x=>x.Status);
+   string[] active={"barrelIngredientPairing","wildBushCallbackFlatten","craftingCandidateDedup","barrelMatchCountGuard","entityTickCleanupLists","entityDespawnLists","cachedCollisionGenerationReuse","animationCollisionFlagScan","containerTransitionScan","containerTickTraversal","nearbyEntityListReuse","shapelessStackMerge","cuboidEntityListReuse","shapelessWildcardMatch","attributeNoOpSkip","despawnPacketProjection","physicsPacketListReuse","onlinePlayerSnapshots","bulkStreamReads","pathQueueLimitFix","nearestEntitySearch","interactableEntitySearch","aiTaskStartDispatch","aiFilterDispatch","despawnCleanupTimings","entityListenerRegistrationIndex","blockListenerRegistrationIndex","entityDespawnDispatch","temperatureAnimationChecks","emotionSearchReuse","repulseDelegateReuse","worldgenRequestReuse","saveSnapshotRelease"};
+   Assert(states.Where(x=>x.Value=="active").Select(x=>x.Key).Order().SequenceEqual(active.Order()),"observed preset activates exactly the 33 supplied active modules on official engine");
+   Assert(states.Where(x=>!active.Contains(x.Key)).All(x=>x.Value=="disabled"),"observed preset leaves other modules disabled, including the three reported conflicts");
+  }
+
   AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StratumServer.TestMarker"),AssemblyBuilderAccess.Run);
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().All(x=>x.Status=="blocked"),"alternative runtime blocked");
   Console.WriteLine($"{checks} engine module lifecycle/conflict checks passed against actual Harmony targets.");
