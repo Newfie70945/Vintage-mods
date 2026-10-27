@@ -1367,6 +1367,14 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
         else { lock (sync) { veinDiscoveries++; if (job.Revealed >= max || job.Visited.Count >= max) veinBudgetLimitedJobs++; } }
     }
 
+    internal void ResyncDeniedAction(IServerPlayer player,BlockPos pos)
+    {
+        if(disposed||api.World.BlockAccessor.GetChunkAtBlockPos(pos)==null)return;
+        // Uniform transport for ordinary and concealed cells avoids revealing ore membership
+        // through a different packet type. Dispatch recomputes this recipient's masked view.
+        TrySendClientSync(player,new List<BlockPos>{pos.Copy()},0,stabilize:false);
+    }
+
     public void ResyncKnownDiscoveries(IServerPlayer player)
     {
         if (disposed || player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;

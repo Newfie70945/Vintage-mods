@@ -277,6 +277,16 @@ public sealed class AntiCheatConfig
     // continuously penetrating before endpoint noclip can be confirmed.
     public double PacketGuardNoclipEndpointMinNetMovement { get; set; } = 0.45;
     public bool PacketGuardRejectNoclip { get; set; } = true;
+    public bool PacketGuardNewActionShadowMode { get; set; } = true;
+    public bool PacketGuardCombatChecksEnabled { get; set; } = true;
+    public bool PacketGuardInventoryChecksEnabled { get; set; } = true;
+    public bool PacketGuardDeniedActionResyncEnabled { get; set; } = true;
+    public bool PacketGuardEscalationWarningsEnabled { get; set; } = true;
+    public bool PacketGuardServerImpulseAllowanceEnabled { get; set; } = true;
+    public int PacketGuardCombatMaxRequestsPerSecond { get; set; } = 20;
+    public int PacketGuardInventoryMaxRequestsPerSecond { get; set; } = 100;
+    public Dictionary<string,int> PacketGuardWeaponMinimumIntervalMs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> PacketGuardMiningReviewOnlyTools { get; set; } = new();
     public bool PacketGuardBlockNukerEnabled { get; set; } = true;
     public int PacketGuardBlockNukerLimit { get; set; } = 30;
     public bool PacketGuardBlockNukerKickEnabled { get; set; } = true;
@@ -925,6 +935,11 @@ public sealed class AntiCheatConfig
         PacketGuardMovementConfidenceGuardedThreshold = Math.Clamp(PacketGuardMovementConfidenceGuardedThreshold, 1.0, 95.0);
         PacketGuardMovementConfidenceHighThreshold = Math.Clamp(PacketGuardMovementConfidenceHighThreshold, PacketGuardMovementConfidenceGuardedThreshold + 1.0, 98.0);
         PacketGuardMovementConfidenceCriticalThreshold = Math.Clamp(PacketGuardMovementConfidenceCriticalThreshold, PacketGuardMovementConfidenceHighThreshold + 1.0, 100.0);
+        PacketGuardCombatMaxRequestsPerSecond = Math.Clamp(PacketGuardCombatMaxRequestsPerSecond, 5, 100);
+        PacketGuardInventoryMaxRequestsPerSecond = Math.Clamp(PacketGuardInventoryMaxRequestsPerSecond, 20, 500);
+        PacketGuardWeaponMinimumIntervalMs ??= new(StringComparer.OrdinalIgnoreCase);
+        PacketGuardWeaponMinimumIntervalMs = PacketGuardWeaponMinimumIntervalMs.Where(x=>!string.IsNullOrWhiteSpace(x.Key)&&x.Key.Length<=160&&x.Value>=50&&x.Value<=5000).GroupBy(x=>x.Key,StringComparer.OrdinalIgnoreCase).Take(128).ToDictionary(x=>x.Key,x=>x.First().Value,StringComparer.OrdinalIgnoreCase);
+        PacketGuardMiningReviewOnlyTools = (PacketGuardMiningReviewOnlyTools ?? new()).Where(x=>!string.IsNullOrWhiteSpace(x)&&x.Length<=160).Distinct(StringComparer.OrdinalIgnoreCase).Take(128).ToList();
         PacketGuardBlockNukerLimit = Math.Clamp(PacketGuardBlockNukerLimit, 5, 200);
         PacketGuardNoclipCorrectionsBeforeKick = Math.Clamp(PacketGuardNoclipCorrectionsBeforeKick, 2, 50);
         PacketGuardNoclipCorrectionDecaySeconds = Math.Clamp(PacketGuardNoclipCorrectionDecaySeconds, 30, 3600);

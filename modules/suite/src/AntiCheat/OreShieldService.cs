@@ -480,6 +480,13 @@ internal sealed class OreShieldService : IDisposable
         return pos;
     }
 
+    internal static bool TryResyncDeniedAction(IServerPlayer player,BlockPos position)
+    {
+        var service=current;
+        if(service?.active!=true||service.virtualizer==null||!service.config.OreShieldEnabled)return false;
+        service.virtualizer.ResyncDeniedAction(player,position);return true;
+    }
+
     private static void BeforeSetBlock(IServerPlayer player, ref int blockId, int posX, int posY, int posZ)
     {
         OreShieldService? service = current;

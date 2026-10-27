@@ -125,6 +125,8 @@ public sealed class AntiCheatService : IDisposable
                 cleanup = "Bounded cache eviction, expiring diagnostics and disconnected session cleanup; estimated bytes are not whole-heap attribution." };
     }
 
+    public AntiCheatPacketGuardWebSnapshot GetAppliedPacketGuardSettings()=>BuildPacketGuardSnapshot();
+
     public OreShieldWebSnapshot GetOreShieldSnapshot() => oreShield?.GetSnapshot() ?? BuildOreShieldFallbackSnapshot("OreShield inactive.");
 
     public AntiCheatPlayerWebSnapshot? GetInvestigationSnapshot(string uid)
@@ -360,6 +362,7 @@ public sealed class AntiCheatService : IDisposable
         packetGuard = null;
         runtimeAvailable = false;
         PacketGuardTrustedState.ClearAll();
+        ServerProtectionExemptions.Clear();
         incidentCorrelator.ClearAll();
     }
 
@@ -4524,7 +4527,20 @@ public sealed class AntiCheatService : IDisposable
         {
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
+            CombatCheckStatus = packetGuard?.CombatCheckStatus??"Inactive",
+            ImpulseHookStatus = packetGuard?.ImpulseHookStatus??"Inactive",
             NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            NewActionShadowMode = config.PacketGuardNewActionShadowMode,
+            CombatChecksEnabled = config.PacketGuardCombatChecksEnabled,
+            InventoryChecksEnabled = config.PacketGuardInventoryChecksEnabled,
+            DeniedActionResyncEnabled = config.PacketGuardDeniedActionResyncEnabled,
+            EscalationWarningsEnabled = config.PacketGuardEscalationWarningsEnabled,
+            ServerImpulseAllowanceEnabled = config.PacketGuardServerImpulseAllowanceEnabled,
+            CombatMaxRequestsPerSecond = config.PacketGuardCombatMaxRequestsPerSecond,
+            InventoryMaxRequestsPerSecond = config.PacketGuardInventoryMaxRequestsPerSecond,
+            WeaponMinimumIntervalMs = new(config.PacketGuardWeaponMinimumIntervalMs),
+            MiningReviewOnlyTools = new(config.PacketGuardMiningReviewOnlyTools),
+
             BlockNukerEnabled = config.PacketGuardBlockNukerEnabled,
             BlockNukerLimit = config.PacketGuardBlockNukerLimit,
             BlockNukerKickEnabled = config.PacketGuardBlockNukerKickEnabled,
@@ -5211,6 +5227,8 @@ public sealed class AntiCheatService : IDisposable
     public (bool Success, string Message) SavePacketGuardSettings(AntiCheatPacketGuardSaveRequest request)
     {
         if (request == null) return (false, "PacketGuard settings are required.");
+        if(request.WeaponMinimumIntervalMs!=null&&(request.WeaponMinimumIntervalMs.Count>128||request.WeaponMinimumIntervalMs.Any(x=>string.IsNullOrWhiteSpace(x.Key)||x.Key.Length>160||x.Value<50||x.Value>5000)||request.WeaponMinimumIntervalMs.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count()!=request.WeaponMinimumIntervalMs.Count))return(false,"Weapon overrides need at most 128 distinct exact codes and intervals of 50–5000ms.");
+        if(request.MiningReviewOnlyTools!=null&&(request.MiningReviewOnlyTools.Count>128||request.MiningReviewOnlyTools.Any(x=>string.IsNullOrWhiteSpace(x)||x.Length>160)))return(false,"Mining exemptions need at most 128 exact tool codes.");
         if (request.MaxHorizontalSpeed.HasValue && !double.IsFinite(request.MaxHorizontalSpeed.Value)) return (false, "MaxHorizontalSpeed must be a finite number.");
         if (request.GroundMaxHorizontalSpeed.HasValue && !double.IsFinite(request.GroundMaxHorizontalSpeed.Value)) return (false, "GroundMaxHorizontalSpeed must be a finite number.");
         if (request.SwimmingMaxHorizontalSpeed.HasValue && !double.IsFinite(request.SwimmingMaxHorizontalSpeed.Value)) return (false, "SwimmingMaxHorizontalSpeed must be a finite number.");
@@ -5237,6 +5255,17 @@ public sealed class AntiCheatService : IDisposable
             ConfirmedSpeedRepeatRisk = config.PacketGuardConfirmedSpeedRepeatRisk,
             KickRepeatedConfirmedSpeed = config.PacketGuardKickRepeatedConfirmedSpeed,
             NoclipKickAfterCorrections = config.PacketGuardNoclipKickAfterCorrections,
+            NewActionShadowMode = config.PacketGuardNewActionShadowMode,
+            CombatChecksEnabled = config.PacketGuardCombatChecksEnabled,
+            InventoryChecksEnabled = config.PacketGuardInventoryChecksEnabled,
+            DeniedActionResyncEnabled = config.PacketGuardDeniedActionResyncEnabled,
+            EscalationWarningsEnabled = config.PacketGuardEscalationWarningsEnabled,
+            ServerImpulseAllowanceEnabled = config.PacketGuardServerImpulseAllowanceEnabled,
+            CombatMaxRequestsPerSecond = config.PacketGuardCombatMaxRequestsPerSecond,
+            InventoryMaxRequestsPerSecond = config.PacketGuardInventoryMaxRequestsPerSecond,
+            WeaponMinimumIntervalMs = new(config.PacketGuardWeaponMinimumIntervalMs),
+            MiningReviewOnlyTools = new(config.PacketGuardMiningReviewOnlyTools),
+
             BlockNukerEnabled = config.PacketGuardBlockNukerEnabled,
             BlockNukerLimit = config.PacketGuardBlockNukerLimit,
             BlockNukerKickEnabled = config.PacketGuardBlockNukerKickEnabled,
@@ -5385,6 +5414,16 @@ public sealed class AntiCheatService : IDisposable
         if (request.BlockNukerEnabled.HasValue) config.PacketGuardBlockNukerEnabled = request.BlockNukerEnabled.Value;
         if (request.BlockNukerLimit.HasValue) config.PacketGuardBlockNukerLimit = request.BlockNukerLimit.Value;
         if (request.BlockNukerKickEnabled.HasValue) config.PacketGuardBlockNukerKickEnabled = request.BlockNukerKickEnabled.Value;
+        if (request.NewActionShadowMode.HasValue) config.PacketGuardNewActionShadowMode = request.NewActionShadowMode.Value;
+        if (request.CombatChecksEnabled.HasValue) config.PacketGuardCombatChecksEnabled = request.CombatChecksEnabled.Value;
+        if (request.InventoryChecksEnabled.HasValue) config.PacketGuardInventoryChecksEnabled = request.InventoryChecksEnabled.Value;
+        if (request.DeniedActionResyncEnabled.HasValue) config.PacketGuardDeniedActionResyncEnabled = request.DeniedActionResyncEnabled.Value;
+        if (request.EscalationWarningsEnabled.HasValue) config.PacketGuardEscalationWarningsEnabled = request.EscalationWarningsEnabled.Value;
+        if (request.ServerImpulseAllowanceEnabled.HasValue) config.PacketGuardServerImpulseAllowanceEnabled = request.ServerImpulseAllowanceEnabled.Value;
+        if (request.CombatMaxRequestsPerSecond.HasValue) config.PacketGuardCombatMaxRequestsPerSecond = request.CombatMaxRequestsPerSecond.Value;
+        if (request.InventoryMaxRequestsPerSecond.HasValue) config.PacketGuardInventoryMaxRequestsPerSecond = request.InventoryMaxRequestsPerSecond.Value;
+        if(request.WeaponMinimumIntervalMs!=null)config.PacketGuardWeaponMinimumIntervalMs=new(request.WeaponMinimumIntervalMs,StringComparer.OrdinalIgnoreCase);
+        if(request.MiningReviewOnlyTools!=null)config.PacketGuardMiningReviewOnlyTools=new(request.MiningReviewOnlyTools);
         if (request.NoclipKickAfterCorrections.HasValue) config.PacketGuardNoclipKickAfterCorrections = request.NoclipKickAfterCorrections.Value;
         if (request.NoclipCorrectionsBeforeKick.HasValue) config.PacketGuardNoclipCorrectionsBeforeKick = request.NoclipCorrectionsBeforeKick.Value;
         if (request.NoclipCorrectionDecaySeconds.HasValue) config.PacketGuardNoclipCorrectionDecaySeconds = request.NoclipCorrectionDecaySeconds.Value;
@@ -6442,10 +6481,17 @@ public sealed class AntiCheatService : IDisposable
         string.Equals(scanner, "ServerIntegrity", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(scanner, "ModDbPolicy", StringComparison.OrdinalIgnoreCase);
 
+    private static string EvidenceValue(string evidence,string key)
+    {
+        foreach(string field in evidence.Split(';')){int at=field.IndexOf('=');if(at>0&&field[..at].Equals(key,StringComparison.OrdinalIgnoreCase))return field[(at+1)..];}
+        return "unavailable";
+    }
+
     private void SendPacketGuardPlayerWarning(IServerPlayer player, string code,string evidence)
     {
-        if (!config.PacketGuardPlayerWarningEnabled || player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;
-        if (AntiCheatObservationPolicy.IsReviewOnly(code,evidence)) return;
+        bool escalation=code is "PACKET_NOCLIP_CORRECTION" or "PACKET_BLOCK_NUKER";
+        if ((!config.PacketGuardPlayerWarningEnabled && !(config.PacketGuardEscalationWarningsEnabled&&escalation)) || player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;
+        if (AntiCheatObservationPolicy.IsReviewOnly(code,evidence) && !escalation) return;
         if (string.IsNullOrWhiteSpace(code) || !code.StartsWith("PACKET_", StringComparison.OrdinalIgnoreCase)) return;
         // Diagnostic/uncertain observations should not alarm the player; only confirmed PacketGuard findings do.
         if (string.Equals(code, "PACKET_MINING_CADENCE_UNCERTAIN", StringComparison.OrdinalIgnoreCase) ||
@@ -6456,6 +6502,13 @@ public sealed class AntiCheatService : IDisposable
         if (packetGuardPlayerWarningUtc.TryGetValue(player.PlayerUID, out long last) && now - last < cooldownMs) return;
         packetGuardPlayerWarningUtc[player.PlayerUID] = now;
 
+        if(escalation)
+        {
+            string notice=code=="PACKET_BLOCK_NUKER"?"Excessive block-break requests were denied. Repeated over-limit bursts can cause a kick; contact staff if your tool should allow this.":
+                $"Position corrected. Active counted corrections: {EvidenceValue(evidence,"activeCorrections")}/{EvidenceValue(evidence,"kickThreshold")}. Each expires after {EvidenceValue(evidence,"decaySeconds")} seconds. Kicking enabled: {EvidenceValue(evidence,"kickEnabled")}. Contact staff if this is legitimate movement.";
+            try{player.SendMessage(GlobalConstants.GeneralChatGroup,"[PacketGuard] "+notice,EnumChatType.Notification);}catch{}
+            return;
+        }
         string category = (code ?? "").ToUpperInvariant() switch
         {
             "PACKET_NOCLIP" => "Unusual collision movement",
@@ -6553,6 +6606,8 @@ public sealed class AntiCheatService : IDisposable
         if(!session.ServerOccurrences.TryGetValue(finding.Code,out var occurrence) && session.ServerOccurrences.Count<128)
             session.ServerOccurrences[finding.Code]=occurrence=new AntiCheatOccurrenceWebSnapshot{Code=finding.Code,FirstSeenUtc=observedUtc};
         if(occurrence!=null){occurrence.Count=Math.Min(long.MaxValue-1,occurrence.Count)+1;occurrence.LastSeenUtc=observedUtc;}
+        session.RecentServerEvents.Add(new AntiCheatServerEvent{Utc=observedUtc,Code=finding.Code,Summary=(finding.Summary??"")[..Math.Min(512,(finding.Summary??"").Length)],Evidence=(finding.Evidence??"")[..Math.Min(2048,(finding.Evidence??"").Length)]});
+        if(session.RecentServerEvents.Count>64)session.RecentServerEvents.RemoveRange(0,session.RecentServerEvents.Count-64);
         // Advisory repeats are still recorded in history, but cannot erase or refresh
         // the lifetime of earlier independently confirmed evidence of the same code.
         if(AntiCheatObservationPolicy.IsReviewOnly(finding.Code,finding.Evidence)&&session.Findings.Any(f=>
@@ -6880,6 +6935,27 @@ public sealed class AntiCheatService : IDisposable
         return value;
     }
 
+    public object? ExportServerIncident(string playerQuery)
+    {
+        var player=GetPlayerSnapshot(playerQuery);if(player==null)return null;
+        return new{schemaVersion=1,createdUtc=NowMs(),suiteVersion=SuiteRelease.Version,build=SuiteRelease.BuildId,
+            serverApiAssemblyVersion=typeof(Vintagestory.Server.ServerMain).Assembly.GetName().Version?.ToString(),
+            player,packetGuard=BuildPacketGuardSnapshot(),
+            installedMods=api.ModLoader.Mods.Where(x=>x?.Info!=null).Select(x=>new{id=x.Info.ModID,version=x.Info.Version}).ToList(),
+            limitations="Recorded reports, not every packet or proof of cheating. Client inventory reports are untrusted telemetry. No heap capture was performed."};
+    }
+
+    public (bool Success,string Message) SetProtectionExemption(string playerQuery,string scopeName,int seconds,string reason,string actor,bool revoke)
+    {
+        if(!Enum.TryParse<ServerProtectionScope>(scopeName,true,out var scope)||!Enum.IsDefined(scope)||scope==ServerProtectionScope.None)return(false,"Choose Movement, Mining, Combat, Inventory or BlockNuker.");
+        var player=api.World.AllOnlinePlayers.OfType<IServerPlayer>().FirstOrDefault(p=>p.PlayerUID.Equals(playerQuery,StringComparison.OrdinalIgnoreCase)||p.PlayerName.Equals(playerQuery,StringComparison.OrdinalIgnoreCase));
+        if(player==null)return(false,"Select an online player.");
+        if(revoke)ServerProtectionExemptions.Revoke(player.PlayerUID,scope);
+        else if(!ServerProtectionExemptions.TryGrant(player.PlayerUID,scope,seconds,reason,actor,NowMs()))return(false,"Provide a reason (1–160 characters) and a duration of 1–3600 seconds; exemption storage may be full.");
+        api.Logger.Audit("[PacketGuard/Exemption] actor={0};playerUid={1};scope={2};seconds={3};revoke={4};reason={5}",PacketGuardTrustedState.CleanDiagnosticText(actor,100),player.PlayerUID,scope,seconds,revoke,PacketGuardTrustedState.CleanDiagnosticText(reason,160));
+        return(true,revoke?"Exemption revoked.":"Temporary scoped exemption granted; malformed-packet safety remains active.");
+    }
+
     public AntiCheatPlayerWebSnapshot? GetPlayerSnapshot(string uidOrName)
     {
         if (string.IsNullOrWhiteSpace(uidOrName)) return null;
@@ -6909,6 +6985,10 @@ public sealed class AntiCheatService : IDisposable
         {
             PlayerUid = s.PlayerUid,
             PlayerName = s.PlayerName,
+            RecentServerEvents = includeDetails ? s.RecentServerEvents.Select(x=>new AntiCheatServerEvent{Utc=x.Utc,Code=x.Code,Summary=x.Summary,Evidence=x.Evidence}).ToList() : new(),
+            ProtectionExemptions = includeDetails ? ServerProtectionExemptions.Snapshot(s.PlayerUid,NowMs()) : new(),
+            ObservationElapsedSeconds = s.ConnectedUtc>0 ? Math.Max(0,(NowMs()-s.ConnectedUtc)/1000) : 0,
+            RecordedServerOccurrencesPerHour = s.ConnectedUtc>0 && NowMs()-s.ConnectedUtc>=60000 ? Math.Round(s.ServerOccurrences.Values.Sum(x=>(double)x.Count)*3600000.0/(NowMs()-s.ConnectedUtc),2) : 0,
             ServerOccurrences = s.ServerOccurrences.Values.OrderByDescending(x=>x.Count).Select(x=>new AntiCheatOccurrenceWebSnapshot{Code=x.Code,Count=x.Count,FirstSeenUtc=x.FirstSeenUtc,LastSeenUtc=x.LastSeenUtc}).ToList(),
             Decision = includeDetails || includeEvidence ? BuildDecisionSnapshot(s) : null,
             Status = s.Status.ToString(),

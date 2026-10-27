@@ -11567,5 +11567,22 @@
   "OreShieldIdleRescanMs": 3000,
   "OreShieldLeakAuditEnabled": true,
   "PacketGuardConfirmedSpeedRepeatRisk": 25,
-  "PacketGuardKickRepeatedConfirmedSpeed": true
+  "PacketGuardKickRepeatedConfirmedSpeed": true,
+  "PacketGuardNewActionShadowMode": true,
+  "PacketGuardCombatChecksEnabled": true,
+  "PacketGuardInventoryChecksEnabled": true,
+  "PacketGuardDeniedActionResyncEnabled": true,
+  "PacketGuardEscalationWarningsEnabled": true,
+  "PacketGuardServerImpulseAllowanceEnabled": true,
+  "PacketGuardCombatMaxRequestsPerSecond": 20,
+  "PacketGuardInventoryMaxRequestsPerSecond": 100,
+  "PacketGuardWeaponMinimumIntervalMs": {},
+  "PacketGuardMiningReviewOnlyTools": [],
+  "PacketGuardBlockNukerEnabled": true,
+  "PacketGuardBlockNukerLimit": 30,
+  "PacketGuardBlockNukerKickEnabled": true,
+  "PacketGuardNoclipKickAfterCorrections": true,
+  "PacketGuardNoclipCorrectionsBeforeKick": 5,
+  "PacketGuardNoclipCorrectionDecaySeconds": 120,
+  "PacketGuardNoclipCorrectionMinimumIntervalSeconds": 10
 }

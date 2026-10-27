@@ -3890,7 +3890,11 @@ __NSS_RETENTION_HTML__
       <section id="acDrawerTabAntiCheat" class="acDrawerTabPanel" data-ac-drawer-panel="anticheat" role="tabpanel" hidden>
         <div class="acDrawerTabIntro"><div><b>Anti-Cheat investigation</b><span>Active findings, runtime changes and scanner telemetry. Server-authoritative evidence remains visually distinct from client-reported integrity telemetry.</span></div></div>
         <div class="grid acDrawerTabGrid">
-          <div id="acDrawerFindings" class="card acFullSpan"><div id="acOccurrenceSummary" class="compactNote"></div><div class="cardHeader"><h3>Evidence & Findings</h3><div class="spacer"></div><span class="small">Strongest evidence first</span></div><div class="tableWrap dataScrollTall"><table><thead><tr><th>Severity</th><th>Confidence</th><th>Evidence</th><th>Risk</th><th>Observed</th><th>Code / Subject</th><th>Investigation summary</th></tr></thead><tbody id="acFindingRows"><tr><td colspan="7" class="muted">No findings loaded.</td></tr></tbody></table></div></div>
+          <div id="acDrawerFindings" class="card acFullSpan"><div id="acOccurrenceSummary" class="compactNote"></div>
+          <div class="toolbar"><button id="acIncidentExport">Download incident JSON</button><span id="acActivityRate" class="small"></span></div>
+          <details><summary>Temporary scoped exemptions</summary><p class="compactNote">Use an expiring exemption for a known compatibility issue. Malformed-packet safety remains active. Grants are audited and last at most one hour.</p><div class="formGrid"><label>Scope<select id="acExemptionScope"><option>Movement</option><option>Mining</option><option>Combat</option><option>Inventory</option><option>BlockNuker</option></select></label><label>Duration (seconds)<input id="acExemptionSeconds" type="number" min="1" max="3600" value="300"></label><label>Reason<input id="acExemptionReason" maxlength="160" placeholder="Known compatibility issue"></label></div><div class="toolbar"><button id="acExemptionGrant">Grant temporary exemption</button><button id="acExemptionRevoke">Revoke selected scope</button></div><div id="acExemptionList"></div></details>
+          <details><summary>Recent server event timeline</summary><div id="acServerEventTimeline" class="dataScrollTall"></div></details>
+<div class="cardHeader"><h3>Evidence & Findings</h3><div class="spacer"></div><span class="small">Strongest evidence first</span></div><div class="tableWrap dataScrollTall"><table><thead><tr><th>Severity</th><th>Confidence</th><th>Evidence</th><th>Risk</th><th>Observed</th><th>Code / Subject</th><th>Investigation summary</th></tr></thead><tbody id="acFindingRows"><tr><td colspan="7" class="muted">No findings loaded.</td></tr></tbody></table></div></div>
           <div id="acDrawerRuntime" class="card"><div class="cardHeader"><h3>Runtime Changes</h3></div><div class="compactNote">New assemblies and post-baseline runtime changes reported after startup attestation.</div><div class="tableWrap dataScroll"><table><thead><tr><th>Assembly</th><th>File</th><th>Context</th><th>Type</th><th>SHA-256 / MVID</th></tr></thead><tbody id="acRuntimeRows"><tr><td colspan="5" class="muted">No post-baseline runtime changes reported.</td></tr></tbody></table></div></div>
           <div id="acDrawerScanner" class="card"><div class="cardHeader"><h3>Scanner Health</h3></div><div class="tableWrap dataScroll"><table><thead><tr><th>Scanner</th><th>Status</th><th>Duration</th><th>Results</th><th>Hash cache</th></tr></thead><tbody id="acScannerRows"><tr><td colspan="5" class="muted">No scanner telemetry loaded.</td></tr></tbody></table></div></div>
         </div>
@@ -4063,6 +4067,18 @@ __NSS_RETENTION_HTML__
       </div><div class="card"><div class="cardHeader"><h3>Movement False-Positive Hardening</h3></div>
         <div class="compactNote">Advanced PacketGuard tuning added for modded movement. Block collision/noclip detection is OFF by default because complex vanilla and modded collision shapes (especially trapdoors/doors) can create legitimate overlap.</div>
         <label class="small" style="display:block;margin-top:10px"><input id="acPacketNoclipEnabled" type="checkbox"> Enable block collision / noclip detection (advanced; default OFF)</label>
+        <div class="cardHeader"><h3>Server action safety</h3></div><p id="acServerActionStatus" class="compactNote"></p>
+        <label><input id="acPacketNewActionShadowMode" type="checkbox"> Observation-only for new combat and inventory checks</label>
+        <p class="compactNote">Observation-only leaves new action denials off. Existing PacketGuard, Block Nuker and noclip settings remain independent. New combat/inventory observations never automatically kick.</p>
+        <label><input id="acPacketCombatChecksEnabled" type="checkbox"> Combat timing and loaded-terrain line-of-sight checks</label>
+        <label><input id="acPacketInventoryChecksEnabled" type="checkbox"> Inventory state checks and separate request budget</label>
+        <label><input id="acPacketDeniedActionResyncEnabled" type="checkbox"> Resynchronize denied blocks and known open inventory slots</label>
+        <label><input id="acPacketEscalationWarningsEnabled" type="checkbox"> Warn players about corrections and denied break bursts</label>
+        <label><input id="acPacketServerImpulseAllowanceEnabled" type="checkbox"> Short speed/acceleration allowance for server-observed damage knockback</label>
+        <div class="formGrid"><label>Combat requests / second<input id="acPacketCombatMaxRequestsPerSecond" type="number" min="5" max="100"></label><label>Inventory requests / second<input id="acPacketInventoryMaxRequestsPerSecond" type="number" min="20" max="500"></label></div>
+        <label>Weapon minimum intervals (JSON object: exact code → milliseconds)<textarea id="acPacketWeaponMinimumIntervalMs" rows="3" spellcheck="false"></textarea></label>
+        <p class="compactNote">Empty by default. No universal weapon cooldown is assumed. Add exact tool codes only after testing; limits are 50–5000ms. Doors, chiseled/custom geometry and unknown terrain cannot establish combat-wall evidence.</p>
+        <label>Mining tools to keep review-only (exact codes, one per line)<textarea id="acPacketMiningReviewOnlyTools" rows="3" spellcheck="false"></textarea></label>
         <label><input id="acPacketBlockNukerEnabled" type="checkbox"> Deny excessive distinct client block-break requests</label>
         <label>Block Nuker distinct targets per second<input id="acPacketBlockNukerLimit" type="number" min="5" max="200"></label>
         <label><input id="acPacketBlockNukerKickEnabled" type="checkbox"> Kick repeated healthy Block Nuker bursts</label>
@@ -13639,7 +13655,7 @@ function renderAntiCheatPlayers(){
     const strong=Number(x.strongFindingCount??findings.filter(f=>Number(f.confidenceScore||0)>=75||Number(f.severity||0)>=3).length);
     const server=Number(x.serverAuthoritativeFindingCount??findings.filter(f=>f.serverAuthoritative).length);
     const age=acRelativeAge(x.lastScanUtc);
-    return `<tr><td><button class="linkBtn" data-ac-player="${esc(x.playerUid||x.playerName||'')}"><b>${esc(x.playerName||'')}</b></button><div class="small">${esc((x.playerUid||'').slice(0,12))}${String(x.playerUid||'').length>12?'…':''}</div></td><td>${acStatusBadge(x.status)}</td><td><b class="acRisk ${Number(x.riskScore||0)>=50?'bad':Number(x.riskScore||0)>=10?'warn':'good'}">${Number(x.riskScore||0)}</b></td><td>${acStartupBadge(x)}</td><td>${x.clientInstalled?`v${esc(x.clientVersion||'connected')}`:'<span class="warn">missing</span>'}</td><td>${esc(x.platform||'—')}</td><td>${Number(x.modCount||0)}</td><td><b>${Number(x.findingCount||0)}</b><div class="small">${strong} strong · ${server} server<div class="small">${(x.serverOccurrences||[]).reduce((n,r)=>n+Number(r.count||0),0)} recorded server occurrences</div></div></td><td><span class="${age.cls}" title="${esc(acDate(x.lastScanUtc))}">${esc(age.text)}</span></td><td><button data-ac-rescan="${esc(x.playerUid||x.playerName||'')}">Rescan</button></td></tr>`;
+    return `<tr><td><button class="linkBtn" data-ac-player="${esc(x.playerUid||x.playerName||'')}"><b>${esc(x.playerName||'')}</b></button><div class="small">${esc((x.playerUid||'').slice(0,12))}${String(x.playerUid||'').length>12?'…':''}</div></td><td>${acStatusBadge(x.status)}</td><td><b class="acRisk ${Number(x.riskScore||0)>=50?'bad':Number(x.riskScore||0)>=10?'warn':'good'}">${Number(x.riskScore||0)}</b></td><td>${acStartupBadge(x)}</td><td>${x.clientInstalled?`v${esc(x.clientVersion||'connected')}`:'<span class="warn">missing</span>'}</td><td>${esc(x.platform||'—')}</td><td>${Number(x.modCount||0)}</td><td><b>${Number(x.findingCount||0)}</b><div class="small">${strong} strong · ${server} server<div class="small">${(x.serverOccurrences||[]).reduce((n,r)=>n+Number(r.count||0),0)} recorded server occurrences · ${Number(x.observationElapsedSeconds||0)>=60?Number(x.recordedServerOccurrencesPerHour||0).toFixed(1)+'/h':'warming up'}</div></div></td><td><span class="${age.cls}" title="${esc(acDate(x.lastScanUtc))}">${esc(age.text)}</span></td><td><button data-ac-rescan="${esc(x.playerUid||x.playerName||'')}">Rescan</button></td></tr>`;
   }).join(''):'<tr><td colspan="10" class="muted">No players match the current Anti-Cheat filter.</td></tr>';
   document.querySelectorAll('[data-ac-player]').forEach(b=>b.onclick=()=>loadAntiCheatPlayer(b.dataset.acPlayer));
   document.querySelectorAll('[data-ac-rescan]').forEach(b=>b.onclick=()=>requestAntiCheatRescan(b.dataset.acRescan));
@@ -14132,7 +14148,7 @@ function updatePacketDraftState(){
   $('acPacketDraftState').textContent=packetSettingsDirty?'Unsaved changes':'Settings saved';
   $('acPacketDiscard').hidden=!packetSettingsDirty;
 }
-const packetDraftInput=e=>{if(e.target.matches('input')&&currentSessionRole!=='ReadOnly'){packetSettingsDirty=true;updatePacketDraftState();}};
+const packetDraftInput=e=>{if(e.target.matches('input,textarea,select')&&currentSessionRole!=='ReadOnly'){packetSettingsDirty=true;updatePacketDraftState();}};
 ['input','change'].forEach(event=>document.querySelector('[data-ac-panel="packet"]').addEventListener(event,packetDraftInput));
 $('acPacketDiscard').onclick=()=>{if(packetSettingsSaving)return;packetSettingsDirty=false;if(packetLatestSettings)renderAntiCheatPacketGuard(packetLatestSettings.pg,packetLatestSettings.h);updatePacketDraftState();};
 function selectPacketSection(key){
@@ -14147,9 +14163,21 @@ document.querySelectorAll('[data-packet-tab]').forEach((b,index,buttons)=>{
 function renderAntiCheatPacketGuard(pg,h){
   pg=pg||{};h=h||{};const ro=currentSessionRole==='ReadOnly';
   packetLatestSettings={pg,h};
+  $('acServerActionStatus').textContent='Combat checks: '+(pg.combatCheckStatus||'Status unavailable')+' · Server impulse allowance: '+(pg.impulseHookStatus||'Status unavailable');
   if(!packetSettingsDirty){
   acSetChecked('acPacketKickRepeatedConfirmedSpeed',pg.kickRepeatedConfirmedSpeed??true);
   acSetChecked('acPacketNoclipKickAfterCorrections',pg.noclipKickAfterCorrections??true);
+  acSetChecked('acPacketNewActionShadowMode',pg.newActionShadowMode??true);
+  acSetChecked('acPacketCombatChecksEnabled',pg.combatChecksEnabled??true);
+  acSetChecked('acPacketInventoryChecksEnabled',pg.inventoryChecksEnabled??true);
+  acSetChecked('acPacketDeniedActionResyncEnabled',pg.deniedActionResyncEnabled??true);
+  acSetChecked('acPacketEscalationWarningsEnabled',pg.escalationWarningsEnabled??true);
+  acSetChecked('acPacketServerImpulseAllowanceEnabled',pg.serverImpulseAllowanceEnabled??true);
+  acSetValue('acPacketCombatMaxRequestsPerSecond',pg.combatMaxRequestsPerSecond??20);
+  acSetValue('acPacketInventoryMaxRequestsPerSecond',pg.inventoryMaxRequestsPerSecond??100);
+  acSetValue('acPacketWeaponMinimumIntervalMs',JSON.stringify(pg.weaponMinimumIntervalMs||{},null,2));
+  acSetValue('acPacketMiningReviewOnlyTools',(pg.miningReviewOnlyTools||[]).join('\n'));
+
   acSetChecked('acPacketBlockNukerEnabled',pg.blockNukerEnabled??true);
   acSetValue('acPacketBlockNukerLimit',pg.blockNukerLimit??30);
   acSetChecked('acPacketBlockNukerKickEnabled',pg.blockNukerKickEnabled??true);
@@ -14230,12 +14258,23 @@ function renderAntiCheatPacketGuard(pg,h){
       return `<div class="card" style="background:#10171d"><div class="metricLabel">${esc(x.name||x.code||'Suppression')}</div><div class="metricValue">${count}</div><div class="small"><span class="badge low">${esc(x.category||'Safety')}</span> ${esc(x.description||'')}</div><div class="small" style="margin-top:7px">${last?`Last: ${esc(acDate(last))}${player?` · ${esc(player)}`:''}`:'Not observed since startup.'}</div>${detail?`<div class="small" style="margin-top:5px"><code>${esc(detail)}</code></div>`:''}</div>`;
     }).join(''):'<div class="card"><div class="metricLabel">No telemetry</div><div class="metricValue">0</div><div class="small">PacketGuard suppression counters are unavailable.</div></div>';
   }
-  ['acPacketBlockNukerEnabled','acPacketBlockNukerLimit','acPacketBlockNukerKickEnabled','acPacketNoclipKickAfterCorrections','acPacketNoclipCorrectionsBeforeKick','acPacketNoclipCorrectionDecaySeconds','acPacketNoclipCorrectionMinimumIntervalSeconds','acPacketKickRepeatedConfirmedSpeed','acPacketConfirmedSpeedRepeatRisk','acPacketMovementModeLimitsEnabled','acPacketMaxHorizontalSpeed','acPacketGroundMaxHorizontalSpeed','acPacketSwimmingMaxHorizontalSpeed','acPacketAirborneMaxHorizontalSpeed','acPacketMountProfilesEnabled','acPacketMountProfileEnforcementEnabled','acPacketUnknownMountEnforcementEnabled','acPacketMountProfileConfirmSamples','acPacketMountProfileConfirmWindowMs','acPacketMountRiderCorrelationEnabled','acPacketDraconisMaxHorizontalSpeed','acPacketDraconisMaxVerticalSpeed','acPacketDraconisMaxAcceleration','acPacketDraconisMaxRiderDistance','acPacketDraconisMaxRiderRelativeSpeed','acPacketShipwrightMaxHorizontalSpeed','acPacketShipwrightMaxVerticalSpeed','acPacketShipwrightMaxAcceleration','acPacketShipwrightMaxRiderDistance','acPacketShipwrightMaxRiderRelativeSpeed','acPacketUnknownMountMaxHorizontalSpeed','acPacketUnknownMountMaxVerticalSpeed','acPacketUnknownMountMaxAcceleration','acPacketUnknownMountMaxRiderDistance','acPacketUnknownMountMaxRiderRelativeSpeed','acHistoryClearAll','acPacketEnabled','acPacketIngressEnabled','acPacketPlayerWarningEnabled','acPacketPlayerWarningCooldown','acPacketAccelerationSampleMinMs','acPacketAccelerationSmoothingFactor','acPacketNoclipEnabled','acPacketNoclipRequiredSamples','acPacketNoclipMinPenetration','acPacketNoclipEndpointMinMovement','acPacketMountAccelerationMinSpeedRatio','acPacketDiagnosticContextEnabled','acPacketDiagnosticSuppressionEnabled','acPacketDiagnosticSpeedHistorySamples','acPacketMovementEnabled','acPacketMovementSampleMs','acPacketHardMoveDistance','acPacketMovementConfirmSamples','acPacketMovementConfirmWindowMs','acPacketMovementExtremeMultiplier','acPacketCorrectionGraceMs','acPacketRejectMovement','acPacketExemptAdmins','acPacketExemptMounts','acPacketMountGraceMs','acPacketEngineTeleportGraceMs','acPacketTPRunesCompatibility','acPacketTPRunesGraceMs','acPacketTh3SpawnCompatibility','acPacketTh3SpawnGraceMs','acPacketReachEnabled','acPacketReachTolerance','acPacketReachLatency','acPacketReachMaxLatency','acPacketReachHistory','acPacketReachHistoryMs','acPacketReachMaxRewindMs','acPacketReachUseExtra','acPacketReachBreakExtra','acPacketReachStrikes','acPacketReachWindowMs','acPacketReachDecayMs','acPacketReachHardExcess','acPacketRejectReach','acPacketMiningEnabled','acPacketVeinWindowMs','acPacketConnectedBreakLimit','acPacketMiningDuplicateTargetMs','acPacketRejectMining','acPacketMiningCadenceEnabled','acPacketMiningMinExpectedMs','acPacketMiningSuspiciousRatio','acPacketMiningConfirmations','acPacketMiningConfirmWindowMs','acPacketRejectMiningCadence','acPacketTpsAware','acPacketTpsDegradedPct','acPacketTpsCriticalPct','acPacketTpsMaxMultiplier','acPacketTpsSuppressCriticalRejects','acFamilyRiskEnabled','acMovementRiskDecay','acMovementRiskReview','acMovementRiskSuspicious','acReachRiskDecay','acReachRiskReview','acReachRiskSuspicious','acMiningRiskDecay','acMiningRiskReview','acMiningRiskSuspicious','acPacketAbuseRiskDecay','acPacketAbuseRiskReview','acPacketAbuseRiskSuspicious','acClientIntegrityRiskDecay','acClientIntegrityRiskReview','acClientIntegrityRiskSuspicious','acIncidentCorrelationEnabled','acIncidentCorrelationWindow','acIncidentCorrelationCategories','acIncidentCorrelationMaxBonus','acHistoryEnabled','acHistoryRetentionDays','acHistoryMaxRecords','acPacketSave'].forEach(id=>{const e=$(id);if(e)e.disabled=ro;});
+  ['acPacketNewActionShadowMode','acPacketCombatChecksEnabled','acPacketInventoryChecksEnabled','acPacketDeniedActionResyncEnabled','acPacketEscalationWarningsEnabled','acPacketServerImpulseAllowanceEnabled','acPacketCombatMaxRequestsPerSecond','acPacketInventoryMaxRequestsPerSecond','acPacketWeaponMinimumIntervalMs','acPacketMiningReviewOnlyTools','acPacketBlockNukerEnabled','acPacketBlockNukerLimit','acPacketBlockNukerKickEnabled','acPacketNoclipKickAfterCorrections','acPacketNoclipCorrectionsBeforeKick','acPacketNoclipCorrectionDecaySeconds','acPacketNoclipCorrectionMinimumIntervalSeconds','acPacketKickRepeatedConfirmedSpeed','acPacketConfirmedSpeedRepeatRisk','acPacketMovementModeLimitsEnabled','acPacketMaxHorizontalSpeed','acPacketGroundMaxHorizontalSpeed','acPacketSwimmingMaxHorizontalSpeed','acPacketAirborneMaxHorizontalSpeed','acPacketMountProfilesEnabled','acPacketMountProfileEnforcementEnabled','acPacketUnknownMountEnforcementEnabled','acPacketMountProfileConfirmSamples','acPacketMountProfileConfirmWindowMs','acPacketMountRiderCorrelationEnabled','acPacketDraconisMaxHorizontalSpeed','acPacketDraconisMaxVerticalSpeed','acPacketDraconisMaxAcceleration','acPacketDraconisMaxRiderDistance','acPacketDraconisMaxRiderRelativeSpeed','acPacketShipwrightMaxHorizontalSpeed','acPacketShipwrightMaxVerticalSpeed','acPacketShipwrightMaxAcceleration','acPacketShipwrightMaxRiderDistance','acPacketShipwrightMaxRiderRelativeSpeed','acPacketUnknownMountMaxHorizontalSpeed','acPacketUnknownMountMaxVerticalSpeed','acPacketUnknownMountMaxAcceleration','acPacketUnknownMountMaxRiderDistance','acPacketUnknownMountMaxRiderRelativeSpeed','acHistoryClearAll','acPacketEnabled','acPacketIngressEnabled','acPacketPlayerWarningEnabled','acPacketPlayerWarningCooldown','acPacketAccelerationSampleMinMs','acPacketAccelerationSmoothingFactor','acPacketNoclipEnabled','acPacketNoclipRequiredSamples','acPacketNoclipMinPenetration','acPacketNoclipEndpointMinMovement','acPacketMountAccelerationMinSpeedRatio','acPacketDiagnosticContextEnabled','acPacketDiagnosticSuppressionEnabled','acPacketDiagnosticSpeedHistorySamples','acPacketMovementEnabled','acPacketMovementSampleMs','acPacketHardMoveDistance','acPacketMovementConfirmSamples','acPacketMovementConfirmWindowMs','acPacketMovementExtremeMultiplier','acPacketCorrectionGraceMs','acPacketRejectMovement','acPacketExemptAdmins','acPacketExemptMounts','acPacketMountGraceMs','acPacketEngineTeleportGraceMs','acPacketTPRunesCompatibility','acPacketTPRunesGraceMs','acPacketTh3SpawnCompatibility','acPacketTh3SpawnGraceMs','acPacketReachEnabled','acPacketReachTolerance','acPacketReachLatency','acPacketReachMaxLatency','acPacketReachHistory','acPacketReachHistoryMs','acPacketReachMaxRewindMs','acPacketReachUseExtra','acPacketReachBreakExtra','acPacketReachStrikes','acPacketReachWindowMs','acPacketReachDecayMs','acPacketReachHardExcess','acPacketRejectReach','acPacketMiningEnabled','acPacketVeinWindowMs','acPacketConnectedBreakLimit','acPacketMiningDuplicateTargetMs','acPacketRejectMining','acPacketMiningCadenceEnabled','acPacketMiningMinExpectedMs','acPacketMiningSuspiciousRatio','acPacketMiningConfirmations','acPacketMiningConfirmWindowMs','acPacketRejectMiningCadence','acPacketTpsAware','acPacketTpsDegradedPct','acPacketTpsCriticalPct','acPacketTpsMaxMultiplier','acPacketTpsSuppressCriticalRejects','acFamilyRiskEnabled','acMovementRiskDecay','acMovementRiskReview','acMovementRiskSuspicious','acReachRiskDecay','acReachRiskReview','acReachRiskSuspicious','acMiningRiskDecay','acMiningRiskReview','acMiningRiskSuspicious','acPacketAbuseRiskDecay','acPacketAbuseRiskReview','acPacketAbuseRiskSuspicious','acClientIntegrityRiskDecay','acClientIntegrityRiskReview','acClientIntegrityRiskSuspicious','acIncidentCorrelationEnabled','acIncidentCorrelationWindow','acIncidentCorrelationCategories','acIncidentCorrelationMaxBonus','acHistoryEnabled','acHistoryRetentionDays','acHistoryMaxRecords','acPacketSave'].forEach(id=>{const e=$(id);if(e)e.disabled=ro;});
 }
 function acNum(id,fallback){const n=Number($(id)?.value);return Number.isFinite(n)?n:fallback;}
 function collectAntiCheatPacketGuard(){return {
   kickRepeatedConfirmedSpeed:!!$('acPacketKickRepeatedConfirmedSpeed').checked,
   noclipKickAfterCorrections:!!$('acPacketNoclipKickAfterCorrections').checked,
+  newActionShadowMode:!!$('acPacketNewActionShadowMode').checked,
+  combatChecksEnabled:!!$('acPacketCombatChecksEnabled').checked,
+  inventoryChecksEnabled:!!$('acPacketInventoryChecksEnabled').checked,
+  deniedActionResyncEnabled:!!$('acPacketDeniedActionResyncEnabled').checked,
+  escalationWarningsEnabled:!!$('acPacketEscalationWarningsEnabled').checked,
+  serverImpulseAllowanceEnabled:!!$('acPacketServerImpulseAllowanceEnabled').checked,
+  combatMaxRequestsPerSecond:Number($('acPacketCombatMaxRequestsPerSecond').value),
+  inventoryMaxRequestsPerSecond:Number($('acPacketInventoryMaxRequestsPerSecond').value),
+  weaponMinimumIntervalMs:JSON.parse($('acPacketWeaponMinimumIntervalMs').value||'{}'),
+  miningReviewOnlyTools:$('acPacketMiningReviewOnlyTools').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),
+
   blockNukerEnabled:!!$('acPacketBlockNukerEnabled').checked,
   blockNukerLimit:Number($('acPacketBlockNukerLimit').value),
   blockNukerKickEnabled:!!$('acPacketBlockNukerKickEnabled').checked,
@@ -14346,9 +14385,10 @@ async function saveAntiCheatModuleState(){
   }catch(e){toast(e.message,'error');await loadAntiCheat(false);}
 }
 async function saveAntiCheatPacketGuard(){
+  if(currentSessionRole==='ReadOnly')return;
   const invalid=[...document.querySelectorAll('[data-ac-panel=packet] input[type=number]')].find(e=>e.value.trim()===''||!e.checkValidity());
   if(invalid){selectPacketSection(invalid.closest('[data-packet-section]')?.dataset.packetSection||'movement');invalid.focus();invalid.reportValidity();return;}
-  const payload=collectAntiCheatPacketGuard();
+  let payload;try{payload=collectAntiCheatPacketGuard();}catch(e){toast('Invalid weapon interval JSON: '+e.message,'error');return;}
   if(!payload.exemptAdmins&&!confirm('Administrator exemption is OFF. Survival-mode administrators will be checked like normal players. Continue?'))return;
   if(!payload.exemptMountedPlayers&&!confirm('Mounted-player exemption is OFF. Fast or modded mounts may produce movement findings. Continue?'))return;
   if(!payload.tpRunesCompatibility&&antiCheatPacketGuard.tpRunesDetected&&!confirm('TP Runes is installed but compatibility is OFF. Legitimate rune teleports may be reported as unauthorized movement. Continue?'))return;
@@ -14356,10 +14396,11 @@ async function saveAntiCheatPacketGuard(){
   if(saveBtn){saveBtn.disabled=true;saveBtn.dataset.originalText=saveBtn.textContent;saveBtn.textContent='Saving…';}
   try{
     packetSettingsSaving=true;
-    document.querySelectorAll('[data-ac-panel=packet] input').forEach(e=>e.disabled=true);$('acPacketDiscard').disabled=true;
+    document.querySelectorAll('[data-ac-panel=packet] input,[data-ac-panel=packet] textarea,[data-ac-panel=packet] select').forEach(e=>e.disabled=true);$('acPacketDiscard').disabled=true;
     const d=await api('/api/anticheat/packetguard',{method:'POST',body:JSON.stringify(payload)});
     packetSettingsDirty=false;updatePacketDraftState();
     await loadAntiCheat(false);
+    if(d.packetGuard){antiCheatPacketGuard=d.packetGuard;renderAntiCheatPacketGuard(antiCheatPacketGuard,antiCheatHistorySummary);}
     const warningSaved=!!antiCheatPacketGuard.playerWarningEnabled===!!payload.playerWarningEnabled;
     const noclipSaved=!!antiCheatPacketGuard.noclipEnabled===!!payload.noclipEnabled;
     if(!warningSaved||!noclipSaved){
@@ -14368,7 +14409,7 @@ async function saveAntiCheatPacketGuard(){
     }
     toast(d.message||'Packet protection saved.','success');
   }catch(e){toast(e.message,'error');}
-  finally{packetSettingsSaving=false;document.querySelectorAll('[data-ac-panel=packet] input').forEach(e=>e.disabled=currentSessionRole==='ReadOnly');$('acPacketDiscard').disabled=currentSessionRole==='ReadOnly';if(saveBtn){saveBtn.disabled=currentSessionRole==='ReadOnly';saveBtn.textContent=saveBtn.dataset.originalText||'Save Packet Protection';delete saveBtn.dataset.originalText;}}
+  finally{packetSettingsSaving=false;document.querySelectorAll('[data-ac-panel=packet] input,[data-ac-panel=packet] textarea,[data-ac-panel=packet] select').forEach(e=>e.disabled=currentSessionRole==='ReadOnly');$('acPacketDiscard').disabled=currentSessionRole==='ReadOnly';if(saveBtn){saveBtn.disabled=currentSessionRole==='ReadOnly';saveBtn.textContent=saveBtn.dataset.originalText||'Save Packet Protection';delete saveBtn.dataset.originalText;}}
 }
 function acSeverityBadge(sev){const n=Number(sev||0);const label=['Info','Low','Moderate','High','Critical'][Math.max(0,Math.min(4,n))]||String(n);const cls=n>=4?'high':n>=2?'medium':'low';return `<span class="badge ${cls}">${esc(label)}</span>`;}
 async function loadAntiCheatHistory(playerFilter='',findingFilter=null){
@@ -14454,6 +14495,10 @@ async function loadAntiCheatPlayer(player){
     const fam=(d.riskFamilies||[]).map(f=>`<span class="stateChip ${f.status==='Suspicious'?'bad':f.status==='Review'?'warn':'good'}">${esc(f.family||'Risk')} ${Number(f.score||0)} · ${esc(f.status||'Clean')}</span>`).join('');
     const findings=d.findings||[];
     const occurrences=d.serverOccurrences||[];
+    $('acActivityRate').textContent=Number(d.observationElapsedSeconds||0)>=60?`${Number(d.recordedServerOccurrencesPerHour||0).toFixed(1)} recorded reports/hour · session average, not a cheat verdict`:'Occurrence rate needs at least one minute of session data.';
+    $('acExemptionList').innerHTML=(d.protectionExemptions||[]).map(x=>`<p><b>${esc(x.scope)}</b> until ${esc(acDate(x.expiresUtc))} · ${esc(x.reason)} · granted by ${esc(x.grantedBy)}</p>`).join('')||'<p>No active exemptions.</p>';
+    ['acExemptionScope','acExemptionSeconds','acExemptionReason','acExemptionGrant','acExemptionRevoke'].forEach(id=>$(id).disabled=currentSessionRole==='ReadOnly');
+    $('acServerEventTimeline').innerHTML=[...(d.recentServerEvents||[])].reverse().map(x=>`<details><summary>${esc(acDate(x.utc))} · ${esc(x.code)}</summary><p>${esc(x.summary)}</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.evidence)}</pre></details>`).join('')||'<p>No recent server events retained.</p>';
     $('acOccurrenceSummary').innerHTML='<h3>Recorded server occurrences</h3><p>Current recorded session; not a cheat verdict. Detection, correction and kick codes are counted separately. Ingress reports are rate-limited, so these are recorded reports, not every rejected packet.</p>'+ (occurrences.length?'<div class="tableWrap"><table><thead><tr><th>Detection / action</th><th>Occurrences</th><th>First</th><th>Latest</th></tr></thead><tbody>'+occurrences.map(x=>`<tr><td><code>${esc(x.code)}</code></td><td>${Number(x.count||0)}</td><td>${esc(acDate(x.firstSeenUtc))}</td><td>${esc(acDate(x.lastSeenUtc))}</td></tr>`).join('')+'</tbody></table></div>':'<p>No server occurrences recorded.</p>');
     const signalCounts={hotkeys:findings.filter(x=>String(x.code||'').startsWith('HOTKEY_')).length,commands:findings.filter(x=>String(x.code||'').startsWith('CLIENT_COMMAND_')).length,assets:findings.filter(x=>String(x.code||'').startsWith('PROTECTED_ASSET_')).length,canonical:findings.filter(x=>['MOD_CANONICAL_MISMATCH','MOD_SERVER_VERSION_MISMATCH','MOD_DLL_SET_MISMATCH','ASSEMBLY_SERVER_HASH_MISMATCH','ASSEMBLY_SIZE_MISMATCH'].includes(String(x.code||''))).length};
     const verdict=d.startupGatePending?'PENDING':String(d.startupGateVerdict||'NotStarted');
@@ -14535,6 +14580,19 @@ async function loadAntiCheatPlayer(player){
 function jumpAntiCheatDrawer(targetId){const tab=String(targetId||'').replace(/^acDrawerTab/,'').toLowerCase();if(['overview','anticheat','mods','inventory','connection','history','evidence'].includes(tab)){setAntiCheatDrawerTab(tab,true);return;}const el=$(targetId);if(!el)return;el.scrollIntoView({behavior:(currentMotionPreference==='off'||window.matchMedia('(prefers-reduced-motion: reduce)').matches||document.body.classList.contains('suiteReducedMotion'))?'auto':'smooth',block:'start'});}
 async function copyAntiCheatPlayerUid(){if(!antiCheatSelectedPlayer)return;await copyText(antiCheatSelectedPlayer,'Player UID copied.');}
 async function refreshAntiCheatPlayerDrawer(){if(!antiCheatSelectedPlayer)return;await loadAntiCheatPlayer(antiCheatSelectedPlayer);if(antiCheatDrawerTab==='inventory')await loadAntiCheatInventory(true);}
+
+$('acIncidentExport').onclick=async()=>{
+  if(!antiCheatSelectedPlayer)return;
+  try{const report=await api('/api/anticheat/incident/export?player='+encodeURIComponent(antiCheatSelectedPlayer));const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='anticheat-incident-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){toast(e.message,'error');}
+};
+async function editAntiCheatExemption(revoke){
+  if(currentSessionRole==='ReadOnly'||!antiCheatSelectedPlayer)return;
+  const seconds=Number($('acExemptionSeconds').value),reason=$('acExemptionReason').value.trim();
+  if(!revoke&&(!reason||!Number.isInteger(seconds)||seconds<1||seconds>3600)){toast('Provide a reason and a duration of 1–3600 seconds.','error');return;}
+  try{const result=await api('/api/anticheat/exemption',{method:'POST',body:JSON.stringify({player:antiCheatSelectedPlayer,scope:$('acExemptionScope').value,seconds,reason,revoke})});toast(result.message,'success');await loadAntiCheatPlayer(antiCheatSelectedPlayer);}catch(e){toast(e.message,'error');}
+}
+$('acExemptionGrant').onclick=()=>editAntiCheatExemption(false);
+$('acExemptionRevoke').onclick=()=>editAntiCheatExemption(true);
 
 async function requestAntiCheatRescan(player){if(!player)return;try{const d=await api('/api/anticheat/rescan',{method:'POST',body:JSON.stringify({player})});toast(d.message||'Rescan requested.','success');setTimeout(()=>loadAntiCheat(false),500);}catch(e){toast(e.message,'error');}}
 async function analyzeAntiCheatEvidence(fileName){

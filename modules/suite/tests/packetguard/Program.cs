@@ -181,3 +181,20 @@ pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(1200
 pendingCorrection.Stage(1000,1,0,10,20,30);Check(!pendingCorrection.Observe(1200,1,0,10,20,30,false),"Lag/mount/disabled protection cancels correction confirmation");
 nuker.Reset();for(int i=0;i<31;i++)Check(!nuker.Observe(40000,i,0,0,30,true).Kick,"Reset context cannot inherit old burst confirmation");
 Console.WriteLine("PASS: asynchronous correction arrival, timeout, identity/dimension/health exclusions and nuker context reset.");
+
+ServerProtectionExemptions.Clear();
+Check(!ServerProtectionExemptions.TryGrant("u",ServerProtectionScope.Movement,3601,"test","admin",1000),"Exemptions have a hard expiry bound");
+Check(ServerProtectionExemptions.TryGrant("u",ServerProtectionScope.Movement,60,"known launch mod","admin",1000),"Scoped temporary exemption grants");
+Check(ServerProtectionExemptions.Has("u",ServerProtectionScope.Movement,2000)&&!ServerProtectionExemptions.Has("u",ServerProtectionScope.Mining,2000),"Movement exemption cannot exempt mining");
+Check(!ServerProtectionExemptions.Has("u",ServerProtectionScope.Movement,61000),"Exemption expires");
+Check(!ServerProtectionExemptions.TryGrant("u",(ServerProtectionScope)3,60,"test","admin",1000),"Combined scopes require separate explicit grants");
+var recovery=new CorrectionRecoveryGuard();Check(!recovery.Fail(1000)&&!recovery.Fail(2000)&&recovery.Fail(3000)&&recovery.Suspended(4000),"Three failed corrections suspend recovery");
+Check(!recovery.Suspended(63000),"Recovery pause expires");recovery.Success();Check(!recovery.Fail(64000),"Successful correction resets failure count");
+var actions=new ActionRateWindow();for(int i=0;i<300;i++)actions.Observe(1000);Check(actions.Observe(1000)==256,"Action history remains bounded");Check(actions.Observe(2000)==1,"Old action observations expire");Check(actions.Observe(500)==1,"Clock regression resets rate evidence");
+Check(AntiCheatObservationPolicy.IsReviewOnly("SERVER_ACTION_COMBAT_WALL","decision=denied")&&AntiCheatObservationPolicy.IsReviewOnly("PACKET_CORRECTION_SUSPENDED",""),"New actions and recovery alerts never trigger automatic kicks");
+Console.WriteLine("PASS: scoped exemption bounds/expiry, recovery-loop guard, action history caps and advisory new-action policy.");
+
+var miningRequest=new MiningRequestObservation();miningRequest.Start(1000,1,2,3,4,"mod:pick");miningRequest.Start(1500,1,2,3,4,"mod:pick");
+Check(miningRequest.Elapsed(2000,1,2,3,4,"mod:pick")==1000,"Repeated request markers preserve first timestamp");
+Check(miningRequest.Elapsed(2000,1,2,3,4,"other:pick")==null&&miningRequest.Elapsed(32000,1,2,3,4,"mod:pick")==null,"Changed tools and stale starts cannot corroborate mining");
+Console.WriteLine("PASS: bounded mining-request evidence preserves server timing without trusting client damage amounts.");

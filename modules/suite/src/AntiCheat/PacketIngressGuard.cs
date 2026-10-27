@@ -34,6 +34,8 @@ internal sealed class PacketIngressGuard : IDisposable
     private Harmony? harmony;
     private ServerMain? server;
     private bool active;
+    private DeniedActionResynchronizer? deniedResync;
+    private readonly PacketIngressBudget resyncBudget=new();
     internal bool IsActive => active;
     internal string Status { get; private set; } = "Disabled";
     private static AccessTools.FieldRef<ReceivedClientPacket, ConnectedClient>? receivedClient;
@@ -47,6 +49,11 @@ internal sealed class PacketIngressGuard : IDisposable
 
     private sealed class ConnectionState
     {
+        internal IServerPlayer? MiningPlayer;
+        internal long MiningEntity;
+        internal readonly MiningRequestObservation MiningRequest=new();
+        internal readonly PacketIngressBudget CombatActions=new(),InventoryActions=new();
+        internal long LastResync,LastResyncError;
         internal readonly BlockNukerWindow Nuker = new();
         internal bool NukerKickPending, NukerKicked;
         internal IServerPlayer? NukerPlayer;
@@ -313,24 +320,26 @@ internal sealed class PacketIngressGuard : IDisposable
                 if (packet.BlockDamage == null || client.Player == null) return Malformed(client, packet.Id);
                 if (!BlockBudget(client)) return false;
                 if (!PacketIngressPolicy.IsValidFace(packet.BlockDamage.Facing)) return Malformed(client, packet.Id);
-                return ValidateBlockTarget(client, packet.BlockDamage.PosX, packet.BlockDamage.PosY, packet.BlockDamage.PosZ);
+                if(!ValidateBlockTarget(client, packet.BlockDamage.PosX, packet.BlockDamage.PosY, packet.BlockDamage.PosZ))return false;
+                ObserveMiningRequest(client,packet.BlockDamage);
+                return true;
             // Official protocol IDs verified against ServerSystemInventory. Preserve native
             // tabbed/ground slot semantics and all normal batch quantities.
             case 7: // ActivateInventorySlot
                 if (packet.ActivateInventorySlot == null || client.Player == null ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.ActivateInventorySlot.TargetInventoryId)) return Malformed(client, packet.Id);
-                return true;
+                return ValidateInventoryAction(client,packet.ActivateInventorySlot.TargetInventoryId,packet.ActivateInventorySlot.TargetSlot);
             case 8: // MoveItemstack
                 if (packet.MoveItemstack == null || client.Player == null ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.MoveItemstack.SourceInventoryId) ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.MoveItemstack.TargetInventoryId) ||
                     packet.MoveItemstack.Quantity < 0) return Malformed(client, packet.Id);
-                return true;
+                return ValidateInventoryAction(client,packet.MoveItemstack.SourceInventoryId,packet.MoveItemstack.SourceSlot,packet.MoveItemstack.TargetInventoryId,packet.MoveItemstack.TargetSlot);
             case 9: // FlipItemstacks
                 if (packet.Flipitemstacks == null || client.Player == null ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.Flipitemstacks.SourceInventoryId) ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.Flipitemstacks.TargetInventoryId)) return Malformed(client, packet.Id);
-                return true;
+                return ValidateInventoryAction(client,packet.Flipitemstacks.SourceInventoryId,packet.Flipitemstacks.SourceSlot,packet.Flipitemstacks.TargetInventoryId,packet.Flipitemstacks.TargetSlot);
             case 30: // InvOpenedClosed
                 if (packet.InvOpenedClosed == null || client.Player == null ||
                     !PacketIngressPolicy.IsValidInventoryId(packet.InvOpenedClosed.InventoryId)) return Malformed(client, packet.Id);
@@ -361,7 +370,7 @@ internal sealed class PacketIngressGuard : IDisposable
                     CollectibleNet.DeserializeDouble(interaction.HitX),
                     CollectibleNet.DeserializeDouble(interaction.HitY),
                     CollectibleNet.DeserializeDouble(interaction.HitZ))) return Malformed(client, packet.Id);
-                return true;
+                return interaction.MouseButton!=0 || ConsumeActionBudget(client,false);
             case Packet_ClientIdEnum.RuntimeSetting:
                 return packet.RuntimeSetting != null || Malformed(client, packet.Id);
             case Packet_ClientIdEnum.SetToolMode:
@@ -391,10 +400,117 @@ internal sealed class PacketIngressGuard : IDisposable
         return true;
     }
 
+    private void ObserveMiningRequest(ConnectedClient client,Packet_BlockDamage damage)
+    {
+        try
+        {
+            if(config.PacketGuardMiningEnabled && client.Player.WorldData.CurrentGameMode==EnumGameMode.Survival)
+                {
+                    var startPos=new BlockPos(damage.PosX,damage.PosY,damage.PosZ);
+                    var startBlock=api.World.BlockAccessor.GetBlock(startPos);
+                    var startState=connections.GetValue(client,_=>new ConnectionState());
+                    string tool=client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack?.Collectible?.Code?.ToString()??"hand";
+                    lock(startState)
+                    {
+                        if(!ReferenceEquals(startState.MiningPlayer,client.Player)||startState.MiningEntity!=client.Player.Entity.EntityId)startState.MiningRequest.Reset();
+                        startState.MiningPlayer=client.Player;startState.MiningEntity=client.Player.Entity.EntityId;
+                        if(startBlock!=null)startState.MiningRequest.Start(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),startPos.X,startPos.InternalY,startPos.Z,startBlock.Id,tool);
+                    }
+                }
+        }
+        catch(Exception ex){Report(client,"SERVER_ACTION_OBSERVER_UNAVAILABLE","Mining request observation skipped incompatible runtime state.","component=mining-start;exceptionType="+ex.GetType().Name,AntiCheatSeverity.Info);}
+    }
+
+    internal long? MiningRequestElapsed(IServerPlayer player,BlockPos pos,int blockId,string tool,long now)
+    {
+        var client=server?.GetClient(player.ClientId);
+        if(client==null||!ReferenceEquals(client.Player,player)||!connections.TryGetValue(client,out var state))return null;
+        lock(state)return ReferenceEquals(state.MiningPlayer,player)&&state.MiningEntity==player.Entity.EntityId?state.MiningRequest.Elapsed(now,pos.X,pos.InternalY,pos.Z,blockId,tool):null;
+    }
+
+    private bool ExemptNewActionContext(IServerPlayer player)=>player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
+        (config.PacketGuardExemptAdmins&&(player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver)));
+
+    private bool ConsumeActionBudget(ConnectedClient client,bool inventory)
+    {
+        var player=client.Player;
+        if(player==null||!config.Enabled || ExemptNewActionContext(player) || (inventory?!config.PacketGuardInventoryChecksEnabled:!config.PacketGuardCombatChecksEnabled))return true;
+        var scope=inventory?ServerProtectionScope.Inventory:ServerProtectionScope.Combat;
+        if(ServerProtectionExemptions.Has(player.PlayerUID,scope,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))return true;
+        var state=connections.GetValue(client,_=>new ConnectionState());bool allowed;
+        int rate=inventory?config.PacketGuardInventoryMaxRequestsPerSecond:config.PacketGuardCombatMaxRequestsPerSecond;
+        lock(state)allowed=(inventory?state.InventoryActions:state.CombatActions).TryConsume(Environment.TickCount64,rate,rate*3);
+        if(allowed)return true;
+        var health=getTickHealth();bool enforce=!config.PacketGuardNewActionShadowMode&&(!health.Enabled||(health.Ready&&!health.IsDegraded&&!health.IsCritical));
+        Report(client,inventory?"SERVER_ACTION_INVENTORY_BUDGET":"SERVER_ACTION_COMBAT_BUDGET","Expensive action budget exceeded; no automatic kick is issued by new action checks.",$"decision={(enforce?"denied":"observed")};shadow={config.PacketGuardNewActionShadowMode};rate={rate};burst={rate*3}",AntiCheatSeverity.Info);
+        return !enforce;
+    }
+
+    private bool ValidateInventoryAction(ConnectedClient client,string source,int sourceSlot,string? target=null,int targetSlot=0)
+    {
+        if(!ConsumeActionBudget(client,true)){QueueDeniedResync(client,null,source,sourceSlot,target,targetSlot);return false;}
+        var player=client.Player;
+        if(player?.InventoryManager==null||ExemptNewActionContext(player)||!config.PacketGuardInventoryChecksEnabled||
+            ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.Inventory,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))return true;
+        bool unknown=false;
+        bool Known(string id,int slot)
+        {
+            try
+            {
+
+            if(!player.InventoryManager.GetInventory(id,out var inv)||inv==null)return false;
+            // Native tabbed/ground/custom inventories keep their own virtual slot semantics.
+            bool ordinary=inv.GetType()==typeof(InventoryGeneric)||inv.GetType().FullName is "Vintagestory.Common.InventoryPlayerHotbar" or "Vintagestory.Common.InventoryPlayerBackpacks";
+            if(ordinary&&slot>=inv.Count)return false;
+            bool own=id.EndsWith("-"+player.PlayerUID,StringComparison.Ordinal);
+            return own||inv.HasOpened(player);
+            }
+            catch(Exception ex){unknown=true;Report(client,"SERVER_ACTION_OBSERVER_UNAVAILABLE","Inventory state observation skipped incompatible custom inventory state.","component=inventory-state;exceptionType="+ex.GetType().Name,AntiCheatSeverity.Info);return true;}
+        }
+        if(Known(source,sourceSlot)&&(target==null||Known(target,targetSlot)))return true;
+        if(unknown)return true;
+        bool deny=!config.PacketGuardNewActionShadowMode;
+        Report(client,"SERVER_ACTION_INVENTORY_STATE","Inventory request referenced unavailable, unopened or out-of-bounds ordinary state. Review stale UI and mod compatibility.",$"decision={(deny?"denied":"observed")};shadow={config.PacketGuardNewActionShadowMode};source={Clean(source)};sourceSlot={sourceSlot};target={Clean(target)};targetSlot={targetSlot}",AntiCheatSeverity.Info);
+        if(deny)QueueDeniedResync(client,null,source,sourceSlot,target,targetSlot);
+        return !deny;
+    }
+
+    internal void ResyncDeniedBlock(IServerPlayer player,BlockPos pos)
+    {
+        if(!active||server==null)return;
+        var client=server.GetClient(player.ClientId);
+        if(client!=null&&ReferenceEquals(client.Player,player))QueueDeniedResync(client,pos.Copy());
+    }
+
+    private void QueueDeniedResync(ConnectedClient client,BlockPos? block,string? source=null,int sourceSlot=0,string? target=null,int targetSlot=0)
+    {
+        if(!config.PacketGuardDeniedActionResyncEnabled)return;
+        var player=client.Player;if(player==null)return;
+        var state=connections.GetValue(client,_=>new ConnectionState());long now=Environment.TickCount64;
+        lock(state){if(now-state.LastResync<1000)return;state.LastResync=now;}
+        lock(resyncBudget)if(!resyncBudget.TryConsume(now,16,16))return;
+        api.Event.EnqueueMainThreadTask(()=>
+        {
+            if(!active||!ReferenceEquals(client.Player,player)||Environment.TickCount64-now>2000)return;
+            try
+            {
+                deniedResync??=new DeniedActionResynchronizer(api,config);
+                if(block!=null)deniedResync.Block(player,block);
+                if(source!=null)deniedResync.Slot(player,source,sourceSlot);
+                if(target!=null)deniedResync.Slot(player,target,targetSlot);
+            }
+            catch(Exception ex)
+            {
+                bool log;lock(state){long at=Environment.TickCount64;log=at-state.LastResyncError>=30000;if(log)state.LastResyncError=at;}
+                if(log)api.Logger.Debug("[PacketGuard] Denied action resync unavailable: {0}",ex.GetType().Name);
+            }
+        },"packetguard-denied-resync");
+    }
+
     private bool ValidateBreakBurst(ConnectedClient client,int x,int y,int z)
     {
         var player=client.Player;
-        if(!config.PacketGuardBlockNukerEnabled || player==null || player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
+        if(!config.PacketGuardBlockNukerEnabled || player==null || ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.BlockNuker,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) || player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
             (config.PacketGuardExemptAdmins && (player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver))))return true;
         var health=getTickHealth();
         bool reliable=!health.Enabled || (health.Ready && !health.IsDegraded && !health.IsCritical);
@@ -417,6 +533,7 @@ internal sealed class PacketIngressGuard : IDisposable
             result=state.Nuker.Observe(now,x,y,z,limit,reliable);
         }
         if(result.Allow)return true;
+        QueueDeniedResync(client,new BlockPos(x,y,z));
         bool emitReport,scheduleKick;
         lock(state)
         {
@@ -441,6 +558,7 @@ internal sealed class PacketIngressGuard : IDisposable
                     player.Entity==null || player.Entity.EntityId!=state.NukerEntity || (EntityRuntimeCompat.GetPos(player.Entity)?.Dimension ?? -1)!=dimension ||
                     player.WorldData.CurrentGameMode!=EnumGameMode.Survival ||
                     (config.PacketGuardExemptAdmins && (player.HasPrivilege(Privilege.root)||player.HasPrivilege(Privilege.controlserver))) ||
+                    ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.BlockNuker,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) ||
                     Environment.TickCount64-now>1000 ||
                     (currentHealth.Enabled && (!currentHealth.Ready||currentHealth.IsDegraded||currentHealth.IsCritical)))return;
                 reportFinding(player,"PACKET_BLOCK_NUKER_KICK",AntiCheatSeverity.High,

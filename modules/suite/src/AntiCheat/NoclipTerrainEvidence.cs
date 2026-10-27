@@ -58,14 +58,17 @@ internal sealed class NoclipCorrectionHistory
 internal sealed class PendingNoclipCorrection
 {
     internal bool Active { get; private set; }
+    private bool timedOut;
+    internal bool ConsumeTimeout(){bool result=timedOut;timedOut=false;return result;}
     private long requested,entity;
     private int dimension;
     private double x,y,z;
     internal void Stage(long now,long entityId,int dim,double targetX,double targetY,double targetZ)
-    {requested=now;entity=entityId;dimension=dim;x=targetX;y=targetY;z=targetZ;Active=true;}
+    {timedOut=false;requested=now;entity=entityId;dimension=dim;x=targetX;y=targetY;z=targetZ;Active=true;}
     internal bool Observe(long now,long entityId,int dim,double actualX,double actualY,double actualZ,bool eligible)
     {
         if(!Active)return false;
+        if(eligible&&entityId==entity&&dim==dimension&&now-requested>3000)timedOut=true;
         if(!eligible || entityId!=entity || dim!=dimension || now<requested || now-requested>3000 ||
             !double.IsFinite(actualX)||!double.IsFinite(actualY)||!double.IsFinite(actualZ)){Reset();return false;}
         if(now-requested<75)return false;

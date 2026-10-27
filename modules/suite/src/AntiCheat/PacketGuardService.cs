@@ -334,6 +334,10 @@ internal sealed class PacketGuardService : IDisposable
     private readonly List<IServerPlayer> sampledPlayers = new();
     private readonly Dictionary<string, EntityPos> sampledPlayerPositions = new(StringComparer.OrdinalIgnoreCase);
     private bool started;
+    private readonly Dictionary<string,long> miningProgressReportUtc=new(StringComparer.Ordinal);
+    internal string CombatCheckStatus=>actionChecks?.CombatStatus??"Inactive";
+    internal string ImpulseHookStatus=>actionChecks?.ImpulseStatus??"Inactive";
+    private ServerActionChecks? actionChecks;
     private bool movementRuntimeDisabled;
     private long lastMovementRuntimeErrorUtc;
 
@@ -359,6 +363,8 @@ internal sealed class PacketGuardService : IDisposable
         started = true;
         tickHealth.Start();
         ingressGuard.Start();
+        actionChecks=new ServerActionChecks(api,config,tickHealth.GetSnapshot,reportFinding);
+        actionChecks.Start();
 
         // Prefer a direct server-side teleport trust hook over guessing destinations. Any call to
         // EntityPlayer.TeleportToDouble originates in server/game/mod code, whereas a forged
@@ -623,6 +629,7 @@ internal sealed class PacketGuardService : IDisposable
     private void ResetPlayer(IServerPlayer player)
     {
         if (player == null || string.IsNullOrWhiteSpace(player.PlayerUID)) return;
+        miningProgressReportUtc.Remove(player.PlayerUID);
         movement.Remove(player.PlayerUID);
         flightReviews.Remove(player.PlayerUID);
         breakHistory.Remove(player.PlayerUID);
@@ -974,7 +981,7 @@ internal sealed class PacketGuardService : IDisposable
         {
             if (!flightReviews.TryGetValue(player.PlayerUID, out PacketFlightReviewWindow? window))
                 flightReviews[player.PlayerUID] = window = new PacketFlightReviewWindow();
-            bool eligible = ShouldGuard(player) && player.Entity.Alive && player.Entity.MountedOn == null &&
+            bool eligible = !ServerImpulseAllowance.Active(player.PlayerUID,now) && !ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.Movement,now) && ShouldGuard(player) && player.Entity.Alive && player.Entity.MountedOn == null &&
                 !tps.IsDegraded && !tps.IsCritical && (!tps.Enabled || tps.Ready) &&
                 !PacketGuardTrustedState.IsActive(player.PlayerUID, now, PacketGuardTrustScope.Movement);
             if (player is not ServerPlayer serverPlayer ||
@@ -1205,7 +1212,7 @@ internal sealed class PacketGuardService : IDisposable
         double timingMultiplier = tps.Enabled ? tps.TimingMultiplier : 1.0;
         foreach (IServerPlayer player in sampledPlayers)
         {
-            if (!ShouldGuard(player))
+            if (!ShouldGuard(player) || ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.Movement,now))
             {
                 movement.Remove(player.PlayerUID);
                 continue;
@@ -1245,7 +1252,11 @@ internal sealed class PacketGuardService : IDisposable
             bool correctionTimingReliable=!tps.Enabled || (tps.Ready&&!tps.IsDegraded&&!tps.IsCritical);
             if(state.PendingNoclipCorrection.Observe(now,entity.EntityId,pos.Dimension,pos.X,pos.Y,pos.Z,
                 config.Enabled && config.PacketGuardNoclipEnabled && config.PacketGuardRejectNoclip && !mounted && correctionTimingReliable))
+            {
+                state.CorrectionRecovery.Success();
                 if(RecordConfirmedNoclipCorrection(player,state,now))continue;
+            }
+            if(state.PendingNoclipCorrection.ConsumeTimeout())RecordCorrectionFailure(player,state,now);
 
             // If the sampler did not run for a meaningful interval (chunk load, save stall, heavy
             // GC, debugger pause, etc.), displacement divided across that blind interval is not
@@ -1734,6 +1745,13 @@ internal sealed class PacketGuardService : IDisposable
                     continue;
                 }
 
+                // Server-observed damage impulses relax only timing-based speed/acceleration.
+                // Hard displacement and collision checks above retain their independent bounds.
+                if(config.PacketGuardServerImpulseAllowanceEnabled && ServerImpulseAllowance.Active(player.PlayerUID,now))
+                {
+                    state.ResetAnalysis(now);state.Accept(pos,now,markSafe:false);continue;
+                }
+
                 // Acceleration is evaluated independently of rolling speed. A hacked client can
                 // ramp rapidly while keeping each speed window just under the sustained limit.
                 double positiveHorizontalAcceleration = state.ObserveAcceleration(
@@ -2207,7 +2225,8 @@ internal sealed class PacketGuardService : IDisposable
                     {
                         string code=block.Code?.ToString() ?? block.Id.ToString();
                         // Dynamic/custom geometry is review evidence, never a correction cause.
-                        bool complex=block.GetType()!=typeof(Block) || boxes.Length!=1 ||
+                        bool complex=block.IsMissing || block.Climbable || !string.IsNullOrWhiteSpace(block.EntityClass) ||
+                            (block.BlockBehaviors?.Length??0)>0 || block.GetType()!=typeof(Block) || boxes.Length!=1 ||
                             box.X1!=0 || box.Y1!=0 || box.Z1!=0 || box.X2!=1 || box.Y2!=1 || box.Z2!=1 ||
                             code.Contains("door",StringComparison.OrdinalIgnoreCase) || code.Contains("chisel",StringComparison.OrdinalIgnoreCase);
                         terrain?.Add(bx,by,bz,code,complex);
@@ -2228,9 +2247,18 @@ internal sealed class PacketGuardService : IDisposable
     {
         // Failed/unknown destinations never become punishment strikes. Start a new
         // confirmation episode after each correction, rather than recycling old samples.
-        if(state.PendingNoclipCorrection.Active || !RollbackMovement(player,state,entity,now,reason))return;
+        if(state.PendingNoclipCorrection.Active || state.CorrectionRecovery.Suspended(now))return;
+        if(!RollbackMovement(player,state,entity,now,reason)){RecordCorrectionFailure(player,state,now);return;}
         state.NoclipConfirmation.Reset();
         state.PendingNoclipCorrection.Stage(now,entity.EntityId,state.Dimension,state.X,state.Y,state.Z);
+    }
+
+    private void RecordCorrectionFailure(IServerPlayer player,MovementState state,long now)
+    {
+        if(!state.CorrectionRecovery.Fail(now))return;
+        state.NoclipConfirmation.Reset();
+        reportFinding(player,"PACKET_CORRECTION_SUSPENDED",AntiCheatSeverity.Moderate,
+            "Three failed noclip recovery attempts in 30 seconds: corrections paused for 60 seconds. Review terrain and teleport compatibility; no kick strike was added.",player.PlayerUID,"decision=suspended;pauseMs=60000;failures=3;windowMs=30000");
     }
 
     private bool RecordConfirmedNoclipCorrection(IServerPlayer player,MovementState state,long now)
@@ -2945,12 +2973,14 @@ internal sealed class PacketGuardService : IDisposable
             if (reject)
             {
                 handling = EnumHandling.PreventDefault;
+                ingressGuard.ResyncDeniedBlock(player,blockSel.Position);
                 return;
             }
         }
 
-        if (!config.PacketGuardMiningEnabled) return;
+        if (!config.PacketGuardMiningEnabled || ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.Mining,NowMs())) return;
         CheckMiningBurst(player, blockSel, ref handling);
+        if(handling==EnumHandling.PreventDefault)ingressGuard.ResyncDeniedBlock(player,blockSel.Position);
     }
 
     private bool IsBlockInReach(IServerPlayer player, BlockSelection blockSel, string action, out ReachCheckResult result)
@@ -3291,8 +3321,11 @@ internal sealed class PacketGuardService : IDisposable
             return;
         }
 
-        bool blockFromSelection = blockSel.Block != null;
-        Block? block = blockSel.Block ?? api.World.BlockAccessor.GetBlock(pos);
+        // Selection metadata can be stale or client-influenced. Mining estimates and burst
+        // grouping use the loaded authoritative world block, without generating terrain.
+        if(api.World.BlockAccessor.GetChunkAtBlockPos(pos)==null)return;
+        bool blockFromSelection = false;
+        Block? block = api.World.BlockAccessor.GetBlock(pos);
         if (block == null || block.Id <= 0)
         {
             queue.Enqueue(new BreakSample(now, pos.X, pos.Y, pos.Z, candidateDimension, 0, 0, 0, 0, 0, 0, 0));
@@ -3300,7 +3333,19 @@ internal sealed class PacketGuardService : IDisposable
         }
 
         int blockId = block.Id;
-        MiningExpectation expectation = CalculateMiningExpectation(player, blockSel, block);
+        BlockSelection miningSelection=blockSel;
+        if(blockSel.Block?.Id!=block.Id){miningSelection=blockSel.Clone();miningSelection.Block=block;}
+        MiningExpectation expectation = CalculateMiningExpectation(player, miningSelection, block);
+        long? requestedElapsed=ingressGuard.MiningRequestElapsed(player,pos,blockId,expectation.ToolCode,now);
+        if(requestedElapsed.HasValue&&expectation.Available&&expectation.ExpectedMs>=config.PacketGuardMiningCadenceMinExpectedMs&&
+            requestedElapsed.Value<expectation.ExpectedMs*effectiveCadenceRatio&&
+            (!miningProgressReportUtc.TryGetValue(player.PlayerUID,out long lastProgressReport)||now-lastProgressReport>=5000))
+        {
+            miningProgressReportUtc[player.PlayerUID]=now;
+            reportFinding(player,"SERVER_ACTION_MINING_PROGRESS",AntiCheatSeverity.Info,
+                "Mining completion followed a recent matching damage-request marker unusually quickly. This marker is client-originated and cannot prove completed work; review tools, perks and server timing.",player.PlayerUID,
+                $"decision=observed;target={pos.X},{pos.InternalY},{pos.Z};blockId={blockId};tool={expectation.ToolCode};requestElapsedMs={requestedElapsed};expectedMs={expectation.ExpectedMs:0};reliability={expectation.Reliability};clientMarkerNotProof=True;{tps.Evidence}");
+        }
         var candidate = new BreakSample(
             now, pos.X, pos.Y, pos.Z, candidateDimension, blockId,
             expectation.ExpectedMs, expectation.Resistance, expectation.MiningSpeed,
@@ -3499,6 +3544,7 @@ internal sealed class PacketGuardService : IDisposable
             blockModifier = Math.Max(0.001f, blockModifier);
 
             MiningExpectationReliability reliability = ClassifyMiningExpectation(block, collectible);
+            if(config.PacketGuardMiningReviewOnlyTools.Contains(collectible?.Code?.ToString()??"hand",StringComparer.OrdinalIgnoreCase))reliability=MiningExpectationReliability.CustomUnknown;
             // GetMiningSpeed already incorporates the held collectible's standard and behavior
             // mining modifiers. Block behavior modifiers are separate and applied here.
             double effectiveSpeed = Math.Max(0.001, miningSpeed * blockModifier);
@@ -3530,6 +3576,7 @@ internal sealed class PacketGuardService : IDisposable
                 typeof(float), typeof(float), typeof(int)
             };
             var blockBreaking = block.GetType().GetMethod(nameof(Block.OnGettingBroken), blockBreakingSignature);
+            if (HasForeignMiningPatch(blockBreaking))return MiningExpectationReliability.CustomUnknown;
             if (blockBreaking != null && blockBreaking.DeclaringType != typeof(Block))
                 return MiningExpectationReliability.CustomUnknown;
 
@@ -3544,17 +3591,20 @@ internal sealed class PacketGuardService : IDisposable
                 if (HasCustomBreakingBehavior(collectible.CollectibleBehaviors))
                     return MiningExpectationReliability.CustomUnknown;
                 var heldBreaking = collectible.GetType().GetMethod(nameof(CollectibleObject.OnBlockBreaking), blockBreakingSignature);
+                if (HasForeignMiningPatch(heldBreaking))return MiningExpectationReliability.CustomUnknown;
                 if (heldBreaking != null && heldBreaking.DeclaringType != typeof(CollectibleObject))
                     return MiningExpectationReliability.CustomUnknown;
 
                 Type[] miningSpeedSignature = { typeof(IItemStack), typeof(BlockSelection), typeof(Block), typeof(IPlayer) };
                 var miningSpeed = collectible.GetType().GetMethod(nameof(CollectibleObject.GetMiningSpeed), miningSpeedSignature);
+                if (HasForeignMiningPatch(miningSpeed))return MiningExpectationReliability.CustomUnknown;
                 if (miningSpeed != null && miningSpeed.DeclaringType != typeof(CollectibleObject))
                     return MiningExpectationReliability.Compatible;
             }
 
             Type[] resistanceSignature = { typeof(IBlockAccessor), typeof(BlockPos) };
             var resistance = block.GetType().GetMethod(nameof(Block.GetResistance), resistanceSignature);
+            if (HasForeignMiningPatch(resistance))return MiningExpectationReliability.CustomUnknown;
             if (resistance != null && resistance.DeclaringType != typeof(Block))
                 return MiningExpectationReliability.Compatible;
 
@@ -3564,6 +3614,14 @@ internal sealed class PacketGuardService : IDisposable
         {
             return MiningExpectationReliability.CustomUnknown;
         }
+    }
+
+    private static bool HasForeignMiningPatch(MethodInfo? method)
+    {
+        if(method==null)return false;
+        var patches=HarmonyLib.Harmony.GetPatchInfo(method);
+        return patches!=null&&patches.Prefixes.Concat(patches.Postfixes).Concat(patches.Transpilers).Concat(patches.Finalizers)
+            .Any(p=>!p.owner.StartsWith("newfies.serveressentials",StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool HasCustomBreakingBehavior(IEnumerable<CollectibleBehavior>? behaviors)
@@ -3666,6 +3724,8 @@ internal sealed class PacketGuardService : IDisposable
         if (!started) return;
         started = false;
         ingressGuard.Dispose();
+        actionChecks?.Dispose();
+        actionChecks=null;
         RemoveServerTeleportTrustHook();
 
         api.Event.PlayerNowPlaying -= ResetPlayer;
@@ -3682,6 +3742,7 @@ internal sealed class PacketGuardService : IDisposable
         sampledPlayerPositions.Clear();
         tickHealth.Dispose();
         movement.Clear();
+        miningProgressReportUtc.Clear();
         flightReviews.Clear();
         breakHistory.Clear();
         reachViolations.Clear();
@@ -3725,6 +3786,7 @@ internal sealed class PacketGuardService : IDisposable
         public readonly NoclipConfirmationWindow NoclipConfirmation = new();
         public readonly NoclipCorrectionHistory NoclipCorrections = new();
         public readonly PendingNoclipCorrection PendingNoclipCorrection = new();
+        public readonly CorrectionRecoveryGuard CorrectionRecovery = new();
         public bool WasMounted;
         public int MountedSuspiciousSamples;
         public long MountedSuspiciousSinceUtc;

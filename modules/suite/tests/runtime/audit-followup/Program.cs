@@ -228,6 +228,47 @@ breakBurst.Invoke(nukerGuard,[client,1,0,0]);Set(context,"NukerKickPending",true
 if(!(bool)context.GetType().GetField("NukerKickPending",fields)!.GetValue(context)!)throw new Exception("Old kick callback cleared new context pending state");
 Console.WriteLine("PASS: compiled queued Block Nuker kick respects changed limit and context generation.");
 
+
+// New action checks are observation-only by default and support scoped compatibility grants.
+var inventoryCheck=guardType.GetMethod("ValidateInventoryAction",fields)!;
+Set(nukerConfig,"PacketGuardNewActionShadowMode",true);
+if(!(bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",999,null,0])!)throw new Exception("Shadow inventory check denied an action");
+Set(nukerConfig,"PacketGuardNewActionShadowMode",false);
+if((bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",999,null,0])!)throw new Exception("Enforced ordinary inventory bounds not rejected");
+if(!(bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",0,null,0])!)throw new Exception("Valid personal slot rejected");
+Set(worldData,"GameMode",Enum.Parse(modeType,"Creative"));
+if(!(bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",999,null,0])!)throw new Exception("New survival inventory heuristic affected creative mode");
+Set(worldData,"GameMode",Enum.Parse(modeType,"Survival"));
+Type exemptionType=M("BlockLogger.AntiCheat.ServerProtectionExemptions"),scopeType=M("BlockLogger.AntiCheat.ServerProtectionScope");
+var grant=exemptionType.GetMethod("TryGrant",BindingFlags.Static|BindingFlags.NonPublic)!;
+grant.Invoke(null,["audit-fixture",Enum.Parse(scopeType,"Inventory"),60,"fixture","admin",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()]);
+if(!(bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",999,null,0])!)throw new Exception("Scoped inventory exemption was ignored");
+exemptionType.GetMethod("Clear",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+Set(nativeEntity,"Alive",true);
+Set(nukerConfig,"PacketGuardWeaponMinimumIntervalMs",new Dictionary<string,int>{{"hand",3000}});
+Type combatType=M("BlockLogger.AntiCheat.ServerActionChecks");
+object Combat()=>Activator.CreateInstance(combatType,fields,null,new[]{sessionApi,nukerConfig,health,reporter},null)!;
+var interact=combatType.GetMethod("OnInteract",fields)!;
+var handlingType=interact.GetParameters()[5].ParameterType.GetElementType()!;
+bool Attack(object observer){object?[] a=[nativeEntity,player,null,null,0,Enum.Parse(handlingType,"PassThrough")];interact.Invoke(observer,a);return a[5]!.ToString()=="PreventDefault";}
+Set(nukerConfig,"PacketGuardNewActionShadowMode",true);var shadowCombat=Combat();for(int n=0;n<5;n++)if(Attack(shadowCombat))throw new Exception("Shadow combat check denied an action");
+Set(nukerConfig,"PacketGuardNewActionShadowMode",false);var enforcedCombat=Combat();bool stopped=false;for(int n=0;n<5;n++)stopped|=Attack(enforcedCombat);if(!stopped)throw new Exception("Configured rapid weapon cadence was not denied");
+grant.Invoke(null,["audit-fixture",Enum.Parse(scopeType,"Combat"),60,"fixture","admin",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()]);
+var exemptCombat=Combat();for(int n=0;n<5;n++)if(Attack(exemptCombat))throw new Exception("Combat exemption was ignored");
+exemptionType.GetMethod("Clear",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+for(int n=0;n<100;n++)storeOccurrence.Invoke(null,[occurrenceSession,occurrenceFinding,3000L+n]);
+if(((IList)occurrenceSession.GetType().GetProperty("RecentServerEvents")!.GetValue(occurrenceSession)!).Count!=64)throw new Exception("Recent-event timeline exceeded its bound");
+Console.WriteLine("PASS: shadow/enforced inventory and weapon checks, scoped exemptions, valid personal slots and bounded server-event timeline.");
+
+
+// Optional observations must not create new native dispatch exceptions.
+var originalInventories=inventoriesField.GetValue(manager);inventoriesField.SetValue(manager,null);
+try{if(!(bool)inventoryCheck.Invoke(nukerGuard,[client,"hotbar-audit-fixture",0,null,0])!)throw new Exception("Unavailable inventory observation did not fail open");}
+finally{inventoriesField.SetValue(manager,originalInventories);}
+var marker=Activator.CreateInstance(E("Packet_BlockDamage"))!;
+guardType.GetMethod("ObserveMiningRequest",fields)!.Invoke(nukerGuard,[client,marker]);
+Console.WriteLine("PASS: unavailable optional inventory/mining observations fail open with rate-limited diagnostics.");
+
 static object Proxy(Type type, Func<MethodInfo, object?[]?, object?> handler) {
     object result = DispatchProxy.Create(type, typeof(AuditProxy));
     ((AuditProxy)result).Handler = handler; return result;

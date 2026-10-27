@@ -37,7 +37,7 @@ internal sealed class OreShieldPalette
 
         foreach (Block? block in world.Blocks)
         {
-            if (block?.Code == null || block.Id < 0 || block.Id >= count) continue;
+            if (block?.Code == null || block.IsMissing || block.Id < 0 || block.Id >= count) continue;
 
             bool opaque = IsSafeOpaqueCube(block, world.BlockAccessor);
             Opaque[block.Id] = opaque;
@@ -73,7 +73,7 @@ internal sealed class OreShieldPalette
 
         foreach (Block? block in world.Blocks)
         {
-            if (block?.Code == null || block.Id <= 0 || block.Id >= count) continue;
+            if (block?.Code == null || block.IsMissing || block.Id <= 0 || block.Id >= count) continue;
 
             string? rock = GetRockVariant(block);
             if (string.IsNullOrWhiteSpace(rock) || !LooksLikeOre(block, config)) continue;
@@ -86,7 +86,7 @@ internal sealed class OreShieldPalette
             }
 
             Block? host = ResolveHost(block, rock, hostsByRock);
-            if (host == null || host.Id <= 0 || host.Id >= count || !IsVirtualizationCompatible(block, host, world.BlockAccessor))
+            if (host == null || host.IsMissing || host.Id <= 0 || host.Id >= count || !IsVirtualizationCompatible(block, host, world.BlockAccessor))
             {
                 skipped++;
                 if (skippedCodes.Count < 32) skippedCodes.Add($"{block.Code} (no safe exact host)");
@@ -154,6 +154,7 @@ internal sealed class OreShieldPalette
 
     private static bool IsSafeOpaqueCube(Block block, IBlockAccessor blockAccessor)
     {
+        if(block.IsMissing || block.Code==null)return false;
         try
         {
             // Do not bind Ore Shield to ABI-sensitive block fields when Vintage Story already

@@ -48,7 +48,9 @@ setBlock.Invoke(data, new object[] { exposed + 1, 0 });
 var accessorType = T("Vintagestory.API.Common.IBlockAccessor");
 object[] fixtureBlocks = Enumerable.Range(0, 5).Select(id => { var block = Activator.CreateInstance(T("Vintagestory.API.Common.Block"))!; Set(block, "BlockId", id); return block; }).ToArray();
 int worldReads = 0;
+bool deniedResyncProbe=false;
 object accessor = Proxy(accessorType, (method, args) => {
+    if (method.Name == "GetChunkAtBlockPos" && deniedResyncProbe)return chunk;
     if (method.Name == "GetChunk") worldReads++;
     if (method.Name == "GetBlock" && args?[0]?.GetType() == T("Vintagestory.API.MathTools.BlockPos")) {
         object p = args[0]!;
@@ -83,7 +85,7 @@ object api = Proxy(apiType, (method, arguments) => method.Name switch {
         if (sm.Name == "StoreData") { if (failStore) throw new IOException("Injected save failure"); placedSave[(string)sa![0]!] = (byte[])sa[1]!; return null; }
         return Default(sm.ReturnType);
     }) : Default(m.ReturnType)),
-    "get_World" => Proxy(method.ReturnType, (m, a) => m.Name == "get_AllOnlinePlayers" ? Array.CreateInstance(m.ReturnType.GetElementType()!, 0) : m.Name == "PlayerByUid" ? veinMiner : Default(m.ReturnType)),
+    "get_World" => Proxy(method.ReturnType, (m, a) => m.Name == "get_BlockAccessor" && deniedResyncProbe ? accessor : m.Name == "get_AllOnlinePlayers" ? Array.CreateInstance(m.ReturnType.GetElementType()!, 0) : m.Name == "PlayerByUid" ? veinMiner : Default(m.ReturnType)),
     _ => Default(method.ReturnType)
 });
 object virtualizer = Activator.CreateInstance(virtualizerType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { api, server, config, palette, null, null }, null)!;
@@ -334,6 +336,30 @@ try {
         if(jobs.Count!=0)throw new Exception("Disabled vein reveal retained queued work");
         Console.WriteLine("PASS: diagonal-only mixed-grade vein is discovered for the miner, bounded at 64 cells; all 125 cells reveal at a higher cap without revealing adjacent hematite; host-rock mining does not reveal deposits and disabling clears queued jobs.");
     }
+
+    // Denied-action sync must not expose ore membership through different transports.
+    var channelField=Field(virtualizerType,"oreShieldSyncChannel");var supportField=Field(virtualizerType,"supportsClientSync");
+    var originalChannel=channelField.GetValue(virtualizer);var originalSupport=supportField.GetValue(virtualizer);
+    var clientsField=Field(serverType,"Clients");var originalClients=clientsField.GetValue(server);
+    try {
+        deniedResyncProbe=true;
+        channelField.SetValue(virtualizer,Proxy(channelField.FieldType,(m,a)=>Default(m.ReturnType)));
+        var supportParameter=System.Linq.Expressions.Expression.Parameter(supportField.FieldType.GetGenericArguments()[0]);
+        supportField.SetValue(virtualizer,System.Linq.Expressions.Expression.Lambda(supportField.FieldType,System.Linq.Expressions.Expression.Constant(true),supportParameter).Compile());
+        object syncPlayer=RuntimeHelpers.GetUninitializedObject(T("Vintagestory.Server.ServerPlayer"));
+        var syncDataField=Field(syncPlayer.GetType(),"worlddata");object syncData=RuntimeHelpers.GetUninitializedObject(syncDataField.FieldType);
+        Set(syncData,"PlayerUID","uniform-denial");syncDataField.SetValue(syncPlayer,syncData);Set(syncPlayer,"client",unknown);
+        var clients=(IDictionary)Activator.CreateInstance(clientsField.FieldType)!;clients.Add(2,unknown);clientsField.SetValue(server,clients);
+        ((HashSet<long>)Field(clientType,"ChunkSent").GetValue(unknown)!).Add(0);
+        Call(virtualizer,"ResyncDeniedAction",syncPlayer,Position(10));
+        Call(virtualizer,"ResyncDeniedAction",syncPlayer,Position(11));
+        var outbox=(IDictionary)Field(virtualizerType,"clientSyncOutbox").GetValue(virtualizer)!;
+        var groups=outbox.Keys.Cast<object>().Where(k=>(string)k.GetType().GetProperty("PlayerUid")!.GetValue(k)! =="uniform-denial").ToList();
+        if(groups.Count!=1 || (bool)groups[0].GetType().GetProperty("Stabilize")!.GetValue(groups[0])!)throw new Exception("Denied cells did not share one ordinary recipient sync transport");
+        var queuedCells=(IDictionary)Field(outbox[groups[0]]!.GetType(),"Positions").GetValue(outbox[groups[0]]!)!;
+        if(queuedCells.Count!=2)throw new Exception("Ordinary and ore cells did not both queue for uniform resynchronization");
+        Console.WriteLine("PASS: denied ordinary/ore cells share one recipient-masked world-update transport; no raw ore fallback or block-type packet distinction.");
+    } finally {deniedResyncProbe=false;channelField.SetValue(virtualizer,originalChannel);supportField.SetValue(virtualizer,originalSupport);clientsField.SetValue(server,originalClients);}
     Console.WriteLine("PASS: real patched 1.22.7 collectChunk, compressed buried/cave ore concealed per recipient, legitimate discoveries/placed ore retained, canonical payload immutable, shared mask cache reused, repeated sends and nested/cross-recipient wrappers isolated. No server/world started.");
 } finally {
     Field(serviceType, "current").SetValue(null, null);

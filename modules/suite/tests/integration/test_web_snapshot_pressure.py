@@ -3,7 +3,7 @@ Requires NSS_WEB_TEST_BASELINE, VINTAGE_STORY and DOTNET_ROOT; never use live da
 Credentials are random, private to ignored artifacts, and absent from the report.
 """
 from pathlib import Path
-import concurrent.futures, http.cookiejar, json, os, re, secrets, shutil
+import concurrent.futures, hashlib, http.cookiejar, json, os, re, secrets, shutil, zipfile
 import sqlite3, subprocess, threading, time, urllib.error, urllib.request
 repo = Path(__file__).resolve().parents[4]
 suite_version = next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')
@@ -46,6 +46,7 @@ web.update(Enabled=True, BindAddress='127.0.0.1', Port=web_port, AdminUsername='
            Password=password, PasswordSalt='', PasswordHash='', SafeDiagnosticsMode=False,
            SecureCookies=False)
 webfile.write_text(json.dumps(web))
+server_protection_test = os.environ.get('NSS_WEB_TEST_SERVER_PROTECTION') == '1'
 performance_test = os.environ.get('NSS_WEB_TEST_PERFORMANCE') == '1'
 proximity_test = os.environ.get('NSS_WEB_TEST_PROXIMITY') == '1'
 if proximity_test:
@@ -59,6 +60,12 @@ translocator_test = os.environ.get('NSS_WEB_TEST_TRANSLOCATORS') == '1'
 if translocator_test:
     features['WebMap'] = True
     (folder / 'NewfiesWebMap.json').write_text(json.dumps(dict(Enabled=True,BindAddress='127.0.0.1',Port=int(os.environ.get('NSS_WEB_MAP_PORT','42994')),ShowTranslocators=True,TranslocatorDiscoveryRadius=8)))
+if server_protection_test:
+    features['AntiCheat'] = True
+    ac_file=folder/'NewfiesAntiCheat.json'
+    ac=json.loads(ac_file.read_text()) if ac_file.exists() else {}
+    ac.update(Enabled=True,PacketGuardEnabled=True,PacketGuardIngressEnabled=True,ClientModDbVerificationEnabled=False)
+    ac_file.write_text(json.dumps(ac))
 f.write_text(json.dumps(features))
 base = 'http://127.0.0.1:' + str(web_port)
 lines = []
@@ -91,10 +98,36 @@ try:
         time.sleep(.2)
     assert request('/api/header')[0] == 401
     assert request('/api/login', {'username':'fixtureowner','password':password})[0] == 200
-    if proximity_test or performance_test or optimizer_test or translocator_test or all_modules_test:
+    if proximity_test or performance_test or optimizer_test or translocator_test or all_modules_test or server_protection_test:
         session_status, session_data, _, _ = request('/api/session')
         assert session_status == 200
         csrf_token = session_data['csrfToken']
+    if server_protection_test:
+        assert request('/api/anticheat/incident/export?player=missing',opener=urllib.request.build_opener())[0]==401
+        code,ac,_,_=request('/api/anticheat')
+        assert code==200 and ac['packetGuard']['ingressActive'],(code,ac.get('packetGuard'))
+        pg=ac['packetGuard']
+        assert all(k in pg for k in ('newActionShadowMode','combatChecksEnabled','inventoryChecksEnabled','deniedActionResyncEnabled','weaponMinimumIntervalMs'))
+        pg.update(newActionShadowMode=True,combatChecksEnabled=True,inventoryChecksEnabled=True,weaponMinimumIntervalMs={'game:sword-test':300},miningReviewOnlyTools=['mod:specialpick'])
+        code,saved,_,_=request('/api/anticheat/packetguard',pg)
+        assert code==200 and saved['packetGuard']['weaponMinimumIntervalMs']=={'game:sword-test':300}
+        for attempt in range(8):
+            code,ac,_,_=request('/api/anticheat')
+            if code==200 and ac['packetGuard']['weaponMinimumIntervalMs']=={'game:sword-test':300}:break
+            time.sleep(.5)
+        else:raise AssertionError('Applied protection settings never reached the cached snapshot')
+        assert request('/api/anticheat/incident/export?player=missing')[0]==404
+        saved_csrf=csrf_token;csrf_token=''
+        assert request('/api/anticheat/exemption',{'player':'missing','scope':'Movement','seconds':60,'reason':'fixture'})[0]==403
+        csrf_token=saved_csrf
+        read_password=secrets.token_hex(24)
+        assert request('/api/web/accounts/create',dict(username='fixtureviewer',password=read_password,role='ReadOnly'))[0]==200
+        viewer=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        assert request('/api/login',dict(username='fixtureviewer',password=read_password),viewer)[0]==200
+        _,viewer_session,_,_=request('/api/session',opener=viewer)
+        csrf_token=viewer_session['csrfToken']
+        assert request('/api/anticheat/exemption',{'player':'missing','scope':'Movement','seconds':60,'reason':'fixture'},viewer)[0]==403
+        csrf_token=saved_csrf
     if proximity_test:
         status, chat, _, _ = request('/api/chat-display')
         assert status == 200 and chat['proximityEnabled'] and chat['proximityGroupId'] > 0 and chat['proximityStatus'].startswith('Active')
@@ -217,8 +250,12 @@ try:
                   headerBytes=header_bytes, dashboardBytes=dashboard_bytes, serverStatusBytes=status_bytes,
                   headerRequestMaxMs=round(max(r[3] for r in results),2),
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
-                  proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test, allModulesInstalled=all_modules_test,
+                  serverProtectionChecks=server_protection_test, proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test, allModulesInstalled=all_modules_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
+    with zipfile.ZipFile(mods/('NewfiesServerEssentialsSuiteV'+suite_version+'.zip')) as installed:
+        report['suiteDllSha256']=hashlib.sha256(installed.read('NewfiesServerEssentialsSuite.dll')).hexdigest()
+    if server_protection_test:
+        report['serverActionStatuses']={key:ac['packetGuard'].get(key) for key in ('combatCheckStatus','impulseHookStatus','newActionShadowMode')}
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2), flush=True)
 finally:

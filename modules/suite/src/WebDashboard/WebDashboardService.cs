@@ -174,6 +174,8 @@ public sealed partial class WebDashboardService : IDisposable
         new() { Method = "GET", Path = "/api/anticheat/status", Access = "Authenticated read", Risk = "Lightweight Anti-Cheat navigation health counters only", Safety = "Safe" },
         new() { Method = "GET", Path = "/api/anticheat", Access = "Authenticated read", Risk = "Read-only anti-cheat client/session status", Safety = "Moderate" },
         new() { Method = "GET", Path = "/api/anticheat/client-mods", Access = "Authenticated read", Risk = "On-demand client mod comparison inventories", Safety = "Moderate" },
+        new() { Method = "GET", Path = "/api/anticheat/incident/export", Access = "Authenticated read", Risk = "Exports bounded anti-cheat incident, mod versions and protection settings", Safety = "Moderate" },
+        new() { Method = "POST", Path = "/api/anticheat/exemption", Access = "Administrator/Owner + CSRF", Risk = "Grants or revokes a temporary scoped server protection exemption", Safety = "High", CooldownSeconds = 1 },
         new() { Method = "GET", Path = "/api/anticheat/player", Access = "Authenticated read", Risk = "Sensitive anti-cheat client mod/finding detail", Safety = "Moderate" },
         new() { Method = "GET", Path = "/api/anticheat/history", Access = "Authenticated read", Risk = "Persistent anti-cheat incident history including evidence and positions", Safety = "Moderate" },
         new() { Method = "POST", Path = "/api/anticheat/history/clear", Access = "Administrator/Owner + CSRF", Risk = "Permanently deletes all persistent anti-cheat incident reports", Safety = "High", CooldownSeconds = 2 },
@@ -4674,6 +4676,21 @@ public sealed partial class WebDashboardService : IDisposable
             return;
         }
 
+        if (request.Method == "GET" && path == "/api/anticheat/incident/export")
+        {
+            string player=GetQuery(request,"player","").Trim();
+            var payload=await RunOnMainThreadAsync(()=>module.AntiCheat?.ExportServerIncident(player),"web-anticheat-incident-export").ConfigureAwait(false);
+            await WriteJsonAsync(stream,payload==null?404:200,payload??new{error="No player session found."},cancellationToken).ConfigureAwait(false);return;
+        }
+        if (request.Method == "POST" && path == "/api/anticheat/exemption")
+        {
+            string player=GetJsonString(request.Body,"player","").Trim(),scope=GetJsonString(request.Body,"scope","").Trim(),reason=GetJsonString(request.Body,"reason","").Trim();
+            int seconds=GetJsonInt(request.Body,"seconds",300);bool revoke=GetJsonBool(request.Body,"revoke",false);
+            var result=await RunOnMainThreadAsync(()=>module.AntiCheat?.SetProtectionExemption(player,scope,seconds,reason,requestActor,revoke)??(Success:false,Message:"Anti-cheat unavailable."),"web-anticheat-exemption").ConfigureAwait(false);
+            RecordWebAudit("anticheat-exemption",$"player={player};scope={scope};seconds={seconds};revoke={revoke};reason={reason}",result.Success?"Success":result.Message,remoteText,requestActor);
+            await WriteJsonAsync(stream,result.Success?200:400,new{success=result.Success,message=result.Message},cancellationToken).ConfigureAwait(false);return;
+        }
+
         if (request.Method == "GET" && path == "/api/anticheat/player")
         {
             string player = GetQuery(request, "player", "").Trim();
@@ -4815,7 +4832,11 @@ public sealed partial class WebDashboardService : IDisposable
             }
 
             var result = await RunOnMainThreadAsync(
-                () => module.AntiCheat?.SavePacketGuardSettings(payload ?? new AntiCheatPacketGuardSaveRequest()) ?? (Success: false, Message: "Anti-cheat service is unavailable."),
+                () =>
+                {
+                    var saved=module.AntiCheat?.SavePacketGuardSettings(payload ?? new AntiCheatPacketGuardSaveRequest()) ?? (Success: false, Message: "Anti-cheat service is unavailable.");
+                    return (saved.Success,saved.Message,Applied:saved.Success?module.AntiCheat?.GetAppliedPacketGuardSettings():null);
+                },
                 "web-anticheat-packetguard").ConfigureAwait(false);
             RecordWebAudit(
                 "anticheat-packetguard-save",
@@ -4823,7 +4844,7 @@ public sealed partial class WebDashboardService : IDisposable
                 result.Success ? "Success" : result.Message,
                 remoteText,
                 requestActor);
-            await WriteJsonAsync(stream, result.Success ? 200 : 400, new { success = result.Success, message = result.Message }, cancellationToken).ConfigureAwait(false);
+            await WriteJsonAsync(stream, result.Success ? 200 : 400, new { success = result.Success, message = result.Message, packetGuard=result.Applied }, cancellationToken).ConfigureAwait(false);
             return;
         }
 

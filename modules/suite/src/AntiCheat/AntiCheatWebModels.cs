@@ -634,6 +634,10 @@ public sealed class AntiCheatPlayerWebSnapshot
     public int NetworkPacketsDropped { get; set; }
     public string LastConsequence { get; set; } = "";
     public long LastConsequenceUtc { get; set; }
+    public List<AntiCheatServerEvent> RecentServerEvents { get; set; } = new();
+    public List<ServerProtectionExemption> ProtectionExemptions { get; set; } = new();
+    public long ObservationElapsedSeconds { get; set; }
+    public double RecordedServerOccurrencesPerHour { get; set; }
     public List<AntiCheatOccurrenceWebSnapshot> ServerOccurrences { get; set; } = new();
     public List<AntiCheatFindingWebSnapshot> Findings { get; set; } = new();
     public List<AntiCheatModWebSnapshot> Mods { get; set; } = new();
@@ -853,7 +857,20 @@ public sealed class AntiCheatPacketGuardWebSnapshot
 {
     public int ConfirmedSpeedRepeatRisk { get; set; }
     public bool KickRepeatedConfirmedSpeed { get; set; }
+    public string CombatCheckStatus {get;set;}="Inactive";
+    public string ImpulseHookStatus {get;set;}="Inactive";
     public bool NoclipKickAfterCorrections { get; set; } = true;
+    public bool NewActionShadowMode { get; set; } = true;
+    public bool CombatChecksEnabled { get; set; } = true;
+    public bool InventoryChecksEnabled { get; set; } = true;
+    public bool DeniedActionResyncEnabled { get; set; } = true;
+    public bool EscalationWarningsEnabled { get; set; } = true;
+    public bool ServerImpulseAllowanceEnabled { get; set; } = true;
+    public int CombatMaxRequestsPerSecond { get; set; } = 20;
+    public int InventoryMaxRequestsPerSecond { get; set; } = 100;
+    public Dictionary<string,int> WeaponMinimumIntervalMs {get;set;} = new();
+    public List<string> MiningReviewOnlyTools {get;set;} = new();
+
     public bool BlockNukerEnabled { get; set; } = true;
     public int BlockNukerLimit { get; set; } = 30;
     public bool BlockNukerKickEnabled { get; set; } = true;
@@ -1041,6 +1058,17 @@ public sealed class AntiCheatPacketGuardSaveRequest
     public int? ConfirmedSpeedRepeatRisk { get; set; }
     public bool? KickRepeatedConfirmedSpeed { get; set; }
     public bool? NoclipKickAfterCorrections { get; set; }
+    public bool? NewActionShadowMode { get; set; }
+    public bool? CombatChecksEnabled { get; set; }
+    public bool? InventoryChecksEnabled { get; set; }
+    public bool? DeniedActionResyncEnabled { get; set; }
+    public bool? EscalationWarningsEnabled { get; set; }
+    public bool? ServerImpulseAllowanceEnabled { get; set; }
+    public int? CombatMaxRequestsPerSecond { get; set; }
+    public int? InventoryMaxRequestsPerSecond { get; set; }
+    public Dictionary<string,int>? WeaponMinimumIntervalMs {get;set;}
+    public List<string>? MiningReviewOnlyTools {get;set;}
+
     public bool? BlockNukerEnabled { get; set; }
     public int? BlockNukerLimit { get; set; }
     public bool? BlockNukerKickEnabled { get; set; }
