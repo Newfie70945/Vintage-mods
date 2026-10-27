@@ -41,4 +41,5 @@
   <ItemGroup>
     <Compile Include="../shared/Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
   </ItemGroup>
+  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

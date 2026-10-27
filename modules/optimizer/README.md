@@ -1,4 +1,6 @@
-# Newfie's Server Optimizer 0.20.16 preview
+# Newfie's Server Optimizer 0.20.17 preview
+
+0.20.17 adds optional [same-cell dropped-item clumping](docs/dropped-items-0.20.17.md), controlled from the Suite and disabled by default.
 
 0.20.16 hardens installation rollback and late runtime compatibility detection. [Audit findings and remaining performance priorities](docs/audit-0.20.16.md).
 

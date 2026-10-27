@@ -8,6 +8,10 @@ public sealed partial class OptimizerMod : ModSystem
 {
     private RuntimeProfiler? profiler;
     private EngineOptimizations? optimizations;
+    private DroppedItemClumping? droppedItems;
+    private ModuleStatus[] CurrentModules() => (optimizations?.Modules() ?? []).Concat(droppedItems == null ? [] : new[] { droppedItems.Status }).ToArray();
+    private IReadOnlyDictionary<string,long> CurrentCounters() { var result=new Dictionary<string,long>(optimizations?.Counters() ?? new Dictionary<string,long>());if(droppedItems!=null)foreach(var pair in droppedItems.Counters)result[pair.Key]=pair.Value;return result; }
+    private void StartDroppedItems() => droppedItems=new(api!,currentConfig!,()=>optimizations==null?"Engine compatibility unavailable.":optimizations.RuntimeGuardReason);
     private ICoreServerAPI? api;
     public override bool ShouldLoad(EnumAppSide side) => side == EnumAppSide.Server;
     public override void StartServerSide(ICoreServerAPI api)
@@ -29,12 +33,12 @@ public sealed partial class OptimizerMod : ModSystem
             api.Logger.Error("[NewfiesOptimizer] Profiler initialization unavailable ({0}); no optimizer hooks installed. Server gameplay continues.", error.GetType().Name);
             return;
         }
-        try { optimizations = new(api, config); profiler.ExternalModules = optimizations.Modules; profiler.ExternalCounters = optimizations.Counters; }
+        try { optimizations = new(api, config); StartDroppedItems(); profiler.ExternalModules = CurrentModules; profiler.ExternalCounters = CurrentCounters; }
         catch (Exception error) { api.Logger.Error("[NewfiesOptimizer] Engine modules unavailable ({0}); profiling remains available.", error.GetType().Name); }
         var root = api.ChatCommands.Create("optimizer").WithDescription("Server API optimization modules, diagnostics and bounded profiling.")
             .RequiresPrivilege(Privilege.controlserver).HandleWith(_ => TextCommandResult.Success(Status()));
         root.BeginSubCommand("status").HandleWith(_ => TextCommandResult.Success(Status())).EndSubCommand();
-        root.BeginSubCommand("modules").HandleWith(_ => TextCommandResult.Success(optimizations?.Status() ?? "Engine modules unavailable.")).EndSubCommand();
+        root.BeginSubCommand("modules").HandleWith(_ => TextCommandResult.Success(string.Join("\n",CurrentModules().Select(m=>$"{m.Name}: {m.Status} — {m.Reason}")))).EndSubCommand();
         var profile = root.BeginSubCommand("profile").WithDescription("Start/stop a bounded profiler capture.");
         profile.BeginSubCommand("start").HandleWith(_ => TextCommandResult.Success(profiler.Start())).EndSubCommand();
         profile.BeginSubCommand("stop").HandleWith(_ => TextCommandResult.Success(profiler.Stop())).EndSubCommand();
@@ -53,7 +57,7 @@ public sealed partial class OptimizerMod : ModSystem
         {
             if (config.Enabled && config.Profiling.AutoStart) api.Logger.Notification("[NewfiesOptimizer] " + profiler.Start());
         });
-        api.Logger.Notification("[NewfiesOptimizer] 0.20.16 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
+        api.Logger.Notification("[NewfiesOptimizer] 0.20.17 engine-patch preview ready. /optimizer status and /optimizer modules show actual activation state.");
     }
 
     private string Status() => (profiler?.Status() ?? "Profiler unavailable") + "\n" + (optimizations?.Status() ?? "Engine modules unavailable");
@@ -79,5 +83,5 @@ public sealed partial class OptimizerMod : ModSystem
             _ => profiler.Status()
         };
     }
-    public override void Dispose() { bridgeActive=false; optimizations?.Dispose(); optimizations = null; profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
+    public override void Dispose() { bridgeActive=false; droppedItems?.Dispose(); droppedItems=null; optimizations?.Dispose(); optimizations = null; profiler?.Dispose(); profiler = null; api = null; base.Dispose(); }
 }

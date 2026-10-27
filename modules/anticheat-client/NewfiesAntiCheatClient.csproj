@@ -38,4 +38,5 @@
       Text="VINTAGE_STORY must point to the Vintage Story install folder. VintagestoryAPI.dll was not found at $(VINTAGE_STORY)." />
   </Target>
 
+  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

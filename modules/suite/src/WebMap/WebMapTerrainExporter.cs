@@ -93,6 +93,7 @@ internal sealed partial class WebMapTerrainExporter
 
     public bool Export(WebMapConfig config, string trigger = "startup", bool requireIncremental = false)
     {
+        using var exportBuffers = BeginExportBuffers();
         using var exportEntityLogScope = WebMapExportLogSuppressor.Begin(api);
         var totalSw = Stopwatch.StartNew();
         var status = new WebMapTerrainExportStatus
@@ -265,16 +266,7 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            // The using reader and parallel worker readers are already disposed here.
-            // Drop export-only references even if a caller keeps this exporter for diagnostics.
-            blockColorCache.Clear();
-            blockColorById = Array.Empty<Rgb>();
-            blockPalettePrimed = 0;
-            lock (sampledBlockCountsLock) sampledBlockCounts.Clear();
-            recentTileMilliseconds.Clear();
-            status.ExportResourcesReleased = true;
-            status.ManagedHeapBytesAtEnd = GC.GetTotalMemory(false);
-            status.ProcessWorkingSetBytesAtEnd = ReadProcessWorkingSet();
+            ReleaseExportResources(status,exportBuffers);
             publishStatus(status.Clone());
             api.Logger.Notification("[ServerEssentials/WebMap] export resources released. managedHeap={0:n0}->{1:n0} bytes, processWorkingSet={2:n0}->{3:n0} bytes, legacyWorldColumns={4:n0}. Managed heap and OS/container memory can remain high until normal collection/cache reclaim.",
                 status.ManagedHeapBytesAtStart, status.ManagedHeapBytesAtEnd, status.ProcessWorkingSetBytesAtStart, status.ProcessWorkingSetBytesAtEnd, status.WorldLoaderChunkColumns);
@@ -295,6 +287,7 @@ internal sealed partial class WebMapTerrainExporter
     /// </summary>
     public async Task<bool> ExportRuntimeForcedAsync(WebMapConfig config, CancellationToken cancellationToken, bool fullRebuild, bool automatic = false)
     {
+        using var exportBuffers = BeginExportBuffers();
         automaticSavedTerrainOnly = automatic;
         loadedDirtyOnly = false;
         using var exportEntityLogScope = automatic ? null : WebMapExportLogSuppressor.Begin(api);
@@ -312,6 +305,7 @@ internal sealed partial class WebMapTerrainExporter
             PeakWorkingBufferBytes = (long)config.TerrainTileSize * config.TerrainTileSize * 5,
             Trigger = fullRebuild ? "forced-full" : "runtime-update",
             ExportMode = fullRebuild ? "forced-full" : "runtime-incremental",
+            ManagedHeapBytesAtStart=GC.GetTotalMemory(false),ProcessWorkingSetBytesAtStart=ReadProcessWorkingSet(),
             EstimatedRemainingMilliseconds = -1
         };
         publishStatus(status.Clone());
@@ -333,7 +327,7 @@ internal sealed partial class WebMapTerrainExporter
             if (automatic) api.Logger.Debug("[ServerEssentials/WebMap] checking saved exploration for a bounded automatic terrain update.");
             else api.Logger.Warning(
                 fullRebuild
-                    ? "[ServerEssentials/WebMap] administrator started a FULL live terrain rebuild. The read-only save-DB terrain path will be preferred, with cooperative world loading as fallback."
+                    ? "[ServerEssentials/WebMap] administrator started a FULL live terrain rebuild. The read-only save-DB terrain path will be preferred, without world-loading fallback in direct-database mode."
                     : "[ServerEssentials/WebMap] administrator started a changed-terrain live update. Only dirty/new/missing terrain tiles will be rendered; the read-only save-DB terrain path is preferred.");
 
             if (!automatic) await PrimeBlockColorCacheOnMainThreadAsync(cancellationToken).ConfigureAwait(false);
@@ -344,9 +338,19 @@ internal sealed partial class WebMapTerrainExporter
             status.CoverageScanMilliseconds = coverageSw.ElapsedMilliseconds;
             status.TotalChunkColumns = coverage.ChunkColumns;
             using WebMapSaveDbTerrainReader? directReader = OpenDirectSaveReader(config, savePath, status);
+            if(config.UseDirectSaveDatabaseTerrain && (directReader==null||!directReader.IsActive))
+                throw new InvalidOperationException("Safe save-database terrain decoding is unavailable; the published map and dirty work were kept without loading terrain.");
             var liveDirtyChunks = new HashSet<ChunkCoord>(dirtySnapshot
                 .Where(d => d.Dimension == 0)
                 .Select(d => new ChunkCoord(d.ChunkX, d.ChunkZ)));
+            if(config.UseDirectSaveDatabaseTerrain && !automatic && dirtySnapshot.Count>0)
+            {
+                var resident=await FilterResidentCandidatesAsync(dirtySnapshot.Where(d=>d.Dimension==0).ToArray(),cancellationToken).ConfigureAwait(false);
+                int before=dirtySnapshot.Count;
+                dirtySnapshot.RemoveWhere(d=>!resident.Contains(d));
+                liveDirtyChunks.IntersectWith(dirtySnapshot.Select(d=>new ChunkCoord(d.ChunkX,d.ChunkZ)));
+                status.DeferredDirtyChunkCount=before-dirtySnapshot.Count;status.DirtyChunkCount=dirtySnapshot.Count;
+            }
             if (automatic)
             {
                 if (directReader == null || !directReader.IsActive)
@@ -465,6 +469,11 @@ internal sealed partial class WebMapTerrainExporter
             api.Logger.Error("[ServerEssentials/WebMap] live terrain export failed: {0}: {1}. Existing map cache and dirty journal were preserved.", ex.GetType().Name, ex.Message);
             RecordTimingSummary(status);
             return false;
+        }
+        finally
+        {
+            ReleaseExportResources(status,exportBuffers);
+            publishStatus(status.Clone());
         }
     }
 
@@ -678,7 +687,7 @@ internal sealed partial class WebMapTerrainExporter
         HashSet<ChunkCoord>? patchChunks = null)
     {
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] rgba = ExportByteBuffers.Rent(pixelBytes);
         try
         {
             bool patchMode = rawSourceDir != null && patchChunks != null && patchChunks.Count > 0 &&
@@ -721,8 +730,11 @@ internal sealed partial class WebMapTerrainExporter
                         continue;
                     }
 
-                    if (automaticSavedTerrainOnly)
-                        throw new InvalidOperationException($"Saved terrain column {chunkX},{chunkZ} is not readable yet; keeping the published map and retrying later.");
+                    if(config.UseDirectSaveDatabaseTerrain && forceLiveChunks.Contains(chunkCoord) &&
+                       await TryRenderResidentColumnAsync(chunkX,chunkZ,rgba,config.TerrainTileSize,dx*ChunkSize,dz*ChunkSize,cancellationToken).ConfigureAwait(false))
+                    {processed++;continue;}
+                    if (automaticSavedTerrainOnly || config.UseDirectSaveDatabaseTerrain)
+                        throw new InvalidOperationException($"Terrain column {chunkX},{chunkZ} is not readable without loading; keeping the published map and dirty work for retry.");
                     var loadSw = Stopwatch.StartNew();
                     await LoadAndRenderRuntimeChunkAsync(
                         chunkX,
@@ -731,6 +743,7 @@ internal sealed partial class WebMapTerrainExporter
                         config.TerrainTileSize,
                         dx * ChunkSize,
                         dz * ChunkSize,
+                        status,
                         cancellationToken).ConfigureAwait(false);
                     loadSw.Stop();
                     status.WorldReadMilliseconds += loadSw.ElapsedMilliseconds;
@@ -764,7 +777,7 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(rgba, clearArray: false);
+            ExportByteBuffers.Return(rgba, clearArray: false);
         }
     }
 
@@ -845,6 +858,7 @@ internal sealed partial class WebMapTerrainExporter
         int tileSize,
         int pixelOffsetX,
         int pixelOffsetZ,
+        WebMapTerrainExportStatus status,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -899,6 +913,7 @@ internal sealed partial class WebMapTerrainExporter
                     return;
                 }
 
+                status.WorldLoaderChunkColumns++;
                 api.WorldManager.LoadChunkColumnPriority(
                     chunkX,
                     chunkZ,
@@ -1508,7 +1523,7 @@ internal sealed partial class WebMapTerrainExporter
     {
         rendered = default;
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] rgba = ExportByteBuffers.Rent(pixelBytes);
         try
         {
             FillBackground(rgba, pixelBytes);
@@ -1571,7 +1586,7 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(rgba, clearArray: false);
+            ExportByteBuffers.Return(rgba, clearArray: false);
         }
     }
 
@@ -1588,7 +1603,7 @@ internal sealed partial class WebMapTerrainExporter
         HashSet<ChunkCoord>? patchChunks = null)
     {
         int pixelBytes = checked(config.TerrainTileSize * config.TerrainTileSize * 4);
-        byte[] rgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] rgba = ExportByteBuffers.Rent(pixelBytes);
         try
         {
             bool patchMode = rawSourceDir != null && patchChunks != null && patchChunks.Count > 0 &&
@@ -1708,7 +1723,7 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(rgba, clearArray: false);
+            ExportByteBuffers.Return(rgba, clearArray: false);
         }
     }
 
@@ -2264,8 +2279,8 @@ internal sealed partial class WebMapTerrainExporter
         if (!exportSepia && !exportTopo) return;
 
         int bytes = checked(size * size * 4);
-        byte[]? sepia = exportSepia ? ArrayPool<byte>.Shared.Rent(bytes) : null;
-        byte[]? topo = exportTopo ? ArrayPool<byte>.Shared.Rent(bytes) : null;
+        byte[]? sepia = exportSepia ? ExportByteBuffers.Rent(bytes) : null;
+        byte[]? topo = exportTopo ? ExportByteBuffers.Rent(bytes) : null;
         try
         {
             if (sepia != null) Array.Clear(sepia, 0, bytes);
@@ -2321,8 +2336,8 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            if (sepia != null) ArrayPool<byte>.Shared.Return(sepia, clearArray: false);
-            if (topo != null) ArrayPool<byte>.Shared.Return(topo, clearArray: false);
+            if (sepia != null) ExportByteBuffers.Return(sepia, clearArray: false);
+            if (topo != null) ExportByteBuffers.Return(topo, clearArray: false);
         }
     }
 
@@ -2444,7 +2459,7 @@ internal sealed partial class WebMapTerrainExporter
     {
         int cells = size * size;
         if (size < 3) { for (int i = 3; i < cells * 4; i += 4) rgba[i] = 255; return; }
-        byte[] heights = ArrayPool<byte>.Shared.Rent(cells);
+        byte[] heights = ExportByteBuffers.Rent(cells);
         try
         {
             for (int i = 0, p = 3; i < cells; i++, p += 4) heights[i] = rgba[p];
@@ -2482,7 +2497,7 @@ internal sealed partial class WebMapTerrainExporter
                 }
             }
         }
-        finally { ArrayPool<byte>.Shared.Return(heights, clearArray: false); }
+        finally { ExportByteBuffers.Return(heights, clearArray: false); }
     }
 
     private WebMapTerrainManifest CreateManifest(WebMapConfig config, TerrainCoverage coverage)
@@ -2768,8 +2783,8 @@ internal sealed partial class WebMapTerrainExporter
         int half = tileSize / 2;
         if (half <= 0) return false;
         int pixelBytes = checked(tileSize * tileSize * 4);
-        byte[] output = ArrayPool<byte>.Shared.Rent(pixelBytes);
-        byte[] childRgba = ArrayPool<byte>.Shared.Rent(pixelBytes);
+        byte[] output = ExportByteBuffers.Rent(pixelBytes);
+        byte[] childRgba = ExportByteBuffers.Rent(pixelBytes);
         try
         {
             Array.Clear(output, 0, pixelBytes);
@@ -2807,8 +2822,8 @@ internal sealed partial class WebMapTerrainExporter
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(childRgba, clearArray: false);
-            ArrayPool<byte>.Shared.Return(output, clearArray: false);
+            ExportByteBuffers.Return(childRgba, clearArray: false);
+            ExportByteBuffers.Return(output, clearArray: false);
         }
     }
 
@@ -3315,7 +3330,7 @@ internal sealed partial class WebMapTerrainExporter
                 using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
                 long length = file.Length;
                 if (length < 45 || length > Math.Min(64L * 1024 * 1024, rowBytesLong * expectedSize * 2 + 65536)) return false;
-                buffer = ArrayPool<byte>.Shared.Rent((int)length);
+                buffer = ExportByteBuffers.Rent((int)length);
                 int filled = 0;
                 while (filled < length)
                 {
@@ -3325,7 +3340,7 @@ internal sealed partial class WebMapTerrainExporter
                 }
                 if (!buffer.AsSpan(0, 8).SequenceEqual(Signature)) return false;
 
-                int position = 8, idatStart = -1, idatLength = 0, idatCount = 0;
+                int position = 8, idatLength = 0, idatCount = 0;
                 bool validHeader = false, ended = false;
                 while (position + 12 <= length)
                 {
@@ -3347,16 +3362,19 @@ internal sealed partial class WebMapTerrainExporter
                     {
                         if (!validHeader) return false;
                         idatCount++;
-                        idatStart = dataStart;
-                        idatLength = (int)chunkLength;
+                        // Compact payloads towards the start of the same rented
+                        // file buffer. Destination never reaches an unread header,
+                        // so multi-IDAT decoding needs no second compressed copy.
+                        buffer.AsSpan(dataStart, (int)chunkLength).CopyTo(buffer.AsSpan(idatLength));
+                        idatLength = checked(idatLength + (int)chunkLength);
                     }
                     else if (type.SequenceEqual("IEND"u8)) { if (chunkLength != 0) return false; ended = true; break; }
                     position = dataStart + (int)chunkLength + 4; // data + CRC
                 }
-                // Our writer emits one IDAT. Anything else is a foreign file; let the caller skip it.
-                if (!ended || !validHeader || idatCount != 1 || idatLength <= 0) return false;
+                // Both legacy single-IDAT and bounded streamed multi-IDAT caches are supported.
+                if (!ended || !validHeader || idatCount < 1 || idatLength <= 0) return false;
 
-                using var input = new MemoryStream(buffer, idatStart, idatLength, writable: false);
+                using var input = new MemoryStream(buffer, 0, idatLength, writable: false);
                 using var zlib = new ZLibStream(input, CompressionMode.Decompress);
                 for (int y = 0; y < expectedSize; y++)
                 {
@@ -3366,7 +3384,7 @@ internal sealed partial class WebMapTerrainExporter
                 return true;
             }
             catch { return false; }
-            finally { if (buffer != null) ArrayPool<byte>.Shared.Return(buffer, clearArray: false); }
+            finally { if (buffer != null) ExportByteBuffers.Return(buffer, clearArray: false); }
         }
 
         public static bool TryReadRgba(string path, out int width, out int height, out byte[] rgba)
@@ -3401,7 +3419,7 @@ internal sealed partial class WebMapTerrainExporter
                     }
                     else if (type == "IDAT")
                     {
-                        byte[] buffer = ArrayPool<byte>.Shared.Rent(Math.Min(Math.Max(length, 1), 64 * 1024));
+                        byte[] buffer = ExportByteBuffers.Rent(Math.Min(Math.Max(length, 1), 64 * 1024));
                         try
                         {
                             int remaining = length;
@@ -3414,7 +3432,7 @@ internal sealed partial class WebMapTerrainExporter
                                 remaining -= n;
                             }
                         }
-                        finally { ArrayPool<byte>.Shared.Return(buffer, clearArray: false); }
+                        finally { ExportByteBuffers.Return(buffer, clearArray: false); }
                     }
                     else
                     {
@@ -3482,10 +3500,11 @@ internal sealed partial class WebMapTerrainExporter
             ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
             WriteChunk(file, "IHDR", ihdr);
 
-            // Compress directly from the RGBA rows instead of constructing a second full raw image buffer.
-            using var compressed = new MemoryStream();
-            using (var zlib = new ZLibStream(compressed, CompressionLevel.Fastest, true))
+            // Emit bounded PNG IDAT chunks instead of retaining a complete
+            // compressed tile (and MemoryStream growth copies) per export worker.
+            using (var idat = new IdatStream(file))
             {
+                using var zlib = new ZLibStream(idat, CompressionLevel.Fastest, true);
                 int rowBytes = width * 4;
                 for (int y = 0; y < height; y++)
                 {
@@ -3493,11 +3512,49 @@ internal sealed partial class WebMapTerrainExporter
                     zlib.Write(rgba, y * rowBytes, rowBytes);
                 }
             }
-            if (compressed.TryGetBuffer(out ArraySegment<byte> segment) && segment.Array != null)
-                WriteChunk(file, "IDAT", segment.Array, segment.Offset, segment.Count);
-            else
-                WriteChunk(file, "IDAT", compressed.ToArray());
             WriteChunk(file, "IEND", Array.Empty<byte>());
+        }
+
+        private sealed class IdatStream(Stream output) : Stream
+        {
+            private const int ChunkBytes = 64 * 1024;
+            private byte[]? buffer = ExportByteBuffers.Rent(ChunkBytes);
+            private int used;
+            public override bool CanRead => false;
+            public override bool CanSeek => false;
+            public override bool CanWrite => buffer != null;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Write(byte[] data, int offset, int count) => Write(data.AsSpan(offset, count));
+            public override void Write(ReadOnlySpan<byte> data)
+            {
+                ObjectDisposedException.ThrowIf(buffer == null, this);
+                while (!data.IsEmpty)
+                {
+                    int length = Math.Min(ChunkBytes - used, data.Length);
+                    data[..length].CopyTo(buffer.AsSpan(used));
+                    used += length; data = data[length..];
+                    if (used == ChunkBytes) Flush();
+                }
+            }
+            public override void Flush()
+            {
+                ObjectDisposedException.ThrowIf(buffer == null, this);
+                if (used == 0) return;
+                WriteChunk(output, "IDAT", buffer!, 0, used); used = 0;
+            }
+            protected override void Dispose(bool disposing)
+            {
+                if (buffer != null)
+                {
+                    try { if (disposing) Flush(); }
+                    finally { ExportByteBuffers.Return(buffer); buffer = null; used = 0; }
+                }
+                base.Dispose(disposing);
+            }
+            public override int Read(byte[] data, int offset, int count) => throw new NotSupportedException();
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
         }
 
         private static void WriteChunk(Stream stream, string type, byte[] data)
@@ -3626,6 +3683,8 @@ public sealed class WebMapTerrainExportStatus
     public int OverviewCellSizeBlocks { get; set; }
     public string TerrainReadMode { get; set; } = "world-api";
     public bool ExportResourcesReleased { get; set; }
+    public long ExportBufferCacheBytesReleased { get; set; }
+    public long ExportBufferCachePeakBytes { get; set; }
     public long ManagedHeapBytesAtStart { get; set; }
     public long ManagedHeapBytesAtEnd { get; set; }
     public long ProcessWorkingSetBytesAtStart { get; set; }

@@ -21,6 +21,7 @@ internal sealed partial class WebMapTerrainExporter
     // Independent automatic pass: reads resident terrain only, never the world loader or save DB.
     public async Task<bool> ExportLoadedDirtyRuntimeAsync(WebMapConfig config,CancellationToken cancellationToken)
     {
+        using var exportBuffers=BeginExportBuffers();
         automaticSavedTerrainOnly=true;
         loadedDirtyOnly=true;
         capturedResidentChunks.Clear();
@@ -28,6 +29,7 @@ internal sealed partial class WebMapTerrainExporter
         var watch=Stopwatch.StartNew();
         var status=new WebMapTerrainExportStatus {State="exporting",Phase="loaded-dirty",Trigger="automatic-loaded-dirty",
             ExportMode="loaded-dirty-incremental",TerrainReadMode="resident-only",TileSize=config.TerrainTileSize,
+            ManagedHeapBytesAtStart=GC.GetTotalMemory(false),ProcessWorkingSetBytesAtStart=ReadProcessWorkingSet(),
             StartedUnixMilliseconds=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),Message="Checking dirty terrain that is already loaded…"};
         string current=Path.Combine(rootPath,"terrain"),stage=Path.Combine(rootPath,"terrain-next");
         try
@@ -80,9 +82,7 @@ internal sealed partial class WebMapTerrainExporter
             watch.Stop();status.TotalElapsedMilliseconds=watch.ElapsedMilliseconds;status.CompletedUnixMilliseconds=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if(status.State=="ready"&&status.Phase=="complete")status.LastSuccessfulUnixMilliseconds=status.CompletedUnixMilliseconds;
             status.WorldReadMilliseconds=(long)(Interlocked.Read(ref residentReadTicks)*1000d/Stopwatch.Frequency);
-            status.WorldLoaderChunkColumns=0;status.ExportResourcesReleased=true;
-            blockColorCache.Clear();blockColorById=Array.Empty<Rgb>();Volatile.Write(ref blockPalettePrimed,0);
-            capturedResidentChunks.Clear();
+            status.WorldLoaderChunkColumns=0;ReleaseExportResources(status,exportBuffers);
             publishStatus(status.Clone());RecordTimingSummary(status);
         }
     }

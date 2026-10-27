@@ -53,6 +53,7 @@
     "RunId": ""
   },
   "EngineOptimizations": {
+    "DroppedItemClumping": false,
     "CraftingCandidateDedup": false,
     "PhysicsPacketListReuse": true,
     "DespawnPacketProjection": true,

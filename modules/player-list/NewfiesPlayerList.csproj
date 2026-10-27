@@ -42,4 +42,5 @@
       Condition="!Exists('$(VINTAGE_STORY)/Lib/cairo-sharp.dll') and !Exists('$(VINTAGE_STORY)/Lib/CairoSharp.dll')"
       Text="Vintage Story Cairo assembly was not found. VINTAGE_STORY must point to the Vintage Story 1.22.7 install folder containing VintagestoryAPI.dll and Lib\cairo-sharp.dll." />
   </Target>
+  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

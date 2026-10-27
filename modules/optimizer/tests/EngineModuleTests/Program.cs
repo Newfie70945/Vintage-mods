@@ -57,6 +57,8 @@ static class Checks
    Assert(Harmony.GetPatchInfo(AssetCompressionOptimizations.Target)?.Owners.Contains(EngineOptimizations.HarmonyId)!=true,"asset initialization failure removes the just-installed prefix and postfix");
    Assert(failedAssets.Modules().Where(x=>x.Name!="assetCompressionCache").All(x=>x.Status=="active"),"asset initialization failure leaves unrelated modules active");
   }
+  var clumpOnly=System.Text.Json.JsonSerializer.Deserialize<OptimizerConfig>(System.Text.Json.JsonSerializer.Serialize(off))!;clumpOnly.EngineOptimizations.DroppedItemClumping=true;
+  var clumpOnlyApi=Api();using(var core=new EngineOptimizations(clumpOnlyApi.Api,clumpOnly))Assert(clumpOnlyApi.Ticks.Count==1&&core.RuntimeGuardReason==null,"clumping-only configuration still starts the core compatibility monitor");
   // NOS timing observers must coexist with optimized methods and survive optimizer disposal.
   var timingObserver=new Harmony(EngineOptimizations.ProfilerHarmonyId);
   timingObserver.Patch(PlayerQueryOptimizations.SnapshotTarget,prefix:new HarmonyMethod(typeof(Checks).GetMethod(nameof(OtherPrefix),BindingFlags.Static|BindingFlags.NonPublic)!));

@@ -1,5 +1,6 @@
 {
   "EngineOptimizations": {
+    "DroppedItemClumping": false,
     "CraftingCandidateDedup": true,
     "PhysicsPacketListReuse": true,
     "DespawnPacketProjection": true,

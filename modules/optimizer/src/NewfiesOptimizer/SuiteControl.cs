@@ -14,8 +14,9 @@ public sealed partial class OptimizerMod
         available = true, protocol = 1, version = typeof(OptimizerMod).Assembly.GetName().Version?.ToString(3) ?? "unknown", success = true,
         profiling = profiler?.IsRunning ?? false,
         captureAvailable = profiler?.Session != null,
-        capabilities = new[] { "emotion-search-reuse", "temperature-animation-checks", "crafting-candidate-dedup", "barrel-recipe-memo", "block-update-diagnostics", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
+        capabilities = new[] { "dropped-item-clumping", "emotion-search-reuse", "temperature-animation-checks", "crafting-candidate-dedup", "barrel-recipe-memo", "block-update-diagnostics", "scoped-traversal", "entity-query-scratch", "shapeless-recipe-helpers", "capture-clear", "entity-search-reuse", "physics-packet-list-reuse", "despawn-packet-projection", "entity-distance-policies", "waypoint-node-pooling", "attribute-noop-skip" },
         settings = currentConfig == null ? null : new {
+            droppedItemClumping=currentConfig.EngineOptimizations.DroppedItemClumping,
             idleFirepitFastPath = currentConfig.EngineOptimizations.IdleFirepitFastPath,
             craftingCandidateDedup=currentConfig.EngineOptimizations.CraftingCandidateDedup,
             blockSimulationBudget=currentConfig.EngineOptimizations.BlockSimulationBudget,blockSimulationBudgetMs=currentConfig.EngineOptimizations.BlockSimulationBudgetMs,
@@ -73,7 +74,7 @@ public sealed partial class OptimizerMod
             bulkStreamReads = currentConfig.EngineOptimizations.BulkStreamReads,
             assetCompressionCache = currentConfig.EngineOptimizations.AssetCompressionCache,
             assetCacheMaxMiB = currentConfig.EngineOptimizations.AssetCacheMaxMiB },
-        modules = optimizations?.Modules() ?? [], counters = optimizations?.Counters(),
+        modules = CurrentModules(), counters = CurrentCounters(),
         status = Status()
     };
     private void OnSuiteControl(string name, ref EnumHandling handling, IAttribute data)
@@ -126,6 +127,7 @@ public sealed partial class OptimizerMod
             int N(int min,int max) => item.Value.TryGetInt32(out int value) && value>=min && value<=max ? value : throw new ArgumentException(item.Name+" is out of range.");
             switch(item.Name)
             {
+                case "droppedItemClumping": candidate.EngineOptimizations.DroppedItemClumping=B(); break;
                 case "enabled": candidate.Enabled=B(); break;
                 case "aiDistanceThrottle": candidate.EngineOptimizations.AiDistanceThrottle=B(); break;
                 case "distantWanderThrottle": candidate.EngineOptimizations.DistantWanderThrottle=B(); break;
@@ -202,11 +204,12 @@ public sealed partial class OptimizerMod
         candidate.Normalize();
         // Persist before touching active patches. A storage failure leaves the runtime unchanged.
         api.StoreModConfig(candidate,"optimizer.json");
+        droppedItems?.Dispose(); droppedItems=null;
         optimizations?.Dispose(); optimizations=null;
         currentConfig.Enabled=candidate.Enabled;
         currentConfig.EngineOptimizations=candidate.EngineOptimizations;
         currentConfig.Compatibility.SafeMode=candidate.Compatibility.SafeMode;
-        try { optimizations=new(api,currentConfig); }
-        finally { if(profiler != null) { profiler.ExternalModules=()=>optimizations?.Modules() ?? []; profiler.ExternalCounters=()=>optimizations?.Counters() ?? new Dictionary<string,long>(); } }
+        try { optimizations=new(api,currentConfig); StartDroppedItems(); }
+        finally { if(profiler != null) { profiler.ExternalModules=CurrentModules; profiler.ExternalCounters=CurrentCounters; } }
     }
 }

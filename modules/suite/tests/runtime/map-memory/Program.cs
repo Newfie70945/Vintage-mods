@@ -41,6 +41,24 @@ static class Checks
     }
     static void Test(Assembly suite, string temporary)
     {
+        // Export-private buffers stay bounded, flow into workers, and release
+        // their array references even if the exporter/scope is retained.
+        var terrainType=suite.GetType("BlockLogger.WebMap.WebMapTerrainExporter",true)!;
+        var poolType=terrainType.GetNestedType("ExportBytePool",BindingFlags.NonPublic)!;
+        object privatePool=Activator.CreateInstance(poolType,true)!;
+        var rent=poolType.GetMethod("Rent")!;var giveBack=poolType.GetMethod("Return")!;
+        var buffers=Enumerable.Range(0,20).Select(_=>(byte[])rent.Invoke(privatePool,new object[]{1024*1024})!).ToArray();
+        foreach(var array in buffers)giveBack.Invoke(privatePool,new object[]{array,false});
+        var retained=poolType.GetProperty("RetainedBytes",BindingFlags.Instance|BindingFlags.NonPublic)!;
+        Assert((long)retained.GetValue(privatePool)!<=16L*1024*1024,"Export buffer cache exceeded 16 MiB");
+        ((IDisposable)privatePool).Dispose();Assert((long)retained.GetValue(privatePool)! ==0,"Disposed export pool retained arrays");
+        var late=(byte[])rent.Invoke(privatePool,new object[]{1024})!;giveBack.Invoke(privatePool,new object[]{late,false});Assert((long)retained.GetValue(privatePool)! ==0,"Late return repopulated disposed pool");
+        using(var scope=(IDisposable)terrainType.GetMethod("BeginExportBuffers",BindingFlags.NonPublic|BindingFlags.Static)!.Invoke(null,null)!){
+            var owned=scope.GetType().GetField("Pool",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(scope);
+            var current=terrainType.GetProperty("ExportByteBuffers",BindingFlags.Static|BindingFlags.NonPublic)!;
+            Parallel.For(0,8,_=>Assert(ReferenceEquals(owned,current.GetValue(null)),"Parallel worker lost export buffer ownership"));
+        }
+        Console.WriteLine("PASS: private export buffers bounded at 16 MiB, worker context preserved, dispose/late-return retain zero bytes; no shared-pool trimming.");
         var server = (ServerMain)RuntimeHelpers.GetUninitializedObject(typeof(ServerMain));
         var sourcePool = new ChunkDataPool(32, server);
         var original = ServerChunk.CreateNew(sourcePool);
@@ -187,6 +205,7 @@ static class Checks
         Assert((string)statusType.GetProperty("TerrainReadMode")!.GetValue(last)! == "save-db-parallel-2", "Parallel terrain reader was not exercised");
         Assert((bool)statusType.GetProperty("ExportResourcesReleased")!.GetValue(last)! && (string)statusType.GetProperty("State")!.GetValue(last)! == "ready", "Successful export did not finish resource cleanup");
         Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! == 0, "Successful export did not acknowledge dirty terrain");
+        Assert((long)statusType.GetProperty("ExportBufferCacheBytesReleased")!.GetValue(last)!>0,"Successful export did not release its private buffer cache");
         {
             // Edits made while an export runs keep only the chunks they touched dirty; the rest is acknowledged.
             var mark = journalType.GetMethod("MarkBlockDirty")!;
@@ -311,6 +330,15 @@ static class Checks
         journalType.GetMethod("Acknowledge")!.Invoke(journal,new[]{ackSet});
         configType.GetProperty("UseDirectSaveDatabaseTerrain")!.SetValue(config,true);
         Console.WriteLine("PASS: loaded-only dirty patches publish unsaved builds, preserve unloaded/concurrent edits and partial captures, yield between bounded reads, keep other tiles/save/native chunks unchanged, and never invoke world loaders.");
+        journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,128,0});
+        var manual=(Task<bool>)exporterType.GetMethod("ExportRuntimeForcedAsync")!.Invoke(exporter,new object[]{config,CancellationToken.None,false,false})!;
+        Assert(manual.GetAwaiter().GetResult(),"Manual direct update failed: "+statusType.GetProperty("LastError")!.GetValue(captures.Last));
+        Assert(worldLoads==0&&(bool)statusType.GetProperty("ExportResourcesReleased")!.GetValue(captures.Last)!,"Manual direct update loaded terrain or retained resources");
+        Assert((int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Manual direct update consumed an unloaded edit");
+        remaining=(System.Collections.IEnumerable)journalType.GetMethod("Snapshot",Type.EmptyTypes)!.Invoke(journal,null)!;ackSet=Activator.CreateInstance(remaining.GetType())!;
+        foreach(var d in remaining)if((int)d.GetType().GetProperty("ChunkX")!.GetValue(d)! ==4)ackSet.GetType().GetMethod("Add")!.Invoke(ackSet,new[]{d});
+        journalType.GetMethod("Acknowledge")!.Invoke(journal,new[]{ackSet});journalType.GetMethod("MarkBlockDirty")!.Invoke(journal,new object[]{0,0,0});
+        Console.WriteLine("PASS: manual direct update uses resident dirty terrain only, defers unloaded edits, releases buffers and never requests terrain.");
         var published=Directory.EnumerateFiles(Path.Combine(mapRoot,"terrain"),"*",SearchOption.AllDirectories).ToDictionary(f=>f,f=>SHA256.HashData(File.ReadAllBytes(f)));
         AddExploration(16,false);
         Assert(!Automatic(),"Missing saved terrain row incorrectly published");
@@ -325,6 +353,12 @@ static class Checks
         Assert(mapFiles.All(pair => File.Exists(pair.Key) && pair.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(pair.Key)))) && (int)journalType.GetProperty("Count")!.GetValue(journal)! == 1, "Decoder failure changed published map or journal");
         Assert(worldLoads == 0 && (bool)statusType.GetProperty("ExportResourcesReleased")!.GetValue(captures.Last)!, "Decoder failure retained export resources or loaded world");
         Console.WriteLine("PASS: unavailable decoder preserves published map and dirty work with no automatic world-loader fallback.");
+        var forced=(Task<bool>)exporterType.GetMethod("ExportRuntimeForcedAsync")!.Invoke(exporter,new object[]{config,CancellationToken.None,true,false})!;
+        Assert(!forced.GetAwaiter().GetResult(),"Manual direct export silently fell back after decoder failure");
+        Assert(worldLoads==0&&(bool)statusType.GetProperty("ExportResourcesReleased")!.GetValue(captures.Last)!,"Forced live failure loaded terrain or retained resources");
+        Assert(mapFiles.All(pair=>pair.Value.SequenceEqual(SHA256.HashData(File.ReadAllBytes(pair.Key))))&&(int)journalType.GetProperty("Count")!.GetValue(journal)! ==1,"Forced direct failure altered cache or dirty journal");
+        Console.WriteLine("PASS: manual live decoder failure preserves cache/journal, releases resources and never invokes terrain loaders.");
+
         original.Dispose(); sourcePool.FreeAll();
     }
 }

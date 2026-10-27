@@ -208,6 +208,13 @@ try:
         code, nos, _, _ = request('/api/optimizations/newfies')
         assert code == 200 and nos.get('available'), (code, nos)
         settings = nos['optimizer']['settings']
+        assert settings['droppedItemClumping'] is False, settings
+        code, clumped, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'droppedItemClumping':True}})
+        assert code == 200 and clumped.get('success') and clumped['optimizer']['settings']['droppedItemClumping'] is True, (code,clumped)
+        assert any(m['name']=='droppedItemClumping' and m['status']=='active' for m in clumped['optimizer']['modules']), clumped
+        time.sleep(1.1)
+        code, unclumped, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'droppedItemClumping':False}})
+        assert code == 200 and unclumped.get('success') and any(m['name']=='droppedItemClumping' and m['status']=='disabled' for m in unclumped['optimizer']['modules']), (code,unclumped)
         assert settings['barrelRecipeMemo'] is False and settings['barrelRecipeRescanEvery'] == 10, settings
         time.sleep(1.1)
         code, applied, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'barrelRecipeMemo':True,'barrelRecipeRescanEvery':5}})

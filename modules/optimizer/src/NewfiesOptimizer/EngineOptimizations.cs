@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.16";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.17";
     // RuntimeProfiler.HarmonyId refers to this. It lives here because module test projects compile this file without the profiler.
     internal const string ProfilerHarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
     private readonly ICoreServerAPI api;
@@ -23,6 +23,7 @@ public sealed class EngineOptimizations : IDisposable
     private bool checking;
     private bool runtimeWatchAttached;
     private string? lateRuntime;
+    public string? RuntimeGuardReason { get; private set; }
     private readonly Dictionary<MethodBase,Patches?> patchSnapshots = new();
     private readonly int minimumNearbyClients;
     private readonly int assetCacheBytes;
@@ -243,6 +244,7 @@ public sealed class EngineOptimizations : IDisposable
             ()=>SaveSnapshotOptimizations.Dependencies,null,SaveSnapshotOptimizations.Configure) { Transpiler=SaveSnapshotOptimizations.TranspilerMethod });
         string? blocked = !config.Enabled ? "Optimizer master switch is disabled." : config.Compatibility.SafeMode ?
             "Compatibility.SafeMode is enabled; stock methods retained." : EngineGuard();
+        RuntimeGuardReason = blocked;
         foreach (var entry in entries)
         {
             if (!entry.Requested) { entry.State = "disabled"; entry.Reason = "Independent module switch is off."; continue; }
@@ -265,7 +267,7 @@ public sealed class EngineOptimizations : IDisposable
         // Late Harmony changes and module trip counters are inspected off the hot path.
         try
         {
-            if (entries.Any(x => x.Installed || x.State == "standby"))
+            if (entries.Any(x => x.Installed || x.State == "standby") || (options.DroppedItemClumping && blocked == null))
             {
                 listener = api.Event.RegisterGameTickListener(_ => Check(), 1000);
                 AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoaded;
@@ -276,6 +278,7 @@ public sealed class EngineOptimizations : IDisposable
         }
         catch (Exception error)
         {
+            RuntimeGuardReason="Compatibility monitor unavailable: "+error.GetType().Name;
             DetachRuntimeWatch();
             foreach (var entry in entries.Where(x => x.Installed || x.State == "standby").ToArray())
                 Disable(entry, "failed", "Compatibility monitor could not start: " + error.GetType().Name);
@@ -429,6 +432,7 @@ public sealed class EngineOptimizations : IDisposable
             {
                 if (Volatile.Read(ref lateRuntime) is string runtime)
                 {
+                    RuntimeGuardReason="Alternative runtime/optimizer loaded after startup: "+runtime;
                     foreach (var entry in entries)
                         if (entry.Installed || entry.State == "standby")
                             Disable(entry, "blocked", "Alternative runtime/optimizer loaded after startup: " + runtime + ". Stock behavior retained; do not stack unvalidated optimizers.");

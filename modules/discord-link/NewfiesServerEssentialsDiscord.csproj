@@ -58,4 +58,5 @@
            Text="Discord runtime dependency missing from build output: %(DiscordRuntimeDependency.Filename)%(DiscordRuntimeDependency.Extension). Do not package only NewfiesServerEssentialsDiscord.dll; package the dependency DLLs from bin/Release/net10.0 as well." />
   </Target>
 
+  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

@@ -29,7 +29,8 @@
       .sln file (do not commit this file):
         <Project><PropertyGroup>
           <VINTAGE_STORY>C:\your\path\here</VINTAGE_STORY>
-        </PropertyGroup></Project>
+        </PropertyGroup>  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>
     ══════════════════════════════════════════════════════════════════════════
   -->
 
@@ -76,4 +77,5 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup><None Update="modicon.png" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

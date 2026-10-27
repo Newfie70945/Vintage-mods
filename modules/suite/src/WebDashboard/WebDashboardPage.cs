@@ -440,6 +440,42 @@ canvas.healthChart{
 #optimizations #nosPanel .optStatusIcon{width:42px;height:42px;font-size:18px;border-width:2px}
 #optimizations .nosSupport{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}
 #optimizations #nosModules{font-size:13px}
+/* NOS workspace: a restrained dark surface with explicit runtime status. */
+#optimizations #nosPanel{background:radial-gradient(ellipse at 100% 0,rgba(67,170,156,.09),transparent 45%),var(--panel,#101a22);border-top:1px solid #3b6967!important;box-shadow:inset 0 1px rgba(118,203,190,.12)}
+#optimizations #nosPanel .nosSupport a,#optimizations #nosPanel .nosSupport a:visited{color:#91c9c3}
+#optimizations .nosEyebrow{display:block;color:#83c9c1;font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px}
+#optimizations .nosPanelHeader h3{font-size:23px;margin:0 0 7px;letter-spacing:-.03em}
+#optimizations .nosHero{display:flex;align-items:center;gap:15px;padding:17px;border:1px solid rgba(111,171,166,.22);border-radius:12px;background:linear-gradient(115deg,rgba(58,114,108,.12),transparent),repeating-linear-gradient(90deg,transparent 0 35px,rgba(125,185,177,.025) 35px 36px)}
+#optimizations .nosEmblem{display:grid;place-items:center;flex:0 0 50px;height:50px;border:1px solid #3b6967;border-radius:13px;background:#152a2c;color:#8ed9ce}
+#optimizations .nosEmblem svg{width:31px;height:31px}
+#optimizations .nosHeroCopy{display:flex;flex-direction:column;gap:5px;min-width:0}
+#optimizations .nosHeroCopy b{font-size:18px;color:var(--text);letter-spacing:-.02em}
+#optimizations .nosVersion{font-size:11px;letter-spacing:.07em;color:#a9c5c6}
+#optimizations .nosRuntimeSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+#optimizations .nosActual{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;padding:13px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.13);text-align:left;color:var(--muted);min-width:0;box-sizing:border-box;white-space:normal}
+#optimizations button.nosActual:hover{border-color:#548f88;background:rgba(79,155,144,.07)}
+#optimizations .nosActual b{font-size:24px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums}
+#optimizations .nosActual span{font-size:11px;line-height:1.4}
+#optimizations .nosActual.active b{color:#8bd6c4}#optimizations .nosActual.attention b{color:#e2bc7e}
+#optimizations .nosTelemetry{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:14px;background:rgba(0,0,0,.08)}
+#optimizations .nosTelemetry summary{cursor:pointer;font-size:13px;font-weight:650}.nosTelemetry summary .small{margin-left:8px;font-weight:400}
+#optimizations .nosGroup{background:rgba(4,11,16,.2);border-color:#293b45;padding:0 13px;overflow:hidden}
+#optimizations .nosGroup[open]{border-color:#3c6263}
+#optimizations .nosGroup summary{font-size:13px;position:relative}
+#optimizations .nosGroup summary .nosGroupCount{font-size:10px;line-height:1.5;border:1px solid #30464d;border-radius:5px;padding:2px 5px;color:#a9c0c5;float:none;display:block;width:fit-content;margin:7px 0 0}
+#optimizations .nosGroup[data-experimental="true"] summary .nosGroupCount{border-color:#665238;color:#d9bd93}
+#optimizations .nosGroup label:has(input[type=checkbox]){padding:8px;border-radius:7px;background:rgba(255,255,255,.018);border:1px solid transparent;transition:background .15s,border-color .15s}
+#optimizations .nosGroup label:has(input:checked){background:rgba(90,171,153,.055);border-color:rgba(90,171,153,.13)}
+#optimizations .nosGroup label:focus-within{outline:1px solid #7abeb5;outline-offset:2px}
+#optimizations .nosGroup label:has(input:disabled){opacity:.65}
+#optimizations .nosGroup p{font-size:11px;color:var(--muted)}
+#optimizations .nosActions{background:#13232b;border-color:#365559;gap:8px;margin-top:14px}
+#optimizations #nosApply{background:#225f58;border-color:#438c7d;color:#f0fbf7}
+#optimizations .nosModuleState.active{background:rgba(97,177,148,.08);border-color:rgba(97,177,148,.3)}
+#optimizations .nosModuleState.attention{background:rgba(202,159,88,.07);border-color:rgba(202,159,88,.3)}
+@media(max-width:600px){#optimizations .nosRuntimeSummary{grid-template-columns:repeat(2,minmax(0,1fr))}#optimizations .nosPanelHeader h3{font-size:20px}#optimizations .nosHero{padding:12px;gap:10px}#optimizations .nosEmblem{flex-basis:40px;height:40px}#optimizations .nosActual{padding:11px}#optimizations .nosTelemetry summary .small{display:block;margin:6px 0 0}#optimizations .nosSupport{font-size:11px}}
+@media(prefers-reduced-motion:reduce){#optimizations .nosGroup label{transition:none}}
+
 @media(max-width:800px){#optimizations .nosGroups{grid-template-columns:1fr}#optimizations .nosActions{position:static}#optimizations .nosGroup summary .small{float:none;display:block;margin:4px 0 0}#optimizations .optimizerMissing .small{flex-basis:100%}}
 
 .optStatusHero{display:flex;align-items:center;gap:14px}
@@ -2594,10 +2630,10 @@ __NSS_RETENTION_HTML__
     <div><h4>Test one change at a time</h4><p class="small">Keep your currently working allocation modules enabled. Try animation flag scan, then container transition scan/tick traversal separately if your NOS version supports them. Compare tick p95/p99, worst save duration, allocation rate and memory at similar player/entity/chunk counts across several saves.</p><p class="small">Leave experimental distant AI/wander/repulsion scheduling, main-thread path assistance, waypoint pooling and nearby-player scaling off for the initial public-server comparison. Collision generation/traversal reduces allocation but can cost CPU; enable only when measured results justify it.</p><p class="small">Runtime patches are reversible by disabling/removing NOS after a clean shutdown. That is not a guarantee against bugs, crashes or lost unsaved progress. Keep a recoverable world/config copy, test a copy first, and check Actual state for conflicts or failures. No buttons in this guide change settings or force GC.</p></div></div>
   </details>
   <div class="card" id="nosPanel" style="margin-bottom:16px;border-top:3px solid #75afe0">
-    <div class="cardHeader"><div><h3>Newfies Server Optimizer</h3><div class="small">Official-server API patches, controlled here by the Suite. Each module checks engine compatibility and conflicting patches.</div></div><div class="spacer"></div><button id="nosRefresh">Refresh NOS</button></div>
+    <div class="cardHeader nosPanelHeader"><div><span class="nosEyebrow">NOS / Official server runtime patches</span><h3>Newfies Server Optimizer</h3><div class="small">Official-server API patches, controlled here by the Suite. Each module checks engine compatibility and conflicting patches.</div></div><div class="spacer"></div><button id="nosRefresh">Refresh NOS</button></div>
     <div class="nosSupport"><span class="pill">Server-only runtime patches</span><a href="https://github.com/Newfie70945/Vintage-mods/tree/main/modules/optimizer" target="_blank" rel="noopener">Source &amp; setup guide</a></div><div id="nosState" class="compactNote" role="status">Checking for the optimizer…</div>
     <div id="nosControls" hidden>
-      <div id="nosMetrics" class="nosMetricGrid" aria-label="Optimizer execution summary"></div><p class="small">Counts are cumulative for this server process. Work executed is not a TPS, latency or bytes-saved measurement. See Actual state and full failure/fallback counters below.</p>
+      <details class="nosTelemetry"><summary>Execution activity <span class="small">Cumulative counters · expand to inspect</span></summary><div id="nosMetrics" class="nosMetricGrid" aria-label="Optimizer execution summary"></div><p class="small">Counts are cumulative for this server process. Work executed is not a TPS, latency or bytes-saved measurement. See Actual state and full failure/fallback counters below.</p></details>
       <div class="toolbar" style="margin-top:12px"><label>Find a setting <input id="nosSettingSearch" type="search" placeholder="Animation, saves, AI…" aria-controls="nosSettingsGroups"></label><button id="nosExpandSettings" type="button">Expand groups</button><button id="nosCollapseSettings" type="button">Collapse groups</button><span id="nosSettingMatches" class="small" role="status" aria-live="polite"></span></div>
       <div id="nosSettingsGroups" class="nosGroups">
         <details class="nosGroup" open><summary>Safety and activation<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
@@ -2608,6 +2644,7 @@ __NSS_RETENTION_HTML__
           <p class="small">Apply saves optimizer.json and reapplies engine modules immediately. Stop a running NOS capture before changing settings. Unsupported builds or conflicts retain stock behavior.</p></div></details>
         <details class="nosGroup"><summary>API and allocation modules<span class="small nosGroupCount"></span></summary><div class="nosGroupContent">
           <label><input type="checkbox" id="nosBroadcastFilterReuse"> Empty broadcast exclusion fast path</label><br>
+          <label><input type="checkbox" id="nosDroppedItemClumping"> Clump compatible dropped items in the same block cell (opt-in)</label><p class="small">Settled drops only, matching owner and exact attributes. Uses native stack limits; no radius pull or chunk loading. Items with collectible behaviors and custom entity behaviors are left unchanged.</p>
           <label><input type="checkbox" id="nosEntityLifecycleListReuse"> Reuse entity cleanup and despawn temporary lists</label><br>
           <label><input type="checkbox" id="nosOnlinePlayerSnapshots"> Online-player snapshots</label><br>
           <label><input type="checkbox" id="nosAiFilterDispatch"> Allocation-free AI filter dispatch</label><br>
@@ -3339,7 +3376,7 @@ __NSS_RETENTION_HTML__
 
 <section id="blockMigration">
   <div class="pageTitle"><div><h2>Block ID Migration</h2><div class="subtitle">Choose a missing ID, save its replacement, then let visited chunks migrate.</div></div><span class="badge">__NSS_VERSION__ · Block ID Migration</span></div>
-  <div class="bmNotice"><strong>Experimental.</strong> Test on a world copy. Only missing IDs change; every occurrence of that ID is affected. The author is not responsible for data lost through misuse.</div>
+  <div class="bmNotice"><strong>Experimental · use at your own risk.</strong> Test on a world copy. Only missing IDs change; every occurrence of that ID is affected. The author is not responsible for data lost through misuse.<p>Newfie used this tool on his personal server to restore broken ? blocks to their original blocks and recover their inventories. It worked perfectly for that recovery; results depend on the saved block and inventory data available. Make a world backup before use. For questions, contact Newfie.</p></div>
   <div class="bmStatusBar"><div><span class="small">Migration</span><strong id="bmStateLabel">Loading…</strong></div><div><span class="small">Saved rules</span><strong id="bmRuleCount">—</strong></div><div><span class="small">Changed this session</span><strong id="bmChangedCount">—</strong></div><div><span class="small">Skipped chunk loads</span><strong id="bmSkippedCount">—</strong></div></div>
   <div class="bmStatusActions"><button id="bmRefresh">Refresh</button><button id="bmResume" disabled>Resume saved rules</button><button id="bmDisable" disabled>Pause migration</button><button id="bmCancel">Cancel pending work</button></div>
   <div class="bmNotice small"><b>Stuck backing up?</b> You can change all saved rules to manual-backup mode and enable them. This choice persists after restart. It does not bypass inventory or block compatibility checks.<label><input id="bmBypassAck" type="checkbox"> I have made a manual world copy and accept the risk of skipping automatic backup.</label><button id="bmEnableNoBackup" disabled>Enable saved rules without automatic backup</button></div>
@@ -3984,7 +4021,7 @@ __NSS_RETENTION_HTML__
 
     <div class="card perfSection">
       <div class="cardHeader"><div><h3>Ore Shield Control</h3><div class="small">Tune concealment and cache behavior without editing the full Anti-Cheat JSON. Saving reloads only Ore Shield.</div></div><div class="spacer"></div><span id="acOreShieldState" class="small">Loading policy…</span></div>
-      <div class="infoBox"><b>OreShield · Beta</b> — Fully functioning, with bug fixes and performance polishing still in progress. Disabled by default on new configurations; enable it when you are ready to test it on your server.</div>
+
       <div class="grid" style="margin-top:10px">
         <div class="card" style="background:#10171d">
           <div class="cardHeader"><h3>Protection</h3></div>
@@ -5908,14 +5945,16 @@ function tooltipForMetric(name){
 
 function initNavIndicators(){
   document.querySelectorAll('#nav .navGroupBody>button[data-section]').forEach(btn=>{
-    if(btn.querySelector('.navPageMeta'))return;
+    if(btn.querySelector('.navPageMeta')){const dot=btn.querySelector('.navStatusDot');if(dot&&!dot.classList.contains('visible')){const known=pageStatusState.get(btn.dataset.section);dot.className='navStatusDot visible '+(known?.state||'neutral');dot.title=known?.detail||'Waiting for status data';}return;}
     const label=document.createElement('span');
     label.className='navPageLabel';
     label.textContent=btn.textContent.trim();
     const meta=document.createElement('span');
     meta.className='navPageMeta';
     const dot=document.createElement('span');
-    dot.className='navStatusDot';
+    const known=pageStatusState.get(btn.dataset.section);
+    dot.className='navStatusDot visible '+(known?.state||'neutral');
+    dot.title=known?.detail||'Waiting for status data';
     dot.setAttribute('aria-hidden','true');
     const badge=document.createElement('span');
     badge.className='navPageBadge';
@@ -5987,7 +6026,7 @@ function setNavStatus(section,state='',detail=''){
   if(summaryKey)setSummaryStatus(summaryKey,normalized||'neutral',detail);
   const btn=navButton(section);if(!btn)return;
   const dot=btn.querySelector('.navStatusDot');if(!dot)return;
-  dot.className='navStatusDot'+(normalized?` visible ${normalized}`:'');
+  dot.className='navStatusDot visible '+(normalized||'neutral');
   dot.title=detail||'';
 }
 
@@ -6049,6 +6088,7 @@ function setCompatibilityNavState(data){
   setNavBadge('compatibility',total,critical>0?'critical':'attention',detail);
 }
 
+const navStaticStatusChecked=new Map();
 let navIndicatorRefreshInFlight=false;
 async function refreshNavIndicators(includeStatic=true){
   if(navIndicatorRefreshInFlight)return;
@@ -6056,37 +6096,38 @@ async function refreshNavIndicators(includeStatic=true){
   try{
   lastNavIndicatorRefresh=Date.now();
   const jobs=[
-    ()=>api('/api/reports?status=all&limit=1').then(d=>setReportsNavState(d.openCount,d.investigatingCount)),
-    ()=>api('/api/mod-updates').then(d=>setModUpdatesNavState(d)),
-    ()=>api('/api/anticheat/status').then(d=>setAntiCheatNavState(d)),
-    ()=>api('/api/chatguard').then(d=>{
+    ['reports',()=>api('/api/reports?status=all&limit=1').then(d=>setReportsNavState(d.openCount,d.investigatingCount))],
+    ['mods',()=>api('/api/mod-updates').then(d=>setModUpdatesNavState(d))],
+    ['anticheat',()=>api('/api/anticheat/status').then(d=>setAntiCheatNavState(d))],
+    ['chatguard',()=>api('/api/chatguard').then(d=>{
       const available=!!d?.available;
       const state=!available?'neutral':(!d.enabled?'neutral':(String(d.mode||'').toLowerCase()==='logonly'?'warn':'good'));
       const detail=!available?'Standalone ChatGuard not installed':`${d.enabled?'Enabled':'Disabled'} · ${d.mode||'—'}`;
       setNavStatus('chatguard',state,detail);
-    }),
-    ()=>api('/api/discord').then(d=>{
+    })],
+    ['discord',()=>api('/api/discord').then(d=>{
       const available=!!(d.transportAvailable||d.linkAvailable);
       const state=!available?'neutral':(d.transportConnected?'good':(d.transportEnabled?'warn':'neutral'));
       const detail=!available?'Discord module not installed':(d.transportConnected?'Discord bot connected':(d.transportEnabled?'Discord enabled but bot disconnected':'Discord integration disabled'));
       setNavStatus('discord',state,detail);
-    })
+    })]
   ];
-  if(includeStatic){
-    jobs.push(()=>api('/api/compatibility').then(d=>setCompatibilityNavState(d)));
-    jobs.push(()=>api('/api/webmap').then(d=>setNavStatus('webmap',d.running?'good':(d.enabled?'bad':'neutral'),d.running?'Web Map listener running':(d.enabled?'Web Map enabled but listener stopped':'Web Map disabled'))));
-    jobs.push(()=>api('/api/loginprotection/config').then(d=>setNavStatus('loginProtection',!d.available?'bad':(d.config?.enabled?'good':'neutral'),!d.available?'Login Protection unavailable':(d.config?.enabled?'Login Protection enabled':'Login Protection disabled'))));
-    jobs.push(()=>api('/api/tick-debug/status').then(d=>{
+  const staticJobs=[];
+    staticJobs.push(()=>api('/api/compatibility').then(d=>setCompatibilityNavState(d)));
+    staticJobs.push(()=>api('/api/webmap').then(d=>setNavStatus('webmap',d.running?'good':(d.enabled?'bad':'neutral'),d.running?'Web Map listener running':(d.enabled?'Web Map enabled but listener stopped':'Web Map disabled'))));
+    staticJobs.push(()=>api('/api/loginprotection/config').then(d=>setNavStatus('loginProtection',!d.available?'bad':(d.config?.enabled?'good':'neutral'),!d.available?'Login Protection unavailable':(d.config?.enabled?'Login Protection enabled':'Login Protection disabled'))));
+    staticJobs.push(()=>api('/api/tick-debug/status').then(d=>{
       const enabled=d.enabled!==false;
       setNavStatus('tickDebug',enabled?'good':'neutral',enabled?'Tick Debugging enabled':'Tick Debugging disabled');
       if($('tickDebugNavState')){$('tickDebugNavState').textContent=enabled?'ON':'OFF';$('tickDebugNavState').className='navInlineState '+(enabled?'good':'neutral');}
     }));
-  }
+  ['compatibility','webmap','loginProtection','tickDebug'].forEach((section,i)=>{if(includeStatic||!navStaticStatusChecked.has(section)||Date.now()-navStaticStatusChecked.get(section)>300000)jobs.push([section,staticJobs[i],true]);});
   // Badges must not fan out full page snapshots immediately after login.
   // One background request at a time also bounds pressure across slow ticks.
-  for(const job of jobs){
+  for(const [section,job,isStatic] of jobs){
     if($('app').style.display==='none')break;
-    try{await job();}catch{}
+    try{await job();if(isStatic)navStaticStatusChecked.set(section,Date.now());}
+    catch{if(isStatic)navStaticStatusChecked.delete(section);setNavStatus(section,'neutral','Status unavailable — the next background refresh will retry');}
     await new Promise(resolve=>setTimeout(resolve,250));
   }
   }finally{navIndicatorRefreshInFlight=false;}
@@ -6637,6 +6678,17 @@ async function apiCore(path, options={}) {
     if (csrfToken) options.headers['X-CSRF-Token']=csrfToken;
   }
 
+  // A stalled read must not hold a GET slot and sidebar refresh forever.
+  // Writes keep their existing semantics; caller-initiated cancellation survives.
+  let readTimer=null,readController=null,cancelRead=null;
+  const callerSignal=options.signal;
+  if(String(options.method||'GET').toUpperCase()==='GET'){
+    readController=new AbortController();
+    cancelRead=()=>readController.abort();
+    if(callerSignal?.aborted)cancelRead();else callerSignal?.addEventListener('abort',cancelRead,{once:true});
+    options.signal=readController.signal;
+    readTimer=setTimeout(cancelRead,30000);
+  }
   let responseReceived=false;
   try {
     const r=await fetch(path,options);
@@ -6644,7 +6696,7 @@ async function apiCore(path, options={}) {
     consecutiveProbeFailures=0;
     markConnection(true);
     let data={};
-    try{data=await r.json();}catch{}
+    try{data=await r.json();}catch(e){if(options.signal?.aborted)throw e;}
     if(r.status===401){showLogin();throw new Error('Authentication required');}
     if(!r.ok){const error=new Error(data.error||data.message||`HTTP ${r.status}`);error.status=r.status;throw error;}
     recordPerformanceResponse(path,null);
@@ -6660,6 +6712,9 @@ async function apiCore(path, options={}) {
       if(consecutiveProbeFailures>=2)markConnection(false);
     }
     throw e;
+  }finally{
+    if(readTimer!==null)clearTimeout(readTimer);
+    if(callerSignal&&cancelRead)callerSignal.removeEventListener('abort',cancelRead);
   }
 }
 
@@ -10252,14 +10307,20 @@ $('bmExport').onclick=()=>{if(!bmOwner()||!bmState)return;const url=URL.createOb
 setInterval(()=>{if(currentSection==='blockMigration'&&!bmBusy&&(bmState?.loadedMigration?.active||['backing-up','activating'].includes(bmValue(bmState?.loadedMigration,'State'))||bmValue(bmState?.scan,'State')==='running'||bmValue(bmState?.mappingAdvice,'State')==='running'||bmValue(bmValue(bmState?.preview,'InventoryReport'),'State')==='running'||['queued','running'].includes(bmValue(bmValue(bmValue(bmState?.loadedMigration,'Plan'),'InventoryReport'),'State'))))loadBlockMigration();},4000);
 
 let nosDirty=false,nosBusy=false,nosSnapshot=null;
-const nosFields={craftingCandidateDedup:'CraftingCandidateDedup',blockSimulationBudget:'BlockSimulationBudget',blockSimulationBudgetMs:'BlockSimulationBudgetMs',barrelMatchCountGuard:'BarrelMatchCountGuard',barrelRecipeMemo:'BarrelRecipeMemo',barrelRecipeRescanEvery:'BarrelRecipeRescanEvery',blockUpdateDiagnostics:'BlockUpdateDiagnostics',blockUpdateDiagnosticsMs:'BlockUpdateDiagnosticsMs',idleFirepitFastPath:'IdleFirepitFastPath',barrelIngredientPairing:'BarrelIngredientPairing',wildBushCallbackFlatten:'WildBushCallbackFlatten',chunkUnloadStagingReuse:'ChunkUnloadStagingReuse',nativeBuildLogGuard:'NativeBuildLogGuard',collisionGenerationReuse:'CollisionGenerationReuse',cachedCollisionGenerationReuse:'CachedCollisionGenerationReuse',animationCollisionFlagScan:'AnimationCollisionFlagScan',collisionTraversalReuse:'CollisionTraversalReuse',containerTransitionScan:'ContainerTransitionScan',containerTickTraversal:'ContainerTickTraversal',nearbyEntityListReuse:'NearbyEntityListReuse',cuboidEntityListReuse:'CuboidEntityListReuse',shapelessStackMerge:'ShapelessStackMerge',shapelessWildcardMatch:'ShapelessWildcardMatch',delayedCallbackSnapshotReuse:'DelayedCallbackSnapshotReuse',spawnOpportunityListReuse:'SpawnOpportunityListReuse',spawnColumnArrayReuse:'SpawnColumnArrayReuse',blockUpdateListReuse:'BlockUpdateListReuse',chunkLoadRequestListReuse:'ChunkLoadRequestListReuse',chunkUnloadListReuse:'ChunkUnloadListReuse',broadcastFilterReuse:'BroadcastFilterReuse',entityLifecycleListReuse:'EntityLifecycleListReuse',aiDistanceThrottle:'AiDistanceThrottle',distantWanderThrottle:'DistantWanderThrottle',repulsionDistanceThrottle:'RepulsionDistanceThrottle',attributeNoOpSkip:'AttributeNoOpSkip',waypointNodePooling:'WaypointNodePooling',entityProtectionRadius:'EntityProtectionRadius',aiDistanceIntervalMs:'AiDistanceIntervalMs',distantWanderIntervalMs:'DistantWanderIntervalMs',repulsionDistanceIntervalMs:'RepulsionDistanceIntervalMs',entityPolicyInclude:'EntityIncludePatterns',entityPolicyExclude:'EntityExcludePatterns',despawnPacketProjection:'DespawnPacketProjection',physicsPacketListReuse:'PhysicsPacketListReuse',pathQueueLimitFix:'PathQueueLimitFix',pathMainThreadBudget:'PathMainThreadBudget',pathMainThreadBudgetMs:'PathMainThreadBudgetMs',pathMainThreadMaxSearches:'PathMainThreadMaxSearches',pathMainThreadGraceMs:'PathMainThreadGraceMs',nearestEntitySearch:'NearestEntitySearch',interactableEntitySearch:'InteractableEntitySearch',aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',temperatureAnimationChecks:'TemperatureAnimationChecks',despawnCleanupTimings:'DespawnCleanupTimings',listenerRegistrationIndex:'ListenerRegistrationIndex',entityLoadedDispatchReuse:'EntityLoadedDispatchReuse',entityDespawnDispatchReuse:'EntityDespawnDispatchReuse',emotionSearchReuse:'EmotionSearchReuse',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
+const nosFields={droppedItemClumping:'DroppedItemClumping',craftingCandidateDedup:'CraftingCandidateDedup',blockSimulationBudget:'BlockSimulationBudget',blockSimulationBudgetMs:'BlockSimulationBudgetMs',barrelMatchCountGuard:'BarrelMatchCountGuard',barrelRecipeMemo:'BarrelRecipeMemo',barrelRecipeRescanEvery:'BarrelRecipeRescanEvery',blockUpdateDiagnostics:'BlockUpdateDiagnostics',blockUpdateDiagnosticsMs:'BlockUpdateDiagnosticsMs',idleFirepitFastPath:'IdleFirepitFastPath',barrelIngredientPairing:'BarrelIngredientPairing',wildBushCallbackFlatten:'WildBushCallbackFlatten',chunkUnloadStagingReuse:'ChunkUnloadStagingReuse',nativeBuildLogGuard:'NativeBuildLogGuard',collisionGenerationReuse:'CollisionGenerationReuse',cachedCollisionGenerationReuse:'CachedCollisionGenerationReuse',animationCollisionFlagScan:'AnimationCollisionFlagScan',collisionTraversalReuse:'CollisionTraversalReuse',containerTransitionScan:'ContainerTransitionScan',containerTickTraversal:'ContainerTickTraversal',nearbyEntityListReuse:'NearbyEntityListReuse',cuboidEntityListReuse:'CuboidEntityListReuse',shapelessStackMerge:'ShapelessStackMerge',shapelessWildcardMatch:'ShapelessWildcardMatch',delayedCallbackSnapshotReuse:'DelayedCallbackSnapshotReuse',spawnOpportunityListReuse:'SpawnOpportunityListReuse',spawnColumnArrayReuse:'SpawnColumnArrayReuse',blockUpdateListReuse:'BlockUpdateListReuse',chunkLoadRequestListReuse:'ChunkLoadRequestListReuse',chunkUnloadListReuse:'ChunkUnloadListReuse',broadcastFilterReuse:'BroadcastFilterReuse',entityLifecycleListReuse:'EntityLifecycleListReuse',aiDistanceThrottle:'AiDistanceThrottle',distantWanderThrottle:'DistantWanderThrottle',repulsionDistanceThrottle:'RepulsionDistanceThrottle',attributeNoOpSkip:'AttributeNoOpSkip',waypointNodePooling:'WaypointNodePooling',entityProtectionRadius:'EntityProtectionRadius',aiDistanceIntervalMs:'AiDistanceIntervalMs',distantWanderIntervalMs:'DistantWanderIntervalMs',repulsionDistanceIntervalMs:'RepulsionDistanceIntervalMs',entityPolicyInclude:'EntityIncludePatterns',entityPolicyExclude:'EntityExcludePatterns',despawnPacketProjection:'DespawnPacketProjection',physicsPacketListReuse:'PhysicsPacketListReuse',pathQueueLimitFix:'PathQueueLimitFix',pathMainThreadBudget:'PathMainThreadBudget',pathMainThreadBudgetMs:'PathMainThreadBudgetMs',pathMainThreadMaxSearches:'PathMainThreadMaxSearches',pathMainThreadGraceMs:'PathMainThreadGraceMs',nearestEntitySearch:'NearestEntitySearch',interactableEntitySearch:'InteractableEntitySearch',aiTaskStartDispatch:'AiTaskStartDispatch',worldgenRequestReuse:'WorldgenRequestReuse',saveSnapshotRelease:'SaveSnapshotRelease',aiFilterDispatch:'AiFilterDispatch',temperatureAnimationChecks:'TemperatureAnimationChecks',despawnCleanupTimings:'DespawnCleanupTimings',listenerRegistrationIndex:'ListenerRegistrationIndex',entityLoadedDispatchReuse:'EntityLoadedDispatchReuse',entityDespawnDispatchReuse:'EntityDespawnDispatchReuse',emotionSearchReuse:'EmotionSearchReuse',repulseDelegateReuse:'RepulseDelegateReuse',enabled:'Enabled',safeMode:'SafeMode',onlinePlayerSnapshots:'OnlinePlayerSnapshots',bulkStreamReads:'BulkStreamReads',assetCompressionCache:'AssetCompressionCache',nearbyPlayerQueries:'NearbyPlayerQueries',minimumNearbyClients:'MinimumNearbyClients',assetCacheMaxMiB:'AssetCacheMaxMiB'};
 function renderNos(result){
   const state=result.optimizer||{},available=!!result.available&&!!state.settings;
   nosSnapshot=state;
   $('nosControls').hidden=!available;
   $('nosState').textContent=available?`NOS ${state.version} · ${state.profiling?'Capture running':'Capture stopped'} · configured switches and actual activation are shown separately.`:(result.message||'NOS is unavailable. Install the matching optimizer module and restart.');
-  if(available){const modules=state.modules||[];const active=modules.filter(m=>m.status==='active').length;$('nosState').innerHTML=`<div class="optStatusHero"><div class="optStatusIcon ${state.settings.enabled&&!state.settings.safeMode?'good':''}">N</div><div><b>NOS ${esc(state.version||'')}</b><div class="small">${active} / ${modules.length} modules active · ${state.profiling?'Capture running':'Capture stopped'} · configured switches may differ from actual state.</div></div></div>`;}
-  if(!available)return;
+  if(available){
+    const modules=state.modules||[],active=modules.filter(m=>m.status==='active').length,inactive=modules.filter(m=>['disabled','standby'].includes(m.status)).length,attention=modules.length-active-inactive;
+    const mode=!state.settings.enabled?'Optimizer disabled':state.settings.safeMode?'Safe mode · stock methods':attention?'Review module status':active?'Runtime patches active':'No active patches';
+    $('nosState').innerHTML=`<div class="nosHero"><div class="nosEmblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg></div><div class="nosHeroCopy"><span class="nosVersion">NOS ${esc(state.version||'')}</span><b>${esc(mode)}</b><span class="small">${state.profiling?'Capture running · stop capture to edit modules':'Capture stopped · modules can be configured independently'}</span></div></div><div class="nosRuntimeSummary" aria-label="Actual optimizer module states"><button type="button" data-nos-state-filter="active" class="nosActual active"><b>${active}</b><span>Active modules</span></button><button type="button" data-nos-state-filter="attention" class="nosActual ${attention?'attention':''}"><b>${attention}</b><span>Need attention</span></button><button type="button" data-nos-state-filter="inactive" class="nosActual"><b>${inactive}</b><span>Disabled / standby</span></button><div class="nosActual nosDraftStat"><b id="nosDraftTotal">0</b><span>Pending edits</span></div></div><p class="small nosStateNote">Actual runtime states above · configured switches below may be blocked by compatibility checks.</p>`;
+  }
+  if(!available){setNavStatus('optimizations','neutral','NOS is unavailable or not installed');return;}
+  const moduleStates=state.modules||[],activeModules=moduleStates.filter(m=>m.status==='active').length,failedModules=moduleStates.some(m=>m.status==='failed'),reviewModules=moduleStates.some(m=>!['active','disabled','standby'].includes(m.status));
+  setNavStatus('optimizations',!state.settings.enabled||state.settings.safeMode?'neutral':failedModules?'bad':reviewModules?'warn':activeModules?'good':'neutral',!state.settings.enabled?'Optimizer disabled':state.settings.safeMode?'Optimizer Safe Mode: stock methods retained':`${activeModules} active NOS modules${reviewModules?' · review compatibility / fallback states':''}`);
   const locked=currentSessionRole==='ReadOnly'||safeDiagnosticsModeGlobal;
   Object.entries(nosFields).forEach(([key,id])=>{const el=$('nos'+id);if(!nosDirty){if(el.type==='checkbox')el.checked=!!state.settings[key];else el.value=el.hasAttribute('data-nos-patterns')?(state.settings[key]||[]).join(', '):String(state.settings[key]??'');}el.disabled=nosBusy||locked||!!state.profiling||!Object.prototype.hasOwnProperty.call(state.settings,key);el.title=Object.prototype.hasOwnProperty.call(state.settings,key)?'':'Update NOS to configure this module.';});
   $('nosApply').disabled=nosBusy||locked||!!state.profiling;
@@ -10276,7 +10337,7 @@ function renderNos(result){
   renderNosModules();
   const c=state.counters||{};
   const sum=keys=>keys.reduce((total,key)=>total+Math.max(0,Number(c[key])||0),0);
-  const metrics=[['Entity event dispatches',sum(['entityLoadedDispatchCalls','entityDespawnDispatchCalls']),'Load/despawn subscribers retain native order'],['Emotion behavior searches',Number(c.emotionSearchCalls)||0,'Live queries with reused callbacks'],['Temperature animation checks',Number(c.temperatureAnimationChecks)||0,'Animation lookups; heating still runs'],['Entity searches',sum(['nearestEntitySearchCalls','interactableEntitySearchCalls','nearbyEntityListPasses','cuboidEntityListPasses']),'Native search passes using NOS'],['Collision cache hits',sum(['collisionGenerationCacheHits']),'Native bounds-cache returns'],['Animation scans',sum(['animationCollisionScans']),'Frames and triggers still run'],['Save snapshot releases',sum(['saveSnapshotCompletions']),'Completed snapshots released; not save duration']];
+  const metrics=[['Dropped item merges',Number(c.droppedItemMerges)||0,'Same-cell, native stack limits; no item deletion'],['Entity event dispatches',sum(['entityLoadedDispatchCalls','entityDespawnDispatchCalls']),'Load/despawn subscribers retain native order'],['Emotion behavior searches',Number(c.emotionSearchCalls)||0,'Live queries with reused callbacks'],['Temperature animation checks',Number(c.temperatureAnimationChecks)||0,'Animation lookups; heating still runs'],['Entity searches',sum(['nearestEntitySearchCalls','interactableEntitySearchCalls','nearbyEntityListPasses','cuboidEntityListPasses']),'Native search passes using NOS'],['Collision cache hits',sum(['collisionGenerationCacheHits']),'Native bounds-cache returns'],['Animation scans',sum(['animationCollisionScans']),'Frames and triggers still run'],['Save snapshot releases',sum(['saveSnapshotCompletions']),'Completed snapshots released; not save duration']];
   $('nosMetrics').innerHTML=metrics.map(([label,value,note])=>`<div class="nosMetric"><span class="small">${esc(label)}</span><b>${Number(value).toLocaleString()}</b><span class="small">${esc(note)}</span></div>`).join('');
   $('nosCounters').textContent=`Queued block simulation: ${Number(c.blockSimulationPasses||0).toLocaleString()} passes · budget reached ${Number(c.blockSimulationDeferredPasses||0).toLocaleString()} times · queue last observed ${Number(c.blockSimulationQueueDepth||0).toLocaleString()} / peak ${Number(c.blockSimulationQueuePeak||0).toLocaleString()} · policy failures/backpressure releases ${Number(c.blockSimulationFailures||0).toLocaleString()}. Rejected impossible barrel matches ${Number(c.barrelMatchCountGuardCalls||0).toLocaleString()} / ${Number(c.barrelMatchCountGuardFallbacks||0).toLocaleString()} native fallbacks / ${Number(c.barrelMatchCountGuardFailures||0).toLocaleString()} failures. Barrel recipe scans skipped ${Number(c.barrelRecipeMemoSkipped||0).toLocaleString()} / ${Number(c.barrelRecipeMemoChecks||0).toLocaleString()} checks · ${Number(c.barrelRecipeMemoFallbacks||0).toLocaleString()} native fallbacks / ${Number(c.barrelRecipeMemoFailures||0).toLocaleString()} failures. Cold firepit fast paths ${Number(c.idleFirepitFastPathCalls||0).toLocaleString()} / ${Number(c.idleFirepitFastPathFallbacks||0).toLocaleString()} native fallbacks · Barrel pairings ${Number(c.barrelIngredientPairingCalls||0).toLocaleString()} · Bush wrappers avoided ${Number(c.wildBushCallbackFlattenCalls||0).toLocaleString()} · Unload staging passes ${Number(c.chunkUnloadStagingCalls||0).toLocaleString()} / ${Number(c.chunkUnloadStagingOversizedReleased||0).toLocaleString()} oversized buffers released · Collision generation ${Number(c.collisionGenerationCalls||0).toLocaleString()} standard / ${Number(c.cachedCollisionGenerationCalls||0).toLocaleString()} cached · ${Number(c.collisionGenerationCacheHits||0).toLocaleString()} bounds-cache hits · ${Number(c.collisionGenerationContextsCreated||0).toLocaleString()} callback contexts created · ${Number(c.collisionGenerationFallbacks||0).toLocaleString()} custom-walker fallbacks / ${Number(c.collisionGenerationFailures||0)} failures · Animation flag scans ${Number(c.animationCollisionScans||0).toLocaleString()} / ${Number(c.animationScanFallbacks||0)} fallbacks / ${Number(c.animationScanFailures||0)} failures · Collision / container traversals ${Number(c.collisionTraversalCalls||0).toLocaleString()} / ${Number(c.containerTransitionScans||0).toLocaleString()} scans / ${Number(c.containerTickTraversals||0).toLocaleString()} ticks · ${Number(c.traversalIteratorsAvoided||0).toLocaleString()} iterator allocations avoided · ${Number(c.customInventoryTraversalFallbacks||0).toLocaleString()} custom inventory fallbacks · ${Number(c.collisionTraversalFailures||0)+Number(c.containerScanFailures||0)+Number(c.containerTickFailures||0)} traversal failures · Entity query passes ${Number(c.nearbyEntityListPasses||0).toLocaleString()} nearby / ${Number(c.cuboidEntityListPasses||0).toLocaleString()} cuboid · ${Number(c.entityQueryBuffersCreated||0).toLocaleString()} query buffers created / ${Number(c.entityQueryOversizedReleased||0).toLocaleString()} oversized released · ${Number(c.entityQueryFailures||0)} query failures · Shapeless merge / wildcard checks ${Number(c.shapelessMergeCalls||0).toLocaleString()} / ${Number(c.shapelessWildcardCalls||0).toLocaleString()} · ${Number(c.shapelessMergeFailures||0)+Number(c.shapelessWildcardFailures||0)} recipe failures · Callback snapshots ${Number(c.callbackSnapshotPasses||0).toLocaleString()} / ${Number(c.callbackDebugSnapshotPasses||0).toLocaleString()} debug · spawn searches ${Number(c.spawnOpportunityPasses||0).toLocaleString()} · spawn arrays reused ${Number(c.spawnColumnArraysReused||0).toLocaleString()} · callback/spawn failures ${Number(c.callbackSpawnFailures||0).toLocaleString()} · Block updates ${Number(c.blockUpdatePasses||0).toLocaleString()} · chunk request passes ${Number(c.chunkRequestPasses||0).toLocaleString()} · unload candidates / notifications ${Number(c.chunkUnloadCandidatePasses||0).toLocaleString()} / ${Number(c.chunkUnloadNotificationPasses||0).toLocaleString()} · unload coordinates reused ${Number(c.chunkUnloadCoordinatesReused||0).toLocaleString()} · scratch failures ${Number(c.blockChunkFailures||0).toLocaleString()} · Executed: ${Number(c.despawnPacketCalls||0).toLocaleString()} despawn packets / ${Number(c.despawnPacketEntities||0).toLocaleString()} despawn entries · ${Number(c.physicsPacketPasses||0).toLocaleString()} physics packet passes · ${Number(c.physicsPacketBuffersCreated||0).toLocaleString()} packet buffer sets created / ${Number(c.physicsPacketOversizedBuffersReleased||0).toLocaleString()} oversized sets released · ${Number(c.onlineSnapshotCalls||0).toLocaleString()} player snapshots · ${Number(c.nearestEntitySearchCalls||0).toLocaleString()} nearest / ${Number(c.interactableEntitySearchCalls||0).toLocaleString()} interactable entity searches · ${Number(c.entitySearchContextsCreated||0).toLocaleString()} search contexts created · ${Number(c.pathWorkerLimitStops||0).toLocaleString()} worker limit stops · ${Number(c.pathMainSearches||0).toLocaleString()} main-thread paths · ${Number(c.pathDeferredTicks||0).toLocaleString()} help ticks deferred · ${Number(c.pathAssistanceFailures||0).toLocaleString()} assistance failures · ${Number(c.bulkReadCalls||0).toLocaleString()} bulk reads · asset cache ${Number(c.assetCacheHits||0)} hits / ${Number(c.assetCacheMisses||0)} misses · ${(Number(c.assetCacheBytes||0)/1048576).toFixed(2)} MiB retained. Empty-exclusion fast paths: ${Number(c.broadcastRawCalls||0)} raw / ${Number(c.broadcastPacketCalls||0)} packet / ${Number(c.broadcastUdpCalls||0)} UDP passes · ${Number(c.entityCleanupPasses||0)} entity cleanup passes / ${Number(c.entityCleanupBuffersCreated||0)} temporary buffer sets created / ${Number(c.entityCleanupOversizedReleased||0)} oversized sets released. Distant scheduling: ${Number(c.aiChecksDeferred||0).toLocaleString()} AI / ${Number(c.wanderChecksDeferred||0).toLocaleString()} wander / ${Number(c.repulsionChecksDeferred||0).toLocaleString()} repulsion checks deferred · ${Number(c.entityPolicyFailures||0)} policy failures · ${Number(c.waypointNodesReused||0).toLocaleString()} waypoint nodes reused / ${Number(c.waypointNodesCreated||0).toLocaleString()} pooled nodes created / ${Number(c.waypointPoolOverflow||0).toLocaleString()} unpooled candidates · ${Number(c.attributeNoOpSkips||0).toLocaleString()} missing-attribute resyncs skipped. Counters are cumulative for this server process; hits are not a TPS measurement.`;
 }
@@ -10285,7 +10346,7 @@ function readNosDraft(){
 }
 function renderNosDraft(){
   const draft=readNosDraft(),edits=Object.entries(draft).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(nosSnapshot.settings[key]));
-  nosDirty=edits.length>0;$('nosPending').hidden=!nosDirty;$('nosPendingCount').textContent=`${edits.length} pending change${edits.length===1?'':'s'} — review before Apply`;
+  nosDirty=edits.length>0;if($('nosDraftTotal')){$('nosDraftTotal').textContent=String(edits.length);$('nosDraftTotal').closest('.nosActual').classList.toggle('attention',nosDirty);}$('nosPending').hidden=!nosDirty;$('nosPendingCount').textContent=`${edits.length} pending change${edits.length===1?'':'s'} — review before Apply`;
   const show=value=>Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'On':'Off'):Number.isFinite(value)?String(value):'Invalid value';
   $('nosPendingRows').innerHTML=edits.map(([key,value])=>`<tr><td>${esc($('nos'+nosFields[key]).closest('label')?.textContent.trim()||key)}<div class="small">${esc(key)}</div></td><td>${esc(show(nosSnapshot.settings[key]))}</td><td>${esc(show(value))}</td></tr>`).join('');
   $('nosDiscard').disabled=nosBusy||!nosDirty;
@@ -10301,7 +10362,7 @@ $('nosSettingSearch').oninput=filterNosSettings;
 function setNosGroupsOpen(open){document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{if(!group.hidden){group.open=open;if(nosSearching)nosGroupOpenState.set(group,open);}});}
 $('nosExpandSettings').onclick=()=>setNosGroupsOpen(true);$('nosCollapseSettings').onclick=()=>setNosGroupsOpen(false);
 function updateNosGroupCounts(){
-  document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{const fields=[...group.querySelectorAll('input[type=checkbox]')];group.querySelector('.nosGroupCount').textContent=`${fields.filter(el=>el.checked&&!el.title).length} / ${fields.filter(el=>!el.title).length} configured on`;});
+  document.querySelectorAll('#nosControls .nosGroup').forEach(group=>{const fields=[...group.querySelectorAll('input[type=checkbox]')];group.dataset.experimental=/experimental|optional/i.test(group.querySelector('summary').firstChild.textContent);group.querySelector('.nosGroupCount').textContent=`${fields.filter(el=>el.checked&&!el.title).length} / ${fields.filter(el=>!el.title).length} configured on`;});
 }
 $('nosControls').addEventListener('change',updateNosGroupCounts);
 function renderNosModules(){
@@ -10332,6 +10393,7 @@ async function nosAction(operation){
   finally{nosBusy=false;await loadNos();}
 }
 Object.values(nosFields).forEach(id=>$('nos'+id).oninput=()=>{renderNosDraft();updateNosGroupCounts();$('nosEditState').textContent=nosDirty?'Unsaved edits — review pending changes, then Save and Apply.':'Draft matches current server settings.';});
+$('nosState').addEventListener('click',event=>{const button=event.target.closest('[data-nos-state-filter]');if(!button)return;$('nosModuleSearch').value='';$('nosModuleFilter').value=button.dataset.nosStateFilter;renderNosModules();$('nosModuleFilter').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
 $('nosRefresh').onclick=loadNos;
 $('nosApply').onclick=()=>nosAction('set');
 $('nosDiscard').onclick=()=>{nosDirty=false;loadNos();};
@@ -11888,7 +11950,7 @@ function renderWebMap(d){
   $('webMapTerrainTileSize').value=Number(d.terrainTileSize||256);
   const terrain=d.terrain||{};
   $('webMapTerrainState').textContent=`${terrain.state||'unknown'}${terrain.serverLockActive?' · GAME SERVER LOCKED':''}`;
-  $('webMapTerrainMetrics').innerHTML=metric('Mode',esc(terrain.exportMode||'pending'),String(terrain.exportMode||'').includes('incremental')?'good':String(terrain.exportMode||'').includes('full')?'warn':'')+metric('Phase',esc(webMapTerrainPhaseLabel(terrain.phase||terrain.state||'waiting')),terrain.state==='exporting'?'warn':terrain.state==='ready'?'good':'')+metric('Progress',`${webMapTerrainProgressPercent(terrain).toFixed(0)}%`,terrain.state==='exporting'?'warn':terrain.state==='ready'?'good':'')+metric('Trigger',esc(terrain.trigger||'startup'))+metric('ETA',terrain.state==='exporting'?fmtDurationMs(Number(terrain.estimatedRemainingMilliseconds||0),Number(terrain.estimatedRemainingMilliseconds)<0):'—',terrain.state==='exporting'?'warn':'')+metric('Avg / tile',Number(terrain.averageMillisecondsPerTile||0)>0?`${Number(terrain.averageMillisecondsPerTile).toFixed(0)} ms`:'—')+metric('Rendered tiles',`${Number(terrain.writtenTiles||0).toLocaleString()} / ${Number(terrain.totalTiles||0).toLocaleString()}`)+metric('Reused tiles',Number(terrain.reusedTiles||0).toLocaleString(),'good')+metric('Dirty chunks',Number(terrain.dirtyChunkCount||0).toLocaleString(),Number(terrain.dirtyChunkCount||0)>0?'warn':'good')+metric('Chunk loads',Number(terrain.processedChunkColumns||0).toLocaleString())+metric('Coverage scan',`${Number(terrain.coverageScanMilliseconds||0).toLocaleString()} ms`)+metric('World reads',`${Number(terrain.worldReadMilliseconds||0).toLocaleString()} ms`)+metric('Render',`${Number(terrain.renderMilliseconds||0).toLocaleString()} ms`)+metric('PNG writes',`${Number(terrain.pngWriteMilliseconds||0).toLocaleString()} ms`)+metric('Overview',`${Number(terrain.overviewMilliseconds||0).toLocaleString()} ms`)+metric('LOD cache',`${Number(terrain.lodWriteMilliseconds||0).toLocaleString()} ms`)+metric('Total',`${Number(terrain.totalElapsedMilliseconds||0).toLocaleString()} ms`)+metric('Last export time',Number(d.lastTerrainExportDurationMilliseconds||0)>0?fmtDurationMs(Number(d.lastTerrainExportDurationMilliseconds||0)):'Never','good')+metric('Pooled tile buffer',`${(Number(terrain.peakWorkingBufferBytes||0)/1048576).toFixed(2)} MiB`)+metric('Palette cache',Number(terrain.blockColorCacheEntries||0).toLocaleString())+metric('Overview resolution',`${Number(d.terrainManifest?.overviewCellSizeBlocks||terrain.overviewCellSizeBlocks||0)||'—'} blocks/px`)+metric('Tile size',`${Number(terrain.tileSize||d.terrainTileSize||256)} px`)+metric('Last success',terrain.lastSuccessfulUnixMilliseconds?fmtAdminTime(terrain.lastSuccessfulUnixMilliseconds):'Never',terrain.lastError?'bad':'good');
+  $('webMapTerrainMetrics').innerHTML=metric('Mode',esc(terrain.exportMode||'pending'),String(terrain.exportMode||'').includes('incremental')?'good':String(terrain.exportMode||'').includes('full')?'warn':'')+metric('Phase',esc(webMapTerrainPhaseLabel(terrain.phase||terrain.state||'waiting')),terrain.state==='exporting'?'warn':terrain.state==='ready'?'good':'')+metric('Progress',`${webMapTerrainProgressPercent(terrain).toFixed(0)}%`,terrain.state==='exporting'?'warn':terrain.state==='ready'?'good':'')+metric('Trigger',esc(terrain.trigger||'startup'))+metric('ETA',terrain.state==='exporting'?fmtDurationMs(Number(terrain.estimatedRemainingMilliseconds||0),Number(terrain.estimatedRemainingMilliseconds)<0):'—',terrain.state==='exporting'?'warn':'')+metric('Avg / tile',Number(terrain.averageMillisecondsPerTile||0)>0?`${Number(terrain.averageMillisecondsPerTile).toFixed(0)} ms`:'—')+metric('Rendered tiles',`${Number(terrain.writtenTiles||0).toLocaleString()} / ${Number(terrain.totalTiles||0).toLocaleString()}`)+metric('Reused tiles',Number(terrain.reusedTiles||0).toLocaleString(),'good')+metric('Dirty chunks',Number(terrain.dirtyChunkCount||0).toLocaleString(),Number(terrain.dirtyChunkCount||0)>0?'warn':'good')+metric('Columns read',Number(terrain.processedChunkColumns||0).toLocaleString())+metric('World-loader requests',Number(terrain.worldLoaderChunkColumns||0).toLocaleString(),Number(terrain.worldLoaderChunkColumns||0)>0?'warn':'')+metric('Export buffer cleanup',terrain.exportResourcesReleased?`${(Number(terrain.exportBufferCacheBytesReleased||0)/1048576).toFixed(2)} MiB released`:terrain.state==='exporting'?'In use':'—',terrain.exportResourcesReleased?'good':'')+metric('Coverage scan',`${Number(terrain.coverageScanMilliseconds||0).toLocaleString()} ms`)+metric('World reads',`${Number(terrain.worldReadMilliseconds||0).toLocaleString()} ms`)+metric('Render',`${Number(terrain.renderMilliseconds||0).toLocaleString()} ms`)+metric('PNG writes',`${Number(terrain.pngWriteMilliseconds||0).toLocaleString()} ms`)+metric('Overview',`${Number(terrain.overviewMilliseconds||0).toLocaleString()} ms`)+metric('LOD cache',`${Number(terrain.lodWriteMilliseconds||0).toLocaleString()} ms`)+metric('Total',`${Number(terrain.totalElapsedMilliseconds||0).toLocaleString()} ms`)+metric('Last export time',Number(d.lastTerrainExportDurationMilliseconds||0)>0?fmtDurationMs(Number(d.lastTerrainExportDurationMilliseconds||0)):'Never','good')+metric('Pooled tile buffer',`${(Number(terrain.peakWorkingBufferBytes||0)/1048576).toFixed(2)} MiB`)+metric('Palette entries used',Number(terrain.blockColorCacheEntries||0).toLocaleString())+metric('Overview resolution',`${Number(d.terrainManifest?.overviewCellSizeBlocks||terrain.overviewCellSizeBlocks||0)||'—'} blocks/px`)+metric('Tile size',`${Number(terrain.tileSize||d.terrainTileSize||256)} px`)+metric('Last success',terrain.lastSuccessfulUnixMilliseconds?fmtAdminTime(terrain.lastSuccessfulUnixMilliseconds):'Never',terrain.lastError?'bad':'good');
   $('webMapTerrainMessage').textContent=(terrain.message||'')+(terrain.lastError?` Error: ${terrain.lastError}`:'');
   renderWebMapTerrainProgress(terrain);
   if(terrain.state==='exporting')scheduleWebMapTerrainProgressPoll();

@@ -77,12 +77,14 @@ def main() -> int:
     with zipfile.ZipFile(modzip, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(dlls[0], dlls[0].name)
         archive.write(modinfo, "modinfo.json")
+        archive.write(ROOT / "modicon.png", "modicon.png")
         for name in ("README.md", "docs/configuration.md", "docs/limitations.md", "docs/performance-0.9.0.md", "docs/performance-0.9.1.md", "docs/performance-0.10.0.md", "docs/performance-0.11.0.md", "docs/performance-0.12.0.md", "docs/performance-0.13.0.md", "docs/performance-0.14.0.md", "docs/performance-0.15.0.md", "docs/performance-0.16.0.md", "docs/performance-0.16.1.md", "docs/performance-0.17.0.md", "docs/performance-0.18.0.md", "docs/performance-0.18.1.md", "docs/performance-0.19.0.md", "docs/performance-0.20.0.md", "docs/performance-0.20.1.md", "docs/performance-0.20.2.md", "docs/performance-0.20.3.md", "docs/performance-0.20.4.md", "docs/performance-0.20.5.md", "docs/performance-0.20.6.md", "docs/performance-0.20.7.md", "docs/performance-0.20.8.md", "docs/performance-0.20.12.md", "docs/performance-0.20.13.md", "docs/performance-0.20.14.md", "docs/performance-0.20.15.md", "docs/crafting-test-guide.md", "docs/replacement-coverage.md"):
             path = ROOT / name
             if path.is_file():
                 archive.write(path, "guides/" + path.name)
         if (ROOT / "config/optimizer.json").is_file():
             archive.write(ROOT / "config/optimizer.json", "guides/optimizer.example.json")
+        archive.write(ROOT / "docs/dropped-items-0.20.17.md", "guides/dropped-items-0.20.17.md")
         archive.write(ROOT / "docs/audit-0.20.16.md", "guides/audit-0.20.16.md")
         archive.write(ROOT / "docs/first-release.md", "guides/first-release.md")
         archive.write(ROOT / "config/presets/newfies-observed-1.22.7.json", "guides/presets/newfies-observed-1.22.7.json")

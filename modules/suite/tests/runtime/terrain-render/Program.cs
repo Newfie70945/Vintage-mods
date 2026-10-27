@@ -34,6 +34,20 @@ var writer=exporter.GetNestedType("PngWriter",BindingFlags.NonPublic)!;
 var reader=exporter.GetNestedType("PngReader",BindingFlags.NonPublic)!;
 string dir=Path.Combine(Path.GetTempPath(),"nss-png-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
 try{
+ // Large incompressible tile must span several IDAT chunks and avoid a full
+ // compressed-image managed allocation. Input/decoder allocation is excluded.
+ var streamPixels=new byte[512*512*4];new Random(17).NextBytes(streamPixels);
+ string streamFile=Path.Combine(dir,"streamPixels.png");
+ writer.GetMethod("WriteRgba",S)!.Invoke(null,[streamFile,512,512,streamPixels]); // warm pooled buffers
+ long before=GC.GetAllocatedBytesForCurrentThread();
+ writer.GetMethod("WriteRgba",S)!.Invoke(null,[streamFile,512,512,streamPixels]);
+ long allocated=GC.GetAllocatedBytesForCurrentThread()-before;
+ Check(allocated<256*1024,"PNG writer uses bounded pooled output rather than a complete compressed tile: "+allocated);
+ var decoded=new byte[streamPixels.Length];
+ Check((bool)reader.GetMethod("TryReadRgbaInto",S)!.Invoke(null,[streamFile,decoded,512])!,"decoder accepts multiple streamed IDAT chunks");
+ Check(decoded.AsSpan().SequenceEqual(streamPixels),"streamed incompressible tile preserves every pixel");
+ using(var png=new BinaryReader(File.OpenRead(streamFile))){png.ReadBytes(8);int idats=0;while(png.BaseStream.Position<png.BaseStream.Length){var len=png.ReadBytes(4);int bytes=(len[0]<<24)|(len[1]<<16)|(len[2]<<8)|len[3];string type=System.Text.Encoding.ASCII.GetString(png.ReadBytes(4));if(type=="IDAT"){idats++;Check(bytes<=65536,"IDAT chunk size is bounded");}png.BaseStream.Seek(bytes+4,SeekOrigin.Current);}Check(idats>1,"streamPixels tile exercises multi-IDAT output");}
+ Console.WriteLine("Streamed PNG managed allocation: "+allocated+" bytes for a 1 MiB incompressible tile.");
  int n=32;var pixels=new byte[n*n*4];var rng=new Random(3);rng.NextBytes(pixels);
  string file=Path.Combine(dir,"t.png");
  writer.GetMethod("WriteRgba",S)!.Invoke(null,[file,n,n,pixels]);
