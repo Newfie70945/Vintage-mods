@@ -8149,7 +8149,7 @@ public sealed partial class WebDashboardService : IDisposable
             var overview = await GetCachedMainThreadReadAsync(
                 "performance-overview:" + windowSeconds, 1000,
                 () => BuildPerformanceOverview(windowSeconds),
-                "web-performance-overview").ConfigureAwait(false);
+                "web-performance-overview", waitForRefresh: true).ConfigureAwait(false);
 
             await WriteJsonAsync(
                 stream,
@@ -8198,7 +8198,7 @@ public sealed partial class WebDashboardService : IDisposable
                         conflicts = GetLastPatchConflictSnapshot()
                     };
                 },
-                "web-performance-page-snapshot", serializeOnce: true).ConfigureAwait(false);
+                "web-performance-page-snapshot", serializeOnce: true, waitForRefresh: true).ConfigureAwait(false);
 
             await WriteJsonAsync(
                 stream,
@@ -8231,7 +8231,7 @@ public sealed partial class WebDashboardService : IDisposable
             var timeline = await GetCachedMainThreadReadAsync(
                 "performance-timeline:" + windowSeconds, 5000,
                 () => BuildPerformanceTimeline(windowSeconds),
-                "web-performance-timeline", serializeOnce: true).ConfigureAwait(false);
+                "web-performance-timeline", serializeOnce: true, waitForRefresh: true).ConfigureAwait(false);
 
             await WriteJsonAsync(
                 stream,
@@ -10621,7 +10621,7 @@ public sealed partial class WebDashboardService : IDisposable
             BuildDashboardSnapshot, "web-dashboard-status", serializeOnce: true);
     }
 
-    private Task<object> GetCachedMainThreadReadAsync(string key, int maxAgeMs, Func<object> builder, string taskCode, bool serializeOnce = false)
+    private Task<object> GetCachedMainThreadReadAsync(string key, int maxAgeMs, Func<object> builder, string taskCode, bool serializeOnce = false, bool waitForRefresh = false)
     {
         var task = snapshotCache.GetAsync(key, maxAgeMs, async () =>
         {
@@ -10636,7 +10636,7 @@ public sealed partial class WebDashboardService : IDisposable
         }, out bool servedCached,
         ex => api.Logger.Debug("[WebDashboard] cached read refresh {0} skipped: {1}: {2}",
             key, ex.GetType().Name, ex.Message),
-        allowRefresh: !disposed && config.Enabled);
+        allowRefresh: !disposed && config.Enabled, waitForRefresh: waitForRefresh);
         if (servedCached) Interlocked.Increment(ref webSnapshotCacheHits);
         else Interlocked.Increment(ref webSnapshotCacheMisses);
         return task;

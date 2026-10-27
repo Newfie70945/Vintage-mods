@@ -40,7 +40,7 @@ object cache = Activator.CreateInstance(cacheType, new object?[] { (Func<long>)(
 MethodInfo get = cacheType.GetMethod("GetAsync")!;
 int builds = 0;
 Task<object> Get(string key, Func<Task<object>>? builder = null) => (Task<object>)get.Invoke(cache,
-    new object?[] { key, 5000, builder ?? (() => Task.FromResult<object>(++builds)), false, null, true })!;
+    new object?[] { key, 5000, builder ?? (() => Task.FromResult<object>(++builds)), false, null, true, false })!;
 await Get("anticheat"); await Get("discord-status");
 cacheType.GetMethod("Invalidate")!.Invoke(cache, new object?[] { (Func<string, bool>)(key => key == "anticheat") });
 await Get("discord-status"); Check(builds == 2, "Unrelated cache rebuilt");

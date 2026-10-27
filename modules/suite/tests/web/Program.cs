@@ -127,6 +127,25 @@ Check(WebIncidentEvidence.WorkMilliseconds(spanning, 10000, 11000, 500) == 0, "q
 Check(WebIncidentEvidence.Select(Enumerable.Range(0, 30).Select(i => new WebRequestDiagnostic { RequestId = i, UnixMilliseconds = 10000, EndUnixMilliseconds = 11000 }), 10000, 11000, 500).Count == 8, "incident web evidence must be bounded");
 Console.WriteLine("PASS: interval matching, GC discount, legacy evidence, wait-only requests and retained evidence bounds.");
 
+// Performance reads must publish the refresh initiated by this request, not an
+// expired snapshot which would require another button click to retrieve.
+long freshNow=100;int freshBuilds=0;
+var freshCache=new CoalescedSnapshotCache(()=>freshNow);
+await freshCache.GetAsync("timeline",100,()=>Task.FromResult<object>("old"),out _);
+freshNow=250;
+var freshReplacement=new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+Task<object> FreshBuilder(){freshBuilds++;return freshReplacement.Task;}
+var freshReaders=Enumerable.Range(0,64).Select(index=>freshCache.GetAsync("timeline",100,FreshBuilder,out _,waitForRefresh:true)).ToArray();
+Check(freshBuilds==1&&freshReaders.All(t=>!t.IsCompleted),"expired Performance readers must await one shared freshReplacement");
+freshReplacement.SetResult("new");
+Check((await Task.WhenAll(freshReaders)).All(v=>Equals(v,"new")),"first refresh must return new graph data without a second click");
+Check(Equals(await freshCache.GetAsync("timeline",100,()=>throw new Exception("fresh snapshot rebuilt"),out bool hit,waitForRefresh:true),"new")&&hit,"fresh Performance data retains its cache lifetime");
+freshNow=400;
+try{await freshCache.GetAsync("timeline",100,()=>Task.FromException<object>(new IOException("busy")),out _,waitForRefresh:true);throw new Exception("expired refresh failure was hidden");}catch(IOException){}
+Check(freshCache.TryGet("timeline",out var retained)&&Equals(retained,"new"),"failed fresh refresh preserves last successful snapshot");
+Check(Equals(await freshCache.GetAsync("timeline",100,()=>throw new Exception("paused refresh ran"),out _,allowRefresh:false,waitForRefresh:true),"new"),"paused Performance cache does not start work");
+Console.WriteLine("PASS: first-click fresh Performance snapshots, 64-reader coalescing, cached fresh hits, visible refresh failure and paused-cache preservation");
+
 sealed class CountingPayload
 {
     public int Reads;

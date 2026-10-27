@@ -36,7 +36,7 @@ internal sealed class CoalescedSnapshotCache
     }
 
     public Task<object> GetAsync(string key, int maxAgeMs, Func<Task<object>> builder,
-        out bool servedCached, Action<Exception>? onRefreshError = null, bool allowRefresh = true)
+        out bool servedCached, Action<Exception>? onRefreshError = null, bool allowRefresh = true, bool waitForRefresh = false)
     {
         Entry entry;
         TaskCompletionSource<object>? completion = null;
@@ -71,7 +71,11 @@ internal sealed class CoalescedSnapshotCache
                 entry.Pending = completion.Task;
                 generation = entry.Generation;
             }
-            result = servedCached ? Task.FromResult(entry.Payload!) : entry.Pending!;
+            // Performance reads await the shared replacement instead of requiring a
+            // second click. Other routes retain stale-while-refresh behavior.
+            bool awaitReplacement = waitForRefresh && allowRefresh && expired;
+            result = servedCached && !awaitReplacement ? Task.FromResult(entry.Payload!) : entry.Pending!;
+            if (awaitReplacement) servedCached = false;
         }
 
         // Reserve under the lock, but schedule outside it: builders may complete

@@ -8854,22 +8854,26 @@ function performanceWindowLabel(){
   return seconds===3600?'1-hour':`${seconds/60}-minute`;
 }
 
-let performancePageRevision=0;
+let performancePageRevision=0,performanceOverviewRevision=0,performanceCenterRequests=0;
 async function loadPerformanceCenter(full=true){
   if(!full){
     await Promise.allSettled([loadPerformanceOverview(false),loadPerformanceTimeline(false)]);
     return;
   }
   const revision=++performancePageRevision,requestedWindow=performanceWindowSeconds();
-
+  // Reserve both reading revisions before the page request, so a slower full
+  // snapshot cannot replace a newer live refresh when it finally returns.
+  const overviewRevision=++performanceOverviewRevision,timelineRevision=++performanceTimelineRevision;
+  performanceCenterRequests++;$('perfRefresh').disabled=true;
+  try{
   try{
     // One cached page snapshot replaces the old burst of seven main-thread-backed GETs.
     // Block activity stays separate because it is a database query with its own worker.
     const page=await api(`/api/performance/page-snapshot?window=${requestedWindow}`);
     if(revision!==performancePageRevision||requestedWindow!==performanceWindowSeconds())return;
     await Promise.allSettled([
-      loadPerformanceOverview(true,page.overview||null,requestedWindow),
-      loadPerformanceTimeline(false,page.timeline||null,requestedWindow),
+      loadPerformanceOverview(true,page.overview||null,requestedWindow,overviewRevision),
+      loadPerformanceTimeline(false,page.timeline||null,requestedWindow,timelineRevision),
       loadPerformanceEntityScan(false,page.entityScan||null),
       loadPerformanceEntityGrowth(false,page.entityGrowth||null),
       loadPerformanceEnvironment(false,page.environment||null),
@@ -8881,8 +8885,10 @@ async function loadPerformanceCenter(full=true){
     if(![404,405].includes(e.status)){$('perfNotice').textContent='Performance snapshot could not refresh: '+e.message;return;}
     // Compatibility fallback for a mixed deployment during upgrades. Keep requests
     // sequential so the browser still does not stampede the web worker queue.
-    await loadPerformanceOverview(true);
-    await loadPerformanceTimeline(false);
+    await loadPerformanceOverview(true,null,requestedWindow,overviewRevision);
+    if(revision!==performancePageRevision||requestedWindow!==performanceWindowSeconds())return;
+    await loadPerformanceTimeline(false,null,requestedWindow,timelineRevision);
+    if(revision!==performancePageRevision||requestedWindow!==performanceWindowSeconds())return;
     await loadPerformanceEntityScan(false);
     await loadPerformanceEntityGrowth(false);
     await loadPerformanceEnvironment(false);
@@ -8892,16 +8898,17 @@ async function loadPerformanceCenter(full=true){
 
   // Historical BlockLogger activity is open/refresh driven, never part of Live Updates.
   if(revision===performancePageRevision&&requestedWindow===performanceWindowSeconds())await loadPerformanceBlockActivity(false);
+  }finally{performanceCenterRequests--;$('perfRefresh').disabled=performanceCenterRequests>0;syncPerformanceWorkspace();}
 }
 
-async function loadPerformanceOverview(showError=true,preloaded=null,windowSeconds=performanceWindowSeconds()){
+async function loadPerformanceOverview(showError=true,preloaded=null,windowSeconds=performanceWindowSeconds(),revision=++performanceOverviewRevision){
   try{
     const d=preloaded||await api(`/api/performance/overview?window=${windowSeconds}`);
-    if(windowSeconds!==performanceWindowSeconds())return;
+    if(revision!==performanceOverviewRevision||windowSeconds!==performanceWindowSeconds())return;
     performanceOverviewData=d;
     renderPerformanceOverview(d);
   }catch(e){
-    if(showError)$('perfNotice').innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;
+    if(showError&&revision===performanceOverviewRevision&&windowSeconds===performanceWindowSeconds())$('perfNotice').innerHTML=`<div class="errorBox">${esc(e.message)}</div>`;
   }
 }
 
@@ -9373,17 +9380,16 @@ async function openPerformanceIncident(ts){
   }
 }
 
-let performanceTimelineLoads=new Map(),performanceTimelineRevision=0;
-async function loadPerformanceTimeline(showLoading=true,preloaded=null,windowSeconds=performanceWindowSeconds()){
-  const revision=++performanceTimelineRevision;
+let performanceTimelineLoads=new Map(),performanceTimelineRevision=0,performanceTimelineError='';
+async function loadPerformanceTimeline(showLoading=true,preloaded=null,windowSeconds=performanceWindowSeconds(),revision=++performanceTimelineRevision){
   if(showLoading)$('perfTimelineState').textContent=`Loading ${performanceWindowLabel()} timeline…`;
   try{
     let pending=preloaded?Promise.resolve(preloaded):performanceTimelineLoads.get(windowSeconds);
     if(!pending){pending=api(`/api/performance/timeline?window=${windowSeconds}`);performanceTimelineLoads.set(windowSeconds,pending);pending.finally(()=>{if(performanceTimelineLoads.get(windowSeconds)===pending)performanceTimelineLoads.delete(windowSeconds);}).catch(()=>{});}
     const data=await pending;
     if(revision!==performanceTimelineRevision||windowSeconds!==performanceWindowSeconds())return;
-    performanceTimelineData=data;renderPerformanceTimeline();
-  }catch(e){if(revision===performanceTimelineRevision)$('perfTimelineState').textContent=e.message;}
+    performanceTimelineError='';performanceTimelineData=data;requestPerformanceTimelineRender();
+  }catch(e){if(revision===performanceTimelineRevision&&windowSeconds===performanceWindowSeconds()){performanceTimelineError=String(e.message||e);$('perfTimelineState').textContent='Refresh failed · keeping previous graph: '+performanceTimelineError;}}
 }
 
 let performanceIncidentHitAreas=[],performanceSaveHitAreas=[],performanceTimelineFrame=0;
@@ -9490,7 +9496,7 @@ function renderPerformanceTimeline(){
     ctx.fillText(label,Math.max(pad.l,Math.min(w-80,px-25)),h-7);
   });
 
-  $('perfTimelineState').textContent=`${performanceWindowLabel()} · ${samples.length} displayed / ${Number(data.rawSampleCount||samples.length)} recorded points · ${(data.samplingGaps||[]).length} recorded sampling gaps. Shaded gaps mean no observation was recorded; traces are not interpolated through stalls.`;
+  $('perfTimelineState').textContent=`${performanceTimelineError?'Refresh failed · keeping previous graph: '+performanceTimelineError+' · ':''}${performanceWindowLabel()} · ${samples.length} displayed / ${Number(data.rawSampleCount||samples.length)} recorded points · last sample ${new Date(last).toLocaleTimeString()} · ${(data.samplingGaps||[]).length} recorded sampling gaps. Shaded gaps mean no observation was recorded; traces are not interpolated through stalls.`;
 }
 
 if($('perfTimelineCanvas')){
@@ -9811,7 +9817,7 @@ async function loadPerformanceConflicts(showLoading=true,preloaded=null){
   }
 }
 
-$('perfRefresh').onclick=()=>loadPerformanceCenter(true);
+$('perfRefresh').onclick=()=>refreshPerformanceReadings(true);
 $('perfWindow').onchange=()=>{ localStorage.setItem('nsu.performance.window',$('perfWindow').value); $('perfTimelineRange').textContent=`Range: ${performanceWindowLabel()}`; loadPerformanceCenter(false); };
 $('perfTimelineRange').onclick=()=>{ const ranges=[60,300,900,1800,3600]; $('perfWindow').value=String(ranges[(ranges.indexOf(performanceWindowSeconds())+1)%ranges.length]); $('perfWindow').onchange(); };
 $('perfEnableDiagnostics').onclick=async()=>{
@@ -16384,7 +16390,15 @@ function recordPerformanceResponse(path,error){
   if(!section)return;
   const state=performanceRefreshState[section]||(performanceRefreshState[section]={});
   const key=path.split('?')[0];state.errors=state.errors||{};
-  if(error)state.errors[key]=String(error.message||error);else{delete state.errors[key];state.updated=Date.now();}
+  if(error)state.errors[key]=String(error.message||error);else{
+    delete state.errors[key];state.updated=Date.now();
+    if(section==='performance'){
+      delete state.errors['/api/performance/page-snapshot'];
+      if(key==='/api/performance/page-snapshot'){
+        delete state.errors['/api/performance/overview'];delete state.errors['/api/performance/timeline'];
+      }
+    }
+  }
   state.error=Object.values(state.errors).join('; ');
 }
 function syncPerformanceWorkspace(){
@@ -16411,17 +16425,18 @@ function syncPerformanceWorkspace(){
   const health=currentSection==='health',blocked=safeDiagnosticsModeGlobal;
   const toggle=bar.querySelector('.performanceAuto');toggle.textContent=health?'Manual checks':`Auto refresh: ${performanceRefreshEnabled()?'ON':'OFF'}`;toggle.disabled=health||blocked;toggle.setAttribute('aria-pressed',String(!health&&performanceRefreshEnabled()));
   bar.querySelector('.performanceInterval').value=String(performanceRefreshInterval());bar.querySelector('.performanceInterval').disabled=health;
-  bar.querySelector('.performanceReadings').disabled=performanceRefreshBusy;
+  bar.querySelector('.performanceReadings').disabled=performanceRefreshBusy||(currentSection==='performance'&&performanceCenterRequests>0);
+  if(currentSection==='performance')$('perfRefresh').disabled=performanceRefreshBusy||performanceCenterRequests>0;
   const jump=bar.querySelector('.performanceJump'),headings=[...section.querySelectorAll('.cardHeader h3')];
   if(jump.options.length!==headings.length+1){jump.replaceChildren(new Option('On this page…',''));headings.forEach((h,i)=>{const card=h.closest('.card');if(card){card.dataset.performanceAnchor=String(i);jump.add(new Option(h.textContent.trim(),String(i)));}});}
   const s=performanceRefreshState[currentSection]||{},age=s.updated?Math.max(0,Math.floor((Date.now()-s.updated)/1000)):null;
   const status=bar.querySelector('.performanceFreshness');
-  const statusText=s.error?`Refresh failed · keeping previous readings${age!==null?` · ${age}s old`:''}`:performanceRefreshBusy?'Updating readings…':`${age===null?'Waiting for readings':`Updated ${age}s ago`}${health?' · manual':blocked?' · Safe Diagnostics pauses auto refresh':document.hidden?' · hidden tab paused':!performanceRefreshEnabled()?' · paused':''}`;
+  const statusText=s.error?`Refresh failed · keeping previous readings${age!==null?` · ${age}s old`:''}`:(performanceRefreshBusy||(currentSection==='performance'&&performanceCenterRequests>0))?'Updating readings…':`${age===null?'Waiting for readings':`Updated ${age}s ago`}${health?' · manual':blocked?' · Safe Diagnostics pauses auto refresh':document.hidden?' · hidden tab paused':!performanceRefreshEnabled()?' · paused':''}`;
   if(status.textContent!==statusText)status.textContent=statusText;
   status.title=s.error||'Automatic refresh reads existing diagnostics; it does not start captures, scans or exports.';
 }
 async function refreshPerformanceReadings(force=false){
-  const section=currentSection;if(!performancePages[section]||performanceRefreshBusy||document.hidden||$('app').style.display==='none')return;
+  const section=currentSection;if(!performancePages[section]||performanceRefreshBusy||(section==='performance'&&performanceCenterRequests>0)||document.hidden||$('app').style.display==='none')return;
   if(!force){
     if(section==='health'||safeDiagnosticsModeGlobal||!performanceRefreshEnabled())return;
     // Avoid replacing controls beneath an administrator editing a draft.

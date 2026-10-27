@@ -161,6 +161,11 @@ try:
                 for name in ('overview', 'timeline'):
                     code, payload, _, _ = request('/api/performance/' + name + '?window=' + str(window))
                     assert code == 200 and isinstance(payload, dict), (name, code)
+        code, before_refresh, _, _ = request('/api/performance/page-snapshot?window=60')
+        assert code == 200 and before_refresh['generatedUnixMilliseconds'] > 0
+        time.sleep(5.2)  # Cross the page cache TTL; the FIRST next response must be current.
+        code, after_refresh, _, _ = request('/api/performance/page-snapshot?window=60')
+        assert code == 200 and after_refresh['generatedUnixMilliseconds'] > before_refresh['generatedUnixMilliseconds'], 'Expired Performance snapshot required a second refresh'
         for endpoint in ('/api/operations/memory', '/api/tick-debug', '/api/profiler?window=300&points=120', '/api/optimizations/newfies'):
             code, payload, _, _ = request(endpoint)
             assert code == 200 and isinstance(payload, dict), (endpoint, code)
@@ -298,6 +303,7 @@ if performance_test:
     stored = json.loads((folder / 'NewfiesWebMap.json').read_text())
     assert stored['LiveTerrainUpdatesEnabled'] and stored['LiveTerrainUpdateSeconds'] == 90 and stored['LiveTerrainMaxTilesPerPass'] == 2 and stored['Enabled'] == translocator_test
     report['liveTerrainSettingsPersisted'] = True
+    report['performanceFirstExpiredRefreshFresh'] = True
     (root / 'result.json').write_text(json.dumps(report, indent=2)+'\n')
     print('Performance reading endpoints and opt-in live terrain settings persistence: ok', flush=True)
 
