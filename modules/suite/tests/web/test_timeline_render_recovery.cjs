@@ -2,6 +2,9 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
 (async()=>{const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>r.fulfill({contentType:r.request().url().endsWith('/')?'text/html':'application/json',body:r.request().url().endsWith('/')?html:'{}'}));await page.goto('http://render.invalid/');
+ // Settle the initial unauthenticated session read before installing the fixture
+ // session; otherwise its late response can hide the whole app during reveal.
+ await page.waitForLoadState('networkidle');
  await page.evaluate(()=>{showApp({username:'Owner',role:'Owner',owner:true});setSection('dashboard',false);performanceTimelineData={samplingGaps:[],samples:[{unixMilliseconds:1000,players:2},{unixMilliseconds:7000,players:4},{unixMilliseconds:13000,players:3}]};renderPerformanceTimeline();});
  await page.evaluate(()=>setSection('performance',false));await page.waitForFunction(()=>document.querySelector('#perfTimelineState').textContent.includes('3 displayed'));
  assert.ok(await page.locator('#perfTimelineCanvas').evaluate(c=>c.width>500),'revealing a previously hidden chart redraws at its visible width');

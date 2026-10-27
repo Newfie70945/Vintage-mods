@@ -28,7 +28,7 @@ namespace NewfiesAntiCheatClient;
 
 public sealed class AntiCheatClientService : IDisposable
 {
-    public const string ClientVersion = "1.1.28";
+    public const string ClientVersion = "1.1.29";
     private const int HelloRetryMs = 2000;
     private const int HeartbeatMs = 15000;
     // Heartbeats remain frequent for liveness, but the expensive runtime/self/Harmony census is

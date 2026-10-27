@@ -83,7 +83,12 @@ try {
     Console.WriteLine("PASS: packaged metadata, assembly and runtime version " + metadataVersion + ".");
 
     RuntimeHelpers.RunModuleConstructor(suite.ManifestModule.ModuleHandle);
-    var sqlite = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(extracted, "Microsoft.Data.Sqlite.dll"));
+    string packagedSqlite = Path.Combine(extracted, "Microsoft.Data.Sqlite.dll");
+    bool sharedSqlite = !File.Exists(packagedSqlite);
+    string sqlitePath = sharedSqlite ? Path.Combine(game, "Lib", "Microsoft.Data.Sqlite.dll") : packagedSqlite;
+    var sqlite = AssemblyLoadContext.Default.LoadFromAssemblyPath(sqlitePath);
+    if (sharedSqlite && (assemblies.Any(p => Path.GetFileName(p).StartsWith("SQLitePCLRaw", StringComparison.OrdinalIgnoreCase)) || Directory.Exists(Path.Combine(extracted, "native", "runtimes"))))
+        throw new Exception("Shared SQLite package must not include a competing provider/native runtime.");
     var connectionType = sqlite.GetType("Microsoft.Data.Sqlite.SqliteConnection", true)!;
     using var connection = (IDisposable)Activator.CreateInstance(connectionType, "Data Source=:memory:")!;
     connectionType.GetMethod("Open", Type.EmptyTypes)!.Invoke(connection, null);
@@ -91,16 +96,21 @@ try {
     var commandType = command.GetType();
     object Scalar(string sql) { commandType.GetProperty("CommandText")!.SetValue(command, sql); return commandType.GetMethod("ExecuteScalar", Type.EmptyTypes)!.Invoke(command, null)!; }
     string version = (string)Scalar("SELECT sqlite_version()");
-    if (version != "3.53.3") throw new Exception("Unexpected SQLite runtime: " + version);
+    if (sharedSqlite) {
+        if (!Version.TryParse(version, out _) || !Path.GetFullPath(sqlite.Location).Equals(Path.GetFullPath(sqlitePath), StringComparison.Ordinal))
+            throw new Exception("Shared SQLite did not resolve from the official game: " + sqlite.Location);
+    } else if (version != "3.53.3") throw new Exception("Unexpected SQLite runtime: " + version);
     commandType.GetProperty("CommandText")!.SetValue(command, "CREATE TABLE smoke (value INTEGER); INSERT INTO smoke VALUES (42);");
     commandType.GetMethod("ExecuteNonQuery", Type.EmptyTypes)!.Invoke(command, null);
     if (Convert.ToInt64(Scalar("SELECT value FROM smoke")) != 42) throw new Exception("SQLite write/read failed.");
     if (OperatingSystem.IsLinux()) {
         string maps = File.ReadAllText("/proc/self/maps");
-        if (!maps.Contains(Path.Combine(extracted, "native", "runtimes", "linux-x64", "native", "libe_sqlite3.so")))
-            throw new Exception("SQLite did not load the packaged native library.");
+        string expectedNative = sharedSqlite ? Path.Combine(game, "Lib", "libe_sqlite3.so") : Path.Combine(extracted, "native", "runtimes", "linux-x64", "native", "libe_sqlite3.so");
+        if (!maps.Contains(expectedNative)) throw new Exception("SQLite did not load the expected native library: " + expectedNative);
     }
-    Console.WriteLine("PASS: extracted Suite module initializer resolves packaged SQLite 3.53.3; in-memory create/insert/read succeeds without SDK runtimes/ or game SQLite fallback.");
+    Console.WriteLine(sharedSqlite
+        ? "PASS: Suite uses official game-managed/native SQLite " + version + " without competing packaged dependencies; in-memory create/insert/read succeeds."
+        : "PASS: extracted Suite module initializer resolves packaged SQLite 3.53.3; in-memory create/insert/read succeeds without SDK runtimes/ or game SQLite fallback.");
 } finally {
     // Windows retains open native DLLs until process exit; permit OS cleanup there.
     try { Directory.Delete(temporary, true); } catch (IOException) { }

@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../../src/WebDashboard/WebDashboardPage.cs'),'utf8');
-const start=source.indexOf('let navIndicatorRefreshInFlight=false;'),end=source.indexOf('\nfunction syncNavGroups',start);
+const start=source.indexOf('const navStaticStatusChecked=new Map();'),end=source.indexOf('\nfunction syncNavGroups',start);
 (async()=>{
  let pending=[],calls=[],active=0,peak=0,visible=true;
  const context=vm.createContext({Date,Promise,Number,String,setTimeout:fn=>{fn();},lastNavIndicatorRefresh:0,

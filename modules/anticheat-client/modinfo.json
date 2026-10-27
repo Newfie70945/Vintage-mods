@@ -6,7 +6,7 @@
     "Newfie"
   ],
   "description": "Standalone Client Integrity / Anti-Cheat companion for Newfies Server Essentials Suite. Protocol 13 performs a startup integrity attestation over loaded mods/assemblies, runtime and Harmony state, blacklist-aware and generic suspicious registered hotkeys/client commands, canonical package/DLL size evidence, and protected asset integrity before gated world interactions are released.",
-  "version": "1.1.28",
+  "version": "1.1.29",
   "networkVersion": "1.1.21",
   "side": "Universal",
   "requiredOnServer": true,

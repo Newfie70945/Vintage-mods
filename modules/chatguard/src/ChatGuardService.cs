@@ -16,7 +16,7 @@ public sealed class ChatGuardService : IDisposable
 {
     public const string ControlEvent = "newfieschatguard:control";
     public const string StateFile = "NewfiesChatGuardState.json";
-    public const string Version = "2.1.5";
+    public const string Version = "2.1.6";
 
     private static readonly Regex TagRegex = new("<[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex MentionRegex = new(@"(?<!\w)@[\p{L}\p{N}_\-]{1,64}", RegexOptions.Compiled | RegexOptions.CultureInvariant);

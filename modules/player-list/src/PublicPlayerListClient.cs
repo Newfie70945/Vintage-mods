@@ -7,7 +7,7 @@ namespace NewfiesPlayerList;
 public sealed class PublicPlayerListClient : IDisposable
 {
     public const string ChannelName = "newfies-public-playerlist-v1";
-    public const string ClientVersion = "1.1.2";
+    public const string ClientVersion = "1.1.3";
     private const int RefreshIntervalMs = 2000;
     private const int BackendWarningAfterMs = 3000;
     private const int HelloRetryMs = 1000;
@@ -404,7 +404,7 @@ public sealed class PublicPlayerListClient : IDisposable
             AccentHex = "#D6AE63",
             RosterSource = "Vintage Story client roster",
             BackendError = "",
-            BackendBuild = "standalone-client-1.1.2"
+            BackendBuild = "standalone-client-1.1.3"
         };
     }
 

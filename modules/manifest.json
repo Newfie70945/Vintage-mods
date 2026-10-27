@@ -12,35 +12,35 @@
       "id": "motd",
       "path": "modules/motd",
       "assembly": "NewfiesCommunityMOTD",
-      "version": "2.1.7",
+      "version": "2.1.8",
       "origin": "restored author source"
     },
     {
       "id": "anticheat-client",
       "path": "modules/anticheat-client",
       "assembly": "NewfiesAntiCheatClient",
-      "version": "1.1.28",
+      "version": "1.1.29",
       "origin": "restored author source"
     },
     {
       "id": "chatguard",
       "path": "modules/chatguard",
       "assembly": "NewfiesChatGuard",
-      "version": "2.1.5",
+      "version": "2.1.6",
       "origin": "restored author source"
     },
     {
       "id": "discord-link",
       "path": "modules/discord-link",
       "assembly": "NewfiesServerEssentialsDiscord",
-      "version": "1.0.15",
+      "version": "1.0.16",
       "origin": "restored author source"
     },
     {
       "id": "player-list",
       "path": "modules/player-list",
       "assembly": "NewfiesPlayerList",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "origin": "restored author source"
     }
   ],

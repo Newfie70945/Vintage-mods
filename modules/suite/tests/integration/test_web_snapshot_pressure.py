@@ -6,7 +6,8 @@ from pathlib import Path
 import concurrent.futures, hashlib, http.cookiejar, json, os, re, secrets, shutil, zipfile
 import sqlite3, subprocess, threading, time, urllib.error, urllib.request
 repo = Path(__file__).resolve().parents[4]
-suite_version = next(m['version'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods'] if m['id']=='suite')
+release_modules = json.loads((repo/'modules/manifest.json').read_text())['mods']
+suite_version = next(m['version'] for m in release_modules if m['id']=='suite')
 build = re.search(r'BuildSuffix = "([^"]+)"', (repo/'modules/suite/src/SuiteRelease.cs').read_text()).group(1)
 root = repo / 'artifacts/validation' / ('web-snapshot-' + str(int(time.time())))
 data = root / 'data'
@@ -177,7 +178,8 @@ try:
         assert code == 200 and map_status['liveTerrainUpdatesEnabled'] and map_status['liveTerrainUpdateSeconds'] == 90 and map_status['liveTerrainMaxTilesPerPass'] == 2 and map_status['enabled'] == translocator_test
     if all_modules_test:
         code, guard, _, _ = request('/api/chatguard')
-        assert code == 200 and guard.get('available') and guard['version'] == '2.1.5', (code,guard)
+        chatguard_version = next(m['version'] for m in release_modules if m['id']=='chatguard')
+        assert code == 200 and guard.get('available') and guard['version'] == chatguard_version, (code,guard)
         time.sleep(1.1)
         code, saved_guard, _, _ = request('/api/chatguard/settings',dict(Enabled=True,Mode='LogOnly'))
         assert code == 200 and saved_guard.get('success') and saved_guard['mode'] == 'LogOnly', (code,saved_guard)

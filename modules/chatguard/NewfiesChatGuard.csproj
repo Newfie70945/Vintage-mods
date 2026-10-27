@@ -7,7 +7,7 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AssemblyName>NewfiesChatGuard</AssemblyName>
     <RootNamespace>NewfiesChatGuard</RootNamespace>
-    <Version>2.1.5</Version>
+    <Version>2.1.6</Version>
     <Product>Newfie's ChatGuard</Product>
   </PropertyGroup>
   <ItemGroup>

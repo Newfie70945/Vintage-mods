@@ -23,7 +23,7 @@ namespace NewfiesCommunityMOTD
         private readonly DateTime serverStartedUtc = DateTime.UtcNow;
 
         public const string ControlEvent = "newfiescommunitymotd:control";
-        public const string PublicVersion = "2.1.7";
+        public const string PublicVersion = "2.1.8";
         private const string ConfigFileName = "newfiescommunitymotd.json";
         private const string ChannelName    = "newfiescommunitymotd";
         private const int MIN_W = 700, MAX_W = 1600, MIN_H = 520, MAX_H = 1000;

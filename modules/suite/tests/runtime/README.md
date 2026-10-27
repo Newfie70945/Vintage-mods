@@ -33,9 +33,11 @@ dotnet run --project tests/runtime/package/PackageRuntimeSmoke.csproj -c Release
 PowerShell uses `$env:VINTAGE_STORY` and `$env:NSS_ASSEMBLY` for the same paths.
 
 The package runner takes a Suite ZIP directly (no `NSS_ASSEMBLY` required). It
-uses the official mod container to unpack/validate the ZIP, then loads the
-extracted Suite and performs an in-memory SQLite create/insert/read using its
-packaged native runtime. An optional second ZIP argument must be the original
+uses the official mod container to unpack/validate the ZIP, checks release identity,
+then loads the extracted Suite and performs an in-memory SQLite create/insert/read.
+Current packages must resolve the game-provided managed/native SQLite without
+competing packaged providers. Legacy bundled-runtime packages retain their native
+library/version checks. An optional second ZIP argument must be the original
 Revamp1 archive: its `runtimes/` DLL layout must reproduce the loader rejection.
 
 The ingress runner verifies the runtime's private field accessors and builds all
