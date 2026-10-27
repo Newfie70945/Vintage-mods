@@ -72,7 +72,7 @@ object config = Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatConfi
 object session = Activator.CreateInstance(M("BlockLogger.AntiCheat.AntiCheatSession"))!;
 object service = RuntimeHelpers.GetUninitializedObject(M("BlockLogger.AntiCheat.AntiCheatService")); Set(service, "config", config);
 object finding = Activator.CreateInstance(M("NewfiesAntiCheat.Shared.Models.ScanFindingDto"))!;
-Set(finding, "Code", "PACKET_SPEED_HACK"); Set(finding, "Scanner", "ServerBehavior"); Set(finding, "Severity", 4);
+Set(finding, "Code", "PACKET_SPEED_HACK"); Set(finding, "Scanner", "ServerBehavior"); Set(finding, "Severity", 4); Set(finding,"Evidence","speedEscalationEligible=True");
 ((IList)session.GetType().GetProperty("Findings")!.GetValue(session)!).Add(finding);
 object confirmations = session.GetType().GetProperty("ConfirmedSpeed", members)!.GetValue(session)!;
 foreach (var (time, expected) in new[] { (100000L, 50), (110000L, 75), (120000L, 100) })
@@ -139,6 +139,20 @@ Set(enforcementConfig, "PacketGuardKickRepeatedConfirmedSpeed", true);
 Seed("mount"); Report("mount", "PACKET_MOUNT_MOVEMENT_HACK", 4, "speedEscalationEligible=True");
 Seed("degraded"); Report("degraded", "PACKET_SPEED_HACK", 4, "speedEscalationEligible=False;tpsBand=Degraded");
 Check(disconnects == 1, "Disabled setting, mount or degraded observation kicked");
+// Degraded findings must not bypass the dedicated speed gate through generic risk.
+var observationPolicy=M("BlockLogger.AntiCheat.AntiCheatObservationPolicy");
+var review=observationPolicy.GetMethods(members).Single(m=>m.Name=="IsReviewOnly"&&m.GetParameters().Length==2);
+Check((bool)review.Invoke(null,["PACKET_SPEED_HACK","speedEscalationEligible=False"])!,"Degraded speed entered automatic policy");
+Check((bool)review.Invoke(null,["PACKET_SPEED_HACK","mode=airborne"])!,"Legacy speed without timing metadata entered automatic policy");
+Check(!(bool)review.Invoke(null,["PACKET_SPEED_HACK","speedEscalationEligible=True"])!,"Healthy speed became review-only");
+object degradedSession=Call(manager,"GetOrCreate","degraded","Fixture")!;
+Check((int)degradedSession.GetType().GetProperty("RiskScore")!.GetValue(degradedSession)! ==0,"Degraded speed inherited repeated-speed bonus into family risk");
+var findingType=M("NewfiesAntiCheat.Shared.Models.ScanFindingDto");
+object degradedFinding=Activator.CreateInstance(findingType)!;
+Set(degradedFinding,"Code","PACKET_SPEED_HACK");Set(degradedFinding,"Severity",4);Set(degradedFinding,"Evidence","speedEscalationEligible=False");
+var points=M("BlockLogger.AntiCheat.AntiCheatEvaluator").GetMethod("RiskPoints",members)!;
+Check((int)points.Invoke(null,[degradedFinding])! ==0,"Degraded speed contributes generic risk points");
+Console.WriteLine("PASS: degraded/legacy speed contributes no generic risk or family repeat bonus; healthy speed enforcement retained.");
 Console.WriteLine("PASS: complete production report path actually disconnects the third qualifying speed report; kick-off, mount and degraded-TPS observations do not disconnect.");
 
 string temp = Path.Combine(Path.GetTempPath(), "nss-perf4-" + Guid.NewGuid()); Directory.CreateDirectory(temp);

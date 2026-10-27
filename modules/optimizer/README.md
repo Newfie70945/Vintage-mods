@@ -1,4 +1,6 @@
-# Newfie's Server Optimizer 0.20.17 preview
+# Newfie's Server Optimizer 0.20.18 preview
+
+0.20.18 avoids unnecessary drop updates on refused merges and checks additional native merge helpers for conflicts. Default settings are unchanged.
 
 0.20.17 adds optional [same-cell dropped-item clumping](docs/dropped-items-0.20.17.md), controlled from the Suite and disabled by default.
 

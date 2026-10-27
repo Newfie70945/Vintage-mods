@@ -103,3 +103,9 @@ client-driven mass-break tools on a disposable world before enabling new denials
 shadow mode on for a representative player workload and compare evidence with actual
 activity. This release does not prove that client reports are truthful or detect every
 hidden Harmony mod. Real-server behavior checks stay independent of clean client claims.
+
+### Vanilla gliders
+
+The official `game:glider` must be equipped in a backpack slot and actively gliding to select the glider movement envelope. It allows up to 120 horizontal blocks/second, including two seconds of landing grace while still equipped. Takeoff and landing start fresh speed/acceleration windows. Normal gliding inside that envelope does not accumulate walking-speed/acceleration findings. Teleport limits, loaded-terrain noclip checks and action/packet checks still run. A glide flag alone or a glider carried inside a bag does not qualify. This generous compatibility envelope is not a guarantee of legitimate movement.
+
+Speed observations marked `speedEscalationEligible=False`, or older rows without timing eligibility, stay visible for review but add no generic risk, correlation or automatic policy consequences. The repeated-speed bonus applies only to eligible findings. This closes a path where a risk-based rule could punish a timing-degraded observation despite the dedicated speed-kick gate rejecting it.

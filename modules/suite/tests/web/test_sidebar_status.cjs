@@ -22,17 +22,19 @@ const assert=require('node:assert/strict'),{chromium}=require('playwright'),html
  const transport=await page.evaluate(async()=>{
   const originalFetch=window.fetch,originalTimeout=window.setTimeout;
   window.setTimeout=(fn,ms,...args)=>originalTimeout(fn,ms===30000?10:ms,...args);
-  const aborted=[];let writeSignal;
+  const aborted=[];let writeSignal,malformedReadFailed=false;
   try{
    window.fetch=(path,options)=>new Promise((resolve,reject)=>{options.signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true});});
    try{await apiCore('/fixture-hung-read');}catch(e){aborted.push(e.name);}
    const controller=new AbortController();const pending=apiCore('/fixture-caller-cancel',{signal:controller.signal});controller.abort();try{await pending;}catch(e){aborted.push(e.name);}
+   window.fetch=async()=>({ok:true,status:200,json:async()=>{throw new SyntaxError('broken JSON');}});
+   try{await apiCore('/fixture-malformed-read');}catch{malformedReadFailed=true;}
    window.fetch=async(path,options)=>{writeSignal=options.signal;return {ok:true,status:200,json:async()=>({ok:true})};};
    await apiCore('/fixture-write',{method:'POST',body:'{}'});
-   return {aborted,writeHasSignal:!!writeSignal};
+   return {aborted,writeHasSignal:!!writeSignal,malformedReadFailed};
   }finally{window.fetch=originalFetch;window.setTimeout=originalTimeout;}
  });
- assert.deepEqual(transport.aborted,['AbortError','AbortError']);assert.equal(transport.writeHasSignal,false);
+ assert.deepEqual(transport.aborted,['AbortError','AbortError']);assert.equal(transport.writeHasSignal,false);assert.equal(transport.malformedReadFailed,true);
  assert(r.before);assert.match(r.health,/bad/);assert.equal(r.duplicates,1);assert.match(r.unavailable,/unavailable/);assert(r.retried);assert(r.noExtraStatic);assert.match(r.recovered,/good/);assert(r.noRepeatedStatic);assert(r.scheduled);assert.match(r.warning,/personal server/);assert.match(r.warning,/contact Newfie/);assert.match(r.warning,/use at your own risk/);assert.deepEqual(errors,[]);
  console.log('PASS sidebar waiting states, cached status replay, bounded static retries, recovery, freshness scheduling and migrator information.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

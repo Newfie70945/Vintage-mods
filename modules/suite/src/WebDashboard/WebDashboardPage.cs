@@ -6696,7 +6696,7 @@ async function apiCore(path, options={}) {
     consecutiveProbeFailures=0;
     markConnection(true);
     let data={};
-    try{data=await r.json();}catch(e){if(options.signal?.aborted)throw e;}
+    try{data=await r.json();}catch(e){if(options.signal?.aborted)throw e;if(r.ok&&r.status!==204&&String(options.method||'GET').toUpperCase()==='GET')throw new Error('Invalid JSON response; refresh to retry.');}
     if(r.status===401){showLogin();throw new Error('Authentication required');}
     if(!r.ok){const error=new Error(data.error||data.message||`HTTP ${r.status}`);error.status=r.status;throw error;}
     recordPerformanceResponse(path,null);

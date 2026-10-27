@@ -4,8 +4,8 @@ namespace BlockLogger.AntiCheat;
 // Multiple detectors, packet count, mounts and low-TPS observations cannot prime it.
 internal sealed class ConfirmedSpeedRisk
 {
-    internal static bool Eligible(string code, int severity, string? evidence) =>
-        code.Equals("PACKET_SPEED_HACK", StringComparison.OrdinalIgnoreCase) && severity == 4 &&
+    internal static bool Eligible(string? code, int severity, string? evidence) =>
+        string.Equals(code,"PACKET_SPEED_HACK", StringComparison.OrdinalIgnoreCase) && severity == 4 &&
         (";" + evidence + ";").Contains(";speedEscalationEligible=True;", StringComparison.Ordinal);
     private readonly Queue<long> observations = new();
     internal int Observe(long now)

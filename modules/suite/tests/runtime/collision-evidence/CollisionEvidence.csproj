@@ -3,4 +3,5 @@
 <Reference Include="VintagestoryAPI"><HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath><Private>false</Private></Reference>
 <Reference Include="VintagestoryLib"><HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath><Private>false</Private></Reference>
 <Reference Include="0Harmony"><HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath><Private>false</Private></Reference>
+<Reference Include="VSSurvivalMod"><HintPath>$(VINTAGE_STORY)/Mods/VSSurvivalMod.dll</HintPath><Private>false</Private></Reference>
 </ItemGroup></Project>

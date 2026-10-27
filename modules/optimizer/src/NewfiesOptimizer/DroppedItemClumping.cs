@@ -31,9 +31,16 @@ public sealed class DroppedItemClumping : IDisposable
         AccessTools.Method(typeof(ItemSlot),nameof(ItemSlot.TryPutInto),[typeof(ItemSlot),typeof(ItemStackMoveOperation).MakeByRefType()]),
         AccessTools.Method(typeof(CollectibleObject),nameof(CollectibleObject.TryMergeStacks)),
         AccessTools.Method(typeof(CollectibleObject),nameof(CollectibleObject.GetMergableQuantity)),
+        AccessTools.Method(typeof(CollectibleObject),nameof(CollectibleObject.Equals),[typeof(ItemStack),typeof(ItemStack),typeof(string[])]),
+        AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.CanTakeFrom),[typeof(ItemSlot),typeof(EnumMergePriority)]),
+        AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.CanTake)),
+        AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.GetRemainingSlotSpace)),
+        AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.OnItemSlotModified)),
         AccessTools.Method(typeof(Entity),nameof(Entity.Die)),
         AccessTools.Method(typeof(ItemStack),nameof(ItemStack.Equals),[typeof(IWorldAccessor),typeof(ItemStack),typeof(string[])])
-    }.Select(m=>m??throw new MissingMethodException("Dropped-item native merge contract unavailable.")).ToArray();
+    }.Select(m=>m==null?throw new MissingMethodException("Dropped-item native merge contract unavailable."):
+        AccessTools.DeclaredMethod(m.DeclaringType!,m.Name,m.GetParameters().Select(p=>p.ParameterType).ToArray())
+        ??throw new MissingMethodException("Dropped-item declared merge helper unavailable.")).Distinct().ToArray();
     public DroppedItemClumping(ICoreServerAPI api, OptimizerConfig config, Func<string?> runtimeGuard)
     {
         this.api=api;this.runtimeGuard=runtimeGuard;
@@ -89,12 +96,19 @@ public sealed class DroppedItemClumping : IDisposable
         var sink=a.itemSpawnedMilliseconds<b.itemSpawnedMilliseconds||(a.itemSpawnedMilliseconds==b.itemSpawnedMilliseconds&&a.EntityId<b.EntityId)?a:b;
         var source=ReferenceEquals(sink,a)?b:a;
         long before=(long)sink.Slot.StackSize+source.Slot.StackSize;
-        int transferred;
-        try { transferred=source.Slot.TryPutInto(world,sink.Slot,source.Slot.StackSize); }
+        int sinkBefore=sink.Slot.StackSize,sourceBefore=source.Slot.StackSize;
+        var sinkStack=sink.Slot.Itemstack;var sourceStack=source.Slot.Itemstack;
+        int transferred;bool completed=false;
+        try { transferred=source.Slot.TryPutInto(world,sink.Slot,sourceBefore);completed=true; }
         finally
         {
-            sink.Itemstack=sink.Slot.Itemstack;source.Itemstack=source.Slot.Itemstack;
-            sink.WatchedAttributes.MarkPathDirty("itemstack");source.WatchedAttributes.MarkPathDirty("itemstack");
+            // A stock refusal is not a stack change. Avoid repeated network/observer
+            // updates for pairs the native slot rules refuse to combine. A thrown
+            // operation may be partial, so publish its current state without replay.
+            if(!completed||sinkBefore!=sink.Slot.StackSize||!ReferenceEquals(sinkStack,sink.Slot.Itemstack))
+            {sink.Itemstack=sink.Slot.Itemstack;sink.WatchedAttributes.MarkPathDirty("itemstack");}
+            if(!completed||sourceBefore!=source.Slot.StackSize||!ReferenceEquals(sourceStack,source.Slot.Itemstack))
+            {source.Itemstack=source.Slot.Itemstack;source.WatchedAttributes.MarkPathDirty("itemstack");}
             if(source.Slot.Empty)source.Die(EnumDespawnReason.Removed);
         }
         if(sink.Itemstack?.Collectible is not {} resultCollectible||before!=(long)sink.Slot.StackSize+source.Slot.StackSize||sink.Slot.StackSize>resultCollectible.MaxStackSize)

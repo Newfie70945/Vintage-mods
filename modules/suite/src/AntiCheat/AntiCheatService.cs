@@ -6652,7 +6652,7 @@ public sealed class AntiCheatService : IDisposable
             if (!config.PerFamilyRiskEnabled)
             {
                 session.Status = evaluated.Status;
-                session.RiskScore = Math.Min(100, evaluated.Score + session.ConfirmedSpeed.Bonus(NowMs(), config.PacketGuardConfirmedSpeedRepeatRisk));
+                session.RiskScore = Math.Min(100, evaluated.Score + (session.Findings.Any(f => ConfirmedSpeedRisk.Eligible(f.Code, f.Severity, f.Evidence)) ? session.ConfirmedSpeed.Bonus(NowMs(), config.PacketGuardConfirmedSpeedRepeatRisk) : 0));
                 if (session.RiskScore >= 50) session.Status = AntiCheatPlayerStatus.Suspicious;
                 return;
             }
@@ -6669,7 +6669,7 @@ public sealed class AntiCheatService : IDisposable
 
         int score = AntiCheatEvaluator.ComputeRiskScore(session.Findings
             .Where(f => session.LastScanUtc>0 ? !string.Equals(f.Scanner,"CorrelationPolicy",StringComparison.OrdinalIgnoreCase) : string.Equals(f.Scanner, "ServerBehavior", StringComparison.OrdinalIgnoreCase)));
-        if (session.Findings.Any(f => f.Code == "PACKET_SPEED_HACK" && f.Severity == (int)AntiCheatSeverity.Critical))
+        if (session.Findings.Any(f => ConfirmedSpeedRisk.Eligible(f.Code, f.Severity, f.Evidence)))
             score = Math.Min(100, score + session.ConfirmedSpeed.Bonus(NowMs(), config.PacketGuardConfirmedSpeedRepeatRisk));
         session.RiskScore = score;
         session.Status = session.RiskScore >= 50 ? AntiCheatPlayerStatus.Suspicious
@@ -6790,7 +6790,7 @@ public sealed class AntiCheatService : IDisposable
         foreach (var finding in session.Findings ?? new List<NewfiesAntiCheat.Shared.Models.ScanFindingDto>())
         {
             int basePoints = AntiCheatEvaluator.RiskPoints(finding);
-            if (finding.Code == "PACKET_SPEED_HACK" && finding.Severity == (int)AntiCheatSeverity.Critical)
+            if (ConfirmedSpeedRisk.Eligible(finding.Code, finding.Severity, finding.Evidence))
                 basePoints = Math.Min(100, basePoints + session.ConfirmedSpeed.Bonus(nowUtc, config.PacketGuardConfirmedSpeedRepeatRisk));
             if (basePoints <= 0) continue;
             string family = GetRiskFamily(finding);

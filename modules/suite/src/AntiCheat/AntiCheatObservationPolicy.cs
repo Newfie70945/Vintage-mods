@@ -19,6 +19,7 @@ internal static class AntiCheatObservationPolicy
     // Resource rejection and punishment are separate decisions. Legacy observations
     // without confirmation metadata remain review-only after upgrading.
     internal static bool IsReviewOnly(string? code,string? evidence) => IsReviewOnly(code) ||
+        (string.Equals(code,"PACKET_SPEED_HACK",StringComparison.OrdinalIgnoreCase) && !HasValue(evidence,"speedEscalationEligible","True")) ||
         (string.Equals(code,"PACKET_FLOOD",StringComparison.OrdinalIgnoreCase) && !HasValue(evidence,"floodConfirmed","True")) ||
         (string.Equals(code,"PACKET_NOCLIP",StringComparison.OrdinalIgnoreCase) && !HasValue(evidence,"noclipEnforcementEligible","True")) ||
         (string.Equals(code,"PACKET_BLOCK_REACH",StringComparison.OrdinalIgnoreCase) &&

@@ -982,6 +982,7 @@ internal sealed class PacketGuardService : IDisposable
             if (!flightReviews.TryGetValue(player.PlayerUID, out PacketFlightReviewWindow? window))
                 flightReviews[player.PlayerUID] = window = new PacketFlightReviewWindow();
             bool eligible = !ServerImpulseAllowance.Active(player.PlayerUID,now) && !ServerProtectionExemptions.Has(player.PlayerUID,ServerProtectionScope.Movement,now) && ShouldGuard(player) && player.Entity.Alive && player.Entity.MountedOn == null &&
+                !(player.Entity.Controls.Gliding && VanillaGliderAllowance.Equipped(player)) &&
                 !tps.IsDegraded && !tps.IsCritical && (!tps.Enabled || tps.Ready) &&
                 !PacketGuardTrustedState.IsActive(player.PlayerUID, now, PacketGuardTrustScope.Movement);
             if (player is not ServerPlayer serverPlayer ||
@@ -1625,7 +1626,9 @@ internal sealed class PacketGuardService : IDisposable
                 double horizontalDistance = Math.Sqrt(dx * dx + dz * dz);
                 double instantaneousHorizontalSpeed = horizontalDistance * 1000.0 / sampleElapsedMs;
                 state.AddDiagnosticSpeedSample(instantaneousHorizontalSpeed, now, config.PacketGuardDiagnosticSpeedHistorySamples);
-                (string movementMode, double movementSpeedLimit) = ResolveMovementSpeedLimit(entity, dy);
+                bool gliding = state.ObserveGliding(VanillaGliderAllowance.Equipped(player), entity.Controls.Gliding,
+                    now, entity.EntityId, pos.Dimension);
+                (string movementMode, double movementSpeedLimit) = ResolveMovementSpeedLimit(entity, dy, gliding);
                 bool sampleIsFast = config.PacketGuardSpeedHackEnabled &&
                                     instantaneousHorizontalSpeed > movementSpeedLimit;
 
@@ -1757,7 +1760,7 @@ internal sealed class PacketGuardService : IDisposable
                 double positiveHorizontalAcceleration = state.ObserveAcceleration(
                     instantaneousHorizontalSpeed, now,
                     config.PacketGuardAccelerationMinSpeed,
-                    config.PacketGuardMaxHorizontalAcceleration,
+                    gliding && instantaneousHorizontalSpeed <= movementSpeedLimit ? double.MaxValue : config.PacketGuardMaxHorizontalAcceleration,
                     config.PacketGuardAccelerationConfirmWindowMs,
                     config.PacketGuardAccelerationSampleMinMs,
                     config.PacketGuardAccelerationSmoothingFactor,
@@ -1832,13 +1835,16 @@ internal sealed class PacketGuardService : IDisposable
                         out int confirmedWindows))
                 {
                     bool speedTimingRejectionDeferred = tps.SuppressTimingRejections;
-                    double speedMovementRisk = AddMovementRisk(state, MovementRiskSignal.Speed, config.PacketGuardMovementRiskSpeed, now);
+                    bool speedEscalationEligible = !tps.Enabled || (tps.Ready && !tps.IsDegraded);
+                    double speedMovementRisk = speedEscalationEligible
+                        ? AddMovementRisk(state, MovementRiskSignal.Speed, config.PacketGuardMovementRiskSpeed, now)
+                        : state.MovementRiskScore;
                     AntiCheatSeverity speedSeverity = speedTimingRejectionDeferred ? AntiCheatSeverity.High : ApplyMovementConfidenceSeverity(AntiCheatSeverity.Critical, state);
                     string speedEvidence =
                         $"mode={movementMode};horizontalSpeed={observedHorizontalSpeed:0.00};limit={movementSpeedLimit:0.00};" +
                         $"windowMs={config.PacketGuardSpeedWindowMs};confirmWindows={confirmedWindows}/{config.PacketGuardSpeedConfirmWindows};" +
                         $"instantaneous={instantaneousHorizontalSpeed:0.00};pingMs={Math.Max(0, player.Ping * 1000):0};movementRisk={speedMovementRisk:0.0};" +
-                        $"speedEscalationEligible={!tps.Enabled || (tps.Ready && !tps.IsDegraded)};{MovementConfidenceEvidence(state)};{tps.Evidence}";
+                        $"speedEscalationEligible={speedEscalationEligible};{MovementConfidenceEvidence(state)};{tps.Evidence}";
 
                     if (ShouldReportMovementFinding(state, "PACKET_SPEED_HACK", now))
                     reportFinding(
@@ -2088,8 +2094,9 @@ internal sealed class PacketGuardService : IDisposable
         return t.FullName ?? t.Name;
     }
 
-    private (string Mode, double Limit) ResolveMovementSpeedLimit(Entity entity, double deltaY)
+    private (string Mode, double Limit) ResolveMovementSpeedLimit(Entity entity, double deltaY, bool gliding = false)
     {
+        if (gliding) return ("vanilla-glider", VanillaGliderAllowance.HorizontalCeiling);
         if (!config.PacketGuardMovementModeLimitsEnabled)
             return ("default", config.PacketGuardMaxHorizontalSpeed);
 
@@ -3787,6 +3794,8 @@ internal sealed class PacketGuardService : IDisposable
         public readonly NoclipCorrectionHistory NoclipCorrections = new();
         public readonly PendingNoclipCorrection PendingNoclipCorrection = new();
         public readonly CorrectionRecoveryGuard CorrectionRecovery = new();
+        public readonly VanillaGliderAllowance Glider = new();
+        public bool WasGliding;
         public bool WasMounted;
         public int MountedSuspiciousSamples;
         public long MountedSuspiciousSinceUtc;
@@ -4231,6 +4240,21 @@ internal sealed class PacketGuardService : IDisposable
             SpeedWindowStartUtc = now;
             SpeedWindowDistance = 0;
             return SpeedSuspiciousWindows >= requiredWindows;
+        }
+
+        public bool ObserveGliding(bool equipped, bool flag, long now, long entityId, int dimension)
+        {
+            bool gliding = Glider.Observe(equipped, flag, now, entityId, dimension);
+            if (gliding != WasGliding)
+            {
+                // Preserve collision evidence; only mode-dependent timing windows restart.
+                SpeedWindowStartUtc = now; SpeedWindowDistance = 0;
+                SpeedSuspiciousWindows = 0; LastClosedWindowSpeed = 0;
+                LastInstantSpeedUtc = 0; SmoothedHorizontalSpeed = 0;
+                AccelerationSuspiciousSamples = 0; AccelerationSuspiciousSinceUtc = 0;
+                WasGliding = gliding;
+            }
+            return gliding;
         }
 
         public void ResetAnalysis(long now)

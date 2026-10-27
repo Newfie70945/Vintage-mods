@@ -25,6 +25,9 @@ static class Checks {
   var item=new Item(1){Code=new AssetLocation("game:stone"),MaxStackSize=64};
   var itemApi=Proxy.Create<ICoreAPI>((m,args)=>m.Name=="get_World"?world:null);AccessTools.Field(typeof(CollectibleObject),"api").SetValue(item,itemApi);
   var a=Drop(item,2);var b=Drop(item,3);int moved=DroppedItemClumping.Merge(world,a,b,10000);Check(moved==3&&a.Slot.StackSize==5&&b.Slot.Empty&&!b.Alive,"native merge preserves quantity and removes only empty source");Check(b.DespawnReason.Reason==EnumDespawnReason.Removed,"merge removal is not a death/drop event");Check(ReferenceEquals(a.Itemstack,a.Slot.Itemstack)&&b.Itemstack==null,"watched and slot stack identities stay synchronized");
+  a=Drop(item,2);b=Drop(item,3);a.Slot.MaxSlotStackSize=0;int notifications=0;
+  a.WatchedAttributes.RegisterModifiedListener("itemstack",()=>notifications++);b.WatchedAttributes.RegisterModifiedListener("itemstack",()=>notifications++);
+  Check(DroppedItemClumping.Merge(world,a,b,10000)==0&&notifications==0&&a.Slot.StackSize==2&&b.Slot.StackSize==3,"native zero-transfer refusal leaves quantities and watched data untouched");
   a=Drop(item,60);b=Drop(item,10);Check(DroppedItemClumping.Merge(world,a,b,10000)==4&&a.Slot.StackSize==64&&b.Slot.StackSize==6&&b.Alive,"native stack cap and partial source preserved");
   a=Drop(item);b=Drop(item);b.Itemstack.Attributes.SetInt("durability",4);Check(DroppedItemClumping.Merge(world,a,b,10000)==0,"different attributes never merged");
   a=Drop(item,owner:"one");b=Drop(item,owner:"two");Check(DroppedItemClumping.Merge(world,a,b,10000)==0,"different owners excluded");
@@ -47,6 +50,16 @@ static class Checks {
   using(var blocked=new DroppedItemClumping(api,config,()=>"unsupported"))Check(blocked.Status.Status=="blocked"&&ticks.Count==0,"engine guard blocks clumping");
   var foreign=new Harmony("test.clump.foreign");foreign.Patch(DroppedItemClumping.Dependencies[0],prefix:new HarmonyMethod(typeof(Checks),nameof(Foreign)));
   using(var conflict=new DroppedItemClumping(api,config,()=>null))Check(conflict.Status.Status=="conflict"&&ticks.Count==0,"foreign slot patch blocks clumping");foreign.UnpatchAll(foreign.Id);
+  foreach(var dependency in new[]{
+   AccessTools.Method(typeof(CollectibleObject),nameof(CollectibleObject.Equals),new[]{typeof(ItemStack),typeof(ItemStack),typeof(string[])}),
+   AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.CanTakeFrom),new[]{typeof(ItemSlot),typeof(EnumMergePriority)}),
+   AccessTools.Method(typeof(EntityItemSlot),nameof(ItemSlot.OnItemSlotModified))
+  }){
+   var declared=AccessTools.DeclaredMethod(dependency.DeclaringType,dependency.Name,dependency.GetParameters().Select(p=>p.ParameterType).ToArray());
+   foreign.Patch(declared,prefix:new HarmonyMethod(typeof(Checks),nameof(Foreign)));
+   using(var helperConflict=new DroppedItemClumping(api,config,()=>null))Check(helperConflict.Status.Status=="conflict","foreign native merge helper blocks clumping: "+dependency.Name);
+   foreign.UnpatchAll(foreign.Id);
+  }
   entities.Clear();for(int i=0;i<3000;i++){var drop=Drop(item);entities[drop.EntityId]=drop;}
   string? guard=null;
   using(var clumper=new DroppedItemClumping(api,config,()=>guard)){
