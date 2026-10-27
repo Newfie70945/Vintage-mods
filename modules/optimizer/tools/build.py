@@ -83,6 +83,7 @@ def main() -> int:
                 archive.write(path, "guides/" + path.name)
         if (ROOT / "config/optimizer.json").is_file():
             archive.write(ROOT / "config/optimizer.json", "guides/optimizer.example.json")
+        archive.write(ROOT / "docs/audit-0.20.16.md", "guides/audit-0.20.16.md")
         archive.write(ROOT / "docs/first-release.md", "guides/first-release.md")
         archive.write(ROOT / "config/presets/newfies-observed-1.22.7.json", "guides/presets/newfies-observed-1.22.7.json")
     dependencies = {}

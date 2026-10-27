@@ -25,7 +25,7 @@ static class Checks
  static int checks;
  static bool OtherPrefix()=>true;
  static void Assert(bool result,string message){if(!result)throw new Exception(message);checks++;}
- static (ICoreServerAPI Api,List<Action<float>> Ticks) Api(bool failListener=false, bool failUnregister=false)
+ static (ICoreServerAPI Api,List<Action<float>> Ticks) Api(bool failListener=false, bool failUnregister=false, bool failWorld=false)
  {
   var ticks=new List<Action<float>>();
   var logger=Proxy.Create<ILogger>((m,a)=>null);
@@ -34,7 +34,7 @@ static class Checks
    if(m.Name=="RegisterGameTickListener") {if(failListener)throw new InvalidOperationException("test listener failure");ticks.Add((Action<float>)a![0]!);return 1L;}
    return m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null;
   });
-  return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
+  return (Proxy.Create<ICoreServerAPI>((m,a)=>m.Name=="get_World"&&failWorld?throw new InvalidOperationException("test asset initialization failure"):m.Name=="get_Event"?events:m.Name=="get_Logger"?logger:m.ReturnType==typeof(void)?null:m.ReturnType.IsValueType?Activator.CreateInstance(m.ReturnType):null),ticks);
  }
  static OptimizerConfig Config() => new() { EngineOptimizations = new() { ListenerRegistrationIndex=true,DespawnCleanupTimings=true,EntityLoadedDispatchReuse=true,EntityDespawnDispatchReuse=true,TemperatureAnimationChecks=true,EmotionSearchReuse=true,CraftingCandidateDedup=true,BlockSimulationBudget=true,BarrelMatchCountGuard=true,BarrelRecipeMemo=true,BlockUpdateDiagnostics=true,IdleFirepitFastPath=true,BarrelIngredientPairing=true,WildBushCallbackFlatten=true,ChunkUnloadStagingReuse=true,NativeBuildLogGuard=true,NearbyPlayerQueries = true, CollisionGenerationReuse=true,CachedCollisionGenerationReuse=true,AnimationCollisionFlagScan=true, CollisionTraversalReuse=true,ContainerTransitionScan=true,ContainerTickTraversal=true, NearbyEntityListReuse=true,CuboidEntityListReuse=true,ShapelessStackMerge=true,ShapelessWildcardMatch=true, PathMainThreadBudget = true, DelayedCallbackSnapshotReuse=true,SpawnOpportunityListReuse=true,SpawnColumnArrayReuse=true,BlockUpdateListReuse=true,ChunkLoadRequestListReuse=true,ChunkUnloadListReuse=true, BroadcastFilterReuse=true,EntityLifecycleListReuse=true, AiDistanceThrottle=true,DistantWanderThrottle=true,RepulsionDistanceThrottle=true,AttributeNoOpSkip=true,WaypointNodePooling=true } };
  [MethodImpl(MethodImplOptions.NoInlining)]
@@ -50,6 +50,13 @@ static class Checks
   var off=Config();off.EngineOptimizations.ListenerRegistrationIndex=false;off.EngineOptimizations.DespawnCleanupTimings=false;off.EngineOptimizations.EntityLoadedDispatchReuse=false;off.EngineOptimizations.EntityDespawnDispatchReuse=false;off.EngineOptimizations.TemperatureAnimationChecks=false;off.EngineOptimizations.EmotionSearchReuse=false;off.EngineOptimizations.CraftingCandidateDedup=false;off.EngineOptimizations.BlockSimulationBudget=false;off.EngineOptimizations.BarrelMatchCountGuard=false;off.EngineOptimizations.BarrelRecipeMemo=false;off.EngineOptimizations.BlockUpdateDiagnostics=false;off.EngineOptimizations.IdleFirepitFastPath=off.EngineOptimizations.BarrelIngredientPairing=off.EngineOptimizations.WildBushCallbackFlatten=off.EngineOptimizations.ChunkUnloadStagingReuse=off.EngineOptimizations.NativeBuildLogGuard=false;off.EngineOptimizations.CollisionGenerationReuse=off.EngineOptimizations.CachedCollisionGenerationReuse=off.EngineOptimizations.AnimationCollisionFlagScan=off.EngineOptimizations.CollisionTraversalReuse=off.EngineOptimizations.ContainerTransitionScan=off.EngineOptimizations.ContainerTickTraversal=off.EngineOptimizations.NearbyEntityListReuse=off.EngineOptimizations.CuboidEntityListReuse=off.EngineOptimizations.ShapelessStackMerge=off.EngineOptimizations.ShapelessWildcardMatch=off.EngineOptimizations.DelayedCallbackSnapshotReuse=off.EngineOptimizations.SpawnOpportunityListReuse=off.EngineOptimizations.SpawnColumnArrayReuse=off.EngineOptimizations.BlockUpdateListReuse=off.EngineOptimizations.ChunkLoadRequestListReuse=off.EngineOptimizations.ChunkUnloadListReuse=off.EngineOptimizations.BroadcastFilterReuse=off.EngineOptimizations.EntityLifecycleListReuse=false;off.EngineOptimizations.AiDistanceThrottle=off.EngineOptimizations.DistantWanderThrottle=off.EngineOptimizations.RepulsionDistanceThrottle=off.EngineOptimizations.AttributeNoOpSkip=off.EngineOptimizations.WaypointNodePooling=false;off.EngineOptimizations.DespawnPacketProjection=off.EngineOptimizations.PhysicsPacketListReuse=off.EngineOptimizations.PathQueueLimitFix=off.EngineOptimizations.PathMainThreadBudget=off.EngineOptimizations.NearestEntitySearch=off.EngineOptimizations.InteractableEntitySearch=off.EngineOptimizations.AiTaskStartDispatch=off.EngineOptimizations.WorldgenRequestReuse=off.EngineOptimizations.SaveSnapshotRelease=off.EngineOptimizations.AiFilterDispatch=off.EngineOptimizations.RepulseDelegateReuse=off.EngineOptimizations.OnlinePlayerSnapshots=off.EngineOptimizations.NearbyPlayerQueries=off.EngineOptimizations.BulkStreamReads=off.EngineOptimizations.AssetCompressionCache=false;
   using(var module=new EngineOptimizations(api.Api,off))Assert(module.Modules().All(x=>x.Status=="disabled"),"independent switches");
   Assert(!Harmony.GetAllPatchedMethods().Any(),"disposing blocked/disabled modules never wraps their stock targets");
+  var assetFailureApi=Api(failWorld:true);
+  using(var failedAssets=new EngineOptimizations(assetFailureApi.Api,Config(),()=>200))
+  {
+   Assert(failedAssets.Modules().Single(x=>x.Name=="assetCompressionCache").Status=="failed","asset initialization failure is reported");
+   Assert(Harmony.GetPatchInfo(AssetCompressionOptimizations.Target)?.Owners.Contains(EngineOptimizations.HarmonyId)!=true,"asset initialization failure removes the just-installed prefix and postfix");
+   Assert(failedAssets.Modules().Where(x=>x.Name!="assetCompressionCache").All(x=>x.Status=="active"),"asset initialization failure leaves unrelated modules active");
+  }
   // NOS timing observers must coexist with optimized methods and survive optimizer disposal.
   var timingObserver=new Harmony(EngineOptimizations.ProfilerHarmonyId);
   timingObserver.Patch(PlayerQueryOptimizations.SnapshotTarget,prefix:new HarmonyMethod(typeof(Checks).GetMethod(nameof(OtherPrefix),BindingFlags.Static|BindingFlags.NonPublic)!));
@@ -470,7 +477,19 @@ static class Checks
    Assert(states.Where(x=>!active.Contains(x.Key)).All(x=>x.Value=="disabled"),"observed preset leaves other modules disabled, including the three reported conflicts");
   }
 
+  var lateRuntimeApi=Api();
+  var lateRuntimeModule=new EngineOptimizations(lateRuntimeApi.Api,Config(),()=>0);
+  Assert(lateRuntimeModule.Modules().Any(x=>x.Status=="standby")&&lateRuntimeModule.Modules().Any(x=>x.Status=="active"),"late-runtime fixture includes standby and active modules");
+  Assert((bool)typeof(EngineOptimizations).GetField("runtimeWatchAttached",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(lateRuntimeModule)!,"active optimizer watches late assembly loads");
   AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StratumServer.TestMarker"),AssemblyBuilderAccess.Run);
+  // The loader callback must not patch/unpatch from an arbitrary loader thread.
+  Assert(lateRuntimeModule.Modules().Any(x=>x.Status=="active"),"late-runtime loader callback only publishes evidence");
+  foreach(var tick in lateRuntimeApi.Ticks)tick(1);
+  Assert(lateRuntimeModule.Modules().All(x=>x.Status=="blocked"),"late alternative runtime blocks active and standby modules on the monitor tick");
+  Assert(!Harmony.GetAllPatchedMethods().Any(m=>Harmony.GetPatchInfo(m)!.Owners.Contains(EngineOptimizations.HarmonyId)),"late-runtime stand-down removes all own patches");
+  lateRuntimeModule.Dispose();
+  Assert(!(bool)typeof(EngineOptimizations).GetField("runtimeWatchAttached",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(lateRuntimeModule)!,"disposal detaches the assembly-load watcher");
+
   using(var module=new EngineOptimizations(api.Api,Config()))Assert(module.Modules().All(x=>x.Status=="blocked"),"alternative runtime blocked");
   Console.WriteLine($"{checks} engine module lifecycle/conflict checks passed against actual Harmony targets.");
  }

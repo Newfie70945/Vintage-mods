@@ -10,7 +10,7 @@ Author source for Newfie's Server Essentials Suite and companion modules, mainta
 | ChatGuard | 2.1.5 | [modules/chatguard](modules/chatguard) |
 | Discord Link | 1.0.15 | [modules/discord-link](modules/discord-link) |
 | Player List | 1.1.2 | [modules/player-list](modules/player-list) |
-| Server Optimizer | 0.20.15-preview | [modules/optimizer](modules/optimizer) |
+| Server Optimizer | 0.20.16-preview | [modules/optimizer](modules/optimizer) |
 
 Shared storage helpers live in [modules/shared](modules/shared). The Suite includes its integrated administration, anti-cheat, roles, player commands, logging, webpanel, map and diagnostics code.
 

@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.15";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.16";
     // RuntimeProfiler.HarmonyId refers to this. It lives here because module test projects compile this file without the profiler.
     internal const string ProfilerHarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
     private readonly ICoreServerAPI api;
@@ -21,6 +21,8 @@ public sealed class EngineOptimizations : IDisposable
     private long listener = -1;
     private bool disposed;
     private bool checking;
+    private bool runtimeWatchAttached;
+    private string? lateRuntime;
     private readonly Dictionary<MethodBase,Patches?> patchSnapshots = new();
     private readonly int minimumNearbyClients;
     private readonly int assetCacheBytes;
@@ -261,9 +263,20 @@ public sealed class EngineOptimizations : IDisposable
             catch (Exception error) { Disable(entry, "failed", "Installation failed: " + error.GetType().Name); }
         }
         // Late Harmony changes and module trip counters are inspected off the hot path.
-        try { if (entries.Any(x => x.Installed || x.State == "standby")) listener = api.Event.RegisterGameTickListener(_ => Check(), 1000); }
+        try
+        {
+            if (entries.Any(x => x.Installed || x.State == "standby"))
+            {
+                listener = api.Event.RegisterGameTickListener(_ => Check(), 1000);
+                AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoaded;
+                runtimeWatchAttached = true;
+                // Close the gap between the initial engine guard and subscribing.
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) ObserveRuntime(assembly);
+            }
+        }
         catch (Exception error)
         {
+            DetachRuntimeWatch();
             foreach (var entry in entries.Where(x => x.Installed || x.State == "standby").ToArray())
                 Disable(entry, "failed", "Compatibility monitor could not start: " + error.GetType().Name);
         }
@@ -275,9 +288,12 @@ public sealed class EngineOptimizations : IDisposable
         if (conflict != null) { entry.State = "conflict"; entry.Reason = conflict; return; }
         patchSnapshots.Remove(entry.TargetMethod);
         harmony.Patch(entry.TargetMethod, prefix: entry.Prefix == null ? null : new HarmonyMethod(entry.Prefix), transpiler: entry.Transpiler == null ? null : new HarmonyMethod(entry.Transpiler), postfix: entry.Postfix == null ? null : new HarmonyMethod(entry.Postfix), finalizer: entry.Finalizer == null ? null : new HarmonyMethod(entry.Finalizer));
+        // Ownership begins as soon as Harmony succeeds. Initialization below can
+        // throw, and installation rollback must still remove this entry's patches.
+        entry.Installed = true;
         if(entry.Name == "assetCompressionCache") RefreshAssets();
         entry.FailureBaseline = Failures(entry.Name);
-        entry.Installed = true; entry.Enable(true); entry.State = "active";
+        entry.Enable(true); entry.State = "active";
         entry.Reason = "Verified official 1.22.7; independently controlled runtime patch installed.";
     }
     internal static bool IsKnownRuntime(string name) =>
@@ -389,6 +405,20 @@ public sealed class EngineOptimizations : IDisposable
         var buffer = packet == null ? null : (assetsBufferField ??= AccessTools.Field(packet.GetType(), "buffer"))?.GetValue(packet) as byte[];
         AssetCompressionOptimizations.Track(buffer, assetCacheBytes);
     }
+    private void ObserveRuntime(Assembly assembly)
+    {
+        string name = assembly.GetName().Name ?? "";
+        if (IsKnownRuntime(name)) Interlocked.CompareExchange(ref lateRuntime, name, null);
+    }
+    // Loader callbacks only publish a name; Harmony changes stay on the server's
+    // compatibility tick. No assembly-array scan is added to the recurring path.
+    private void OnAssemblyLoaded(object? sender, AssemblyLoadEventArgs args) => ObserveRuntime(args.LoadedAssembly);
+    private void DetachRuntimeWatch()
+    {
+        if (!runtimeWatchAttached) return;
+        AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoaded;
+        runtimeWatchAttached = false;
+    }
     private void Check()
     {
         lock (gate)
@@ -397,6 +427,13 @@ public sealed class EngineOptimizations : IDisposable
             checking = true;
             try
             {
+                if (Volatile.Read(ref lateRuntime) is string runtime)
+                {
+                    foreach (var entry in entries)
+                        if (entry.Installed || entry.State == "standby")
+                            Disable(entry, "blocked", "Alternative runtime/optimizer loaded after startup: " + runtime + ". Stock behavior retained; do not stack unvalidated optimizers.");
+                    return;
+                }
                 foreach (var entry in entries)
                 {
                     if (!entry.Installed && entry.State != "standby") continue;
@@ -536,6 +573,7 @@ public sealed class EngineOptimizations : IDisposable
         lock (gate)
         {
             if (disposed) return; disposed = true;
+            DetachRuntimeWatch();
             if (listener >= 0)
             {
                 try { api.Event.UnregisterGameTickListener(listener); }

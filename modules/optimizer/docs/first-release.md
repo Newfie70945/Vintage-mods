@@ -2,7 +2,7 @@
 
 NOS patches the official server in memory. It does not replace the runtime, rewrite game DLLs, or require a client installation. Suite is optional; its Optimizations page provides live controls. Exact-engine checks, conflict detection, independent switches and failure stand-down remain enabled.
 
-This is a release preparation record for 0.20.15-preview, not a declaration that all optional modules are production proven. The supplied production module table contains **33 active modules, 3 conflicts and 24 disabled modules**. The owner reports substantial improvements with this combination. No matched stock/NOS production timing capture accompanied that table, so it does not quantify the gain or establish which module produced it. Numeric settings, profiling switches and modules omitted from the table cannot be inferred.
+This is a release preparation record for 0.20.16-preview, not a declaration that all optional modules are production proven. The supplied production module table contains **33 active modules, 3 conflicts and 24 disabled modules**. The owner reports substantial improvements with this combination. No matched stock/NOS production timing capture accompanied that table, so it does not quantify the gain or establish which module produced it. Numeric settings, profiling switches and modules omitted from the table cannot be inferred.
 
 ## How this setup differs from shipped defaults
 

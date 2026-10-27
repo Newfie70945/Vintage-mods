@@ -1,4 +1,6 @@
-# Newfie's Server Optimizer 0.20.15 preview
+# Newfie's Server Optimizer 0.20.16 preview
+
+0.20.16 hardens installation rollback and late runtime compatibility detection. [Audit findings and remaining performance priorities](docs/audit-0.20.16.md).
 
 First public release preparation: [defaults comparison, observed production preset, next test options and release criteria](docs/first-release.md). Conservative defaults are unchanged.
 
@@ -65,6 +67,8 @@ The module switches operate independently. **Nearby-query reuse defaults off**: 
 ## Compatibility and fallback
 
 The patch registry verifies the actual running game version, exact inspected official API/server assembly hashes, method layouts and Harmony owners. Altered/unrecognised builds are blocked. Stratum, Tungsten and Synergy runtime/optimizer assemblies are blocked rather than stacked without validation.
+
+Known alternative optimizer/runtime assemblies loaded after startup also trigger stand-down on the next compatibility tick; the loader event records evidence without changing Harmony patches on the loader thread.
 
 A foreign patch on a target (or the stream Position accessors) prevents that module from installing. A once-per-second monitor detects late conflicts or recorded module failures and disables/removes only our prefix. Other modules stay active. Disposal leaves foreign patches untouched. If the monitor cannot start, installed replacements are rolled back.
 
