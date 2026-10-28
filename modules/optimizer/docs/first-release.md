@@ -2,7 +2,7 @@
 
 NOS patches the official server in memory. It does not replace the runtime, rewrite game DLLs, or require a client installation. Suite is optional; its Optimizations page provides live controls. Exact-engine checks, conflict detection, independent switches and failure stand-down remain enabled.
 
-This is a release preparation record for 0.20.19-preview, not a declaration that all optional modules are production proven. The supplied production module table contains **33 active modules, 3 conflicts and 24 disabled modules**. The owner reports substantial improvements with this combination. No matched stock/NOS production timing capture accompanied that table, so it does not quantify the gain or establish which module produced it. Numeric settings, profiling switches and modules omitted from the table cannot be inferred.
+This is a release preparation record for 0.20.20-preview, not a declaration that all optional modules are production proven. The supplied production module table contains **33 active modules, 3 conflicts and 24 disabled modules**. The owner reports substantial improvements with this combination. No matched stock/NOS production timing capture accompanied that table, so it does not quantify the gain or establish which module produced it. Numeric settings, profiling switches and modules omitted from the table cannot be inferred.
 
 ## How this setup differs from shipped defaults
 
@@ -31,10 +31,11 @@ The existing defaults for physics/despawn packets, player snapshots, bulk reads,
 
 `AssetCompressionCache` defaults on but was blocked by GeneLib. `IdleFirepitFastPath` and `CollisionTraversalReuse` default off but had been requested and were blocked by ARL and Scaffolding respectively. A conflict means overlapping patches, not proof that the other mod causes crashes. Do not bypass these guards.
 
-Those conflicts describe the supplied historical setup. NOS 0.20.19 adds audited
+Those conflicts describe the supplied historical setup. NOS 0.20.19 added audited
 exceptions for the specific ARL, GeneLib, Walkable Entities and Suite OreShield
-hooks/versions listed in `compatibility-0.20.19.md`. Scaffolding is not covered by
-that update. The observed preset retains its original exclusions to reproduce
+hooks/versions listed in `compatibility-0.20.19.md`; 0.20.20 extends the Suite rule
+as described in `compatibility-0.20.20.md`. Scaffolding is not covered by
+these updates. The observed preset retains its original exclusions to reproduce
 the supplied setup; it does not automatically enable newly compatible options.
 
 ## Reproduce the effective setup

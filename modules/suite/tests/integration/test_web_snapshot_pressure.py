@@ -48,6 +48,13 @@ if all_modules_test:
         if mod['id'] != 'suite':
             shutil.copy2(repo / 'artifacts' / (mod['assembly'] + 'V' + mod['version'] + '.zip'), mods)
 folder = data / 'ModConfig/NewfiesServerEssentialsSuite'
+seed_privacy_test = os.environ.get('NSS_WEB_TEST_SEED_PRIVACY') == '1'
+if seed_privacy_test:
+    (folder / 'NewfiesSeedPrivacy.json').write_text(json.dumps(dict(Enabled=True,PublicSeed=0)))
+    probe = repo / 'modules/suite/tests/integration/seed-privacy-probe/bin/Release/net10.0/SeedPrivacyProbe.dll'
+    with zipfile.ZipFile(mods / 'nss-seed-privacy-probe.zip','w',zipfile.ZIP_DEFLATED) as fixture:
+        fixture.write(probe,'SeedPrivacyProbe.dll')
+        fixture.writestr('modinfo.json',json.dumps(dict(type='code',modid='nssseedprivacyprobe',name='Seed privacy native test fixture',version='0.0.0',side='Server',dependencies={'game':'1.22.7'})))
 if all_modules_test:
     (folder / 'NewfiesServerEssentialsDiscord.json').write_text(json.dumps(dict(Enabled=False,BotToken='')))
 webfile = folder / 'NewfiesWebServer.json'
@@ -200,6 +207,14 @@ try:
         while not any('World saved!' in line for line in lines[before_save:]):
             if process.poll() is not None or time.monotonic()>until_save:raise AssertionError('All-module autosave did not finish')
             time.sleep(.1)
+    if seed_privacy_test:
+        before_probe=len(lines)
+        process.stdin.write('/seedprivacycheck\n');process.stdin.flush()
+        until_probe=time.monotonic()+30
+        while not any('NSS_SEED_PRIVACY_PASS' in line or 'NSS_SEED_PRIVACY_FAIL' in line for line in lines[before_probe:]):
+            if process.poll() is not None or time.monotonic()>until_probe:raise AssertionError('Seed privacy native probe did not finish')
+            time.sleep(.1)
+        assert any('NSS_SEED_PRIVACY_PASS checks=11;' in line for line in lines[before_probe:]), 'Seed privacy native wire/immutability checks failed; inspect private console log'
     if translocator_test:
         code, map_status, _, _ = request('/api/webmap')
         assert code == 200 and map_status['showTranslocators'] and map_status['translocatorDiscoveryRadius'] == 8, map_status
@@ -286,6 +301,8 @@ try:
     if patch_compatibility_test:
         report.update(patchCompatibilityModules=list(compatibility_modules),oreShieldHooksInstalled=True,
                       compatibilityMods={'genelib':'3.2.1','walkableentities':'1.0.44','attributerenderinglibrary':os.environ.get('NSS_WEB_TEST_ARL_VERSION','3.2.0')})
+    if seed_privacy_test:
+        report.update(seedPrivacyNativeWireChecks=11,seedPrivacyServerSeedUnchanged=True,seedPrivacyCanonicalWeatherAndRegionBytesUnchanged=True)
     with zipfile.ZipFile(mods/('NewfiesServerEssentialsSuiteV'+suite_version+'.zip')) as installed:
         report['suiteDllSha256']=hashlib.sha256(installed.read('NewfiesServerEssentialsSuite.dll')).hexdigest()
     if server_protection_test:
@@ -355,9 +372,19 @@ if all_modules_test:
         expected.append(json.loads((repo/'modules/optimizer/src/NewfiesOptimizer/modinfo.json').read_text())['modid'])
     if patch_compatibility_test:
         expected.extend(('genelib','walkableentities','attributerenderinglibrary'))
+    if seed_privacy_test:
+        expected.append('nssseedprivacyprobe')
     native_list = next(line for line in lines if 'Mods, sorted by dependency:' in line)
     assert all(mod in native_list for mod in expected), native_list
     assert not any(re.search(r'\[(?:Server )?(?:Error|Fatal)\]',line) for line in lines), 'Server error present; inspect private console log'
     report.update(allModulesLoaded=expected,allModuleWorldSaveCompleted=True,serverErrors=0)
     (root/'result.json').write_text(json.dumps(report,indent=2)+'\n')
     print('All expected native mod IDs loaded; explicit save finished with no server errors',flush=True)
+
+if not seed_privacy_test:
+    stored_privacy = json.loads((folder / 'NewfiesSeedPrivacy.json').read_text())
+    assert stored_privacy == dict(Enabled=False,PublicSeed=0), stored_privacy
+    assert not any('[SeedPrivacy] Active ' in line for line in lines)
+    report['seedPrivacyDefaultOff'] = True
+    (root/'result.json').write_text(json.dumps(report,indent=2)+'\n')
+    print('Seed privacy remains disabled by default with no activation',flush=True)

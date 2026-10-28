@@ -1,4 +1,6 @@
-# Newfie's Server Optimizer 0.20.19 preview
+# Newfie's Server Optimizer 0.20.20 preview
+
+0.20.20 extends audited OreShield compatibility to Suite 1.2.54 while retaining Suite 1.2.53 support. [Compatibility notes](docs/compatibility-0.20.20.md). Defaults are unchanged.
 
 0.20.18 avoids unnecessary drop updates on refused merges and checks additional native merge helpers for conflicts. Default settings are unchanged.
 

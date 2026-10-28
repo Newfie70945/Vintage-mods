@@ -31,6 +31,7 @@ public static class SuiteConfigStorage
         "NewfiesLoginProtection.json",
         "loginprotection.json",
         "NewfiesAntiCheat.json",
+        "NewfiesSeedPrivacy.json",
         "NewfiesAntiCheatModDbVerificationCache.json",
         "NewfiesAutomatedRestarts.json",
         "NewfiesChatDisplay.json",
