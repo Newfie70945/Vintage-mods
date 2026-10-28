@@ -673,9 +673,6 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                 return;
             }
 
-            output.PopulateWithAir();
-            for (int i = 0; i < chunkVolume; i++) output.SetUnsafe(i, source[i]);
-
             OreShieldDiscoveryCells? discoveredInChunk = GetDiscoveryIndicesSnapshot(playerUid, key);
             int changed = 0;
             int hiddenOre = 0;
@@ -701,7 +698,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                 {
                     // A protected natural ore without a safe host must never leak. Air is intentionally
                     // degraded but secure and will be replaced by normal data once the mapping is fixed.
-                    output.SetUnsafe(index, 0);
+                    source[index] = 0;
                     failedCells++;
                     if (config.OreShieldLeakAuditEnabled)
                     {
@@ -714,7 +711,7 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
 
                 if (source[index] != host)
                 {
-                    output.SetUnsafe(index, host);
+                    source[index] = host;
                     changed++;
                 }
                 if (config.OreShieldLeakAuditEnabled)
@@ -732,6 +729,12 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
             }
             if (changed == 0) return;
 
+            // Native SetUnsafe retains palette entries after a cell is overwritten.
+            // Sanitize the private unpacked array first, then build a fresh palette
+            // solely from the recipient's final view. Otherwise unused ore IDs
+            // disclose concealed mineral variants through compressed metadata.
+            output.PopulateWithAir();
+            for (int i = 0; i < chunkVolume; i++) output.SetUnsafe(i, source[i]);
             byte[] masked = ChunkDataLayer.Compress(output, compressionBuffer);
             packet.SetBlocks(masked);
             lock (sync)

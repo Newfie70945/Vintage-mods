@@ -42,8 +42,10 @@ object data = chunkType.GetProperty("Data")!.GetValue(chunk)!;
 var setBlock = data.GetType().GetMethod("SetBlockUnsafe")!;
 int Index(int x, int y, int z) => (y * 32 + z) * 32 + x;
 int buried = Index(10, 10, 10), exposed = Index(20, 10, 10), placed = Index(15, 10, 10);
+int hiddenOnlyVariant = Index(27, 9, 18);
 for (int i = 0; i < 32768; i++) setBlock.Invoke(data, new object[] { i, 1 });
 foreach (int i in new[] { buried, exposed, placed }) setBlock.Invoke(data, new object[] { i, 2 });
+setBlock.Invoke(data, new object[] { hiddenOnlyVariant, 3 });
 setBlock.Invoke(data, new object[] { exposed + 1, 0 });
 var accessorType = T("Vintagestory.API.Common.IBlockAccessor");
 object[] fixtureBlocks = Enumerable.Range(0, 5).Select(id => { var block = Activator.CreateInstance(T("Vintagestory.API.Common.Block"))!; Set(block, "BlockId", id); return block; }).ToArray();
@@ -152,6 +154,19 @@ try {
     object received = Activator.CreateInstance(packetType)!;
     serializer.GetMethod("DeserializeBuffer")!.Invoke(null, new object[] { wire, wire.Length, received });
     Concealed(received, "Wire serialization leaked ore.");
+    // Inspect the native wire palette, not only decoded visible cells: stale,
+    // unreferenced IDs still disclose the presence of a concealed ore variant.
+    var layerType = T("Vintagestory.Common.ChunkDataLayer");
+    var wireLayer = Activator.CreateInstance(layerType, pool)!;
+    try {
+        Call(wireLayer, "Decompress", Field(packetType, "Blocks").GetValue(received)!);
+        var wirePalette = (int[])Field(layerType, "palette").GetValue(wireLayer)!;
+        int paletteCount = (int)Field(layerType, "paletteCount").GetValue(wireLayer)!;
+        if (Decode(received)[hiddenOnlyVariant] != 1 || wirePalette.Take(paletteCount).Contains(3))
+            throw new Exception("Concealed-only ore variant survived in the outgoing wire palette.");
+        if (!wirePalette.Take(paletteCount).Contains(2)) throw new Exception("Legitimate placed ore disappeared from the wire palette.");
+        Console.WriteLine("PASS: outgoing native palette excludes concealed-only ore variants and retains legitimate visible ore.");
+    } finally { Call(pool, "FreeArrays", wireLayer); }
     if (legacy) {
         Console.WriteLine("PASS legacy working reference: real patched 1.22.7 collectChunk conceals buried/cave ore for an undiscovered recipient while retaining placed ore. Recipient-isolation assertions apply to the new build only.");
         return;
@@ -172,6 +187,22 @@ try {
     if (Decode(knownLater)[buried] != 2 || Decode(knownLater)[exposed] != 2) throw new Exception("Undiscovered-first send suppressed another player's discoveries.");
     configType.GetProperty("OreShieldChunkCacheEnabled")!.SetValue(config, false);
     Concealed(Send(unknown), "Cache-disabled masking leaked ore.");
+    var alternateLayer = Activator.CreateInstance(layerType, pool)!;
+    try {
+        Call(alternateLayer, "PopulateWithAir");
+        int[] alternative = Decode(canonical);
+        alternative[hiddenOnlyVariant] = 4;
+        for (int i = 0; i < alternative.Length; i++) Call(alternateLayer, "SetUnsafe", i, alternative[i]);
+        byte[] alternateBytes = (byte[])layerType.GetMethod("Compress")!.Invoke(null, new object[] { alternateLayer, new int[32768] })!;
+        var canonicalWire = (byte[])serializer.GetMethod("SerializeToBytes")!.Invoke(null, new[] { canonical })!;
+        object alternatePacket = Activator.CreateInstance(packetType)!;
+        serializer.GetMethod("DeserializeBuffer")!.Invoke(null, new object[] { canonicalWire, canonicalWire.Length, alternatePacket });
+        Set(alternatePacket, "Blocks", alternateBytes);
+        Call(virtualizer, "MaskChunkForPlayerUid", "unknown", chunk, alternatePacket);
+        if (!((byte[])Field(packetType, "Blocks").GetValue(received)!).SequenceEqual((byte[])Field(packetType, "Blocks").GetValue(alternatePacket)!))
+            throw new Exception("Equivalent visible geology produced different compressed bytes for a concealed-only variant change.");
+        Console.WriteLine("PASS: changing a concealed-only mineral with the same host produces identical outgoing block bytes.");
+    } finally { Call(pool, "FreeArrays", alternateLayer); }
     if ((long)Field(serviceType, "hookErrors").GetValue(service)! != 0 || errors.Count != 0) throw new Exception("Masking required degraded fallback: " + string.Join(";", errors));
     if(virtualizerType.GetField("revisionEpoch",BindingFlags.Instance|BindingFlags.NonPublic)!=null)
     {
