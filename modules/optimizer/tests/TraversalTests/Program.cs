@@ -13,7 +13,7 @@ using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,name)=>{foreach(var d in new[]{game,Path.Combine(game,"Lib"),Path.Combine(game,"Mods")}){var p=Path.Combine(d,name.Name+".dll");if(File.Exists(p))return AssemblyLoadContext.Default.LoadFromAssemblyPath(p);}return null;};
-Checks.Run();
+PublishedWalkableFixture.Run(true,Checks.Run);
 public class Proxy:DispatchProxy
 {
  public System.Func<MethodInfo,object?[]?,object?> Handler=null!;

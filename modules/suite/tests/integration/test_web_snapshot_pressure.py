@@ -26,12 +26,21 @@ config['WorldConfig']['SaveFileLocation'] = str(data / 'Saves' / save)
 mods = data / 'Mods'; mods.mkdir()
 shutil.copy2(repo / ('artifacts/NewfiesServerEssentialsSuiteV' + suite_version + '.zip'), mods)
 optimizer_test = os.environ.get('NSS_WEB_TEST_OPTIMIZER') == '1'
+patch_compatibility_test = os.environ.get('NSS_WEB_TEST_PATCH_COMPATIBILITY') == '1'
+compatibility_modules = ('idleFirepitFastPath','collisionTraversalReuse','blockUpdateListReuse','assetCompressionCache','repulseDelegateReuse')
+if patch_compatibility_test:
+    assert optimizer_test and os.environ.get('NSS_WEB_TEST_SERVER_PROTECTION') == '1'
+    fixtures = Path(os.environ['NOS_COMPAT_FIXTURES'])
+    for filename in ('genelib_3.2.1.zip','WalkableEntities_1.0.44.zip','AttributeRenderingLibrary-v' + os.environ.get('NSS_WEB_TEST_ARL_VERSION','3.2.0') + '.zip'):
+        shutil.copy2(fixtures / filename, mods)
 if optimizer_test:
     optimizer_version = (repo / 'modules/optimizer/VERSION').read_text().strip()
     shutil.copy2(repo / 'modules/optimizer/artifacts' / ('NewfiesServerOptimizer-' + optimizer_version + '.zip'), mods)
     optimizer_config = json.loads((repo / 'modules/optimizer/config/optimizer.json').read_text())
     optimizer_config['Profiling'].update(PhaseTimings=True, AutoStart=False)
     optimizer_config['Compatibility']['SafeMode'] = False
+    if patch_compatibility_test:
+        optimizer_config['EngineOptimizations'].update(IdleFirepitFastPath=True,CollisionTraversalReuse=True,BlockUpdateListReuse=True,AssetCompressionCache=True,RepulseDelegateReuse=True)
     (data / 'ModConfig/optimizer.json').write_text(json.dumps(optimizer_config))
 all_modules_test = os.environ.get('NSS_WEB_TEST_ALL_MODULES') == '1'
 if all_modules_test:
@@ -66,6 +75,8 @@ if server_protection_test:
     ac_file=folder/'NewfiesAntiCheat.json'
     ac=json.loads(ac_file.read_text()) if ac_file.exists() else {}
     ac.update(Enabled=True,PacketGuardEnabled=True,PacketGuardIngressEnabled=True,ClientModDbVerificationEnabled=False)
+    if patch_compatibility_test:
+        ac['OreShieldEnabled'] = True
     ac_file.write_text(json.dumps(ac))
 f.write_text(json.dumps(features))
 base = 'http://127.0.0.1:' + str(web_port)
@@ -216,6 +227,10 @@ try:
     if optimizer_test:
         code, nos, _, _ = request('/api/optimizations/newfies')
         assert code == 200 and nos.get('available'), (code, nos)
+        if patch_compatibility_test:
+            module_states = {m['name']:m for m in nos['optimizer']['modules']}
+            assert all(module_states[name]['status']=='active' for name in compatibility_modules), {name:module_states[name] for name in compatibility_modules}
+            assert any('Installed recipient chunk masking' in line for line in lines), 'OreShield hooks must actually be installed'
         settings = nos['optimizer']['settings']
         assert settings['droppedItemClumping'] is False, settings
         code, clumped, _, _ = request('/api/optimizations/newfies', {'operation':'set', 'settings':{'droppedItemClumping':True}})
@@ -268,6 +283,9 @@ try:
                   snapshotCacheHits=diagnostics.get('snapshotCacheHits'),
                   serverProtectionChecks=server_protection_test, proximityChecks=proximity_test, performanceRefreshChecks=performance_test, optimizerChecks=optimizer_test, translocatorChecks=translocator_test, allModulesInstalled=all_modules_test,
                   note='Empty disposable server HTTP integration; no production TPS or player-scaling claim.')
+    if patch_compatibility_test:
+        report.update(patchCompatibilityModules=list(compatibility_modules),oreShieldHooksInstalled=True,
+                      compatibilityMods={'genelib':'3.2.1','walkableentities':'1.0.44','attributerenderinglibrary':os.environ.get('NSS_WEB_TEST_ARL_VERSION','3.2.0')})
     with zipfile.ZipFile(mods/('NewfiesServerEssentialsSuiteV'+suite_version+'.zip')) as installed:
         report['suiteDllSha256']=hashlib.sha256(installed.read('NewfiesServerEssentialsSuite.dll')).hexdigest()
     if server_protection_test:
@@ -335,9 +353,11 @@ if all_modules_test:
     expected = [json.loads((repo / m['path'] / 'modinfo.json').read_text())['modid'] for m in json.loads((repo/'modules/manifest.json').read_text())['mods']]
     if optimizer_test:
         expected.append(json.loads((repo/'modules/optimizer/src/NewfiesOptimizer/modinfo.json').read_text())['modid'])
+    if patch_compatibility_test:
+        expected.extend(('genelib','walkableentities','attributerenderinglibrary'))
     native_list = next(line for line in lines if 'Mods, sorted by dependency:' in line)
     assert all(mod in native_list for mod in expected), native_list
     assert not any(re.search(r'\[(?:Server )?(?:Error|Fatal)\]',line) for line in lines), 'Server error present; inspect private console log'
     report.update(allModulesLoaded=expected,allModuleWorldSaveCompleted=True,serverErrors=0)
     (root/'result.json').write_text(json.dumps(report,indent=2)+'\n')
-    print('All seven native mod IDs loaded; explicit save finished with no server errors',flush=True)
+    print('All expected native mod IDs loaded; explicit save finished with no server errors',flush=True)

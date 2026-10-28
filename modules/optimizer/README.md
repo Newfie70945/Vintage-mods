@@ -1,4 +1,4 @@
-# Newfie's Server Optimizer 0.20.18 preview
+# Newfie's Server Optimizer 0.20.19 preview
 
 0.20.18 avoids unnecessary drop updates on refused merges and checks additional native merge helpers for conflicts. Default settings are unchanged.
 
@@ -74,7 +74,7 @@ The patch registry verifies the actual running game version, exact inspected off
 
 Known alternative optimizer/runtime assemblies loaded after startup also trigger stand-down on the next compatibility tick; the loader event records evidence without changing Harmony patches on the loader thread.
 
-A foreign patch on a target (or the stream Position accessors) prevents that module from installing. A once-per-second monitor detects late conflicts or recorded module failures and disables/removes only our prefix. Other modules stay active. Disposal leaves foreign patches untouched. If the monitor cannot start, installed replacements are rolled back.
+An unaudited foreign patch on a target (or the stream Position accessors) prevents that module from installing. Version 0.20.19 adds narrow, binary-verified exceptions for specific ARL, Walkable Entities, GeneLib and Suite OreShield hooks; see [audited compatibility](docs/compatibility-0.20.19.md) for versions and limits. A once-per-second monitor detects late conflicts or recorded module failures and removes only the affected NOS hooks. Other modules stay active. Disposal leaves foreign patches untouched. If the monitor cannot start, installed replacements are rolled back.
 
 An exception after observable work is propagated, never replayed through stock code; the monitor then stands that module down. A failing caller-supplied query predicate can trigger this conservative stand-down. No guarantee is made about arbitrary patch interactions during the interval before the monitor runs.
 

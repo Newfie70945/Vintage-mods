@@ -14,7 +14,7 @@ using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 string game=Environment.GetEnvironmentVariable("VINTAGE_STORY")!;
 AssemblyLoadContext.Default.Resolving+=(_,name)=>{foreach(var folder in new[]{game,Path.Combine(game,"Lib"),Path.Combine(game,"Mods")}){var path=Path.Combine(folder,name.Name+".dll");if(File.Exists(path))return AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));}return null;};
-Checks.Run();
+PublishedWalkableFixture.Run(false,Checks.Run);
 public class Proxy:DispatchProxy
 {
  public System.Func<MethodInfo,object?[]?,object?> Handler=null!;

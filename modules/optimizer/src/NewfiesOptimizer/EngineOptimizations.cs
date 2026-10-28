@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.18";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.19";
     // RuntimeProfiler.HarmonyId refers to this. It lives here because module test projects compile this file without the profiler.
     internal const string ProfilerHarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
     private readonly ICoreServerAPI api;
@@ -344,16 +344,18 @@ public sealed class EngineOptimizations : IDisposable
         }
         catch (Exception error) { return "Engine identity could not be verified: " + error.GetType().Name; }
     });
-    private static string? ForeignOwner(Patches? patches)
+    private static string? ForeignOwner(Patches? patches, string module, MethodBase target)
     {
         if (patches == null) return null;
-        static string? Find(IList<Patch> list)
+        string? Find(IList<Patch> list, string kind)
         {
             // Profiler timing observers only add a prefix/postfix pair; they never alter arguments or results.
-            for (int i = 0; i < list.Count; i++) if (list[i].owner != HarmonyId && list[i].owner != ProfilerHarmonyId) return list[i].owner;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i].owner != HarmonyId && list[i].owner != ProfilerHarmonyId &&
+                    !KnownPatchCompatibility.Allows(module, target, list[i], kind)) return list[i].owner;
             return null;
         }
-        return Find(patches.Prefixes) ?? Find(patches.Postfixes) ?? Find(patches.Transpilers) ?? Find(patches.Finalizers);
+        return Find(patches.Prefixes, "prefix") ?? Find(patches.Postfixes, "postfix") ?? Find(patches.Transpilers, "transpiler") ?? Find(patches.Finalizers, "finalizer");
     }
     private static readonly Func<Patch,MethodInfo,bool> MatchesPatch = CreatePatchMatcher();
     private static Func<Patch,MethodInfo,bool> CreatePatchMatcher()
@@ -389,7 +391,7 @@ public sealed class EngineOptimizations : IDisposable
             var patches = targetInspected && method == entry.TargetMethod ? targetInfo : Inspect(method);
             if (entry.Name == "barrelMatchCountGuard" && method == entry.TargetMethod &&
                 BarrelPatchCompatibility.Allows(patches, HarmonyId)) continue;
-            var owner = ForeignOwner(patches);
+            var owner = ForeignOwner(patches, entry.Name, method);
             if (owner != null) return "Foreign Harmony owner on " + method.Name + ": " + owner;
         }
         return null;
