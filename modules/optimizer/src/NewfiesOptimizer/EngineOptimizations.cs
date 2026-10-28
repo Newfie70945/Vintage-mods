@@ -11,7 +11,7 @@ namespace NewfiesOptimizer;
 // Each module owns only its own prefix. No foreign patches or server files are modified.
 public sealed class EngineOptimizations : IDisposable
 {
-    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.21";
+    public const string HarmonyId = "newfies.serveroptimizer.engine.0.20.22";
     // RuntimeProfiler.HarmonyId refers to this. It lives here because module test projects compile this file without the profiler.
     internal const string ProfilerHarmonyId = "newfies.serveroptimizer.profiling.0.9.0";
     private readonly ICoreServerAPI api;

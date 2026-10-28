@@ -390,6 +390,71 @@ try {
         var queuedCells=(IDictionary)Field(outbox[groups[0]]!.GetType(),"Positions").GetValue(outbox[groups[0]]!)!;
         if(queuedCells.Count!=2)throw new Exception("Ordinary and ore cells did not both queue for uniform resynchronization");
         Console.WriteLine("PASS: denied ordinary/ore cells share one recipient-masked world-update transport; no raw ore fallback or block-type packet distinction.");
+        var sent = new List<object>();
+        var ackType = T("NewfiesAntiCheat.Shared.Packets.OreShieldSyncAckPacket");
+        var ack = Activator.CreateInstance(ackType)!;
+        bool capture = true;
+        channelField.SetValue(virtualizer, Proxy(channelField.FieldType, (method, args) => {
+            if (method.Name == "SendPacket") {
+                object packet = args![0]!;
+                if (capture) sent.Add(packet);
+                foreach (string name in new[] { "Sequence", "ChunkX", "ChunkY", "ChunkZ", "Revision" })
+                    ackType.GetProperty(name)!.SetValue(ack, packet.GetType().GetProperty(name)!.GetValue(packet));
+                ackType.GetProperty("Applied")!.SetValue(ack, ((int[])packet.GetType().GetProperty("LocalIndices")!.GetValue(packet)!).Length);
+                Call(virtualizer, "HandleClientSyncAck", syncPlayer, ack);
+            }
+            return Default(method.ReturnType);
+        }));
+        var sendNow = virtualizerType.GetMethod("SendClientSyncNow", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var deadlines = Field(virtualizerType, "clientSyncDeadlines").GetValue(virtualizer)!;
+        var clearDeadlines = deadlines.GetType().GetMethod("Clear")!;
+        var performance = new List<object>();
+        foreach (var scenario in new[] { (Count: 64, Mixed: false, Dimension: 0), (Count: 129, Mixed: false, Dimension: 0), (Count: 200, Mixed: true, Dimension: 0), (Count: 64, Mixed: false, Dimension: 1) }) {
+            var positions = (IList)Activator.CreateInstance(positionList.GetType())!;
+            for (int i = 0; i < scenario.Count; i++) positions.Add(Activator.CreateInstance(posType, i % 32 + (scenario.Mixed && i % 2 == 1 ? 32 : 0), 10, 10 + i / 32, scenario.Dimension));
+            object?[] arguments = { syncPlayer, positions, 0, false };
+            sent.Clear();
+            if (!(bool)sendNow.Invoke(virtualizer, arguments)!) throw new Exception("Client sync send was unexpectedly rejected.");
+            var expected = new List<string>();
+            foreach (object pos in positions) {
+                int x = (int)Field(posType, "X").GetValue(pos)!, z = (int)Field(posType, "Z").GetValue(pos)!;
+                int index = Index(x & 31, 10, z & 31);
+                int actual = (int)data.GetType().GetMethod("GetBlockIdUnsafe", new[] { typeof(int) })!.Invoke(data, new object[] { index })!;
+                int visible = actual >= 2 && !(scenario.Dimension == 0 && x == 15 && z == 10) ? 1 : actual;
+                expected.Add($"{x >> 5}:{scenario.Dimension * 1024}:{z >> 5}:{index}:{visible}");
+            }
+            var actualEntries = new List<string>();
+            long lastSequence = 0;
+            foreach (object packet in sent) {
+                object Property(string name) => packet.GetType().GetProperty(name)!.GetValue(packet)!;
+                int[] indices = (int[])Property("LocalIndices"), ids = (int[])Property("BlockIds");
+                if (indices.Length is < 1 or > 128 || indices.Length != ids.Length || (int)Property("ApplyMode") != 1 || (long)Property("Sequence") <= lastSequence)
+                    throw new Exception("Client sync batch cap, arrays, mode or sequence changed.");
+                lastSequence = (long)Property("Sequence");
+                for (int i = 0; i < indices.Length; i++) actualEntries.Add($"{Property("ChunkX")}:{Property("ChunkY")}:{Property("ChunkZ")}:{indices[i]}:{ids[i]}");
+            }
+            if (!actualEntries.OrderBy(x => x).SequenceEqual(expected.OrderBy(x => x))) throw new Exception("Client sync lost/duplicated cells, leaked ore, or changed dimensions.");
+            if (!scenario.Mixed && !actualEntries.SequenceEqual(expected)) throw new Exception("Single-chunk sync changed input order across batch boundaries.");
+            if (((IDictionary)Field(virtualizerType, "pendingClientSync").GetValue(virtualizer)!).Count != 0) throw new Exception("Synchronous ACK raced pending registration.");
+            if (Environment.GetEnvironmentVariable("NSS_PERF_SYNC") == "1") {
+                capture = false;
+                for (int i = 0; i < 10; i++) { sendNow.Invoke(virtualizer, arguments); clearDeadlines.Invoke(deadlines, null); }
+                int iterations = int.TryParse(Environment.GetEnvironmentVariable("NSS_PERF_ITERATIONS"), out int requested) ? Math.Clamp(requested, 100, 1000) : 100;
+                var clock = new System.Diagnostics.Stopwatch();
+                for (int trial = 0; trial < 3; trial++) {
+                    long allocated = GC.GetAllocatedBytesForCurrentThread(); clock.Restart();
+                    for (int i = 0; i < iterations; i++) { sendNow.Invoke(virtualizer, arguments); clearDeadlines.Invoke(deadlines, null); }
+                    clock.Stop();
+                    performance.Add(new { scenario.Count, scenario.Mixed, scenario.Dimension, iterations, trial,
+                        allocatedBytesPerCall = (GC.GetAllocatedBytesForCurrentThread() - allocated) / iterations,
+                        microsecondsPerCall = clock.Elapsed.TotalMicroseconds / iterations });
+                }
+                capture = true;
+            }
+            clearDeadlines.Invoke(deadlines, null);
+        }
+        Console.WriteLine("PASS: sync batching preserves 128-cell caps, mixed chunks, dimensions, masking and synchronous ACK ordering.");
+        if (performance.Count > 0) Console.WriteLine("SYNC_BENCHMARK " + System.Text.Json.JsonSerializer.Serialize(performance));
     } finally {deniedResyncProbe=false;channelField.SetValue(virtualizer,originalChannel);supportField.SetValue(virtualizer,originalSupport);clientsField.SetValue(server,originalClients);}
     Console.WriteLine("PASS: real patched 1.22.7 collectChunk, compressed buried/cave ore concealed per recipient, legitimate discoveries/placed ore retained, canonical payload immutable, shared mask cache reused, repeated sends and nested/cross-recipient wrappers isolated. No server/world started.");
 } finally {

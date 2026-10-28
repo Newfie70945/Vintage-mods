@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 
 namespace BlockLogger.Services;
@@ -31,47 +32,71 @@ internal sealed class IncrementalLogReader
         if (previousTail.Length > 0 && Offset >= previousTail.Length && stream.Length >= Offset)
         {
             stream.Position = Offset - previousTail.Length;
-            byte[] tail = new byte[previousTail.Length];
+            Span<byte> tail = stackalloc byte[64];
+            tail = tail[..previousTail.Length];
             stream.ReadExactly(tail);
-            if (!tail.AsSpan().SequenceEqual(previousTail)) Reset(file, 0); // Same-path rotation/replacement.
+            if (!tail.SequenceEqual(previousTail)) Reset(file, 0); // Same-path rotation/replacement.
         }
         stream.Position = Offset;
         int count = (int)Math.Min(MaxBytesPerPass, stream.Length - Offset);
         if (count == 0) { BacklogBytes = 0; return Emit(context.Count); }
-        byte[] bytes = new byte[count];
-        int read = stream.Read(bytes);
-        char[] chars = new char[Encoding.UTF8.GetMaxCharCount(read)];
-        int characterCount = decoder.GetChars(bytes, 0, read, chars, 0, flush: false);
-        Offset += read;
-        previousTail = bytes.AsSpan(Math.Max(0, read - 64), Math.Min(read, 64)).ToArray();
-        BacklogBytes = Math.Max(0, stream.Length - Offset);
-        for (int i = 0; i < characterCount; i++)
+        byte[] bytes = ArrayPool<byte>.Shared.Rent(count);
+        char[]? chars = null;
+        try
         {
-            char c = chars[i];
-            if (c == '\n')
+            chars = ArrayPool<char>.Shared.Rent(Encoding.UTF8.GetMaxCharCount(count));
+            int read = stream.Read(bytes, 0, count);
+            int characterCount = decoder.GetChars(bytes, 0, read, chars, 0, flush: false);
+            Offset += read;
+            previousTail = bytes.AsSpan(Math.Max(0, read - 64), Math.Min(read, 64)).ToArray();
+            BacklogBytes = Math.Max(0, stream.Length - Offset);
+            for (int i = 0; i < characterCount; i++)
             {
-                if (!skippingLine) context.Add(line.ToString().TrimEnd('\r'));
-                line.Clear(); skippingLine = false;
+                char c = chars[i];
+                if (c == '\n')
+                {
+                    if (!skippingLine) context.Add(line.ToString().TrimEnd('\r'));
+                    line.Clear(); skippingLine = false;
+                }
+                else if (!skippingLine)
+                {
+                    if (line.Length >= MaxLineCharacters) { line.Clear(); skippingLine = true; OversizedLines++; }
+                    else line.Append(c);
+                }
             }
-            else if (!skippingLine)
-            {
-                if (line.Length >= MaxLineCharacters) { line.Clear(); skippingLine = true; OversizedLines++; }
-                else line.Append(c);
-            }
+            // Reserve the parser's eight-line look-ahead and rewind to any event header
+            // immediately before the boundary, so its context is never emitted in another batch.
+            int emit = BacklogBytes > 0 ? Math.Max(0, context.Count - 9) : context.Count;
+            if (BacklogBytes > 0 && isHeader != null)
+                for (int i = Math.Max(0, emit - 8); i < emit; i++)
+                    if (isHeader(context[i])) { emit = i; break; }
+            return Emit(emit);
         }
-        // Reserve the parser's eight-line look-ahead and rewind to any event header
-        // immediately before the boundary, so its context is never emitted in another batch.
-        int emit = BacklogBytes > 0 ? Math.Max(0, context.Count - 9) : context.Count;
-        if (BacklogBytes > 0 && isHeader != null)
-            for (int i = Math.Max(0, emit - 8); i < emit; i++)
-                if (isHeader(context[i])) { emit = i; break; }
-        return Emit(emit);
+        finally
+        {
+            // Log buffers can contain private text. Never retain their contents in
+            // a shared pool; only owned strings and the small rotation tail escape.
+            ArrayPool<byte>.Shared.Return(bytes, clearArray: true);
+            if (chars != null) ArrayPool<char>.Shared.Return(chars, clearArray: true);
+        }
     }
 
     private string Emit(int count)
     {
         if (count == 0) return "";
-        string text = string.Join('\n', context.Take(count)) + "\n";
+        int length = count; // One newline per emitted line, including the last.
+        for (int i = 0; i < count; i++) length = checked(length + context[i].Length);
+        string text = string.Create(length, (Lines: context, Count: count), static (output, state) =>
+        {
+            int offset = 0;
+            for (int i = 0; i < state.Count; i++)
+            {
+                string line = state.Lines[i];
+                line.AsSpan().CopyTo(output[offset..]);
+                offset += line.Length;
+                output[offset++] = '\n';
+            }
+        });
         context.RemoveRange(0, count);
         return text;
     }

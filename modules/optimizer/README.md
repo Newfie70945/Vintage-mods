@@ -1,4 +1,6 @@
-# Newfie's Server Optimizer 0.20.21 preview
+# Newfie's Server Optimizer 0.20.22 preview
+
+0.20.22 extends audited OreShield compatibility to Suite 1.2.56. [Compatibility notes](docs/compatibility-0.20.22.md). Optimization defaults are unchanged.
 
 0.20.21 extends audited OreShield compatibility to Suite 1.2.55, which removes concealed-only ore IDs from outgoing chunk palettes. [Compatibility notes](docs/compatibility-0.20.21.md). Defaults are unchanged.
 

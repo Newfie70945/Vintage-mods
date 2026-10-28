@@ -2349,70 +2349,38 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
         }
         try
         {
-            foreach (IGrouping<ChunkKey, BlockPos> group in positions.GroupBy(p => new ChunkKey(p.X >> ChunkBits, p.InternalY >> ChunkBits, p.Z >> ChunkBits)))
+            // The outbox normally dispatches one chunk at a time. Avoid building
+            // a LINQ lookup and two intermediate arrays for that common case.
+            BlockPos first = positions[0];
+            var chunk = new ChunkKey(first.X >> ChunkBits, first.InternalY >> ChunkBits, first.Z >> ChunkBits);
+            bool sameChunk = true;
+            for (int i = 1; i < positions.Count; i++)
             {
-                BlockPos[] allChunkPositions = group.ToArray();
-                for (int offset = 0; offset < allChunkPositions.Length; offset += OreShieldSyncProtocol.MaxBatchEntries)
+                BlockPos pos = positions[i];
+                if (new ChunkKey(pos.X >> ChunkBits, pos.InternalY >> ChunkBits, pos.Z >> ChunkBits) != chunk)
+                { sameChunk = false; break; }
+            }
+            if (sameChunk)
+            {
+                for (int offset = 0; offset < positions.Count; offset += OreShieldSyncProtocol.MaxBatchEntries)
                 {
-                    BlockPos[] chunkPositions = allChunkPositions.Skip(offset).Take(OreShieldSyncProtocol.MaxBatchEntries).ToArray();
-                    if (chunkPositions.Length == 0) continue;
-                    int[] localIndices = new int[chunkPositions.Length];
-                    int[] blockIds = new int[chunkPositions.Length];
-                    for (int i = 0; i < chunkPositions.Length; i++)
+                    int take = Math.Min(OreShieldSyncProtocol.MaxBatchEntries, positions.Count - offset);
+                    var batch = new BlockPos[take];
+                    positions.CopyTo(offset, batch, 0, take);
+                    SendClientSyncBatch(player, batch, chunk, retryCount, stabilize);
+                }
+            }
+            else
+            {
+                // Keep the uncommon mixed-chunk grouping/order contract unchanged.
+                foreach (IGrouping<ChunkKey, BlockPos> group in positions.GroupBy(p => new ChunkKey(p.X >> ChunkBits, p.InternalY >> ChunkBits, p.Z >> ChunkBits)))
+                {
+                    BlockPos[] allChunkPositions = group.ToArray();
+                    for (int offset = 0; offset < allChunkPositions.Length; offset += OreShieldSyncProtocol.MaxBatchEntries)
                     {
-                        BlockPos pos = chunkPositions[i];
-                        localIndices[i] = Index(pos.X & chunkMask, pos.InternalY & chunkMask, pos.Z & chunkMask);
-                        int actual = server.BlockAccessor.GetBlock(pos, BlockLayersAccess.Solid).Id;
-                        blockIds[i] = ClientViewForPlayer(player, actual, pos);
+                        BlockPos[] batch = allChunkPositions.Skip(offset).Take(OreShieldSyncProtocol.MaxBatchEntries).ToArray();
+                        SendClientSyncBatch(player, batch, group.Key, retryCount, stabilize);
                     }
-
-                    long sequence = System.Threading.Interlocked.Increment(ref clientSyncSequence);
-                    long revision;
-                    lock (sync) revision = RevisionNoLock(group.Key);
-                    var packet = new OreShieldSyncBatchPacket
-                    {
-                        Sequence = sequence,
-                        ChunkX = group.Key.X,
-                        ChunkY = group.Key.Y,
-                        ChunkZ = group.Key.Z,
-                        Revision = revision,
-                        LocalIndices = localIndices,
-                        BlockIds = blockIds,
-                        ApplyMode = stabilize ? 0 : 1
-                    };
-                    var pending = new PendingClientSync
-                    {
-                        PlayerUid = player.PlayerUID ?? string.Empty,
-                        Sequence = sequence,
-                        Chunk = group.Key,
-                        Revision = revision,
-                        Positions = chunkPositions,
-                        RetryCount = retryCount,
-                        Stabilize = stabilize
-                    };
-                    var pendingKey = new ClientSyncPendingKey(pending.PlayerUid, sequence);
-                    lock (sync)
-                    {
-                        // Store pending state before the send so an integrated/single-player client can
-                        // ACK synchronously without racing ahead of server bookkeeping.
-                        TrackPendingClientSyncNoLock(pending);
-                        clientSyncDeadlines.Enqueue(pendingKey, clientSyncClockMs + ClientSyncTimeoutDelayMs);
-                    }
-                    try
-                    {
-                        oreShieldSyncChannel.SendPacket(packet, player);
-                        lock (sync)
-                        {
-                            clientSyncBatchesSent++;
-                            clientSyncEntriesSent += chunkPositions.Length;
-                        }
-                    }
-                    catch
-                    {
-                        lock (sync) RemovePendingClientSyncNoLock(pendingKey);
-                        throw;
-                    }
-
                 }
             }
             return true;
@@ -2430,6 +2398,67 @@ internal sealed class OreShieldBlockVirtualizer : IDisposable
                 }
             }
             return false;
+        }
+    }
+
+    private void SendClientSyncBatch(IServerPlayer player, BlockPos[] chunkPositions, ChunkKey chunk, int retryCount, bool stabilize)
+    {
+        int[] localIndices = new int[chunkPositions.Length];
+        int[] blockIds = new int[chunkPositions.Length];
+        for (int i = 0; i < chunkPositions.Length; i++)
+        {
+            BlockPos pos = chunkPositions[i];
+            localIndices[i] = Index(pos.X & chunkMask, pos.InternalY & chunkMask, pos.Z & chunkMask);
+            int actual = server.BlockAccessor.GetBlock(pos, BlockLayersAccess.Solid).Id;
+            blockIds[i] = ClientViewForPlayer(player, actual, pos);
+        }
+
+        long sequence = System.Threading.Interlocked.Increment(ref clientSyncSequence);
+        long revision;
+        lock (sync) revision = RevisionNoLock(chunk);
+        var packet = new OreShieldSyncBatchPacket
+        {
+            Sequence = sequence,
+            ChunkX = chunk.X,
+            ChunkY = chunk.Y,
+            ChunkZ = chunk.Z,
+            Revision = revision,
+            LocalIndices = localIndices,
+            BlockIds = blockIds,
+            ApplyMode = stabilize ? 0 : 1
+        };
+        var pending = new PendingClientSync
+        {
+            PlayerUid = player.PlayerUID ?? string.Empty,
+            Sequence = sequence,
+            Chunk = chunk,
+            Revision = revision,
+            Positions = chunkPositions,
+            RetryCount = retryCount,
+            Stabilize = stabilize
+        };
+        var pendingKey = new ClientSyncPendingKey(pending.PlayerUid, sequence);
+        lock (sync)
+        {
+            // Store pending state before the send so an integrated/single-player client can
+            // ACK synchronously without racing ahead of server bookkeeping.
+            TrackPendingClientSyncNoLock(pending);
+            clientSyncDeadlines.Enqueue(pendingKey, clientSyncClockMs + ClientSyncTimeoutDelayMs);
+        }
+        try
+        {
+            // Readonly channel was checked by SendClientSyncNow before dispatch.
+            oreShieldSyncChannel!.SendPacket(packet, player);
+            lock (sync)
+            {
+                clientSyncBatchesSent++;
+                clientSyncEntriesSent += chunkPositions.Length;
+            }
+        }
+        catch
+        {
+            lock (sync) RemovePendingClientSyncNoLock(pendingKey);
+            throw;
         }
     }
 

@@ -89,6 +89,7 @@ def main() -> int:
         archive.write(ROOT / "docs/compatibility-0.20.19.md", "guides/compatibility-0.20.19.md")
         archive.write(ROOT / "docs/compatibility-0.20.20.md", "guides/compatibility-0.20.20.md")
         archive.write(ROOT / "docs/compatibility-0.20.21.md", "guides/compatibility-0.20.21.md")
+        archive.write(ROOT / "docs/compatibility-0.20.22.md", "guides/compatibility-0.20.22.md")
         archive.write(ROOT / "docs/first-release.md", "guides/first-release.md")
         archive.write(ROOT / "config/presets/newfies-observed-1.22.7.json", "guides/presets/newfies-observed-1.22.7.json")
     dependencies = {}

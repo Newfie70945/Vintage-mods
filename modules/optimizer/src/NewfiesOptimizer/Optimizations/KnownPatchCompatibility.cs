@@ -18,6 +18,7 @@ public static class KnownPatchCompatibility
     private const string Suite = "7da05293c81202193b588e42c284ca26b0afa2003540fe7fdb57dd6153d161ca";
     private const string Suite154 = "2917fb3b2955e528904a886bb4d2926fb6c3e3632ef25d5caccf6fc22fe961b3";
     private const string Suite155 = "50ab5f35dca8e120334016061a188a5431284cabbe9e38c39ba2e789c7d7d3f8";
+    private const string Suite156 = "7543c94595f4a1826e1e8a6db00dacb77a327ceee16e5373af2d71c1719f350c";
     private static readonly string[] Arl = [
         "8fa22db982ab466446e241a62d66f04be694d351ee2ee693f0dab494ed70a010", // 3.2.0
         "817ee5f024bbde2b8be218a65e368a3f3ce9acbe7494bf9678fbf762d79ee2b5", // 3.1.5
@@ -51,7 +52,7 @@ public static class KnownPatchCompatibility
             if (method.DeclaringType?.FullName != handlerType || method.Name != handler) return false;
             string hash = identities.GetValue(method.Module.Assembly, Identify).Hash;
             return expectedHash != null ? (hash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase) ||
-                (expectedHash == Suite && (hash.Equals(Suite154, StringComparison.OrdinalIgnoreCase) || hash.Equals(Suite155, StringComparison.OrdinalIgnoreCase)))) :
+                (expectedHash == Suite && (hash.Equals(Suite154, StringComparison.OrdinalIgnoreCase) || hash.Equals(Suite155, StringComparison.OrdinalIgnoreCase) || hash.Equals(Suite156, StringComparison.OrdinalIgnoreCase)))) :
                 Arl.Contains(hash, StringComparer.OrdinalIgnoreCase);
         }
         catch { return false; } // Unverifiable/unknown handlers retain the normal conflict gate.
