@@ -1,5 +1,10 @@
 # Current release changes
 
+## Realistic Sailing 0.12.1
+
+- Polish: per-boat warnings (overpowered, anchor dragging, hull/sail condition) now go only to people near that boat and name the vessel; all per-boat bookkeeping is released when a boat unloads; a misplaced doc comment fixed. `SailingModSystem` split into partial files (Weather, Boats, Items) with no behaviour change.
+- German, Spanish, French and Brazilian Portuguese translations of all items and entities, a mod icon, and example configs (`NewfiesSailing.example.json`, `NewfiesSailingClient.example.json`). `tools/check_sources.py` now checks the example configs against the C# options, lang key parity, and that every item has a shape and recipe.
+
 ## Realistic Sailing 0.12.0
 
 - Realism pass: apparent wind (true wind minus the boat's velocity drives speed, overload, capsize and heel), wind shadow in the lee of land (8 upwind samples), shoals and groundings (hull scrapes and slows; a deep keel scrapes harder), tacking momentum loss and accidental-gybe boom damage, day/night sea-breeze variation in wind strength (synced by each client's own clock) and client-side whitecaps. Each has a config switch (`ApparentWindEnabled`, `MotionToKnots`, `WindShadowEnabled`, `GroundingEnabled`, `TackingEnabled`, `DiurnalWindEnabled`, client `WhitecapsEnabled`). Unverified in game.

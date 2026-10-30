@@ -1,6 +1,6 @@
-# Newfie's Realistic Sailing 0.12.0
+# Newfie's Realistic Sailing 0.12.1
 
-Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients.
+Mod for Vintage Story 1.22.7 that makes sailing depend on real weather. Everything players do is a crafted item you right-click; there are no player commands. Because it adds items, install it on the server **and** clients. Item names are translated into English, German, Spanish, French and Brazilian Portuguese; chat messages are English.
 
 ## Items
 
@@ -65,11 +65,21 @@ Only entities whose code contains `boat` and one of `BoatCodeContains` (default 
 
 ## Configuration
 
+Copy `NewfiesSailing.example.json` / `NewfiesSailingClient.example.json` from the download for every option with its default (the files are also generated automatically in `ModConfig` on first start).
+
 `ModConfig/NewfiesSailing.json` is written on first start. Tune `KnotsPerWindUnit`, `Min/MaxSpeedMultiplier`, `ReferenceKnots`, `OverloadKnots`, `LeewayStrength`, squall and temporal-storm settings, `WearRate`, `AnchorHoldKnots` and `BoatCodeContains`.
 
 ## Testing
 
 See [the test checklist](../../docs/SAILING-TEST-CHECKLIST.md). Floating markets are not implemented, and `HeaveEnabled` (vertical swell) is experimental.
+
+## Source layout
+
+- `src/SailingModel.cs` – pure maths, unit tested.
+- `src/SailingModSystem*.cs` – server logic, split into `Weather`, `Boats` and `Items` partial files.
+- `src/SailingVisuals.cs`, `SpyglassZoom.cs` – client-only visuals, sounds and zoom.
+- `src/Entity*.cs`, `ItemSailingTool.cs` – balloons, drifting finds, whirlpools and the tool item.
+- `assets/newfiessailing` – items, entities, shapes, textures, sounds, recipes and translations.
 
 ## Status
 

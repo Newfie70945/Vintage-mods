@@ -1,0 +1,24 @@
+{
+  "BobbingEnabled": true,
+  "SplashesEnabled": true,
+  "BobIntensity": 1.0,
+  "SeaRoughness": 1.5,
+  "FogVisualsEnabled": true,
+  "AmbientSoundsEnabled": true,
+  "NightGlowEnabled": true,
+  "WhitecapsEnabled": true,
+  "DiurnalWindEnabled": true,
+  "SpyglassZoom": 0.22,
+  "HeaveEnabled": false,
+  "KnotsPerWindUnit": 30.0,
+  "BoatCodeContains": [
+    "sail"
+  ],
+  "Range": 48.0,
+  "HeelingEnabled": true,
+  "WakeEnabled": true,
+  "CapsizeVisualsEnabled": true,
+  "StormGlowEnabled": true,
+  "ReferenceKnots": 17.0,
+  "HeelDirection": 1
+}

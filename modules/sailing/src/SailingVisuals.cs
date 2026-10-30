@@ -196,7 +196,6 @@ public sealed class SailingVisuals
         return cur;
     }
 
-    /// <summary>Foam trailing the stern, spreading in a V.</summary>
     private double Diurnal(double x, double z)
         => cfg.DiurnalWindEnabled ? SailingModel.DiurnalWindFactor(capi.World.Calendar.GetDayLightStrength(x, z)) : 1;
 
@@ -242,6 +241,7 @@ public sealed class SailingVisuals
         capi.World.SpawnParticles(props);
     }
 
+    /// <summary>Foam trailing the stern, spreading in a V.</summary>
     private void Wake(Entity boat)
     {
         var m = boat.Pos.Motion;
